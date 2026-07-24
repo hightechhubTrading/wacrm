@@ -64,6 +64,10 @@ export interface GenerateResult {
      * didn't attach anything (auto-reply mode only -- see MEDIA_SENTINEL_*
      * in defaults.ts). */
   mediaId: string | null
+  /** Media-library item id whose linked product tag should be applied
+   * to the contact, or null (auto-reply mode only -- see
+   * PRODUCT_TAG_SENTINEL_* in defaults.ts). Independent of `mediaId`. */
+  productTagId: string | null
     /** Provider token usage for this call, or null when unavailable. */
   usage: AiUsage | null
 }
