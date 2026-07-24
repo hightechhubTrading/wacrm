@@ -512,5 +512,27 @@ export async function sendMessageToConversation(
     );
   }
 
+    // Pause the AI auto-reply bot for this conversation — an agent
+  // manually sending a message is a strong "human is here" signal, the
+  // same as the explicit "Take over" toggle, so the bot must not talk
+  // over them on the next inbound. Sticky until an agent re-enables it
+  // (mirrors ai_autoreply_disabled semantics in auto-reply.ts). Best-
+  // effort: must never fail the send itself.
+  try {
+    const { error: aiPauseErr } = await supabaseAdmin()
+      .from('conversations')
+      .update({ ai_autoreply_disabled: true })
+      .eq('id', conversationId)
+      .eq('account_id', accountId);
+    if (aiPauseErr) {
+      console.error('[ai] pause-on-agent-send failed:', aiPauseErr.message);
+    }
+  } catch (err) {
+    console.error(
+      '[ai] pause-on-agent-send threw:',
+      err instanceof Error ? err.message : err
+    );
+  }
+
   return { messageId: messageRecord.id, whatsappMessageId: waMessageId };
 }
