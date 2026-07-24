@@ -3,6 +3,7 @@ import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 import { loadAiConfig } from '@/lib/ai/config'
 import { retrieveKnowledge } from '@/lib/ai/knowledge'
+import { listMediaLibraryForPrompt } from '@/lib/ai/media-library'
 import { generateReply } from '@/lib/ai/generate'
 import { buildSystemPrompt } from '@/lib/ai/defaults'
 import { latestUserMessage } from '@/lib/ai/query'
@@ -12,14 +13,15 @@ import { AiError, type ChatMessage } from '@/lib/ai/types'
 const MAX_TURNS = 20
 
 /**
- * POST /api/ai/playground  (agent+)
+ * POST /api/ai/playground (agent+)
  *
  * Test-chat with the account's agent WITHOUT touching WhatsApp. Runs the
- * exact same path the auto-reply bot uses — knowledge-base retrieval +
- * `auto_reply` system prompt + the configured provider — so what you see
- * here is what a real customer would get. Reads the config even when the
- * master switch is off (requireActive:false) so you can try it before
- * going live. Stateless: the client sends the running transcript each turn.
+ * exact same path the auto-reply bot uses — knowledge-base retrieval,
+ * media library, `auto_reply` system prompt, and the configured provider
+ * — so what you see here is what a real customer would get. Reads the
+ * config even when the master switch is off (requireActive:false) so you
+ * can try it before going live. Stateless: the client sends the running
+ * transcript each turn.
  */
 export async function POST(request: Request) {
   try {
@@ -78,10 +80,12 @@ export async function POST(request: Request) {
       config,
       latestUserMessage(messages),
     )
+    const media = await listMediaLibraryForPrompt(supabase, accountId)
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'auto_reply',
       knowledge,
+      media,
     })
 
     const { text, handoff } = await generateReply({ config, systemPrompt, messages })
