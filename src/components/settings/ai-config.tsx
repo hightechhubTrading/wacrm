@@ -73,6 +73,7 @@ export function AiConfig() {
   const [isActive, setIsActive] = useState(false);
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
   const [maxPerConversation, setMaxPerConversation] = useState(3);
+  const [unlimitedReplies, setUnlimitedReplies] = useState(false);
   // Empty string = leave unassigned (shared queue).
   const [handoffAgentId, setHandoffAgentId] = useState('');
   const [members, setMembers] = useState<AccountMember[]>([]);
@@ -99,7 +100,9 @@ export function AiConfig() {
         setSystemPrompt(data.system_prompt ?? '');
         setIsActive(data.is_active);
         setAutoReplyEnabled(data.auto_reply_enabled);
-        setMaxPerConversation(data.auto_reply_max_per_conversation ?? 3);
+        const loadedMax = data.auto_reply_max_per_conversation ?? 3;
+        setUnlimitedReplies(loadedMax <= 0);
+        setMaxPerConversation(loadedMax > 0 ? loadedMax : 3);
         setHandoffAgentId(data.handoff_agent_id ?? '');
         setHasStoredKey(Boolean(data.has_key));
         setApiKey(data.has_key ? MASKED_KEY : '');
@@ -150,7 +153,7 @@ export function AiConfig() {
     system_prompt: systemPrompt.trim() || null,
     is_active: isActive,
     auto_reply_enabled: autoReplyEnabled,
-    auto_reply_max_per_conversation: maxPerConversation,
+    auto_reply_max_per_conversation: unlimitedReplies ? 0 : maxPerConversation,
     handoff_agent_id: handoffAgentId || null,
   });
 
@@ -218,6 +221,7 @@ export function AiConfig() {
         setKeyEdited(false);
         setIsActive(false);
         setAutoReplyEnabled(false);
+        setUnlimitedReplies(false);
         setSystemPrompt('');
         setHandoffAgentId('');
       } else {
@@ -441,20 +445,28 @@ export function AiConfig() {
                   {t('maxAutoRepliesDesc')}
                 </p>
               </div>
-              <Input
-                id="ai-max"
-                type="number"
-                min={1}
-                max={20}
-                value={maxPerConversation}
-                onChange={(e) =>
-                  setMaxPerConversation(
-                    Math.min(20, Math.max(1, Number(e.target.value) || 1)),
-                  )
-                }
-                disabled={disabled || !autoReplyEnabled}
-                className="w-20"
-              />
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={unlimitedReplies}
+                    onChange={(e) => setUnlimitedReplies(e.target.checked)}
+                    disabled={disabled || !autoReplyEnabled}
+                  />
+                  Unlimited
+                </label>
+                <Input
+                  id="ai-max"
+                  type="number"
+                  min={1}
+                  value={maxPerConversation}
+                  onChange={(e) =>
+                    setMaxPerConversation(Math.max(1, Number(e.target.value) || 1))
+                  }
+                  disabled={disabled || !autoReplyEnabled || unlimitedReplies}
+                  className="w-20"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
