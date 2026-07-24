@@ -9,20 +9,23 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // two each), so unlike the knowledge base there's no ranking/retrieval
 // step: the whole menu (name + description) is listed in the system
 // prompt and the model picks at most one, by id, via a sentinel (see
-// defaults.ts / generate.ts).
+// defaults.ts / generate.ts). Each item may also carry a linked contact
+// tag (`tag_id`), applied when the model flags the product as the
+// topic of conversation, independently of whether it attaches a file.
 // ============================================================
 
 export interface MediaLibraryPromptItem {
-    id: string
-    name: string
-    productLabel: string | null
-    description: string
+  id: string
+  name: string
+  productLabel: string | null
+  description: string
+  tagId: string | null
 }
 
 export interface MediaLibraryItem extends MediaLibraryPromptItem {
-    storagePath: string
-    mimeType: string
-    mediaKind: 'image' | 'document'
+  storagePath: string
+  mimeType: string
+  mediaKind: 'image' | 'document'
 }
 
 /**
@@ -31,24 +34,25 @@ export interface MediaLibraryItem extends MediaLibraryPromptItem {
  * rather than throwing into the auto-reply path.
  */
 export async function listMediaLibraryForPrompt(
-    db: SupabaseClient,
-    accountId: string,
-  ): Promise<MediaLibraryPromptItem[]> {
-    try {
-          const { data, error } = await db
-            .from('ai_media_library')
-            .select('id, name, product_label, description')
-            .eq('account_id', accountId)
-          if (error || !data) return []
-                return data.map((row) => ({
-                        id: row.id as string,
-                        name: row.name as string,
-                        productLabel: (row.product_label as string | null) ?? null,
-                        description: row.description as string,
-                }))
-    } catch {
-          return []
-    }
+  db: SupabaseClient,
+  accountId: string,
+): Promise<MediaLibraryPromptItem[]> {
+  try {
+    const { data, error } = await db
+      .from('ai_media_library')
+      .select('id, name, product_label, description, tag_id')
+      .eq('account_id', accountId)
+    if (error || !data) return []
+    return data.map((row) => ({
+      id: row.id as string,
+      name: row.name as string,
+      productLabel: (row.product_label as string | null) ?? null,
+      description: row.description as string,
+      tagId: (row.tag_id as string | null) ?? null,
+    }))
+  } catch {
+    return []
+  }
 }
 
 /**
@@ -59,28 +63,29 @@ export async function listMediaLibraryForPrompt(
  * one -- a hallucinated id).
  */
 export async function getMediaLibraryItem(
-    db: SupabaseClient,
-    accountId: string,
-    id: string,
-  ): Promise<MediaLibraryItem | null> {
-    try {
-          const { data, error } = await db
-            .from('ai_media_library')
-            .select('id, name, product_label, description, storage_path, mime_type, media_kind')
-            .eq('account_id', accountId)
-            .eq('id', id)
-            .maybeSingle()
-          if (error || !data) return null
-          return {
-                  id: data.id as string,
-                  name: data.name as string,
-                  productLabel: (data.product_label as string | null) ?? null,
-                  description: data.description as string,
-                  storagePath: data.storage_path as string,
-                  mimeType: data.mime_type as string,
-                  mediaKind: data.media_kind as 'image' | 'document',
-          }
-    } catch {
-          return null
+  db: SupabaseClient,
+  accountId: string,
+  id: string,
+): Promise<MediaLibraryItem | null> {
+  try {
+    const { data, error } = await db
+      .from('ai_media_library')
+      .select('id, name, product_label, description, tag_id, storage_path, mime_type, media_kind')
+      .eq('account_id', accountId)
+      .eq('id', id)
+      .maybeSingle()
+    if (error || !data) return null
+    return {
+      id: data.id as string,
+      name: data.name as string,
+      productLabel: (data.product_label as string | null) ?? null,
+      description: data.description as string,
+      tagId: (data.tag_id as string | null) ?? null,
+      storagePath: data.storage_path as string,
+      mimeType: data.mime_type as string,
+      mediaKind: data.media_kind as 'image' | 'document',
     }
+  } catch {
+    return null
+  }
 }
