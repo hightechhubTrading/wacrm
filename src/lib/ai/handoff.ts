@@ -20,8 +20,11 @@ const MAX_QUOTE_LEN = 160
 export function buildHandoffSummary(args: {
   messages: ChatMessage[]
   replyCount: number
+  /** Lead details collected so far (see `listCollectedFieldValues`),
+   * folded into the note as a real recap instead of just a tally. */
+  collectedFields?: { name: string; value: string }[]
 }): string {
-  const { messages, replyCount } = args
+  const { messages, replyCount, collectedFields } = args
 
   const lastCustomer = [...messages]
     .reverse()
@@ -32,12 +35,20 @@ export function buildHandoffSummary(args: {
       ? 'without replying'
       : `after ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}`
 
-  const base = `🤖 AI agent handed off ${replies}.`
+  const parts = [`🤖 AI agent handed off ${replies}.`]
 
-  if (!lastCustomer) return base
+  if (collectedFields && collectedFields.length > 0) {
+    parts.push(
+      `Collected: ${collectedFields.map((f) => `${f.name}: ${f.value}`).join(', ')}.`,
+    )
+  }
 
-  const quote = truncate(lastCustomer.content.trim(), MAX_QUOTE_LEN)
-  return `${base} Last customer message: “${quote}”`
+  if (lastCustomer) {
+    const quote = truncate(lastCustomer.content.trim(), MAX_QUOTE_LEN)
+    parts.push(`Last customer message: “${quote}”`)
+  }
+
+  return parts.join(' ')
 }
 
 function truncate(text: string, max: number): string {
