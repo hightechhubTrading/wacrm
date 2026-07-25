@@ -113,6 +113,11 @@ export interface Contact {
   /** Hydrated by queries that embed `contact_tags(tags(*))` (e.g. the
    *  Inbox conversation list, for tag filtering). Absent otherwise. */
   tags?: Tag[];
+  /** Hydrated by queries that embed `contact_custom_values(value,
+   * custom_fields(field_name, ai_collectible))` (e.g. the Pipeline deal
+   * cards) and reduced to just the AI-collectible fields with a value.
+   * Absent otherwise. */
+  customValues?: { field_name: string; value: string }[];
 }
 
 export interface Tag {
