@@ -72,6 +72,34 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
         )}
       </div>
 
+      {deal.contact?.tags && deal.contact.tags.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {deal.contact.tags.slice(0, 3).map((tag) => (
+            <span
+              key={tag.id}
+              className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+              style={{ backgroundColor: `${tag.color}22`, color: tag.color }}
+            >
+              {tag.name}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {deal.contact?.customValues && deal.contact.customValues.length > 0 && (
+        <div className="mt-2 space-y-0.5">
+          {deal.contact.customValues.slice(0, 2).map((cv) => (
+            <p
+              key={cv.field_name}
+              className="truncate text-[11px] text-muted-foreground"
+            >
+              <span className="font-medium text-foreground/80">{cv.field_name}:</span>{" "}
+              {cv.value}
+            </p>
+          ))}
+        </div>
+      )}
+
       {/* Contact row */}
       <div className="mt-2 flex items-center gap-2">
         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-foreground">
