@@ -17,6 +17,8 @@ import {
 } from './defaults'
 import { generateOpenAi } from './providers/openai'
 import { generateAnthropic } from './providers/anthropic'
+import { generateGemini } from './providers/gemini'
+import { generateDeepseek } from './providers/deepseek'
 
 export interface GenerateArgs {
   config: AiConfig
@@ -49,6 +51,12 @@ export async function generateReply(args: GenerateArgs): Promise<GenerateResult>
       break
     case 'anthropic':
       result = await generateAnthropic(providerArgs)
+      break
+    case 'gemini':
+      result = await generateGemini(providerArgs)
+      break
+    case 'deepseek':
+      result = await generateDeepseek(providerArgs)
       break
     default:
       throw new AiError(`Unsupported AI provider: ${config.provider}`, {
