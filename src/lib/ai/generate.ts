@@ -11,6 +11,8 @@ import {
   MEDIA_SENTINEL_CLOSE,
   PRODUCT_TAG_SENTINEL_OPEN,
   PRODUCT_TAG_SENTINEL_CLOSE,
+  FIELD_SENTINEL_OPEN,
+  FIELD_SENTINEL_CLOSE,
   aiRequestTimeoutMs,
 } from './defaults'
 import { generateOpenAi } from './providers/openai'
@@ -114,6 +116,24 @@ export function parseGeneration(
     }
   }
 
+  const fields: { name: string; value: string }[] = []
+  let fieldSearchFrom = 0
+  for (;;) {
+    const openIdx = text.indexOf(FIELD_SENTINEL_OPEN, fieldSearchFrom)
+    if (openIdx === -1) break
+    const closeIdx = text.indexOf(FIELD_SENTINEL_CLOSE, openIdx + FIELD_SENTINEL_OPEN.length)
+    if (closeIdx === -1) break
+    const inner = text.slice(openIdx + FIELD_SENTINEL_OPEN.length, closeIdx)
+    const eqIdx = inner.indexOf('=')
+    if (eqIdx > 0) {
+      const name = inner.slice(0, eqIdx).trim()
+      const value = inner.slice(eqIdx + 1).trim()
+      if (name && value) fields.push({ name, value })
+    }
+    text = text.slice(0, openIdx) + text.slice(closeIdx + FIELD_SENTINEL_CLOSE.length)
+    fieldSearchFrom = openIdx
+  }
+
   text = text.trim()
-  return { text, handoff, mediaId, productTagId, usage }
+  return { text, handoff, mediaId, productTagId, fields, usage }
 }
