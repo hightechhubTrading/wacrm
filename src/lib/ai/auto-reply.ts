@@ -11,6 +11,7 @@ import { latestUserMessage } from './query'
 import { engineSendText, engineSendMedia } from '@/lib/flows/meta-send'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { addContactTagAndDispatch } from '@/lib/contacts/tag-events'
+import { listAiCollectibleFields, applyCollectedFields } from './collect-fields'
 
 interface DispatchArgs {
   /** Tenancy key -- drives config, contact, and whatsapp_config lookups. */
@@ -119,14 +120,22 @@ export async function dispatchInboundToAiReply(
     // buildSystemPrompt omits the whole capability).
     const media = await listMediaLibraryForPrompt(db, accountId)
 
+    // AI-collectible custom fields -- lets the model save lead details
+    // (product interest, measurements, budget, timeline, etc.) onto the
+    // contact as it learns them (best-effort; empty when the account
+    // hasn't opted any fields in, in which case buildSystemPrompt omits
+    // the whole capability).
+    const collectFields = await listAiCollectibleFields(db, accountId)
+
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'auto_reply',
       knowledge,
       media,
+      collectFields,
     })
 
-    const { text, handoff, mediaId, productTagId, usage } = await generateReply({
+    const { text, handoff, mediaId, productTagId, fields, usage } = await generateReply({
       config,
       systemPrompt,
       messages,
@@ -147,6 +156,35 @@ export async function dispatchInboundToAiReply(
     })
 
     if (handoff || !text) {
+      // Best-effort: the model may have recorded lead details in the
+      // same turn it decided to hand off -- capture them before the
+      // thread goes quiet.
+      if (fields && fields.length > 0) {
+        try {
+          await applyCollectedFields({ db, accountId, contactId, conversationId, fields })
+        } catch (err) {
+          console.error('[ai auto-reply] field collection before handoff failed:', err)
+        }
+      }
+
+      // Let the customer know a person is taking over instead of the
+      // thread simply going quiet -- best-effort; a send failure here
+      // must not block the handoff itself.
+      if (text) {
+        try {
+          await engineSendText({
+            accountId,
+            userId: configOwnerUserId,
+            conversationId,
+            contactId,
+            text,
+            aiGenerated: true,
+          })
+        } catch (err) {
+          console.error('[ai auto-reply] handoff closing message failed:', err)
+        }
+      }
+
       // The model can't (or shouldn't) answer -- stop auto-replying on
       // this thread and hand it to a human. We (a) pause the bot here
       // (sticky until re-enabled), (b) route the conversation to the
@@ -254,6 +292,17 @@ export async function dispatchInboundToAiReply(
         }
       } catch (err) {
         console.error('[ai auto-reply] product tag failed:', err)
+      }
+    }
+
+    // Best-effort lead-detail capture: independent of media/tag --
+    // whenever the model recorded lead details this turn, save them
+    // onto the contact and mirror a summary onto the linked deal.
+    if (fields && fields.length > 0) {
+      try {
+        await applyCollectedFields({ db, accountId, contactId, conversationId, fields })
+      } catch (err) {
+        console.error('[ai auto-reply] field collection failed:', err)
       }
     }
   } catch (err) {
