@@ -4,14 +4,23 @@ import { buildConversationContext } from './context'
 import { retrieveKnowledge } from './knowledge'
 import { listMediaLibraryForPrompt, getMediaLibraryItem } from './media-library'
 import { generateReply } from './generate'
-import { buildSystemPrompt } from './defaults'
+import {
+  buildSystemPrompt,
+  isArabicText,
+  HANDOFF_CLOSING_MESSAGE_EN,
+  HANDOFF_CLOSING_MESSAGE_AR,
+} from './defaults'
 import { buildHandoffSummary } from './handoff'
 import { logAiUsage } from './usage'
 import { latestUserMessage } from './query'
 import { engineSendText, engineSendMedia } from '@/lib/flows/meta-send'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { addContactTagAndDispatch } from '@/lib/contacts/tag-events'
-import { listAiCollectibleFields, applyCollectedFields } from './collect-fields'
+import {
+  listAiCollectibleFields,
+  applyCollectedFields,
+  listCollectedFieldValues,
+} from './collect-fields'
 
 interface DispatchArgs {
   /** Tenancy key -- drives config, contact, and whatsapp_config lookups. */
@@ -168,33 +177,40 @@ export async function dispatchInboundToAiReply(
       }
 
       // Let the customer know a person is taking over instead of the
-      // thread simply going quiet -- best-effort; a send failure here
-      // must not block the handoff itself.
-      if (text) {
-        try {
-          await engineSendText({
-            accountId,
-            userId: configOwnerUserId,
-            conversationId,
-            contactId,
-            text,
-            aiGenerated: true,
-          })
-        } catch (err) {
-          console.error('[ai auto-reply] handoff closing message failed:', err)
-        }
+      // thread simply going quiet. This closing message is a fixed,
+      // human-authored line -- never the model's own text, so a
+      // handoff can never go out silently or with a message the model
+      // forgot to write -- picked by the customer's own language.
+      // Best-effort; a send failure here must not block the handoff.
+      const closingMessage = isArabicText(latestUserMessage(messages))
+        ? HANDOFF_CLOSING_MESSAGE_AR
+        : HANDOFF_CLOSING_MESSAGE_EN
+      try {
+        await engineSendText({
+          accountId,
+          userId: configOwnerUserId,
+          conversationId,
+          contactId,
+          text: closingMessage,
+          aiGenerated: true,
+        })
+      } catch (err) {
+        console.error('[ai auto-reply] handoff closing message failed:', err)
       }
 
       // The model can't (or shouldn't) answer -- stop auto-replying on
       // this thread and hand it to a human. We (a) pause the bot here
       // (sticky until re-enabled), (b) route the conversation to the
       // configured handoff agent -- null leaves it in the shared queue --
-      // and (c) leave a short internal note so whoever picks it up has
-      // context. Assigning fires the `on_conversation_assigned` trigger,
-      // which notifies the agent.
+      // and (c) leave a short internal note -- a real recap of whatever
+      // lead details have been collected so far, not just a tally --
+      // so whoever picks it up has context. Assigning fires the
+      // `on_conversation_assigned` trigger, which notifies the agent.
+      const collectedFields = await listCollectedFieldValues(db, accountId, contactId)
       const summary = buildHandoffSummary({
         messages,
         replyCount: conv.ai_reply_count ?? 0,
+        collectedFields,
       })
       const update: Record<string, unknown> = {
         ai_autoreply_disabled: true,
