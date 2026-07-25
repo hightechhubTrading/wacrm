@@ -104,3 +104,42 @@ export async function applyCollectedFields(args: {
     console.error('[ai auto-reply] applyCollectedFields failed:', err)
   }
 }
+
+
+/**
+ * Fetch every AI-collectible custom field currently stored for a
+ * contact (across this and any earlier turns), for use in the handoff
+ * summary -- so the internal note reads as a real recap of the lead
+ * details gathered so far rather than just a reply tally. Best-effort:
+ * any failure degrades to an empty list.
+ */
+export async function listCollectedFieldValues(
+  db: SupabaseClient,
+  accountId: string,
+  contactId: string,
+): Promise<{ name: string; value: string }[]> {
+  try {
+    const known = await listAiCollectibleFields(db, accountId)
+    if (known.length === 0) return []
+
+    const { data, error } = await db
+      .from('contact_custom_values')
+      .select('custom_field_id, value')
+      .eq('contact_id', contactId)
+      .in(
+        'custom_field_id',
+        known.map((k) => k.id),
+      )
+    if (error || !data) return []
+
+    const nameById = new Map(known.map((k) => [k.id, k.name]))
+    return data
+      .map((row) => ({
+        name: nameById.get(row.custom_field_id as string) ?? '',
+        value: row.value as string,
+      }))
+      .filter((f) => f.name && f.value)
+  } catch {
+    return []
+  }
+}
