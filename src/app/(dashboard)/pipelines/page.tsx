@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Pipeline, PipelineStage, Deal } from "@/types";
+import type { Pipeline, PipelineStage, Deal, Tag } from "@/types";
 import { PipelineBoard } from "@/components/pipelines/pipeline-board";
 import { PipelineSettings } from "@/components/pipelines/pipeline-settings";
 import { DealForm } from "@/components/pipelines/deal-form";
@@ -39,11 +39,55 @@ import { useTranslations } from "next-intl";
 // Spec-defined seed — name and color per the product spec.
 const SPEC_DEFAULT_STAGES = [
   { name: "New Lead", color: "#3b82f6", position: 0 }, // blue
-  { name: "Qualified", color: "#eab308", position: 1 }, // yellow
-  { name: "Proposal Sent", color: "#f97316", position: 2 }, // orange
-  { name: "Negotiation", color: "#8b5cf6", position: 3 }, // purple
-  { name: "Won", color: "#22c55e", position: 4 }, // green
+  { name: "Info Gathering", color: "#eab308", position: 1 }, // yellow
+  { name: "Site Visit / Measurement", color: "#06b6d4", position: 2 }, // teal
+  { name: "Quotation Sent", color: "#f97316", position: 3 }, // orange
+  { name: "Negotiation", color: "#8b5cf6", position: 4 }, // purple
+  { name: "Won", color: "#22c55e", position: 5 }, // green
 ];
+
+/** Raw shape returned by the deals query before flattening embedded joins. */
+type RawDealContact = NonNullable<Deal["contact"]> & {
+  contact_tags?: { tags: Tag | null }[];
+  contact_custom_values?: {
+    value: string | null;
+    custom_fields: { field_name: string; ai_collectible: boolean } | null;
+  }[];
+};
+type RawDeal = Omit<Deal, "contact"> & { contact?: RawDealContact | null };
+
+/**
+ * Flattens `contact_tags(tags(*))` onto `contact.tags` and reduces the
+ * embedded `contact_custom_values` down to just the AI-collectible fields
+ * that actually have a value, exposed as `contact.customValues`. Lets the
+ * deal card show a quick snapshot of what the bot has learned about the
+ * lead (product, budget, timeline...) without a second round-trip per card.
+ */
+function normalizeDeal(raw: RawDeal): Deal {
+  const rawContact = raw.contact;
+  if (!rawContact) return raw as Deal;
+
+  const { contact_tags, contact_custom_values, ...contact } = rawContact;
+  return {
+    ...raw,
+    contact: {
+      ...contact,
+      tags: (contact_tags ?? [])
+        .map((ct) => ct.tags)
+        .filter((t): t is Tag => t != null),
+      customValues: (contact_custom_values ?? [])
+        .filter((cv) => cv.custom_fields?.ai_collectible && cv.value?.trim())
+        .map((cv) => ({
+          field_name: cv.custom_fields!.field_name,
+          value: cv.value as string,
+        })),
+    },
+  } as Deal;
+}
+
+function normalizeDeals(rows: RawDeal[]): Deal[] {
+  return rows.map(normalizeDeal);
+}
 
 export default function PipelinesPage() {
   const t = useTranslations("Pipelines.page");
@@ -101,10 +145,12 @@ export default function PipelinesPage() {
     async (pipelineId: string) => {
       const { data } = await supabase
         .from("deals")
-        .select("*, contact:contacts(*), assignee:profiles!deals_assigned_to_fkey(*)")
+        .select(
+          "*, contact:contacts(*, contact_tags(tags(*)), contact_custom_values(value, custom_fields(field_name, ai_collectible))), assignee:profiles!deals_assigned_to_fkey(*)",
+        )
         .eq("pipeline_id", pipelineId)
         .order("created_at", { ascending: false });
-      return (data ?? []) as Deal[];
+      return normalizeDeals((data ?? []) as RawDeal[]);
     },
     [supabase],
   );
