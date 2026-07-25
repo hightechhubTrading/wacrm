@@ -45,6 +45,19 @@ export const MEDIA_SENTINEL_CLOSE = ']]'
 export const PRODUCT_TAG_SENTINEL_OPEN = '[[TAG_PRODUCT:'
 export const PRODUCT_TAG_SENTINEL_CLOSE = ']]'
 
+/**
+ * Sentinel wrapper the model is instructed to emit (in auto-reply mode,
+ * only when the account has at least one custom field opted into AI
+ * collection) whenever the customer states a piece of lead info that
+ * matches one of those fields -- e.g. `[[SET_FIELD:Budget Mentioned by
+ * Customer=around 2000 QAR]]`. Zero, one, or several may appear in a
+ * single reply. Parsed and stripped by `generateReply`; each name is
+ * resolved to that account's matching custom field by the auto-reply
+ * dispatcher, never sent to the customer as text.
+ */
+export const FIELD_SENTINEL_OPEN = '[[SET_FIELD:'
+export const FIELD_SENTINEL_CLOSE = ']]'
+
 /** Cap on generated reply length -- keeps WhatsApp replies short and
  * bounds token spend on the caller's own key. */
 export const MAX_OUTPUT_TOKENS = 1024
@@ -73,6 +86,13 @@ export interface MediaPromptItem {
   description: string
 }
 
+/** One AI-collectible custom field as fed into the auto-reply system
+ * prompt -- see FIELD_SENTINEL_*. */
+export interface CollectFieldPromptItem {
+  id: string
+  name: string
+}
+
 /**
  * Build the system prompt shared by draft + auto-reply. The account's
  * own `system_prompt` (business context / persona / tone) is appended
@@ -88,8 +108,11 @@ export function buildSystemPrompt(args: {
   knowledge?: string[]
   /** Media-library items available to attach (auto-reply only). */
   media?: MediaPromptItem[]
+  /** Custom fields the bot may populate from the conversation
+   * (auto-reply only). */
+  collectFields?: CollectFieldPromptItem[]
 }): string {
-  const { userPrompt, mode, knowledge, media } = args
+  const { userPrompt, mode, knowledge, media, collectFields } = args
   const parts: string[] = [
     'You are a customer-messaging assistant for a business that uses a WhatsApp CRM. ' +
       'You are shown the recent WhatsApp conversation between the business (assistant) and a customer (user). ' +
@@ -104,7 +127,7 @@ export function buildSystemPrompt(args: {
 
   if (mode === 'auto_reply') {
     parts.push(
-      `You are replying automatically with no human in the loop. Only hand off -- reply with exactly ${HANDOFF_SENTINEL} and nothing else -- when: the customer explicitly asks for a human or agent; the customer sounds upset, frustrated, or is complaining; the customer asks about price, cost, a quote, or payment (never quote a number yourself -- always hand off so a human can confirm it); or you genuinely lack the information needed and nothing below covers it. If the customer message is simply unclear, informal, short, or hard to parse (slang, typos, a one-word reply), that alone is not a reason to hand off -- ask a brief, natural clarifying question instead, the way a person would, and wait for their reply.`,
+      `You are replying automatically with no human in the loop. Hand off -- write a short, natural closing message telling the customer a member of the team will follow up with them shortly, then end that same reply with ${HANDOFF_SENTINEL} on its own -- when: the customer explicitly asks for a human or agent; the customer sounds upset, frustrated, or is complaining; or you genuinely lack the information needed and nothing below covers it. If the customer message is simply unclear, informal, short, or hard to parse (slang, typos, a one-word reply), that alone is not a reason to hand off -- ask a brief, natural clarifying question instead, the way a person would, and wait for their reply. When the customer asks about price, cost, a quote, or payment: never state a number -- instead explain, the way a person would, that it depends on a few specifics (for example the product or service, its size or measurements, and where it will be installed), and ask for whichever of those the conversation has not already covered; once you have asked and either gathered what you reasonably can or the customer is pressing for a firm figure, hand off (same closing-message-then-sentinel pattern) so a teammate can put together their quote.`,
     )
   }
 
@@ -139,6 +162,12 @@ export function buildSystemPrompt(args: {
               `[${m.id}] ${m.name}${m.productLabel ? ` (${m.productLabel})` : ''} -- ${m.description}`,
           )
           .join('\n'),
+    )
+  }
+
+  if (mode === 'auto_reply' && collectFields && collectFields.length > 0) {
+    parts.push(
+      `Lead details you can record -- whenever the customer clearly states any of the fields listed below, save it by adding one marker per field at the end of your reply (after your normal message, and before a handoff marker if this same reply also hands off), in the exact form ${FIELD_SENTINEL_OPEN}field name=short value${FIELD_SENTINEL_CLOSE}, using the exact field name shown and a short value taken only from what the customer actually said -- never guess, invent, or fill in a field they have not mentioned. You may include more than one marker in the same reply, and skip this entirely when nothing new was shared. These markers are never shown to the customer.\n\nFields you can record: ${collectFields.map((f) => f.name).join(', ')}`,
     )
   }
 
