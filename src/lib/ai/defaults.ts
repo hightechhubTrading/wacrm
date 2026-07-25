@@ -11,8 +11,10 @@ import type { AiProvider } from './types'
  * starting point, never a hard allow-list.
  */
 export const AI_PROVIDER_DEFAULT_MODEL: Record<AiProvider, string> = {
-  openai: 'gpt-5.4-mini',
-  anthropic: 'claude-haiku-4-5-20251001',
+  openai: 'gpt-5.4',
+  anthropic: 'claude-sonnet-4-5-20250929',
+  gemini: 'gemini-2.0-flash',
+  deepseek: 'deepseek-chat',
 }
 
 /**
@@ -21,6 +23,23 @@ export const AI_PROVIDER_DEFAULT_MODEL: Record<AiProvider, string> = {
  * stripped by `generateReply`.
  */
 export const HANDOFF_SENTINEL = '[[HANDOFF]]'
+
+/**
+ * Fixed closing message sent automatically whenever the model hands off
+ * (see HANDOFF_SENTINEL) -- the model is never responsible for writing
+ * this text itself, so a handoff can never go out silently or with a
+ * message the model forgot to include. `isArabicText` picks which one
+ * to send based on the customer's own language.
+ */
+export const HANDOFF_CLOSING_MESSAGE_EN =
+  'Thanks for the details! One of our team members will follow up with you shortly to help with this.'
+export const HANDOFF_CLOSING_MESSAGE_AR =
+  'شكرًا لهذه المعلومات! سيتواصل معك أحد أعضاء فريقنا قريبًا للمتابعة.'
+
+/** Rough Arabic-script sniff used to pick which closing message to send. */
+export function isArabicText(text: string): boolean {
+  return /[\u0600-\u06FF]/.test(text)
+}
 
 /**
  * Sentinel wrapper the model is instructed to emit (in auto-reply mode,
@@ -127,7 +146,13 @@ export function buildSystemPrompt(args: {
 
   if (mode === 'auto_reply') {
     parts.push(
-      `You are replying automatically with no human in the loop. Hand off -- write a short, natural closing message telling the customer a member of the team will follow up with them shortly, then end that same reply with ${HANDOFF_SENTINEL} on its own -- when: the customer explicitly asks for a human or agent; the customer sounds upset, frustrated, or is complaining; or you genuinely lack the information needed and nothing below covers it. If the customer message is simply unclear, informal, short, or hard to parse (slang, typos, a one-word reply), that alone is not a reason to hand off -- ask a brief, natural clarifying question instead, the way a person would, and wait for their reply. When the customer asks about price, cost, a quote, or payment: never state a number -- instead explain, the way a person would, that it depends on a few specifics (for example the product or service, its size or measurements, and where it will be installed), and ask for whichever of those the conversation has not already covered; once you have asked and either gathered what you reasonably can or the customer is pressing for a firm figure, hand off (same closing-message-then-sentinel pattern) so a teammate can put together their quote.`,
+      `You are replying automatically with no human in the loop. When a human should take over, reply with exactly ${HANDOFF_SENTINEL} and nothing else -- a fixed message is sent to the customer automatically, so never write your own closing message and never combine other reply text with the sentinel in the same message. Hand off only when: the customer explicitly asks for a human or agent; the customer sounds upset, frustrated, or is complaining; or you genuinely lack information that nothing below (business context, knowledge base) covers. Do NOT hand off for any of these -- handle them yourself instead: a short, vague, informal, or hard-to-parse message (slang, typos, a one-word reply, or something like "idk" / "I don't know" -- ask a brief natural clarifying question instead and wait for their reply); an everyday informational request already answered by the business context below, such as the address, location, phone number, or opening hours -- just answer it directly, e.g. by sharing the location details or a link if the business context includes one. When the customer asks about price, cost, a quote, or payment: never state a number -- instead explain, the way a person would, that it depends on a few specifics (for example the product or service, its size or measurements, and where it will be installed), and ask for whichever of those the conversation has not already covered; only once you have asked and either gathered what you reasonably can or the customer is pressing for a firm figure, hand off with exactly ${HANDOFF_SENTINEL} so a teammate can put together their quote.`,
+    )
+  }
+
+  if (mode === 'auto_reply' && collectFields && collectFields.length > 0) {
+    parts.push(
+      `IMPORTANT -- lead details you must record as you go: whenever the customer states any of the fields listed below, even a short or partial answer (for example just a measurement, a neighbourhood name, or a one-word product type), save it immediately in that same reply by adding one marker per field at the end of your message (after your normal reply text, and before a handoff marker if this same reply also hands off), in the exact form ${FIELD_SENTINEL_OPEN}field name=short value${FIELD_SENTINEL_CLOSE}, using the exact field name shown and a short value taken only from what the customer actually said -- never guess, invent, or wait for a fuller answer before recording it. You may include more than one marker in the same reply, and skip this entirely only when nothing new was shared this turn. These markers are never shown to the customer.\n\nFields you can record: ${collectFields.map((f) => f.name).join(', ')}`,
     )
   }
 
@@ -162,12 +187,6 @@ export function buildSystemPrompt(args: {
               `[${m.id}] ${m.name}${m.productLabel ? ` (${m.productLabel})` : ''} -- ${m.description}`,
           )
           .join('\n'),
-    )
-  }
-
-  if (mode === 'auto_reply' && collectFields && collectFields.length > 0) {
-    parts.push(
-      `Lead details you can record -- whenever the customer clearly states any of the fields listed below, save it by adding one marker per field at the end of your reply (after your normal message, and before a handoff marker if this same reply also hands off), in the exact form ${FIELD_SENTINEL_OPEN}field name=short value${FIELD_SENTINEL_CLOSE}, using the exact field name shown and a short value taken only from what the customer actually said -- never guess, invent, or fill in a field they have not mentioned. You may include more than one marker in the same reply, and skip this entirely when nothing new was shared. These markers are never shown to the customer.\n\nFields you can record: ${collectFields.map((f) => f.name).join(', ')}`,
     )
   }
 
