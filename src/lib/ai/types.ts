@@ -68,6 +68,12 @@ export interface GenerateResult {
    * to the contact, or null (auto-reply mode only -- see
    * PRODUCT_TAG_SENTINEL_* in defaults.ts). Independent of `mediaId`. */
   productTagId: string | null
+  /** Field name/value pairs the model chose to record from the
+   * conversation (auto-reply mode only -- see FIELD_SENTINEL_* in
+   * defaults.ts), matched to the account's AI-collectible custom
+   * fields and applied by the auto-reply dispatcher. Empty when none
+   * were emitted this turn. */
+  fields: { name: string; value: string }[]
     /** Provider token usage for this call, or null when unavailable. */
   usage: AiUsage | null
 }
