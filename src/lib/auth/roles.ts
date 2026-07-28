@@ -107,3 +107,16 @@ export function canDeleteAccount(role: AccountRole): boolean {
 export function canTransferOwnership(role: AccountRole): boolean {
   return role === "owner";
 }
+
+/**
+ * Owner only: create/edit/delete custom field groups and their
+ * fields (name, type, required flag), and link/unlink a group to a
+ * pipeline stage (migration 046) — tightened from admin+, since
+ * these definitions now govern which fields the account depends on
+ * for pipeline gating. Filling in *values* for an existing field
+ * stays agent+ (`contact_custom_values`/`deal_custom_values` RLS is
+ * unchanged).
+ */
+export function canManageFieldGroups(role: AccountRole): boolean {
+  return role === "owner";
+}

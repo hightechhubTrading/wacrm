@@ -3,29 +3,44 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { cn } from "@/lib/utils";
+import { CustomFieldGroupFields } from "@/components/custom-fields/custom-field-group-fields";
 import type { Contact, Deal, ContactNote, Tag } from "@/types";
 import {
   Phone,
   Mail,
   Copy,
   Check,
-  User,
   Tag as TagIcon,
   DollarSign,
   StickyNote,
   Plus,
+  X,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { useTranslations } from "next-intl";
+import { Badge } from "@/components/ui/badge";
 
 interface ContactSidebarProps {
   contact: Contact | null;
+  /** Bumped by the inbox page whenever a new message lands on the
+   *  active conversation — the trigger to refetch deals (and their
+   *  order-info fields), since the AI bot may have just written to
+   *  them. No dedicated realtime channel on `deals` exists anywhere
+   *  in the app, so this piggybacks on the inbox's existing
+   *  message-event handling instead of adding a first one. */
+  refreshToken?: number;
 }
 
-export function ContactSidebar({ contact }: ContactSidebarProps) {
+export function ContactSidebar({ contact, refreshToken }: ContactSidebarProps) {
   const tSidebar = useTranslations("Inbox.sidebar");
   const tThread = useTranslations("Inbox.messageThread");
 
@@ -73,12 +88,14 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
     }
   }, [contact]);
 
-  // Load on contact change. setContactData/setTags run inside async
-  // Supabase callbacks, not synchronously in the effect body.
+  // Load on contact change, and whenever refreshToken bumps (a new
+  // message just landed on this conversation — see prop doc above).
+  // setContactData/setTags run inside async Supabase callbacks, not
+  // synchronously in the effect body.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchContactData();
-  }, [fetchContactData]);
+  }, [fetchContactData, refreshToken]);
 
   const handleCopyPhone = useCallback(async () => {
     if (!contact?.phone) return;
@@ -89,6 +106,23 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
     // React Compiler's inference agrees with the manual dep list —
     // fixes the `preserve-manual-memoization` lint error.
   }, [contact]);
+
+  const handleRemoveTag = useCallback(
+    async (tag: Tag & { contact_tag_id: string }) => {
+      if (!contact) return;
+      const res = await fetch(`/api/contacts/${contact.id}/tags`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tag_id: tag.id }),
+      });
+      if (!res.ok) {
+        toast.error(tSidebar("toastTagRemoveFailed"));
+        return;
+      }
+      setTags((prev) => prev.filter((t) => t.contact_tag_id !== tag.contact_tag_id));
+    },
+    [contact, tSidebar],
+  );
 
   const handleAddNote = useCallback(async () => {
     if (!contact || !newNote.trim()) return;
@@ -153,6 +187,11 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
             {contact.company && (
               <p className="text-xs text-muted-foreground">{contact.company}</p>
             )}
+            {contact.opted_out && (
+              <Badge className="mt-2 border-amber-500/40 bg-amber-500/10 text-amber-300">
+                {tSidebar("optedOutBadge")}
+              </Badge>
+            )}
           </div>
 
           {/* Phone */}
@@ -181,11 +220,22 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
           {/* Divider */}
           <div className="my-4 border-t border-border" />
 
+          {/* Custom field groups (contact-scoped, migration 046) */}
+          <CustomFieldGroupFields scope="contact" recordId={contact.id} editable onSaved={fetchContactData} />
+
           {/* Tags */}
           <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              <TagIcon className="h-3 w-3" />
-              {tSidebar("tags")}
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                <TagIcon className="h-3 w-3" />
+                {tSidebar("tags")}
+              </div>
+              <TagPicker
+                contactId={contact.id}
+                appliedTags={tags}
+                onChanged={fetchContactData}
+                t={tSidebar}
+              />
             </div>
             <div className="mt-2 flex flex-wrap gap-1">
               {tags.length === 0 ? (
@@ -194,13 +244,21 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                 tags.map((tag) => (
                   <span
                     key={tag.contact_tag_id}
-                    className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+                    className="group inline-flex items-center gap-1 rounded-full py-0.5 pl-2 pr-1 text-[10px] font-medium"
                     style={{
                       backgroundColor: `${tag.color}20`,
                       color: tag.color,
                     }}
                   >
                     {tag.name}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTag(tag)}
+                      aria-label={tSidebar("removeTagAria", { name: tag.name })}
+                      className="rounded-full p-0.5 opacity-60 transition-opacity hover:bg-black/10 hover:opacity-100 dark:hover:bg-white/10"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
                   </span>
                 ))
               )}
@@ -245,6 +303,13 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                         </span>
                       )}
                     </div>
+                    <CustomFieldGroupFields
+                      scope="deal"
+                      recordId={deal.id}
+                      editable={deal.status === "open"}
+                      onSaved={fetchContactData}
+                      className="mt-3 border-t border-border/60 pt-2.5"
+                    />
                   </div>
                 ))
               )}
@@ -301,3 +366,185 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
     </div>
   );
 }
+
+/**
+ * "+" popover next to the Tags header — pick any existing account tag
+ * (toggle to add/remove) and, for admins, create a brand-new one
+ * inline. Tag CREATION requires admin+ (tags_insert RLS, migration
+ * 017); ASSIGNING an existing tag to a contact only requires agent+
+ * (contact_tags_modify) — both routes already exist and are reused
+ * here (`POST`/`DELETE /api/contacts/[id]/tags`) rather than writing
+ * straight to the table, so the `tag_added` automation trigger still
+ * fires correctly.
+ */
+function TagPicker({
+  contactId,
+  appliedTags,
+  onChanged,
+  t,
+}: {
+  contactId: string;
+  appliedTags: (Tag & { contact_tag_id: string })[];
+  onChanged: () => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  t: any;
+}) {
+  const { user, accountId, canEditSettings } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [accountTags, setAccountTags] = useState<Tag[]>([]);
+  const [busyTagId, setBusyTagId] = useState<string | null>(null);
+  const [newTagName, setNewTagName] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  // Fetch the account's full tag catalogue only when the popover opens
+  // — this list is account-wide (not per-contact), so there's no
+  // reason to load it until the picker is actually used.
+  useEffect(() => {
+    if (!open || !accountId) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("tags")
+        .select("*")
+        .eq("account_id", accountId)
+        .order("name");
+      if (!cancelled) {
+        setAccountTags((data as Tag[] | null) ?? []);
+        setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, accountId]);
+
+  const appliedIds = new Set(appliedTags.map((tag) => tag.id));
+
+  async function toggleTag(tagId: string, applied: boolean) {
+    setBusyTagId(tagId);
+    const res = await fetch(`/api/contacts/${contactId}/tags`, {
+      method: applied ? "DELETE" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tag_id: tagId }),
+    });
+    setBusyTagId(null);
+    if (!res.ok) {
+      toast.error(applied ? t("toastTagRemoveFailed") : t("toastTagAddFailed"));
+      return;
+    }
+    onChanged();
+  }
+
+  async function handleCreateAndAssign() {
+    const name = newTagName.trim();
+    if (!name || !user || !accountId) return;
+    setCreating(true);
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("tags")
+      .insert({
+        user_id: user.id,
+        account_id: accountId,
+        name,
+        // A calm default; admins can recolor it later from Settings →
+        // Fields & tags, which already owns full tag management.
+        color: "#3b82f6",
+      })
+      .select()
+      .single();
+    setCreating(false);
+    if (error || !data) {
+      toast.error(t("toastTagCreateFailed"));
+      return;
+    }
+    setAccountTags((prev) => [...prev, data as Tag]);
+    setNewTagName("");
+    await toggleTag((data as Tag).id, false);
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            title={t("addTagsTitle")}
+            className="text-muted-foreground hover:text-foreground"
+          />
+        }
+      >
+        <Plus className="h-3 w-3" />
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-56">
+        <p className="text-xs font-medium text-foreground">{t("addTagsTitle")}</p>
+        <div className="mt-1.5 max-h-40 space-y-0.5 overflow-y-auto">
+          {loading ? (
+            <div className="flex justify-center py-3">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+            </div>
+          ) : accountTags.length === 0 ? (
+            <p className="px-1 py-1 text-xs text-muted-foreground">{t("noAccountTags")}</p>
+          ) : (
+            accountTags.map((tag) => {
+              const applied = appliedIds.has(tag.id);
+              return (
+                <button
+                  key={tag.id}
+                  type="button"
+                  disabled={busyTagId === tag.id}
+                  onClick={() => toggleTag(tag.id, applied)}
+                  className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs hover:bg-muted disabled:opacity-50"
+                >
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: tag.color }}
+                  />
+                  <span className="flex-1 truncate text-foreground">{tag.name}</span>
+                  {busyTagId === tag.id ? (
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  ) : (
+                    applied && <Check className="h-3 w-3 shrink-0 text-primary" />
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>
+        {canEditSettings && (
+          <div className="mt-2 flex gap-1 border-t border-border pt-2">
+            <input
+              value={newTagName}
+              onChange={(e) => setNewTagName(e.target.value)}
+              placeholder={t("newTagPlaceholder")}
+              maxLength={40}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreateAndAssign();
+              }}
+              className="h-7 flex-1 rounded border border-border bg-muted px-2 text-xs text-foreground outline-none focus:border-primary"
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 px-2"
+              disabled={!newTagName.trim() || creating}
+              onClick={handleCreateAndAssign}
+            >
+              {creating ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Plus className="h-3 w-3" />
+              )}
+            </Button>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+

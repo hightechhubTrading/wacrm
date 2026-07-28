@@ -3,9 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Pipeline, PipelineStage, Deal, Tag } from "@/types";
+import { stageHasActiveRequiredGroup } from "@/lib/pipelines/group-values";
 import { PipelineBoard } from "@/components/pipelines/pipeline-board";
 import { PipelineSettings } from "@/components/pipelines/pipeline-settings";
 import { DealForm } from "@/components/pipelines/deal-form";
+import { OrderInfoDialog } from "@/components/pipelines/order-info-dialog";
 import { PipelineAnalytics } from "@/components/pipelines/pipeline-analytics";
 import { Button } from "@/components/ui/button";
 import {
@@ -113,6 +115,17 @@ export default function PipelinesPage() {
   const [dealFormOpen, setDealFormOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
   const [defaultStageId, setDefaultStageId] = useState<string>("");
+
+  // Order Info popup — opens two ways: as a convenience nudge when a
+  // deal moves into a stage with an active custom field group linked
+  // (migration 046), or automatically when the move route rejects a
+  // move because required fields are still empty (missingFieldIds set,
+  // highlighting exactly what's missing instead of leaving the agent
+  // with only a toast to act on).
+  const [orderInfoState, setOrderInfoState] = useState<{
+    deal: Deal;
+    missingFieldIds?: string[];
+  } | null>(null);
 
   // Guard against double-seeding (React StrictMode double-effect in dev).
   const seedAttempted = useRef(false);
@@ -223,7 +236,6 @@ export default function PipelinesPage() {
     if (!selectedPipelineId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setStages([]);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDeals([]);
       return;
     }
@@ -266,16 +278,59 @@ export default function PipelinesPage() {
       setDeals((prev) =>
         prev.map((d) => (d.id === dealId ? { ...d, stage_id: newStageId } : d)),
       );
-      const { error } = await supabase
-        .from("deals")
-        .update({ stage_id: newStageId })
-        .eq("id", dealId);
-      if (error) {
+
+      let res: Response;
+      try {
+        res = await fetch(`/api/pipelines/deals/${dealId}/move`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ stage_id: newStageId }),
+        });
+      } catch {
         toast.error(t("toastFailedMoveDeal"));
         refreshDeals();
+        return;
+      }
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data?.code === "missing_required_fields" && Array.isArray(data.fields)) {
+          const names = data.fields.map((f: { name: string }) => f.name).join(", ");
+          toast.error(
+            names
+              ? t("toastMissingRequiredFields", { fields: names })
+              : t("toastFailedMoveDeal"),
+          );
+          // Don't leave the agent with only a toast — open the same
+          // Order Info popup with exactly the rejected fields
+          // highlighted, so fixing it is one step instead of a
+          // separate trip to find where "Location" even lives.
+          const blockedDeal = deals.find((d) => d.id === dealId);
+          if (blockedDeal) {
+            setOrderInfoState({
+              deal: blockedDeal,
+              missingFieldIds: data.fields.map((f: { id: string }) => f.id),
+            });
+          }
+        } else {
+          toast.error(data?.error || t("toastFailedMoveDeal"));
+        }
+        refreshDeals();
+        return;
+      }
+
+      // Convenience nudge, not a blocking modal — open the Order Info
+      // popup when the deal just entered a stage with an active custom
+      // field group linked (migration 046), pre-filled with whatever's
+      // already known. Reads the deal from local state (already
+      // optimistically updated above) rather than re-fetching.
+      const hasGroup = await stageHasActiveRequiredGroup(supabase, newStageId);
+      if (hasGroup) {
+        const movedDeal = deals.find((d) => d.id === dealId);
+        if (movedDeal) setOrderInfoState({ deal: { ...movedDeal, stage_id: newStageId } });
       }
     },
-    [supabase, refreshDeals, t],
+    [refreshDeals, t, deals, supabase],
   );
 
   const handleAddDeal = useCallback(
@@ -535,6 +590,19 @@ export default function PipelinesPage() {
         defaultStageId={defaultStageId}
         onSaved={refreshDeals}
       />
+
+      {/* Order Info popup — see handleDealMoved above */}
+      {orderInfoState && (
+        <OrderInfoDialog
+          open={!!orderInfoState}
+          onOpenChange={(open) => {
+            if (!open) setOrderInfoState(null);
+          }}
+          deal={orderInfoState.deal}
+          missingFieldIds={orderInfoState.missingFieldIds}
+          onSaved={refreshDeals}
+        />
+      )}
     </div>
   );
 }

@@ -17,7 +17,9 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { createClient } from "@/lib/supabase/client";
-import type { Pipeline, PipelineStage } from "@/types";
+import type { Pipeline, PipelineStage, CustomFieldGroup } from "@/types";
+import { useAuth } from "@/hooks/use-auth";
+import { useCan } from "@/hooks/use-can";
 import {
   Dialog,
   DialogContent,
@@ -28,11 +30,22 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Trash2,
   Plus,
   GripVertical,
   AlertTriangle,
+  Bell,
+  BellOff,
+  ListChecks,
+  UserCheck,
+  UserX,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
@@ -71,6 +84,8 @@ export function PipelineSettings({
 }: PipelineSettingsProps) {
   const t = useTranslations("Pipelines.settings");
   const supabase = createClient();
+  const { accountId } = useAuth();
+  const canManageFieldGroups = useCan("manage-field-groups");
 
   const [name, setName] = useState(pipeline.name);
   const [localStages, setLocalStages] = useState<PipelineStage[]>(stages);
@@ -79,6 +94,17 @@ export function PipelineSettings({
   const [saving, setSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Which active custom field groups (migration 046) are linked to
+  // each stage — a deal can't leave a stage until every REQUIRED field
+  // in a linked group has a value (see the move route). Keyed by
+  // stage_id -> Set of group_id. Written immediately per-toggle
+  // (owner-only per RLS), independent of the batched "Save changes"
+  // button below.
+  const [fieldGroups, setFieldGroups] = useState<CustomFieldGroup[]>([]);
+  const [requiredGroupsByStage, setRequiredGroupsByStage] = useState<
+    Record<string, Set<string>>
+  >({});
 
   // Reset form state when the dialog opens or its prop inputs change
   // — legitimate prop-driven sync.
@@ -90,6 +116,86 @@ export function PipelineSettings({
     setShowDeleteConfirm(false);
   }, [open, pipeline, stages]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Load the account's active custom field groups + which are already
+  // linked per stage, so the "required groups" picker has something to
+  // show. Group definitions are owner-managed elsewhere (Settings →
+  // Fields & tags); this only reads them to build the picker.
+  useEffect(() => {
+    if (!open || !accountId || stages.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const [groupsRes, reqRes] = await Promise.all([
+        supabase
+          .from("custom_field_groups")
+          .select("*")
+          .eq("account_id", accountId)
+          .eq("is_active", true)
+          .order("position"),
+        supabase
+          .from("stage_required_groups")
+          .select("stage_id, group_id")
+          .in(
+            "stage_id",
+            stages.map((s) => s.id),
+          ),
+      ]);
+      if (cancelled) return;
+      setFieldGroups((groupsRes.data as CustomFieldGroup[] | null) ?? []);
+      const map: Record<string, Set<string>> = {};
+      for (const row of reqRes.data ?? []) {
+        const key = row.stage_id as string;
+        if (!map[key]) map[key] = new Set();
+        map[key].add(row.group_id as string);
+      }
+      setRequiredGroupsByStage(map);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, accountId, stages, supabase]);
+
+  async function handleToggleRequiredGroup(
+    stageId: string,
+    groupId: string,
+    required: boolean,
+  ) {
+    // Optimistic — this is a small, low-stakes toggle; revert on error.
+    setRequiredGroupsByStage((prev) => {
+      const next = { ...prev };
+      const set = new Set(next[stageId] ?? []);
+      if (required) set.add(groupId);
+      else set.delete(groupId);
+      next[stageId] = set;
+      return next;
+    });
+
+    const error = required
+      ? (
+          await supabase
+            .from("stage_required_groups")
+            .insert({ stage_id: stageId, group_id: groupId })
+        ).error
+      : (
+          await supabase
+            .from("stage_required_groups")
+            .delete()
+            .eq("stage_id", stageId)
+            .eq("group_id", groupId)
+        ).error;
+
+    if (error) {
+      toast.error(t("toastFailedRequiredField"));
+      setRequiredGroupsByStage((prev) => {
+        const next = { ...prev };
+        const set = new Set(next[stageId] ?? []);
+        if (required) set.delete(groupId);
+        else set.add(groupId);
+        next[stageId] = set;
+        return next;
+      });
+    }
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -116,6 +222,8 @@ export function PipelineSettings({
       name: s.name,
       color: s.color,
       position: i,
+      notify_group_on_enter: s.notify_group_on_enter ?? false,
+      requires_contact_identity: s.requires_contact_identity ?? false,
     }));
 
     const [renameRes, stagesRes] = await Promise.all([
@@ -274,9 +382,31 @@ export function PipelineSettings({
                             updated[index] = { ...updated[index], color: v };
                             setLocalStages(updated);
                           }}
+                          onNotifyChange={(v) => {
+                            const updated = [...localStages];
+                            updated[index] = {
+                              ...updated[index],
+                              notify_group_on_enter: v,
+                            };
+                            setLocalStages(updated);
+                          }}
+                          onRequiresContactIdentityChange={(v) => {
+                            const updated = [...localStages];
+                            updated[index] = {
+                              ...updated[index],
+                              requires_contact_identity: v,
+                            };
+                            setLocalStages(updated);
+                          }}
                           onRemove={() => handleRemoveStage(stage.id)}
                           colors={STAGE_COLORS}
                           t={t}
+                          canManageFieldGroups={canManageFieldGroups}
+                          fieldGroups={fieldGroups}
+                          requiredGroupIds={requiredGroupsByStage[stage.id] ?? new Set()}
+                          onToggleRequiredGroup={(groupId, required) =>
+                            handleToggleRequiredGroup(stage.id, groupId, required)
+                          }
                         />
                       ))}
                     </div>
@@ -369,17 +499,29 @@ function SortableStageRow({
   stage,
   onNameChange,
   onColorChange,
+  onNotifyChange,
+  onRequiresContactIdentityChange,
   onRemove,
   colors,
   t,
+  canManageFieldGroups,
+  fieldGroups,
+  requiredGroupIds,
+  onToggleRequiredGroup,
 }: {
   stage: PipelineStage;
   onNameChange: (v: string) => void;
   onColorChange: (v: string) => void;
+  onNotifyChange: (v: boolean) => void;
+  onRequiresContactIdentityChange: (v: boolean) => void;
   onRemove: () => void;
   colors: string[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   t: any;
+  canManageFieldGroups: boolean;
+  fieldGroups: CustomFieldGroup[];
+  requiredGroupIds: Set<string>;
+  onToggleRequiredGroup: (groupId: string, required: boolean) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: stage.id });
@@ -411,6 +553,52 @@ function SortableStageRow({
         onChange={(e) => onNameChange(e.target.value)}
         className="h-7 flex-1 border-transparent bg-transparent text-sm text-foreground focus:border-border"
       />
+      {canManageFieldGroups && (
+        <>
+          <RequiredGroupsPopover
+            fieldGroups={fieldGroups}
+            requiredGroupIds={requiredGroupIds}
+            onToggle={onToggleRequiredGroup}
+            t={t}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => onRequiresContactIdentityChange(!stage.requires_contact_identity)}
+            title={t("requiresContactIdentity")}
+            className={
+              stage.requires_contact_identity
+                ? "text-primary hover:text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }
+          >
+            {stage.requires_contact_identity ? (
+              <UserCheck className="h-3.5 w-3.5" />
+            ) : (
+              <UserX className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        </>
+      )}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        onClick={() => onNotifyChange(!stage.notify_group_on_enter)}
+        title={t("notifyGroupOnEnter")}
+        className={
+          stage.notify_group_on_enter
+            ? "text-primary hover:text-primary"
+            : "text-muted-foreground hover:text-foreground"
+        }
+      >
+        {stage.notify_group_on_enter ? (
+          <Bell className="h-3.5 w-3.5" />
+        ) : (
+          <BellOff className="h-3.5 w-3.5" />
+        )}
+      </Button>
       <Button
         variant="ghost"
         size="icon-xs"
@@ -420,6 +608,72 @@ function SortableStageRow({
         <Trash2 className="h-3 w-3" />
       </Button>
     </div>
+  );
+}
+
+function RequiredGroupsPopover({
+  fieldGroups,
+  requiredGroupIds,
+  onToggle,
+  t,
+}: {
+  fieldGroups: CustomFieldGroup[];
+  requiredGroupIds: Set<string>;
+  onToggle: (groupId: string, required: boolean) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  t: any;
+}) {
+  const count = requiredGroupIds.size;
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            title={t("requiredFields")}
+            className={
+              count > 0
+                ? "text-primary hover:text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }
+          />
+        }
+      >
+        <ListChecks className="h-3.5 w-3.5" />
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64">
+        <p className="text-xs font-medium text-foreground">
+          {t("requiredFieldsTitle")}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {t("requiredFieldsDesc")}
+        </p>
+        {fieldGroups.length === 0 ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t("noCustomFields")}
+          </p>
+        ) : (
+          <div className="mt-1 max-h-48 space-y-1.5 overflow-y-auto">
+            {fieldGroups.map((group) => (
+              <label
+                key={group.id}
+                className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
+              >
+                <Checkbox
+                  checked={requiredGroupIds.has(group.id)}
+                  onCheckedChange={(checked) =>
+                    onToggle(group.id, checked === true)
+                  }
+                />
+                {group.name}
+              </label>
+            ))}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 

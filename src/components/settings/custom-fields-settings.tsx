@@ -10,27 +10,29 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useTranslations } from 'next-intl';
-import { CustomFieldsPanel } from '@/components/contacts/custom-fields-manager';
+import { CustomFieldGroupsPanel } from './custom-field-groups-panel';
 import { SettingsChip } from './settings-chip';
 
 /**
  * Settings → Custom Fields card. Manages the account-wide custom
- * contact field catalogue (the same panel the Contacts page exposes
- * via a dialog). Writes are admin-gated by the caller and enforced by
- * `custom_fields` RLS.
+ * field GROUP catalogue (migration 046) — the same panel the Contacts
+ * page exposes via a dialog. Owner-only (tightened from admin+, see
+ * `canManageFieldGroups`): group/field schema now governs pipeline
+ * gating, not just contact metadata. Enforced by the caller's
+ * `useCan("manage-field-groups")` gate and by owner-tier RLS.
  */
 export function CustomFieldsSettings() {
   const t = useTranslations('Settings.tagsAndFields');
-  
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-foreground">
           <SlidersHorizontal className="size-4 text-primary" />
           {t('fieldsTitle')}
-          <SettingsChip variant="admin" className="font-medium">
+          <SettingsChip variant="owner" className="font-medium">
             <Shield />
-            {t('adminRole')}
+            {t('ownerRole')}
           </SettingsChip>
         </CardTitle>
         <CardDescription className="text-muted-foreground">
@@ -38,7 +40,7 @@ export function CustomFieldsSettings() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <CustomFieldsPanel />
+        <CustomFieldGroupsPanel />
       </CardContent>
     </Card>
   );

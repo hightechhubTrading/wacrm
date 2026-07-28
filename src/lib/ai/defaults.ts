@@ -105,11 +105,15 @@ export interface MediaPromptItem {
   description: string
 }
 
-/** One AI-collectible custom field as fed into the auto-reply system
- * prompt -- see FIELD_SENTINEL_*. */
+/** One AI-collectible field as fed into the auto-reply system prompt --
+ * see FIELD_SENTINEL_*. `scope` is only used downstream (by
+ * collect-fields.ts, to route a matched value to `contact_custom_values`
+ * or `deal_custom_values` keyed by `id`) -- irrelevant to prompt-building
+ * here, which only ever reads `.name`. */
 export interface CollectFieldPromptItem {
   id: string
   name: string
+  scope: 'contact' | 'deal'
 }
 
 /**

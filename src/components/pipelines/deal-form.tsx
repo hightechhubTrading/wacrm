@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { CURRENCIES } from "@/lib/currency";
+import { CustomFieldGroupFields } from "@/components/custom-fields/custom-field-group-fields";
 import type {
   Contact,
   Conversation,
@@ -375,6 +376,20 @@ export function DealForm({
                 className="min-h-[100px] border-border bg-muted text-foreground"
               />
             </div>
+
+            {/* Custom field groups (deal-scoped, migration 046) — only
+                shown for an existing deal, since values need a deal id
+                to save against. A brand-new deal picks these up once
+                the AI bot or the Order Info popup fills them in after
+                creation. */}
+            {deal && (
+              <CustomFieldGroupFields
+                scope="deal"
+                recordId={deal.id}
+                editable
+                onSaved={onSaved}
+              />
+            )}
 
             {deal && (
               <div className="space-y-2 rounded-lg border border-border bg-muted/50 p-3">

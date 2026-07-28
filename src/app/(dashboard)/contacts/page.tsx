@@ -68,7 +68,7 @@ export default function ContactsPage() {
   const t = useTranslations('Contacts.page');
   const supabase = createClient();
   const canEdit = useCan('send-messages');
-  const canEditSettings = useCan('edit-settings');
+  const canManageFieldGroups = useCan('manage-field-groups');
 
   const [contacts, setContacts] = useState<ContactWithTags[]>([]);
   const [loading, setLoading] = useState(true);
@@ -350,7 +350,7 @@ export default function ContactsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {canEditSettings && (
+          {canManageFieldGroups && (
             <Button
               variant="outline"
               onClick={() => setCustomFieldsOpen(true)}
@@ -760,8 +760,8 @@ export default function ContactsPage() {
         onImported={fetchContacts}
       />
 
-      {/* Custom Fields Manager (admin+) */}
-      {canEditSettings && (
+      {/* Custom Fields Manager (owner-only, migration 046) */}
+      {canManageFieldGroups && (
         <CustomFieldsManager
           open={customFieldsOpen}
           onOpenChange={setCustomFieldsOpen}
