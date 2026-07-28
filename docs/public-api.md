@@ -1,6 +1,6 @@
 # Public API (`/api/v1`)
 
-The public API lets you drive your wacrm instance from your own
+The public API lets you drive your Hightech Hub instance from your own
 scripts and automations — send messages, manage contacts, launch
 broadcasts — without going through the dashboard UI.
 
@@ -27,7 +27,7 @@ In the dashboard: **Settings → API keys → New API key**. Only
 
 1. Give the key a name (after the integration that will use it).
 2. Grant the **scopes** it needs — nothing more (see below).
-3. Copy the key. **The full key is shown exactly once.** wacrm
+3. Copy the key. **The full key is shown exactly once.** Hightech Hub
    stores only a SHA-256 hash, so it can never be shown again. If you
    lose it, revoke it and create a new one.
 
@@ -242,7 +242,10 @@ curl -X POST https://your-crm.example.com/api/v1/broadcasts \
 ```
 
 Recipients are capped at **1000 per request** — split larger sends.
-Invalid phone numbers are dropped and counted as `rejected`. Response
+Invalid phone numbers are dropped and counted as `rejected`. A
+recipient who has opted out (replied STOP/UNSUBSCRIBE/CANCEL/END/QUIT
+to a prior message) still gets a recipient row, but with status
+`skipped` rather than `pending` — see [Opt-out](#opt-out). Response
 (202):
 
 ```json
@@ -261,7 +264,20 @@ Invalid phone numbers are dropped and counted as `rejected`. Response
 
 Broadcast status + counts. Scope: `broadcasts:send`. `status` moves
 `sending` → `sent`; `delivered_count` / `read_count` keep climbing as
-Meta delivery webhooks arrive. `404` for another account's broadcast.
+Meta delivery webhooks arrive. `skipped_count` counts recipients who
+had opted out and were never sent to. `404` for another account's
+broadcast.
+
+## Opt-out
+
+Recipients can stop AUTOMATED messages (broadcasts, automations, flows
+— never manual 1:1 replies from the inbox) by replying `STOP`,
+`UNSUBSCRIBE`, `CANCEL`, `END`, or `QUIT` (exact match, case-insensitive)
+to any message, and resume with `START` or `UNSTOP`. A `POST
+/api/v1/broadcasts` recipient who has opted out is recorded with
+`broadcast_recipients.status = 'skipped'` and rolled up into the
+broadcast's `skipped_count` — it is never counted as `rejected` (that's
+reserved for malformed phone numbers) or `failed`.
 
 ## Pagination
 
@@ -283,7 +299,7 @@ last page.
 
 ## Webhooks
 
-Rather than polling, register an endpoint and wacrm will POST to it when
+Rather than polling, register an endpoint and Hightech Hub will POST to it when
 things happen in your account. **Migration required:** apply
 `supabase/migrations/028_webhook_endpoints.sql`.
 
@@ -299,7 +315,7 @@ things happen in your account. **Migration required:** apply
 
 All under scope `webhooks:manage`.
 
-- `POST /api/v1/webhooks` — register `{ "url": "https://…", "events": ["message.received"] }`. `url` must be `https://`. **The response includes `secret` exactly once** — store it to verify signatures; wacrm keeps only an encrypted copy.
+- `POST /api/v1/webhooks` — register `{ "url": "https://…", "events": ["message.received"] }`. `url` must be `https://`. **The response includes `secret` exactly once** — store it to verify signatures; Hightech Hub keeps only an encrypted copy.
 - `GET /api/v1/webhooks` — list your endpoints (never returns the secret).
 - `GET /api/v1/webhooks/{id}` — read one.
 - `PATCH /api/v1/webhooks/{id}` — update `url`, `events`, or `is_active` (re-enabling clears the failure counter).
@@ -359,7 +375,7 @@ const ok = crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(v1));
 
 Delivery is **best-effort**: a single attempt per event with a short
 timeout, and **redirects are not followed**. `message.status_updated`
-covers messages wacrm stores (inbox + API sends), not broadcast-only
+covers messages Hightech Hub stores (inbox + API sends), not broadcast-only
 sends, and — because providers re-send and re-order status callbacks —
 the same status may arrive more than once or out of order; **dedupe on
 `id` and don't assume ordering**. Each consecutive failure increments
@@ -378,6 +394,6 @@ internal targets are refused at delivery time.
 
 The public API now covers messaging, contacts, conversations,
 broadcasts, and outbound webhooks — the full scope of
-[#245](https://github.com/ArnasDon/wacrm/issues/245). Future ideas
+[#245](https://github.com/hightechhubTrading/wacrm/issues/245). Future ideas
 (deals/pipelines, templates, flows, a delivery queue for webhooks) are
 not yet scheduled.
