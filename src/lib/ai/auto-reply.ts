@@ -20,7 +20,19 @@ import {
   listAiCollectibleFields,
   applyCollectedFields,
   listCollectedFieldValues,
+  resolveCurrentOpenDeal,
+  listGroupFieldsForStage,
 } from './collect-fields'
+import { AiError } from './types'
+import type { AiConfig } from './types'
+import { recordKeyError, clearKeyError, notifyAdminsOfKeyError } from './key-health'
+import { isWithinBusinessHours, type BusinessHours } from './business-hours'
+import { notifyUrgentLead } from './lead-priority'
+
+/** How long a cached after-hours context summary stays fresh before
+ * it's regenerated -- bounds the extra LLM call to at most once per
+ * conversation per window, not once per reply. */
+const CONTEXT_SUMMARY_TTL_MS = 6 * 60 * 60 * 1000
 
 interface DispatchArgs {
   /** Tenancy key -- drives config, contact, and whatsapp_config lookups. */
@@ -56,10 +68,14 @@ export async function dispatchInboundToAiReply(
 ): Promise<void> {
   const { accountId, conversationId, contactId, configOwnerUserId } = args
 
-  try {
-    const db = supabaseAdmin()
+  // Hoisted above the try so the catch block (key-error recording)
+  // can still see them -- variables declared inside `try` aren't
+  // visible in its `catch`.
+  const db = supabaseAdmin()
+  let config: AiConfig | null = null
 
-    const config = await loadAiConfig(db, accountId)
+  try {
+    config = await loadAiConfig(db, accountId)
     if (!config || !config.autoReplyEnabled) return
 
     // Deterministic, user-configured responders win over the LLM -- the
@@ -81,12 +97,39 @@ export async function dispatchInboundToAiReply(
 
     const { data: conv, error: convErr } = await db
       .from('conversations')
-      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count')
+      .select(
+        'assigned_agent_id, ai_autoreply_disabled, ai_reply_count, ai_context_summary, ai_context_summary_at, ai_priority',
+      )
       .eq('id', conversationId)
       .maybeSingle()
     if (convErr || !conv) return
-    if (conv.assigned_agent_id) return // a human owns this thread
-    if (conv.ai_autoreply_disabled) return // handed off / turned off here
+
+    // Account-level business knowledge -- social links (shared with the
+    // customer when asked) and business hours (after-hours takeover
+    // below). One cheap point lookup by primary key; negligible next to
+    // an LLM call, so no reason to gate it behind afterHoursTakeoverEnabled.
+    const { data: account } = await db
+      .from('accounts')
+      .select('business_hours, timezone, social_links')
+      .eq('id', accountId)
+      .maybeSingle()
+    const socialLinks = (account?.social_links as Record<string, string> | null) ?? null
+
+    // After-hours takeover: outside the account's configured business
+    // hours, AI keeps replying even though a human is assigned -- they
+    // presumably aren't available either, and the point is the customer
+    // never waits until morning for a first response.
+    let isAfterHoursTakeover = false
+    if (
+      conv.assigned_agent_id &&
+      config.afterHoursTakeoverEnabled &&
+      account &&
+      !isWithinBusinessHours(account.business_hours as BusinessHours | null, account.timezone)
+    ) {
+      isAfterHoursTakeover = true
+    }
+    if (conv.assigned_agent_id && !isAfterHoursTakeover) return // a human owns this thread
+    if (conv.ai_autoreply_disabled) return // handed off / turned off here — still respected even after hours
     // Cheap early-out; the authoritative cap check is the atomic claim
     // below (this read can race a concurrent inbound). 0 (or less) means
     // unlimited -- the cap is opt-in.
@@ -98,6 +141,40 @@ export async function dispatchInboundToAiReply(
 
     const messages = await buildConversationContext(db, conversationId)
     if (messages.length === 0) return
+
+    // Context summary: only during after-hours takeover, and only
+    // regenerated when stale (TTL above) -- never on every reply. Gives
+    // the model continuity on a long-running thread beyond the normal
+    // message window, and doubles as the "AI handled this after hours"
+    // recap a returning agent sees (message-thread.tsx).
+    let contextSummary: string | null = conv.ai_context_summary ?? null
+    if (isAfterHoursTakeover) {
+      const summaryAge = conv.ai_context_summary_at
+        ? Date.now() - new Date(conv.ai_context_summary_at).getTime()
+        : Infinity
+      if (summaryAge > CONTEXT_SUMMARY_TTL_MS) {
+        try {
+          const { text: summaryText } = await generateReply({
+            config,
+            systemPrompt:
+              "Summarize this WhatsApp conversation in 2-3 short sentences for a teammate catching up: what the customer wants, what's been resolved, what's still outstanding. Output only the summary, no preamble.",
+            messages,
+          })
+          if (summaryText.trim()) {
+            contextSummary = summaryText.trim()
+            await db
+              .from('conversations')
+              .update({
+                ai_context_summary: contextSummary,
+                ai_context_summary_at: new Date().toISOString(),
+              })
+              .eq('id', conversationId)
+          }
+        } catch (err) {
+          console.error('[ai auto-reply] context summary generation failed:', err)
+        }
+      }
+    }
 
     // Account-wide throttle on the shared BYO key. The per-conversation
     // cap bounds one thread; this bounds a burst across many threads (a
@@ -129,12 +206,32 @@ export async function dispatchInboundToAiReply(
     // buildSystemPrompt omits the whole capability).
     const media = await listMediaLibraryForPrompt(db, accountId)
 
-    // AI-collectible custom fields -- lets the model save lead details
-    // (product interest, measurements, budget, timeline, etc.) onto the
-    // contact as it learns them (best-effort; empty when the account
-    // hasn't opted any fields in, in which case buildSystemPrompt omits
-    // the whole capability).
-    const collectFields = await listAiCollectibleFields(db, accountId)
+    // AI-collectible fields -- lets the model save lead details (product
+    // interest, measurements, budget, timeline, etc.) onto the contact as
+    // it learns them (best-effort; empty when the account hasn't opted
+    // any fields in, in which case buildSystemPrompt omits the whole
+    // capability). Group fields are added on top, but only when the
+    // contact's current open deal has actually reached a stage with an
+    // active custom field group linked -- never for a brand-new lead.
+    const contactCollectFields = await listAiCollectibleFields(db, accountId)
+    const currentDeal = await resolveCurrentOpenDeal(db, accountId, contactId)
+    const groupCollectFields = currentDeal
+      ? await listGroupFieldsForStage(db, currentDeal.stage_id)
+      : []
+    const collectFields = [...contactCollectFields, ...groupCollectFields]
+
+    // Assigned agent's phone -- so the model can share a real callable
+    // number when the customer asks to talk by phone, instead of
+    // inventing one or just deflecting (migration 052).
+    let assignedAgentPhone: string | null = null
+    if (conv.assigned_agent_id) {
+      const { data: agentProfile } = await db
+        .from('profiles')
+        .select('phone')
+        .eq('user_id', conv.assigned_agent_id)
+        .maybeSingle()
+      assignedAgentPhone = (agentProfile?.phone as string | null) ?? null
+    }
 
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
@@ -142,13 +239,25 @@ export async function dispatchInboundToAiReply(
       knowledge,
       media,
       collectFields,
+      contextSummary: isAfterHoursTakeover ? contextSummary : null,
+      socialLinks,
+      assignedAgentPhone,
     })
 
-    const { text, handoff, mediaId, productTagId, fields, usage } = await generateReply({
-      config,
-      systemPrompt,
-      messages,
-    })
+    const { text, handoff, mediaId, productTagId, fields, priority, priorityReason, usage } =
+      await generateReply({
+        config,
+        systemPrompt,
+        messages,
+      })
+
+    // The call just succeeded -- if the key was previously flagged as
+    // broken, clear it. Best-effort: never let this block the reply.
+    if (config.lastKeyError) {
+      clearKeyError(db, accountId).catch((err) =>
+        console.error('[ai auto-reply] failed to clear key error:', err),
+      )
+    }
 
     // Record token spend on the account's BYO key. Fire-and-forget so it
     // never adds latency to the customer-facing send: `logAiUsage`
@@ -164,13 +273,39 @@ export async function dispatchInboundToAiReply(
       usage,
     })
 
+    // Always persist the priority assessment (even 'low'/'normal') so
+    // the conversation list shows a complete, honest signal rather than
+    // only ever surfacing flagged rows. Best-effort; never blocks the
+    // reply. Notify only on a genuine transition INTO urgent, not on
+    // every subsequent urgent-flagged reply in the same thread.
+    if (priority) {
+      const becameUrgent = priority === 'urgent' && conv.ai_priority !== 'urgent'
+      try {
+        await db
+          .from('conversations')
+          .update({ ai_priority: priority, ai_priority_reason: priorityReason })
+          .eq('id', conversationId)
+        if (becameUrgent) {
+          notifyUrgentLead(db, {
+            accountId,
+            conversationId,
+            contactId,
+            assignedAgentId: conv.assigned_agent_id ?? null,
+            reason: priorityReason,
+          }).catch((err) => console.error('[ai auto-reply] urgent notification failed:', err))
+        }
+      } catch (err) {
+        console.error('[ai auto-reply] priority update failed:', err)
+      }
+    }
+
     if (handoff || !text) {
       // Best-effort: the model may have recorded lead details in the
       // same turn it decided to hand off -- capture them before the
       // thread goes quiet.
       if (fields && fields.length > 0) {
         try {
-          await applyCollectedFields({ db, accountId, contactId, conversationId, fields })
+          await applyCollectedFields({ db, accountId, contactId, fields })
         } catch (err) {
           console.error('[ai auto-reply] field collection before handoff failed:', err)
         }
@@ -316,12 +451,23 @@ export async function dispatchInboundToAiReply(
     // onto the contact and mirror a summary onto the linked deal.
     if (fields && fields.length > 0) {
       try {
-        await applyCollectedFields({ db, accountId, contactId, conversationId, fields })
+        await applyCollectedFields({ db, accountId, contactId, fields })
       } catch (err) {
         console.error('[ai auto-reply] field collection failed:', err)
       }
     }
   } catch (err) {
+    if (err instanceof AiError && err.code === 'invalid_key') {
+      const isFreshFailure = !config?.lastKeyError
+      try {
+        await recordKeyError(db, accountId, err.message)
+        if (isFreshFailure) {
+          await notifyAdminsOfKeyError(db, accountId, err.message)
+        }
+      } catch (recordErr) {
+        console.error('[ai auto-reply] failed to record key error:', recordErr)
+      }
+    }
     console.error('[ai auto-reply] dispatch failed:', err)
   }
 }

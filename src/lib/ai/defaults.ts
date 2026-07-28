@@ -77,6 +77,19 @@ export const PRODUCT_TAG_SENTINEL_CLOSE = ']]'
 export const FIELD_SENTINEL_OPEN = '[[SET_FIELD:'
 export const FIELD_SENTINEL_CLOSE = ']]'
 
+/**
+ * Sentinel wrapper the model is instructed to emit on every auto-reply
+ * turn -- e.g. `[[PRIORITY:urgent|threatened to cancel]]` -- so a
+ * conversation's priority can be surfaced to the team without a
+ * separate classification call. Parsed and stripped by `generateReply`;
+ * always written to `conversations.ai_priority`/`ai_priority_reason` by
+ * the auto-reply dispatcher, never sent to the customer as text.
+ */
+export const PRIORITY_SENTINEL_OPEN = '[[PRIORITY:'
+export const PRIORITY_SENTINEL_CLOSE = ']]'
+export const PRIORITY_LEVELS = ['low', 'normal', 'high', 'urgent'] as const
+export type PriorityLevel = (typeof PRIORITY_LEVELS)[number]
+
 /** Cap on generated reply length -- keeps WhatsApp replies short and
  * bounds token spend on the caller's own key. */
 export const MAX_OUTPUT_TOKENS = 1024
@@ -103,6 +116,12 @@ export interface MediaPromptItem {
   name: string
   productLabel: string | null
   description: string
+  /** Reference only (migration 052) -- helps the model ask the right
+   * clarifying question (e.g. "how many meters?") and give an honest
+   * "it's priced per X" answer. Never a license to quote a number: the
+   * absolute no-pricing rule above still applies unconditionally. */
+  price?: number | null
+  priceUnit?: string | null
 }
 
 /** One AI-collectible field as fed into the auto-reply system prompt --
@@ -134,8 +153,29 @@ export function buildSystemPrompt(args: {
   /** Custom fields the bot may populate from the conversation
    * (auto-reply only). */
   collectFields?: CollectFieldPromptItem[]
+  /** Cached AI-generated recap of the conversation so far, only set
+   * during after-hours takeover on a thread with more history than the
+   * normal message window covers (see business-hours.ts / auto-reply.ts).
+   * Not regenerated per-reply -- see the staleness check there. */
+  contextSummary?: string | null
+  /** Business social-media / website links the assistant may share
+   * when asked (account-level, migration 052). */
+  socialLinks?: Record<string, string> | null
+  /** The conversation's assigned agent's phone number, so the
+   * assistant can share a real callable number instead of inventing
+   * one or deflecting (migration 052). */
+  assignedAgentPhone?: string | null
 }): string {
-  const { userPrompt, mode, knowledge, media, collectFields } = args
+  const {
+    userPrompt,
+    mode,
+    knowledge,
+    media,
+    collectFields,
+    contextSummary,
+    socialLinks,
+    assignedAgentPhone,
+  } = args
   const parts: string[] = [
     'You are a customer-messaging assistant for a business that uses a WhatsApp CRM. ' +
       'You are shown the recent WhatsApp conversation between the business (assistant) and a customer (user). ' +
@@ -154,14 +194,41 @@ export function buildSystemPrompt(args: {
     )
   }
 
+  if (mode === 'auto_reply') {
+    parts.push(
+      `Also assess this conversation's priority for the team and append exactly one marker at the very end of your reply (after your normal text and any other markers), in the form ${PRIORITY_SENTINEL_OPEN}level|short reason${PRIORITY_SENTINEL_CLOSE}, where level is one of: ${PRIORITY_LEVELS.join(', ')}. Use "urgent" only when the customer is angry, is threatening to cancel or leave a bad review, has a time-critical problem, or is a clearly high-value opportunity needing quick human attention; use "high" for meaningful interest or a real question needing prompt follow-up; use "normal" for routine conversation; use "low" for small talk or an already-resolved exchange. Keep the reason under 8 words. This marker is never shown to the customer.`,
+    )
+  }
+
   if (mode === 'auto_reply' && collectFields && collectFields.length > 0) {
     parts.push(
       `IMPORTANT -- lead details you must record as you go: whenever the customer states any of the fields listed below, even a short or partial answer (for example just a measurement, a neighbourhood name, or a one-word product type), save it immediately in that same reply by adding one marker per field at the end of your message (after your normal reply text, and before a handoff marker if this same reply also hands off), in the exact form ${FIELD_SENTINEL_OPEN}field name=short value${FIELD_SENTINEL_CLOSE}, using the exact field name shown and a short value taken only from what the customer actually said -- never guess, invent, or wait for a fuller answer before recording it. You may include more than one marker in the same reply, and skip this entirely only when nothing new was shared this turn. These markers are never shown to the customer.\n\nFields you can record: ${collectFields.map((f) => f.name).join(', ')}`,
     )
   }
 
+  if (contextSummary && contextSummary.trim()) {
+    parts.push(
+      `Context from earlier in this conversation (summarized -- the full transcript below only covers the most recent messages): ${contextSummary.trim()}`,
+    )
+  }
+
   if (userPrompt && userPrompt.trim()) {
     parts.push(`Business context and instructions:\n${userPrompt.trim()}`)
+  }
+
+  if (socialLinks && Object.keys(socialLinks).length > 0) {
+    parts.push(
+      'The business\'s social media / website links -- share the relevant one if the customer asks:\n' +
+        Object.entries(socialLinks)
+          .map(([platform, url]) => `${platform}: ${url}`)
+          .join('\n'),
+    )
+  }
+
+  if (mode === 'auto_reply' && assignedAgentPhone) {
+    parts.push(
+      `If the customer asks to talk by phone or call someone, share this number: ${assignedAgentPhone}. Never invent a different number.`,
+    )
   }
 
   if (knowledge && knowledge.length > 0) {
@@ -180,16 +247,17 @@ export function buildSystemPrompt(args: {
 
   if (mode === 'auto_reply' && media && media.length > 0) {
     parts.push(
-      'Media library -- product photos / catalog files you may attach to your reply, listed as `[id] name (product label) -- description`. ' +
+      'Media library -- product photos / catalog files you may attach to your reply, listed as `[id] name (product label) [pricing unit, if any] -- description`. ' +
         `Attach ONE only when the customer's request clearly matches an item: end your reply with ${MEDIA_SENTINEL_OPEN}id${MEDIA_SENTINEL_CLOSE}, using the exact id shown (never invent or guess an id). ` +
         `Independently of attaching a file, whenever a specific product from this list is clearly the topic of the conversation -- the customer is asking about it, comparing it, or showing interest in it, even if you don't attach anything -- also add ${PRODUCT_TAG_SENTINEL_OPEN}id${PRODUCT_TAG_SENTINEL_CLOSE} using that product's id, so the business can track the contact's interest. You may include both markers, only one, or neither. ` +
         'The customer never sees these markers -- they are stripped before sending and the matching file (if any) is attached automatically. ' +
+        "The pricing unit (when shown) is for YOUR reference only, to ask the right clarifying question (e.g. a per-meter product -> ask how many meters) -- it is NOT permission to state a number; the absolute no-pricing rule above still applies. " +
         'If nothing clearly matches, do not attach anything and do not mention any marker.\n\n' +
         media
-          .map(
-            (m) =>
-              `[${m.id}] ${m.name}${m.productLabel ? ` (${m.productLabel})` : ''} -- ${m.description}`,
-          )
+          .map((m) => {
+            const pricing = m.priceUnit ? ` [priced ${m.priceUnit.replace(/_/g, ' ')}]` : ''
+            return `[${m.id}] ${m.name}${m.productLabel ? ` (${m.productLabel})` : ''}${pricing} -- ${m.description}`
+          })
           .join('\n'),
     )
   }

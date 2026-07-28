@@ -45,6 +45,22 @@ export interface Profile {
    * `@/lib/auth/roles` rather than comparing this string directly.
    */
   account_role?: AccountRole;
+  /**
+   * The WAHA (WhatsApp HTTP API) session name — i.e. which logged-in
+   * WhatsApp number — this member's assigned deals send stage-enter
+   * group notifications from (migration 045). Null/unset means their
+   * assigned deals' notifications are skipped entirely rather than
+   * falling back to the account's shared `waha_config.session_name`.
+   * Set via `set_member_waha_session` (admin+ only; self-settable,
+   * unlike account_role).
+   */
+  waha_session_name?: string | null;
+  /**
+   * Agent's own WhatsApp/call number, offered to a customer who asks
+   * to talk by phone (migration 052). Null/unset means the AI never
+   * invents a number for this agent.
+   */
+  phone?: string | null;
   created_at: string;
 }
 
@@ -75,6 +91,9 @@ export interface AccountMember {
   avatar_url: string | null;
   role: AccountRole;
   joined_at: string;
+  /** Same admin+-only visibility tier as `email` — see `waha_session_name`
+   *  on `Profile` for what this drives (migration 045). */
+  waha_session_name: string | null;
 }
 
 /**
@@ -110,6 +129,12 @@ export interface Contact {
   avatar_url?: string;
   created_at: string;
   updated_at: string;
+  /** Opted out of AUTOMATED sends (broadcasts/automations/flows) — set by
+   *  an inbound STOP/UNSUBSCRIBE/CANCEL/END/QUIT keyword or a manual
+   *  admin toggle (migration 047). Never blocks manual 1:1 replies. */
+  opted_out?: boolean;
+  opted_out_at?: string | null;
+  opted_out_source?: 'keyword' | 'manual' | null;
   /** Hydrated by queries that embed `contact_tags(tags(*))` (e.g. the
    *  Inbox conversation list, for tag filtering). Absent otherwise. */
   tags?: Tag[];
@@ -134,15 +159,54 @@ export interface ContactTag {
   tag_id: string;
 }
 
+/** The set of `field_type` values the DB CHECK constraint allows
+ *  (migration 046). Kept in sync with
+ *  `src/lib/custom-fields/field-types.ts`'s `CUSTOM_FIELD_TYPES`. */
+export type CustomFieldType = "text" | "textarea" | "number" | "date" | "url";
+
 export interface CustomField {
   id: string;
   user_id: string;
   /** Tenancy key — NOT NULL since migration 017. */
   account_id: string;
   field_name: string;
-  field_type: string;
+  field_type: CustomFieldType;
   field_options?: Record<string, unknown>;
+  /** Owning group (migration 046) — null for pre-existing "legacy"
+   *  fields created before groups existed. A field's scope
+   *  (contact vs deal) is inherited from its group; an ungrouped
+   *  field is implicitly contact-scoped (its only value table is
+   *  `contact_custom_values`). */
+  group_id?: string | null;
+  /** Must be filled before a deal can leave a stage that has this
+   *  field's group linked via `stage_required_groups` (migration 046). */
+  required: boolean;
+  /** Display order within its group. */
+  position: number;
+  ai_collectible?: boolean;
   created_at: string;
+}
+
+/**
+ * A named collection of custom fields sharing one SCOPE (migration
+ * 046) — 'contact' (persists across a contact's whole history) or
+ * 'deal' (belongs to one specific order; critical for repeat
+ * customers, whose second order must never collide with their
+ * first). `is_active` controls whether the group's fields show in
+ * the inbox contact sidebar at all. Scope is immutable after
+ * creation — switching it would orphan already-stored values.
+ * Definition management (create/edit/delete groups and fields,
+ * link/unlink a stage) is owner-only; filling in values stays agent+.
+ */
+export interface CustomFieldGroup {
+  id: string;
+  account_id: string;
+  name: string;
+  scope: "contact" | "deal";
+  is_active: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ContactCustomValue {
@@ -150,6 +214,30 @@ export interface ContactCustomValue {
   contact_id: string;
   custom_field_id: string;
   value?: string;
+}
+
+/** Deal-scoped custom field value (migration 046) — the deal-scope
+ *  counterpart to `ContactCustomValue`, used by fields whose owning
+ *  group has `scope: 'deal'`. */
+export interface DealCustomValue {
+  id: string;
+  deal_id: string;
+  custom_field_id: string;
+  value?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Links a custom field group to a pipeline stage: leaving that
+ *  stage is blocked until every `required` field in an `is_active`
+ *  linked group has a value (migration 046) — replaces both the old
+ *  `StageExitRequirement` (per-field) and `requires_order_info`
+ *  mechanisms. */
+export interface StageRequiredGroup {
+  id: string;
+  stage_id: string;
+  group_id: string;
+  created_at: string;
 }
 
 export interface ContactNote {
@@ -186,13 +274,24 @@ export interface Conversation {
   ai_autoreply_disabled?: boolean;
   ai_reply_count?: number;
   ai_handoff_summary?: string | null;
+  /**
+   * Cached AI-generated recap, only populated during after-hours
+   * takeover (migration 051) — shown as a catch-up banner to whoever
+   * picks the conversation back up (message-thread.tsx).
+   */
+  ai_context_summary?: string | null;
+  ai_context_summary_at?: string | null;
+  /** AI-assessed priority, set on every auto-reply/after-hours turn
+   * (migration 051) — surfaced as a badge in the conversation list. */
+  ai_priority?: 'low' | 'normal' | 'high' | 'urgent' | null;
+  ai_priority_reason?: string | null;
 }
 
 // ============================================================
 // Notifications (migration 027)
 // ============================================================
 
-export type NotificationType = 'conversation_assigned';
+export type NotificationType = 'conversation_assigned' | 'ai_key_invalid' | 'urgent_lead';
 
 export interface Notification {
   id: string;
@@ -257,6 +356,9 @@ export interface Message {
    * badge in the inbox. Migration 033.
    */
   ai_generated?: boolean;
+  /** Whisper transcript of an inbound voice note (content_type ===
+   * 'audio'), when voice transcription is enabled. Migration 049. */
+  transcript?: string | null;
 }
 
 export type ReactionActor = 'customer' | 'agent';
@@ -353,7 +455,53 @@ export interface PipelineStage {
   name: string;
   position: number;
   color: string;
+  /** When true, a deal entering this stage fires a WAHA group
+   *  notification (see `waha_config` / `stage_exit_requirements`,
+   *  migration 043). Generic — not tied to any specific stage name. */
+  notify_group_on_enter?: boolean;
+  /** @deprecated Migration 044. Superseded by `stage_required_groups`
+   *  (migration 046) — the app no longer reads or writes this column.
+   *  Left in the DB/type only because the column itself wasn't
+   *  dropped (non-destructive migration). */
+  requires_order_info?: boolean;
+  /** When true, leaving this stage is also blocked until the linked
+   *  contact has both a `name` and `phone` on file — independent of
+   *  any custom field group, since those are real `contacts` columns,
+   *  not custom fields (migration 046). */
+  requires_contact_identity?: boolean;
   created_at: string;
+}
+
+/**
+ * Links a contact custom field to a pipeline stage it must be filled
+ * for before a deal can leave that stage (migration 043). Enforced in
+ * `POST /api/pipelines/deals/[id]/move`, configured per-stage in
+ * Pipeline Settings.
+ */
+export interface StageExitRequirement {
+  id: string;
+  stage_id: string;
+  custom_field_id: string;
+  created_at: string;
+}
+
+/**
+ * Account-scoped connection settings for a self-hosted WAHA (WhatsApp
+ * HTTP API) instance, used only to post structured messages into an
+ * internal WhatsApp GROUP — something Meta's Cloud API cannot do at
+ * all. One row per account (migration 043); `api_key` is
+ * AES-256-GCM-encrypted at rest and never returned to the client.
+ */
+export interface WahaConfig {
+  id: string;
+  account_id: string;
+  created_by?: string;
+  base_url?: string;
+  session_name: string;
+  group_chat_id?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export type DealStatus = 'open' | 'won' | 'lost';
@@ -376,6 +524,17 @@ export interface Deal {
   notes?: string;
   expected_close_date?: string;
   status?: DealStatus;
+  /**
+   * @deprecated Migration 044. Superseded by deal-scoped custom field
+   * groups (`DealCustomValue`, migration 046) — the app no longer
+   * reads or writes these columns. Left in the DB/type only because
+   * they weren't dropped (non-destructive migration); the "Site Visit
+   * Info" data they held was copied into the new system.
+   */
+  order_location?: string | null;
+  order_product?: string | null;
+  order_visit_time?: string | null;
+  order_note?: string | null;
   created_at: string;
   updated_at?: string;
   contact?: Contact;

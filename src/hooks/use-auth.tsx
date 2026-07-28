@@ -44,6 +44,12 @@ interface Profile {
   mode: string | null;
   account_id: string | null;
   account_role: AccountRole | null;
+  /**
+   * Agent's own WhatsApp/call number, offered to a customer who asks
+   * to talk by phone (migration 052). Null means the AI never invents
+   * one for this agent.
+   */
+  phone: string | null;
 }
 
 interface AccountSummary {
@@ -147,7 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "id, full_name, email, avatar_url, role, beta_features, theme, mode, account_id, account_role",
+          "id, full_name, email, avatar_url, role, beta_features, theme, mode, account_id, account_role, phone",
         )
         .eq("user_id", userId)
         .maybeSingle();
@@ -226,6 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           mode: data.mode ?? null,
           account_id: data.account_id ?? null,
           account_role: accountRole,
+          phone: data.phone ?? null,
         });
         setAccount(accountRow);
       } else {

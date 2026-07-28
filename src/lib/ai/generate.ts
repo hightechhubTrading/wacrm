@@ -13,6 +13,9 @@ import {
   PRODUCT_TAG_SENTINEL_CLOSE,
   FIELD_SENTINEL_OPEN,
   FIELD_SENTINEL_CLOSE,
+  PRIORITY_SENTINEL_OPEN,
+  PRIORITY_SENTINEL_CLOSE,
+  PRIORITY_LEVELS,
   aiRequestTimeoutMs,
 } from './defaults'
 import { generateOpenAi } from './providers/openai'
@@ -142,6 +145,32 @@ export function parseGeneration(
     fieldSearchFrom = openIdx
   }
 
+  let priority: string | null = null
+  let priorityReason: string | null = null
+  const priorityOpenIdx = text.indexOf(PRIORITY_SENTINEL_OPEN)
+  if (priorityOpenIdx !== -1) {
+    const priorityCloseIdx = text.indexOf(
+      PRIORITY_SENTINEL_CLOSE,
+      priorityOpenIdx + PRIORITY_SENTINEL_OPEN.length,
+    )
+    if (priorityCloseIdx !== -1) {
+      const inner = text.slice(
+        priorityOpenIdx + PRIORITY_SENTINEL_OPEN.length,
+        priorityCloseIdx,
+      )
+      const barIdx = inner.indexOf('|')
+      const level = (barIdx === -1 ? inner : inner.slice(0, barIdx)).trim().toLowerCase()
+      const reason = barIdx === -1 ? '' : inner.slice(barIdx + 1).trim()
+      if ((PRIORITY_LEVELS as readonly string[]).includes(level)) {
+        priority = level
+        priorityReason = reason || null
+      }
+      text =
+        text.slice(0, priorityOpenIdx) +
+        text.slice(priorityCloseIdx + PRIORITY_SENTINEL_CLOSE.length)
+    }
+  }
+
   text = text.trim()
-  return { text, handoff, mediaId, productTagId, fields, usage }
+  return { text, handoff, mediaId, productTagId, fields, priority, priorityReason, usage }
 }

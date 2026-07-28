@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, Sparkles, CheckCircle2, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Sparkles, CheckCircle2, Trash2, Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import { canEditSettings } from '@/lib/auth/roles';
 import { Button } from '@/components/ui/button';
@@ -27,6 +29,8 @@ import {
 import { SettingsPanelHead } from './settings-panel-head';
 import { AiKnowledgeCard } from './ai-knowledge';
 import { AiMediaLibraryCard } from './ai-media-library';
+import { BusinessHoursCard } from './business-hours-card';
+import { SocialLinksCard } from './social-links-card';
 import { AI_PROVIDER_DEFAULT_MODEL } from '@/lib/ai/defaults';
 import type { AiProvider } from '@/lib/ai/types';
 import type { AccountMember } from '@/types';
@@ -81,6 +85,10 @@ export function AiConfig() {
   // Empty string = leave unassigned (shared queue).
   const [handoffAgentId, setHandoffAgentId] = useState('');
   const [members, setMembers] = useState<AccountMember[]>([]);
+  const [lastKeyError, setLastKeyError] = useState<string | null>(null);
+  const [lastKeyErrorAt, setLastKeyErrorAt] = useState<string | null>(null);
+  const [transcribeVoiceMessages, setTranscribeVoiceMessages] = useState(false);
+  const [afterHoursTakeoverEnabled, setAfterHoursTakeoverEnabled] = useState(false);
 
   // Guard keyed on the account (not a bare boolean) so an in-place
   // account switch — ownership transfer, multi-account membership —
@@ -114,6 +122,10 @@ export function AiConfig() {
         setHasStoredEmbeddingsKey(Boolean(data.has_embeddings_key));
         setEmbeddingsKey(data.has_embeddings_key ? MASKED_KEY : '');
         setEmbeddingsKeyEdited(false);
+        setLastKeyError(data.last_key_error ?? null);
+        setLastKeyErrorAt(data.last_key_error_at ?? null);
+        setTranscribeVoiceMessages(Boolean(data.transcribe_voice_messages));
+        setAfterHoursTakeoverEnabled(Boolean(data.after_hours_takeover_enabled));
       }
     } catch {
       toast.error(t('loadFailed'));
@@ -158,6 +170,8 @@ export function AiConfig() {
     auto_reply_enabled: autoReplyEnabled,
     auto_reply_max_per_conversation: unlimitedReplies ? 0 : maxPerConversation,
     handoff_agent_id: handoffAgentId || null,
+    transcribe_voice_messages: transcribeVoiceMessages,
+    after_hours_takeover_enabled: afterHoursTakeoverEnabled,
   });
 
   const handleTest = async () => {
@@ -173,8 +187,12 @@ export function AiConfig() {
         }),
       });
       const data = await res.json();
-      if (res.ok) toast.success(t('testSuccess'));
-      else toast.error(data.error ?? t('testRejected'));
+      if (res.ok) {
+        toast.success(t('testSuccess'));
+        await fetchConfig();
+      } else {
+        toast.error(data.error ?? t('testRejected'));
+      }
     } catch {
       toast.error(t('testNetworkError'));
     } finally {
@@ -260,6 +278,24 @@ export function AiConfig() {
         <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
           {t('adminOnlyConfig')}
         </p>
+      )}
+
+      {lastKeyError && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertTriangle className="size-4" />
+          <AlertTitle>{t('keyErrorTitle')}</AlertTitle>
+          <AlertDescription>
+            {lastKeyError}
+            {lastKeyErrorAt && (
+              <>
+                {' — '}
+                {t('keyErrorAt', {
+                  time: formatDistanceToNow(new Date(lastKeyErrorAt), { addSuffix: true }),
+                })}
+              </>
+            )}
+          </AlertDescription>
+        </Alert>
       )}
 
       <div className="space-y-6">
@@ -445,6 +481,40 @@ export function AiConfig() {
               />
             </div>
 
+            <div className="flex items-center justify-between gap-4 rounded-md border border-border p-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {t('transcribeVoice')}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {hasStoredEmbeddingsKey
+                    ? t('transcribeVoiceDesc')
+                    : t('transcribeVoiceNeedsKey')}
+                </p>
+              </div>
+              <Switch
+                checked={transcribeVoiceMessages}
+                onCheckedChange={setTranscribeVoiceMessages}
+                disabled={disabled || !hasStoredEmbeddingsKey}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-4 rounded-md border border-border p-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {t('afterHoursTakeover')}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t('afterHoursTakeoverDesc')}
+                </p>
+              </div>
+              <Switch
+                checked={afterHoursTakeoverEnabled}
+                onCheckedChange={setAfterHoursTakeoverEnabled}
+                disabled={disabled || !autoReplyEnabled}
+              />
+            </div>
+
             <div className="flex items-center justify-between gap-4">
               <div>
                 <Label htmlFor="ai-max">{t('maxAutoReplies')}</Label>
@@ -517,6 +587,10 @@ export function AiConfig() {
         />
 
         <AiMediaLibraryCard accountId={accountId} canEdit={canEdit} />
+
+        <BusinessHoursCard />
+
+        <SocialLinksCard />
 
         <div className="flex items-center justify-between">
           {configured ? (

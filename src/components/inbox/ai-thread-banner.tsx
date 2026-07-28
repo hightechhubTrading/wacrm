@@ -48,6 +48,11 @@ interface AiThreadBannerProps {
   disabled: boolean;
   /** `conversations.ai_handoff_summary` — note the bot left on handoff. */
   handoffSummary?: string | null;
+  /** `conversations.ai_context_summary` — cached recap AI wrote while
+   * covering this thread after hours (migration 051), shown to the
+   * assigned agent so they don't have to scroll the overnight
+   * exchange to catch up. */
+  contextSummary?: string | null;
   /** Current assignee; when a human owns the thread the bot won't run,
    *  so the "AI active" banner is suppressed. */
   assignedAgentId?: string | null;
@@ -74,6 +79,7 @@ export function AiThreadBanner({
   conversationId,
   disabled,
   handoffSummary,
+  contextSummary,
   assignedAgentId,
   currentUserId,
   onChange,
@@ -152,6 +158,22 @@ export function AiThreadBanner({
         <BannerButton onClick={() => toggle(false)} busy={busy} icon={Undo2}>
           {t("resume")}
         </BannerButton>
+      </Banner>
+    );
+  }
+
+  // A human owns the thread, but AI covered it after hours (context
+  // summary cached, see auto-reply.ts) — surface the recap so the
+  // returning agent doesn't have to scroll the overnight exchange.
+  if (assignedAgentId && contextSummary) {
+    return (
+      <Banner tone="muted">
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-foreground">{t("afterHoursTitle")}</p>
+          <p className="truncate text-muted-foreground" title={contextSummary}>
+            {contextSummary}
+          </p>
+        </div>
       </Banner>
     );
   }

@@ -15,7 +15,7 @@
     "createAccount": "계정 만들기"
   },
   "Sidebar": {
-    "title": "WhatsApp용 CRM 템플릿",
+    "title": "Hightech Hub",
     "dashboard": "대시보드",
     "inbox": "인박스",
     "notifications": "알림",
@@ -142,7 +142,9 @@
       "clearAll": "모두 지우기",
       "noConversations": "대화를 찾을 수 없습니다",
       "noMessagesYet": "아직 메시지가 없습니다",
-      "unknown": "알 수 없음"
+      "unknown": "알 수 없음",
+      "aiPriorityUrgent": "AI가 이 대화를 긴급으로 표시했습니다",
+      "aiPriorityHigh": "AI가 이 대화를 높은 우선순위로 표시했습니다"
     },
     "messageThread": {
       "backToConversations": "대화 목록으로 돌아가기",
@@ -192,6 +194,7 @@
       "voiceNote": "음성 메모",
       "sendTemplate": "템플릿 보내기",
       "draftWithAI": "AI로 답장 초안 작성",
+      "translateDraft": "이 메시지 번역",
       "addCaption": "캡션 추가…",
       "removeAttachment": "첨부 파일 제거",
       "moreActions": "더보기",
@@ -211,6 +214,7 @@
       "unavailable": "{label}을(를) 사용할 수 없습니다",
       "document": "문서",
       "locationShared": "위치 공유됨",
+      "viewOnMap": "지도에서 보기",
       "template": "템플릿",
       "buttonReply": "버튼 응답",
       "interactiveReply": "[인터랙티브 응답]",
@@ -226,7 +230,11 @@
       "reactWith": "{emoji}(으)로 반응하기",
       "nothingToCopy": "복사할 내용이 없습니다",
       "copied": "복사됨",
-      "copyFailed": "복사 실패"
+      "copyFailed": "복사 실패",
+      "translate": "번역",
+      "translateFailed": "번역 실패",
+      "translatedTo": "{language}(으)로 번역됨",
+      "targetLanguagePlaceholder": "언어 (예: 영어)"
     },
     "replyQuote": {
       "photo": "[사진]",
@@ -261,10 +269,19 @@
       "deals": "딜",
       "noTags": "태그 없음",
       "noDeals": "딜 없음",
-      "addNotePlaceholder": "메모 추가..."
+      "addNotePlaceholder": "메모 추가...",
+      "addTagsTitle": "태그 추가",
+      "noAccountTags": "이 계정에는 아직 태그가 없습니다",
+      "newTagPlaceholder": "새 태그 이름",
+      "removeTagAria": "{name} 태그 제거",
+      "toastTagAddFailed": "태그를 추가하지 못했습니다",
+      "toastTagRemoveFailed": "태그를 제거하지 못했습니다",
+      "toastTagCreateFailed": "태그를 생성하지 못했습니다",
+      "optedOutBadge": "수신 거부"
     },
     "aiBanner": {
       "pausedTitle": "이 대화에서 AI 어시스턴트가 일시 중지됨",
+      "afterHoursTitle": "영업시간 외에 AI가 응대했습니다",
       "activeText": "AI 어시스턴트가 자동으로 응답 중입니다",
       "takeOver": "직접 처리",
       "resume": "AI 재개",
@@ -401,6 +418,11 @@
       "toastPhoneRequired": "전화번호는 필수입니다",
       "toastUpdateFailed": "연락처를 업데이트하지 못했습니다",
       "toastUpdated": "연락처가 업데이트되었습니다",
+      "optedOutBadge": "수신 거부",
+      "optedOutLabel": "브로드캐스트 수신 거부",
+      "optedOutHint": "이 연락처에 대한 브로드캐스트, 자동화, 플로우를 차단합니다. 인박스에서 보내는 수동 답장은 차단되지 않습니다.",
+      "toastOptedOut": "연락처가 수신 거부로 표시되었습니다",
+      "toastOptedIn": "연락처 수신 거부가 해제되었습니다",
       "toastNotAuthenticated": "인증되지 않았습니다",
       "toastNoteAddFailed": "메모를 추가하지 못했습니다",
       "toastNoteAdded": "메모가 추가되었습니다",
@@ -453,24 +475,46 @@
       "toastFailed": "연락처 {count}개를 가져오지 못했습니다",
       "toastFailed_plural": "연락처 {count}개를 가져오지 못했습니다",
       "toastError": "가져오기 실패"
-    },
-    "customFields": {
-      "title": "커스텀 필드",
-      "desc": "추가 연락처 필드를 정의하세요 (예: 우편번호, 리드 출처). 모든 연락처와 \"연락처 필드 업데이트\" 자동화 액션에 표시됩니다.",
-      "addField": "추가",
-      "fieldName": "새 필드 이름…",
+    }
+  },
+  "CustomFieldGroups": {
+    "panel": {
+      "dialogTitle": "커스텀 필드 그룹",
+      "dialogDesc": "추가 필드를 그룹으로 묶고, 파이프라인 단계에 그룹을 연결하여 딜이 진행되기 전에 필수로 채우도록 하세요.",
       "loading": "불러오는 중…",
-      "empty": "아직 커스텀 필드가 없습니다.",
-      "renameAria": "{name} 이름 변경",
-      "deleteTitle": "필드 삭제",
-      "deleteConfirm": "\"{name}\"을(를) 삭제하시겠습니까? 모든 연락처에 저장된 값도 함께 삭제되며, 되돌릴 수 없습니다.",
-      "toastNoAccount": "프로필이 계정에 연결되어 있지 않습니다.",
-      "toastDuplicate": "\"{name}\"이라는 필드가 이미 존재합니다.",
-      "toastCreateFailed": "필드를 만들 수 없습니다. 권한이 없을 수 있습니다.",
-      "toastCreated": "\"{name}\"을(를) 만들었습니다.",
-      "toastRenameFailed": "필드 이름을 변경할 수 없습니다.",
-      "toastDeleteFailed": "필드를 삭제할 수 없습니다.",
-      "toastDeleted": "\"{name}\"을(를) 삭제했습니다."
+      "scopeContact": "연락처",
+      "scopeDeal": "딜",
+      "dragToReorder": "드래그하여 순서 변경",
+      "noGroupsYet": "아직 그룹이 없습니다 — 아래에서 만드세요.",
+      "newGroupNamePlaceholder": "새 그룹 이름…",
+      "createGroup": "그룹 만들기",
+      "activeOnSidebar": "연락처 사이드바에 표시됨",
+      "hiddenFromSidebar": "연락처 사이드바에서 숨김",
+      "noFieldsYet": "아직 필드가 없습니다.",
+      "newFieldNamePlaceholder": "새 필드 이름…",
+      "addField": "추가",
+      "required": "필수",
+      "aiCollectible": "AI가 수집 가능",
+      "fieldType_text": "텍스트",
+      "fieldType_textarea": "여러 줄 텍스트",
+      "fieldType_number": "숫자",
+      "fieldType_date": "날짜",
+      "fieldType_url": "URL / 링크",
+      "legacyFieldsTitle": "이전 필드",
+      "legacyFieldsDesc": "그룹 기능이 생기기 전에 만들어진 필드입니다 — 이름 변경 또는 삭제는 가능하지만 그룹에는 넣을 수 없습니다.",
+      "deleteGroupConfirm": "\"{name}\"을(를) 삭제하시겠습니까? 이 그룹의 필드와 저장된 값도 함께 삭제되고, 연결된 파이프라인 단계에서도 해제됩니다. 되돌릴 수 없습니다.",
+      "deleteFieldConfirm": "\"{name}\"을(를) 삭제하시겠습니까? 저장된 모든 값도 함께 삭제됩니다. 되돌릴 수 없습니다.",
+      "toastCreateGroupFailed": "그룹을 만들 수 없습니다. 권한이 없을 수 있습니다.",
+      "toastRenameGroupFailed": "그룹 이름을 변경할 수 없습니다.",
+      "toastToggleActiveFailed": "그룹 표시 여부를 변경할 수 없습니다.",
+      "toastDeleteGroupFailed": "그룹을 삭제할 수 없습니다.",
+      "toastGroupDeleted": "\"{name}\"을(를) 삭제했습니다.",
+      "toastAddFieldFailed": "필드를 추가할 수 없습니다. 권한이 없을 수 있습니다.",
+      "toastUpdateFieldFailed": "필드를 업데이트할 수 없습니다.",
+      "toastDeleteFieldFailed": "필드를 삭제할 수 없습니다."
+    },
+    "fields": {
+      "openLink": "링크 열기"
     }
   },
   "Pipelines": {
@@ -491,6 +535,7 @@
       "createPipelineBtn": "파이프라인 만들기",
       "toastFailedLoadPipelines": "파이프라인을 불러오지 못했습니다",
       "toastFailedMoveDeal": "딜을 이동하지 못했습니다",
+      "toastMissingRequiredFields": "이 딜을 다음 단계로 이동하려면 {fields} 항목을 입력하세요.",
       "toastFailedCreatePipeline": "파이프라인을 만들지 못했습니다",
       "toastPipelineCreated": "파이프라인이 생성되었습니다",
       "toastNotLinkedToAccount": "프로필이 계정에 연결되어 있지 않습니다."
@@ -568,7 +613,14 @@
       "toastMoveOrDeleteDeals": "먼저 이 단계의 딜을 이동하거나 삭제하세요",
       "toastFailedDeleteStage": "단계를 삭제하지 못했습니다",
       "toastFailedDeletePipeline": "파이프라인을 삭제하지 못했습니다",
-      "toastDeleted": "파이프라인이 삭제되었습니다"
+      "toastDeleted": "파이프라인이 삭제되었습니다",
+      "notifyGroupOnEnter": "딜이 이 단계에 들어오면 WhatsApp 그룹에 알림",
+      "requiresContactIdentity": "이 단계를 벗어나기 전에 연락처 이름과 전화번호 필수",
+      "requiredFields": "이 단계를 벗어나기 위해 필요한 필드 그룹",
+      "requiredFieldsTitle": "이 단계를 벗어나기 위한 필수 항목",
+      "requiredFieldsDesc": "이 그룹의 필수 필드에 모두 값이 입력되어야 딜을 다음 단계로 이동할 수 있습니다.",
+      "noCustomFields": "활성화된 필드 그룹이 없습니다 — 설정 → 필드 및 태그에서 추가하세요.",
+      "toastFailedRequiredField": "필수 필드 업데이트에 실패했습니다"
     },
     "analytics": {
       "totalDeals": "전체 딜",
@@ -584,6 +636,16 @@
       "lostThisMonth": "이번 달 실패",
       "lostThisMonthTooltip": "이번 달 1일 이후 실패로 표시된 딜입니다.",
       "howCalculated": "{label} 계산 방법"
+    },
+    "orderInfo": {
+      "title": "딜 정보",
+      "noName": "등록된 이름 없음",
+      "noPhone": "등록된 전화번호 없음",
+      "editInContacts": "연락처에서 수정",
+      "skipForNow": "나중에 하기",
+      "cancel": "취소",
+      "done": "완료",
+      "missingFieldsBanner": "이 딜을 다음 단계로 이동하려면 강조 표시된 항목을 입력하세요."
     }
   },
   "Broadcasts": {
@@ -715,7 +777,8 @@
         "errorLoadTags": "태그를 불러오지 못했습니다",
         "errorLoadFields": "커스텀 필드를 불러오지 못했습니다",
         "errorCsvParse": "CSV 파일을 파싱할 수 없습니다.",
-        "errorCsvMissingPhone": "CSV에 'phone' 열이 있어야 합니다."
+        "errorCsvMissingPhone": "CSV에 'phone' 열이 있어야 합니다.",
+        "optedOutWarning": "{total}명의 수신자 중 {count}명이 수신을 거부하여 제외됩니다."
       },
       "personalize": {
         "title": "변수 개인화",
@@ -725,7 +788,7 @@
         "imageUrl": "이미지 URL",
         "imageUrlPlaceholder": "https://example.com/image.jpg",
         "variables": "변수",
-        "varDesc": "{{name}}의 값을 설정하세요",
+        "varDesc": "'{{name}}'의 값을 설정하세요",
         "type": "유형",
         "typeStatic": "고정 값",
         "typeContact": "연락처 필드",
@@ -931,6 +994,7 @@
         "no": "아니요"
       },
       "addStep": "단계 추가",
+      "delete": "삭제",
       "config": {
         "messageText": "메시지 텍스트",
         "placeholderMessageText": "안녕하세요! 문의해주셔서 감사합니다…",
@@ -943,7 +1007,7 @@
         "agentLabel": "상담원",
         "fieldLabel": "필드",
         "valueLabel": "값",
-        "placeholderValue": "텍스트 또는 {{ vars.x }} / {{ message.text }}",
+        "placeholderValue": "텍스트 또는 '{{ vars.x }}' / '{{ message.text }}'",
         "titleLabel": "제목",
         "amountLabel": "수치",
         "unitLabel": "단위",
@@ -965,9 +1029,9 @@
         "placeholderTag": "태그 id",
         "urlLabel": "URL",
         "headersLabel": "헤더",
-        "placeholderHeaders": "{\"Authorization\": \"Bearer ...\"}",
+        "placeholderHeaders": "'{\"Authorization\": \"Bearer ...\"}'",
         "bodyTemplateLabel": "본문 템플릿",
-        "placeholderBody": "{\"id\": \"{{ contact.id }}\"}",
+        "placeholderBody": "'{\"id\": \"{{ contact.id }}\"}'",
         "matchType": "일치 유형",
         "matchContains": "포함",
         "matchExact": "정확히 일치",
@@ -1231,6 +1295,9 @@
       "remove": "제거",
       "removedToast": "{name}을(를) 제거했습니다",
       "updatedToast": "{name}을(를) {role}(으)로 변경했습니다",
+      "wahaSessionPlaceholder": "WAHA 세션",
+      "wahaSessionUpdatedToast": "{name}의 WAHA 세션을 업데이트했습니다",
+      "wahaSessionUpdateFailed": "WAHA 세션 업데이트에 실패했습니다",
       "pendingInvitations": "대기 중인 초대",
       "inviteHint": "보안을 위해 초대 URL 원문은 생성 시 한 번만 표시됩니다 — 다시 공유하려면 아래에서 초대를 취소하고 새로 만드세요.",
       "noPendingTitle": "대기 중인 초대가 없습니다.",
@@ -1274,7 +1341,7 @@
       "labelTooLong": "라벨은 {max}자 이하여야 합니다",
       "copied": "초대 링크가 복사되었습니다",
       "clipboardBlocked": "클립보드 접근이 차단되었습니다 — 링크를 직접 복사하세요",
-      "whatsappMessage": "이 링크(유효 기간 {expiresInDays}일)로 wacrm의 {accountName}에 참여하세요: {url}"
+      "whatsappMessage": "이 링크(유효 기간 {expiresInDays}일)로 Hightech Hub의 {accountName}에 참여하세요: {url}"
     },
     "tagsAndFields": {
       "title": "필드 & 태그",
@@ -1282,8 +1349,8 @@
       "tagsTitle": "태그",
       "tagsDesc": "연락처를 그룹화하고 필터링하기 위한 색상 라벨입니다.",
       "fieldsTitle": "커스텀 필드",
-      "fieldsDesc": "추가 연락처 필드입니다 (예: 우편번호, 리드 출처). 모든 연락처와 \"연락처 필드 업데이트\" 자동화 액션에 표시됩니다.",
-      "adminRole": "관리자",
+      "fieldsDesc": "추가 필드를 그룹으로 묶고(예: 현장 방문 정보), 파이프라인 단계에 그룹을 연결하여 거래가 진행되기 전에 필수로 채우도록 할 수 있습니다.",
+      "ownerRole": "소유자",
       "failedToLoadTags": "태그를 불러오지 못했습니다",
       "nameRequired": "태그 이름은 필수입니다",
       "notAuthenticated": "인증되지 않았습니다",
@@ -1352,9 +1419,9 @@
       "headerImage": "이미지",
       "headerVideo": "동영상",
       "headerDocument": "문서",
-      "headerTextPlaceholder": "헤더 텍스트 (최대 60자, {{1}} 선택 가능)",
+      "headerTextPlaceholder": "헤더 텍스트 (최대 60자, '{{1}}' 선택 가능)",
       "headerSampleAria": "헤더 변수 샘플 값",
-      "headerSamplePlaceholder": "{{1}}의 샘플 값 (Meta 검토에 필요)",
+      "headerSamplePlaceholder": "'{{1}}'의 샘플 값 (Meta 검토에 필요)",
 
       "uploadImage": "이미지 업로드",
       "uploadHint": "JPEG 또는 PNG, 5MB 이하",
@@ -1365,9 +1432,9 @@
       "documentHint": " 권장: PDF, 100MB 이하.",
 
       "bodyText": "본문 텍스트",
-      "bodyPlaceholder": "안녕하세요 {{1}}님, 주문 {{2}}이(가) 확정되었습니다.",
+      "bodyPlaceholder": "안녕하세요 '{{1}}'님, 주문 '{{2}}'이(가) 확정되었습니다.",
       "sampleValues": "샘플 값 (Meta가 템플릿 검토에 사용합니다)",
-      "bodyHint": "변수에는 {{1}}, {{2}}를 사용하세요 ({{1}}부터 연속되어야 합니다).",
+      "bodyHint": "변수에는 '{{1}}', '{{2}}'를 사용하세요 ('{{1}}'부터 연속되어야 합니다).",
       "sampleAria": "본문 변수 {var}의 샘플 값",
       "samplePlaceholder": "{var}의 샘플",
 
@@ -1382,8 +1449,8 @@
       "btnPhone": "전화",
       "btnCopyCode": "코드 복사",
       "btnLabelPlaceholder": "버튼 라벨",
-      "urlPlaceholder": "https://example.com/path 또는 {{1}} 접미사 포함",
-      "urlSamplePlaceholder": "{{1}}의 예시 값 (URL에 변수가 있을 때 필요)",
+      "urlPlaceholder": "https://example.com/path 또는 '{{1}}' 접미사 포함",
+      "urlSamplePlaceholder": "'{{1}}'의 예시 값 (URL에 변수가 있을 때 필요)",
       "phonePlaceholder": "+15551234567",
       "codePlaceholder": "예시 코드 (예: SUMMER20)",
 
@@ -1394,8 +1461,8 @@
       "submitApproval": "승인 요청",
 
       "deleteDialogTitle": "템플릿을 삭제하시겠습니까?",
-      "deleteMetaDesc": "\"{name}\"이(가) Meta와 wacrm에서 삭제됩니다. 이 템플릿을 사용하는 활성 브로드캐스트는 다음 전송부터 실패하기 시작합니다. 되돌릴 수 없습니다.",
-      "deleteLocalDesc": "\"{name}\"이(가) wacrm에서 삭제됩니다. Meta에 제출된 적이 없으므로 별도의 원격 정리가 필요하지 않습니다.",
+      "deleteMetaDesc": "\"{name}\"이(가) Meta와 Hightech Hub에서 삭제됩니다. 이 템플릿을 사용하는 활성 브로드캐스트는 다음 전송부터 실패하기 시작합니다. 되돌릴 수 없습니다.",
+      "deleteLocalDesc": "\"{name}\"이(가) Hightech Hub에서 삭제됩니다. Meta에 제출된 적이 없으므로 별도의 원격 정리가 필요하지 않습니다.",
       "deleting": "삭제 중…",
       "delete": "삭제",
 
@@ -1437,7 +1504,7 @@
       "notConnected": "연결되지 않음",
       "connectedDesc": "액세스 토큰으로 Meta 인증이 완료되었습니다. 웹훅이 실제로 연결되었는지는 아래 등록 상태를 확인하세요.",
       "notConnectedDesc": "아래에서 Meta API 자격 증명을 설정해 WhatsApp 비즈니스 계정을 연결하세요.",
-      "registered": "등록됨 — Meta가 wacrm으로 이벤트를 전달합니다",
+      "registered": "등록됨 — Meta가 Hightech Hub로 이벤트를 전달합니다",
       "notRegistered": "등록되지 않음 — Meta가 이벤트를 전달하지 않습니다",
       "verifyWithMeta": "Meta로 확인",
       "subscribedSince": "{date}부터 구독 중입니다. 이벤트가 더 이상 도착하지 않으면 Meta로 확인을 클릭하세요.",
@@ -1461,7 +1528,7 @@
       "twoStepPin": "2단계 인증 PIN",
       "optional": "(선택)",
       "pinPlaceholder": "Meta WhatsApp 관리자에서 발급받은 6자리 PIN",
-      "pinHint": "프로덕션 번호의 수신 메시지를 연결하려면 필요합니다. Meta 비즈니스 관리자 → WhatsApp 계정 → 전화번호 → 2단계 인증에서 설정한 뒤 여기에 붙여넣으면 wacrm이 해당 번호를 구독할 수 있습니다 — 그렇지 않으면 Meta는 마지막으로 이 번호를 등록한 앱으로 수신 이벤트를 보냅니다(공유 WABA 하의 두 번째 번호에서 흔히 발생하는 증상입니다). Meta 테스트 번호는 PIN이 없고 이미 등록되어 있으므로 이 필드를 비워두세요. 비워두면 기존 등록도 그대로 유지됩니다.",
+      "pinHint": "프로덕션 번호의 수신 메시지를 연결하려면 필요합니다. Meta 비즈니스 관리자 → WhatsApp 계정 → 전화번호 → 2단계 인증에서 설정한 뒤 여기에 붙여넣으면 Hightech Hub가 해당 번호를 구독할 수 있습니다 — 그렇지 않으면 Meta는 마지막으로 이 번호를 등록한 앱으로 수신 이벤트를 보냅니다(공유 WABA 하의 두 번째 번호에서 흔히 발생하는 증상입니다). Meta 테스트 번호는 PIN이 없고 이미 등록되어 있으므로 이 필드를 비워두세요. 비워두면 기존 등록도 그대로 유지됩니다.",
       "webhookTitle": "웹훅 설정",
       "webhookDesc": "Meta 앱 대시보드의 웹훅 콜백으로 이 URL을 사용하세요.",
       "webhookUrl": "웹훅 콜백 URL",
@@ -1482,14 +1549,14 @@
       "step2_3": "설정 마법사를 따라 비즈니스를 연결",
       "step3": "API 자격 증명 가져오기",
       "step3_1": "WhatsApp > API Setup으로 이동",
-      "step3_2": "<strong class=\"text-foreground\">전화번호 ID</strong> 복사",
-      "step3_3": "<strong class=\"text-foreground\">WhatsApp 비즈니스 계정 ID</strong> 복사",
-      "step3_4": "Business Settings > System Users에서 <strong class=\"text-foreground\">영구 액세스 토큰</strong> 생성",
+      "step3_2": "<strong>전화번호 ID</strong> 복사",
+      "step3_3": "<strong>WhatsApp 비즈니스 계정 ID</strong> 복사",
+      "step3_4": "Business Settings > System Users에서 <strong>영구 액세스 토큰</strong> 생성",
       "step4": "웹훅 설정",
       "step4_1": "WhatsApp > Configuration으로 이동",
       "step4_2": "웹훅 섹션에서 \"Edit\" 클릭",
-      "step4_3": "위의 <strong class=\"text-foreground\">웹훅 콜백 URL</strong>을 붙여넣기",
-      "step4_4": "여기서 설정한 것과 동일한 <strong class=\"text-foreground\">인증 토큰</strong>을 입력",
+      "step4_3": "위의 <strong>웹훅 콜백 URL</strong>을 붙여넣기",
+      "step4_4": "여기서 설정한 것과 동일한 <strong>인증 토큰</strong>을 입력",
       "step4_5": "\"messages\" 웹훅 필드를 구독",
       "metaDocs": "Meta WhatsApp API 문서"
     },
@@ -1502,6 +1569,7 @@
       "templates": "템플릿",
       "fields": "필드 & 태그",
       "deals": "딜 & 통화",
+      "group-notifications": "그룹 알림",
       "members": "팀원",
       "api": "API 키"
     },
@@ -1519,6 +1587,8 @@
       "displayName": "표시 이름",
       "email": "이메일",
       "emailChangeHint": "<bold>{oldEmail}</bold>과(와) <bold>{newEmail}</bold>의 받은편지함을 확인하세요 — 변경 사항이 적용되려면 둘 다 확인이 필요합니다.",
+      "phone": "전화번호",
+      "phoneHint": "고객이 전화 통화를 요청하면 AI 어시스턴트가 공유합니다. 비워두면 회원님의 번호를 알려주지 않습니다.",
       "accountDetails": "계정 정보",
       "role": "역할",
       "joined": "가입일",
@@ -1569,7 +1639,8 @@
       "useMode": "{mode} 모드 사용",
       "active": "사용 중",
       "accentColor": "강조 색상",
-      "useTheme": "{name} 테마 사용"
+      "useTheme": "{name} 테마 사용",
+      "syncFailed": "화면 설정을 저장하지 못했습니다. 이 기기에서는 계속 적용됩니다."
     },
     "security": {
       "title": "로그인 & 보안",
@@ -1598,7 +1669,7 @@
       "nameLabel": "이름",
       "namePlaceholder": "예: Zapier 자동화",
       "scopesLabel": "권한 범위",
-      "scopesHint": "권한 범위가 없는 키도 <code className=\"text-[11px]\">GET /api/v1/me</code>를 호출해 동작을 확인할 수 있습니다.",
+      "scopesHint": "권한 범위가 없는 키도 <code>GET /api/v1/me</code>를 호출해 동작을 확인할 수 있습니다.",
       "cancel": "취소",
       "creating": "만드는 중…",
       "createKey": "키 생성",
@@ -1625,9 +1696,35 @@
       "saveFailed": "기본 통화를 저장하지 못했습니다",
       "saveSuccess": "기본 통화가 업데이트되었습니다"
     },
+    "waha": {
+      "title": "그룹 알림",
+      "description": "이 앱의 다른 모든 곳에서 사용하는 WhatsApp 공식 Cloud API는 그룹 채팅으로 메시지를 보낼 수 없습니다 — 이는 설정이 아니라 플랫폼 자체의 제약입니다. 이 기능은 별도로 자체 호스팅한 WAHA(WhatsApp HTTP API) 인스턴스를 자체 WhatsApp 번호로 인증하여 연결하므로, 딜이 지정된 파이프라인 단계에 들어오면 내부 그룹(예: 현장 방문 팀)에 구조화된 메시지를 게시할 수 있습니다.",
+      "statusActive": "그룹 알림 활성화됨",
+      "statusInactive": "연결되지 않음",
+      "statusDesc": "QR 코드로 로그인하고 대상 그룹에 이미 참여한 WAHA 인스턴스가 실행 중이어야 합니다.",
+      "connectionTitle": "WAHA 연결",
+      "connectionDesc": "어떤 단계가 알림을 트리거할지는 파이프라인 설정 → 각 단계의 종 아이콘에서 구성하세요.",
+      "baseUrl": "WAHA 기본 URL",
+      "apiKey": "API 키",
+      "apiKeyPlaceholder": "WAHA X-Api-Key",
+      "sessionName": "세션 이름",
+      "sessionNameNotUsedHint": "단계 진입 알림에는 사용되지 않습니다 — 알림은 설정 → 팀원에서 구성원별로 지정한 각 상담원 고유 세션으로 전송됩니다.",
+      "groupChatId": "그룹 채팅 ID",
+      "groupChatIdHint": "대상 그룹의 WhatsApp ID로, \"@g.us\"로 끝납니다. WAHA의 채팅/그룹 엔드포인트에서 확인하세요.",
+      "activeLabel": "사용",
+      "activeHint": "설정을 유지한 채 그룹 알림 전송만 중지하려면 끄세요.",
+      "save": "저장",
+      "saving": "저장 중...",
+      "toastLoadFailed": "WAHA 설정을 불러오지 못했습니다",
+      "toastBaseUrlRequired": "WAHA 기본 URL이 필요합니다",
+      "toastGroupIdInvalid": "그룹 채팅 ID는 \"@g.us\"로 끝나야 합니다",
+      "toastKeyRequired": "최초 설정 시 API 키가 필요합니다",
+      "toastSaveFailed": "WAHA 설정을 저장하지 못했습니다",
+      "toastSaved": "WAHA 설정이 저장되었습니다"
+    },
     "aiConfig": {
       "title": "에이전트 설정",
-      "description": "직접 발급받은 OpenAI 또는 Anthropic 키를 사용하세요. wacrm은 회원님의 키로 공급자에 직접 요청하므로 좌석당 AI 비용이 없고 데이터도 온전히 회원님의 것입니다. 인박스의 AI 답장 초안, 자동 응답 봇, 플레이그라운드에 사용됩니다.",
+      "description": "직접 발급받은 OpenAI, Anthropic, Gemini 또는 DeepSeek 키를 사용하세요. Hightech Hub는 회원님의 키로 공급자에 직접 요청하므로 좌석당 AI 비용이 없고 데이터도 온전히 회원님의 것입니다. 인박스의 AI 답장 초안, 자동 응답 봇, 플레이그라운드에 사용됩니다.",
       "adminOnlyConfig": "관리자와 소유자만 AI 설정을 변경할 수 있습니다.",
       "loadFailed": "AI 설정을 불러오지 못했습니다",
       "providerAndKey": "공급자 & 키",
@@ -1639,6 +1736,8 @@
       "testSuccess": "키가 정상 작동합니다 — 공급자가 응답했습니다.",
       "testRejected": "공급자가 요청을 거부했습니다.",
       "testNetworkError": "공급자에 연결할 수 없습니다.",
+      "keyErrorTitle": "AI 어시스턴트 키가 작동을 멈췄습니다",
+      "keyErrorAt": "{time} 마지막으로 실패함",
       "embeddingsKey": "임베딩 키",
       "optionalSemanticSearch": "(선택 — 의미 기반 지식베이스 검색을 활성화합니다)",
       "embeddingsHint": "지식베이스를 임베딩하는 데만 사용되는 OpenAI 키입니다(text-embedding-3-small){sameKeyText}. 비워두면 키워드 검색을 사용합니다. 비우면 의미 기반 검색이 꺼집니다.",
@@ -1651,6 +1750,46 @@
       "enableAssistantDesc": "마스터 스위치입니다. 인박스의 \"AI로 초안 작성\" 버튼을 켭니다.",
       "autoReply": "수신 메시지 자동 응답",
       "autoReplyDesc": "봇이 새 수신 메시지에 자동으로 응답합니다(플로우가 처리하지 않고 담당 상담원이 없는 경우에만). 도움을 줄 수 없으면 사람에게 인계합니다.",
+      "transcribeVoice": "음성 메시지 전사",
+      "transcribeVoiceDesc": "수신된 WhatsApp 음성 메시지를 전사합니다(OpenAI Whisper) — 초안, 자동 응답, 필드 수집이 음성 내용을 확인할 수 있습니다.",
+      "transcribeVoiceNeedsKey": "임베딩 키가 필요합니다(위 참조) — Whisper는 OpenAI 전용입니다.",
+      "afterHoursTakeover": "영업시간 외 AI 대응",
+      "afterHoursTakeoverDesc": "영업시간(아래 설정) 외에는 담당 상담원이 지정되어 있어도 AI가 계속 응답합니다 — 상담원도 오프라인일 가능성이 높기 때문입니다. 이전에 명시적으로 인계된 경우는 그대로 유지됩니다.",
+      "businessHours": {
+        "title": "영업시간",
+        "description": "위의 영업시간 외 AI 대응 기능에 사용됩니다. 모든 요일을 끄면 \"항상 이용 가능\"(제한 없음)을 의미합니다.",
+        "timezone": "시간대",
+        "timezoneHint": "IANA 시간대 이름(예: Asia/Qatar). 아래 시간은 이 시간대를 기준으로 평가됩니다.",
+        "day": {
+          "mon": "월",
+          "tue": "화",
+          "wed": "수",
+          "thu": "목",
+          "fri": "금",
+          "sat": "토",
+          "sun": "일"
+        },
+        "to": "~",
+        "save": "영업시간 저장",
+        "saveSuccess": "영업시간이 저장되었습니다",
+        "saveFailed": "영업시간을 저장하지 못했습니다",
+        "loadFailed": "영업시간을 불러오지 못했습니다"
+      },
+      "socialLinks": {
+        "title": "소셜 미디어 및 웹사이트",
+        "description": "고객이 문의하면 AI 어시스턴트가 이 링크를 공유할 수 있습니다.",
+        "platform": {
+          "website": "웹사이트",
+          "instagram": "인스타그램",
+          "facebook": "페이스북",
+          "tiktok": "틱톡",
+          "x": "X (트위터)"
+        },
+        "save": "링크 저장",
+        "saveSuccess": "링크가 저장되었습니다",
+        "saveFailed": "링크를 저장하지 못했습니다",
+        "loadFailed": "링크를 불러오지 못했습니다"
+      },
       "maxAutoReplies": "대화당 최대 자동 응답 횟수",
       "maxAutoRepliesDesc": "한 대화에서 이 횟수만큼 봇이 응답하면 더 이상 응답하지 않습니다.",
       "handoffTo": "인계 대상",

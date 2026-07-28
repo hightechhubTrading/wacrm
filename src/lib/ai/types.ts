@@ -29,6 +29,21 @@ export interface AiConfig {
      * knowledge base is embedded and semantic retrieval turns on; when
      * null, retrieval falls back to lexical full-text search. */
   embeddingsApiKey: string | null
+  /** Set when the last call with this key failed with AiError.code ===
+   * 'invalid_key'; cleared on the next successful call or a successful
+   * "Test key". Lets auto-reply distinguish a fresh failure (worth a
+   * notification) from a already-known one. */
+  lastKeyError: string | null
+  lastKeyErrorAt: string | null
+  /** Transcribe inbound WhatsApp voice notes with Whisper (requires
+   * `embeddingsApiKey` — Whisper is OpenAI-only, same key that powers
+   * knowledge-base embeddings). */
+  transcribeVoiceMessages: boolean
+  /** When true, auto-reply keeps replying outside the account's
+   * business hours even if a human agent is assigned (who's
+   * presumably offline too) — see src/lib/ai/business-hours.ts. Still
+   * respects a prior explicit handoff. */
+  afterHoursTakeoverEnabled: boolean
 }
 
 /** A single conversation turn in the shape both providers accept. */
@@ -74,6 +89,12 @@ export interface GenerateResult {
    * fields and applied by the auto-reply dispatcher. Empty when none
    * were emitted this turn. */
   fields: { name: string; value: string }[]
+  /** Priority level the model assessed this turn (auto-reply mode
+   * only — see PRIORITY_SENTINEL_* in defaults.ts), or null when no
+   * marker was emitted (draft mode, or a malformed/missing marker). */
+  priority: string | null
+  /** Short human-readable reason paired with `priority`, or null. */
+  priorityReason: string | null
     /** Provider token usage for this call, or null when unavailable. */
   usage: AiUsage | null
 }

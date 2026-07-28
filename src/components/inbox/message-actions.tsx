@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { CornerUpLeft, Copy, SmilePlus } from "lucide-react";
+import { CornerUpLeft, Copy, Languages, Loader2, SmilePlus } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -9,8 +9,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import type { Message } from "@/types";
 import { useTranslations } from "next-intl";
+
+// No per-agent locale exists — default the target language to whichever
+// of the app's two shipped UI locales ISN'T the build-time default, and
+// let the agent override it in the popover.
+const APP_LOCALE = process.env.NEXT_PUBLIC_APP_LOCALE || "en";
+const DEFAULT_TARGET_LANGUAGE = APP_LOCALE === "ko" ? "English" : "Korean";
 
 // WhatsApp's own quick-reaction bar starts with these six. Picking the same
 // set keeps the affordance familiar without pulling in a 300KB emoji library.
@@ -41,6 +49,10 @@ export function MessageActions({
   // interacts elsewhere.
   const [touchOpen, setTouchOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [translateOpen, setTranslateOpen] = useState(false);
+  const [targetLanguage, setTargetLanguage] = useState(DEFAULT_TARGET_LANGUAGE);
+  const [translating, setTranslating] = useState(false);
+  const [translation, setTranslation] = useState<string | null>(null);
 
   const isAgent =
     message.sender_type === "agent" || message.sender_type === "bot";
@@ -76,6 +88,32 @@ export function MessageActions({
     setTouchOpen(false);
   };
 
+  const handleTranslate = async () => {
+    const text = message.content_text ?? message.transcript ?? "";
+    if (!text.trim()) {
+      toast.error(t("nothingToCopy"));
+      return;
+    }
+    setTranslating(true);
+    try {
+      const res = await fetch("/api/ai/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, target_language: targetLanguage }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? t("translateFailed"));
+        return;
+      }
+      setTranslation(data.translation);
+    } catch {
+      toast.error(t("translateFailed"));
+    } finally {
+      setTranslating(false);
+    }
+  };
+
   // Row alignment lives here (not in MessageBubble) so the `group/actions`
   // hover region matches the bubble's content width — hovering empty space
   // in the row no longer reveals the toolbar.
@@ -95,6 +133,14 @@ export function MessageActions({
        *  area. See issue #165. */}
       <div className="group/actions relative min-w-0 max-w-[75%]">
         {children}
+        {translation && (
+          <div className="mt-1 rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm">
+            <p className="mb-1 text-xs font-medium text-muted-foreground">
+              {t("translatedTo", { language: targetLanguage })}
+            </p>
+            <p className="whitespace-pre-wrap break-words">{translation}</p>
+          </div>
+        )}
       <div
         data-touch-open={touchOpen || pickerOpen ? "true" : undefined}
         className={cn(
@@ -144,6 +190,37 @@ export function MessageActions({
         >
           <Copy className="h-3.5 w-3.5" />
         </button>
+        <Popover open={translateOpen} onOpenChange={setTranslateOpen}>
+          <PopoverTrigger
+            className="flex h-5 w-5 items-center justify-center rounded-full text-popover-foreground hover:bg-muted hover:text-foreground"
+            aria-label={t("translate")}
+          >
+            <Languages className="h-3.5 w-3.5" />
+          </PopoverTrigger>
+          <PopoverContent className="w-56 space-y-2 p-2" sideOffset={6}>
+            <Input
+              value={targetLanguage}
+              onChange={(e) => setTargetLanguage(e.target.value)}
+              placeholder={t("targetLanguagePlaceholder")}
+              className="h-8 text-sm"
+            />
+            <Button
+              size="sm"
+              className="w-full"
+              disabled={translating || !targetLanguage.trim()}
+              onClick={async () => {
+                await handleTranslate();
+                setTranslateOpen(false);
+              }}
+            >
+              {translating ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                t("translate")
+              )}
+            </Button>
+          </PopoverContent>
+        </Popover>
       </div>
       </div>
     </div>

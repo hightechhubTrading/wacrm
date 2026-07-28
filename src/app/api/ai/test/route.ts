@@ -4,6 +4,7 @@ import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit
 import { decrypt } from '@/lib/whatsapp/encryption'
 import { validateAiCredentials } from '@/lib/ai/validate'
 import { AiError, type AiProvider } from '@/lib/ai/types'
+import { clearKeyError } from '@/lib/ai/key-health'
 
 /**
  * POST /api/ai/test  (admin+)
@@ -78,6 +79,10 @@ export async function POST(request: Request) {
         autoReplyMaxPerConversation: 3,
         handoffAgentId: null,
         embeddingsApiKey: null,
+        lastKeyError: null,
+        lastKeyErrorAt: null,
+        transcribeVoiceMessages: false,
+        afterHoursTakeoverEnabled: false,
       })
     } catch (err) {
       if (err instanceof AiError) {
@@ -92,6 +97,13 @@ export async function POST(request: Request) {
         { status: 400 },
       )
     }
+
+    // The key just validated successfully -- clear any previously
+    // recorded failure so the Settings banner goes away. Best-effort;
+    // never let this block the "it works" response.
+    clearKeyError(supabase, accountId).catch((err) =>
+      console.error('[ai/test] failed to clear key error:', err),
+    )
 
     return NextResponse.json({ ok: true })
   } catch (err) {

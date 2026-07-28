@@ -30,7 +30,7 @@ export async function GET() {
       // `api_key` is selected only to derive `has_key` — it is stripped
       // out below and never returned to the client.
       .select(
-        'provider, model, system_prompt, is_active, auto_reply_enabled, auto_reply_max_per_conversation, handoff_agent_id, api_key, embeddings_api_key',
+        'provider, model, system_prompt, is_active, auto_reply_enabled, auto_reply_max_per_conversation, handoff_agent_id, api_key, embeddings_api_key, last_key_error, last_key_error_at, transcribe_voice_messages, after_hours_takeover_enabled',
       )
       .eq('account_id', accountId)
       .maybeSingle()
@@ -95,6 +95,8 @@ export async function POST(request: Request) {
         : null
     const isActive = body.is_active === true
     const autoReplyEnabled = body.auto_reply_enabled === true
+    const transcribeVoiceMessages = body.transcribe_voice_messages === true
+    const afterHoursTakeoverEnabled = body.after_hours_takeover_enabled === true
 
     let maxPer = Number(body.auto_reply_max_per_conversation)
     if (!Number.isFinite(maxPer)) maxPer = 3
@@ -172,6 +174,10 @@ export async function POST(request: Request) {
           autoReplyMaxPerConversation: maxPer,
           handoffAgentId: null,
           embeddingsApiKey: null,
+          lastKeyError: null,
+          lastKeyErrorAt: null,
+          transcribeVoiceMessages: false,
+          afterHoursTakeoverEnabled: false,
         })
       } catch (err) {
         if (err instanceof AiError) {
@@ -210,6 +216,8 @@ export async function POST(request: Request) {
       is_active: isActive,
       auto_reply_enabled: autoReplyEnabled,
       auto_reply_max_per_conversation: maxPer,
+      transcribe_voice_messages: transcribeVoiceMessages,
+      after_hours_takeover_enabled: afterHoursTakeoverEnabled,
     }
     // Only touch the handoff target when the form actually sent the field,
     // so a partial save (e.g. flipping a toggle) doesn't wipe it.
@@ -218,6 +226,13 @@ export async function POST(request: Request) {
       shared.embeddings_api_key = encrypt(rawEmbeddingsKey)
     } else if (clearEmbeddingsKey) {
       shared.embeddings_api_key = null
+    }
+    // The chat key just re-validated successfully (or this is unchanged
+    // from a working config) -- clear any previously recorded failure
+    // so the Settings banner goes away without a separate write.
+    if (credentialsChanged) {
+      shared.last_key_error = null
+      shared.last_key_error_at = null
     }
 
     if (existing) {

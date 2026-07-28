@@ -172,6 +172,11 @@ function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof
           ) : (
             <MediaUnavailable label={t("audio")} t={t} />
           )}
+          {message.transcript && (
+            <p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">
+              {message.transcript}
+            </p>
+          )}
         </div>
       );
 
@@ -208,13 +213,35 @@ function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof
         </div>
       );
 
-    case "location":
+    case "location": {
+      const text = message.content_text || t("locationShared");
+      // The webhook emits "{label}\n{mapsUrl}" (or just the URL alone) —
+      // pull the map link out so it renders as a real, tappable link
+      // instead of inert text.
+      const lines = text.split("\n");
+      const mapsUrl = lines.find((l) => l.startsWith("http"));
+      const label = mapsUrl ? lines.filter((l) => l !== mapsUrl).join(" — ") : null;
       return (
-        <div className="flex items-center gap-2 text-sm">
-          <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <span>{message.content_text || t("locationShared")}</span>
+        <div className="flex items-start gap-2 text-sm">
+          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <div>
+            {label && <p className="break-words">{label}</p>}
+            {mapsUrl ? (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline underline-offset-2 hover:text-primary/80"
+              >
+                {t("viewOnMap")}
+              </a>
+            ) : (
+              <span>{text}</span>
+            )}
+          </div>
         </div>
       );
+    }
 
     case "interactive": {
       // Three cases share content_type='interactive':

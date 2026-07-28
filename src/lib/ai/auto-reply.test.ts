@@ -10,9 +10,14 @@ const h = vi.hoisted(() => ({
   engineSendText: vi.fn(),
   state: {
     conv: null as Record<string, unknown> | null,
+    account: null as Record<string, unknown> | null,
+    admins: [] as { user_id: string }[],
+    agentProfile: null as Record<string, unknown> | null,
     autoResponders: [] as { id: string }[],
     claim: true as boolean,
     updatePayload: null as Record<string, unknown> | null,
+    conversationUpdates: [] as Record<string, unknown>[],
+    notificationInserts: [] as Record<string, unknown>[],
     rpcCalls: [] as { name: string; args: unknown }[],
   },
 }))
@@ -36,6 +41,38 @@ vi.mock('./admin-client', () => ({
         }
         return chain
       }
+      if (table === 'accounts') {
+        // .select('business_hours, timezone').eq('id', accountId).maybeSingle()
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({ data: h.state.account, error: null }),
+            }),
+          }),
+        }
+      }
+      if (table === 'profiles') {
+        // Two shapes used: .select('user_id').eq(...).in('account_role', [...])
+        // (admin lookup) and .select('phone').eq('user_id', ...).maybeSingle()
+        // (assigned-agent phone lookup).
+        const chain = {
+          select: () => chain,
+          eq: () => chain,
+          in: () => Promise.resolve({ data: h.state.admins, error: null }),
+          maybeSingle: () =>
+            Promise.resolve({ data: h.state.agentProfile, error: null }),
+        }
+        return chain
+      }
+      if (table === 'notifications') {
+        return {
+          insert: (rows: Record<string, unknown>[]) => {
+            h.state.notificationInserts.push(...rows)
+            return Promise.resolve({ data: null, error: null })
+          },
+        }
+      }
       // conversations
       return {
         select: () => ({
@@ -46,6 +83,7 @@ vi.mock('./admin-client', () => ({
         }),
         update: (payload: Record<string, unknown>) => {
           h.state.updatePayload = payload
+          h.state.conversationUpdates.push(payload)
           return { eq: () => Promise.resolve({ error: null }) }
         },
       }
@@ -77,6 +115,10 @@ function aiConfig(overrides: Partial<AiConfig> = {}): AiConfig {
     autoReplyMaxPerConversation: 3,
     handoffAgentId: null,
     embeddingsApiKey: null,
+    lastKeyError: null,
+    lastKeyErrorAt: null,
+    transcribeVoiceMessages: false,
+    afterHoursTakeoverEnabled: false,
     ...overrides,
   }
 }
@@ -86,10 +128,18 @@ beforeEach(() => {
     assigned_agent_id: null,
     ai_autoreply_disabled: false,
     ai_reply_count: 0,
+    ai_context_summary: null,
+    ai_context_summary_at: null,
+    ai_priority: null,
   }
+  h.state.account = null
+  h.state.admins = []
+  h.state.agentProfile = null
   h.state.autoResponders = []
   h.state.claim = true
   h.state.updatePayload = null
+  h.state.conversationUpdates = []
+  h.state.notificationInserts = []
   h.state.rpcCalls = []
   h.loadAiConfig.mockResolvedValue(aiConfig())
   h.buildConversationContext.mockResolvedValue([{ role: 'user', content: 'hi' }])
@@ -187,10 +237,15 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
 })
 
 describe('dispatchInboundToAiReply — handoff', () => {
-  it('disables auto-reply, writes a summary, and does not send on handoff', async () => {
+  it('disables auto-reply, writes a summary, and sends only the fixed closing message', async () => {
     h.generateReply.mockResolvedValue({ text: '', handoff: true })
     await dispatchInboundToAiReply(ARGS)
-    expect(h.engineSendText).not.toHaveBeenCalled()
+    // The model's own text is never sent on handoff -- only the fixed
+    // closing message (never the model's own words) goes out.
+    expect(h.engineSendText).toHaveBeenCalledTimes(1)
+    expect(h.engineSendText.mock.calls[0][0]).toMatchObject({
+      text: expect.stringContaining('team members will follow up'),
+    })
     expect(h.state.rpcCalls).toHaveLength(0)
     expect(h.state.updatePayload).toMatchObject({ ai_autoreply_disabled: true })
     expect(h.state.updatePayload?.ai_handoff_summary).toContain(
@@ -208,5 +263,108 @@ describe('dispatchInboundToAiReply — handoff', () => {
       ai_autoreply_disabled: true,
       assigned_agent_id: 'agent-7',
     })
+  })
+})
+
+const CLOSED_HOURS = { mon: null, tue: null, wed: null, thu: null, fri: null, sat: null, sun: null }
+
+describe('dispatchInboundToAiReply — after-hours takeover', () => {
+  it('skips a human-assigned conversation when takeover is off', async () => {
+    h.state.conv = { ...h.state.conv, assigned_agent_id: 'human-1' }
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).not.toHaveBeenCalled()
+  })
+
+  it('skips a human-assigned conversation when takeover is on but within business hours', async () => {
+    h.loadAiConfig.mockResolvedValue(aiConfig({ afterHoursTakeoverEnabled: true }))
+    h.state.conv = { ...h.state.conv, assigned_agent_id: 'human-1' }
+    h.state.account = { business_hours: null, timezone: 'UTC' } // null = always open
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).not.toHaveBeenCalled()
+  })
+
+  it('replies to a human-assigned conversation when takeover is on and outside business hours', async () => {
+    h.loadAiConfig.mockResolvedValue(aiConfig({ afterHoursTakeoverEnabled: true }))
+    h.state.conv = { ...h.state.conv, assigned_agent_id: 'human-1' }
+    h.state.account = { business_hours: CLOSED_HOURS, timezone: 'UTC' }
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).toHaveBeenCalled()
+    expect(h.engineSendText).toHaveBeenCalled()
+  })
+
+  it('still respects a prior explicit handoff even after hours', async () => {
+    h.loadAiConfig.mockResolvedValue(aiConfig({ afterHoursTakeoverEnabled: true }))
+    h.state.conv = {
+      ...h.state.conv,
+      assigned_agent_id: 'human-1',
+      ai_autoreply_disabled: true,
+    }
+    h.state.account = { business_hours: CLOSED_HOURS, timezone: 'UTC' }
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).not.toHaveBeenCalled()
+  })
+})
+
+describe('dispatchInboundToAiReply — AI priority', () => {
+  it('always persists the priority, even "normal"', async () => {
+    h.generateReply.mockResolvedValue({
+      text: 'Sure!',
+      handoff: false,
+      priority: 'normal',
+      priorityReason: 'routine question',
+    })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.state.conversationUpdates).toContainEqual({
+      ai_priority: 'normal',
+      ai_priority_reason: 'routine question',
+    })
+    expect(h.state.notificationInserts).toHaveLength(0)
+  })
+
+  it('notifies the assigned agent on a transition into urgent', async () => {
+    h.loadAiConfig.mockResolvedValue(aiConfig({ afterHoursTakeoverEnabled: true }))
+    h.state.conv = {
+      ...h.state.conv,
+      assigned_agent_id: 'human-1',
+      ai_priority: 'normal',
+    }
+    h.state.account = { business_hours: CLOSED_HOURS, timezone: 'UTC' }
+    h.generateReply.mockResolvedValue({
+      text: 'On it',
+      handoff: false,
+      priority: 'urgent',
+      priorityReason: 'threatened to cancel',
+    })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.state.notificationInserts).toHaveLength(1)
+    expect(h.state.notificationInserts[0]).toMatchObject({
+      type: 'urgent_lead',
+      user_id: 'human-1',
+      body: 'threatened to cancel',
+    })
+  })
+
+  it('falls back to admins when no agent is assigned', async () => {
+    h.state.admins = [{ user_id: 'admin-1' }, { user_id: 'admin-2' }]
+    h.generateReply.mockResolvedValue({
+      text: 'On it',
+      handoff: false,
+      priority: 'urgent',
+      priorityReason: 'high value lead',
+    })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.state.notificationInserts).toHaveLength(2)
+  })
+
+  it('does not re-notify when the conversation is already urgent', async () => {
+    h.state.conv = { ...h.state.conv, ai_priority: 'urgent' }
+    h.generateReply.mockResolvedValue({
+      text: 'Still on it',
+      handoff: false,
+      priority: 'urgent',
+      priorityReason: 'same issue',
+    })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.state.notificationInserts).toHaveLength(0)
   })
 })

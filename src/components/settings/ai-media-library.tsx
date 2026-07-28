@@ -25,6 +25,8 @@ interface MediaItem {
   name: string;
   product_label: string | null;
   description: string;
+  price: number | null;
+  price_unit: string | null;
   media_kind: 'image' | 'document';
   mime_type: string;
   storage_path: string;
@@ -47,6 +49,8 @@ export function AiMediaLibraryCard({
   const [name, setName] = useState('');
   const [productLabel, setProductLabel] = useState('');
   const [description, setDescription] = useState('');
+  const [price, setPrice] = useState('');
+  const [priceUnit, setPriceUnit] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const loadedAccountIdRef = useRef<string | null>(null);
@@ -76,6 +80,8 @@ export function AiMediaLibraryCard({
     setName('');
     setProductLabel('');
     setDescription('');
+    setPrice('');
+    setPriceUnit('');
     setFile(null);
   };
 
@@ -84,6 +90,8 @@ export function AiMediaLibraryCard({
     setName(item.name);
     setProductLabel(item.product_label ?? '');
     setDescription(item.description);
+    setPrice(item.price != null ? String(item.price) : '');
+    setPriceUnit(item.price_unit ?? '');
     setFile(null);
   };
 
@@ -92,6 +100,8 @@ export function AiMediaLibraryCard({
     setName('');
     setProductLabel('');
     setDescription('');
+    setPrice('');
+    setPriceUnit('');
     setFile(null);
   };
 
@@ -127,6 +137,8 @@ export function AiMediaLibraryCard({
             name: name.trim(),
             description: description.trim(),
             product_label: productLabel.trim(),
+            price: price.trim() ? Number(price.trim()) : null,
+            price_unit: priceUnit.trim() || null,
             storage_path: path,
             mime_type: file.type,
             media_kind: mediaKind,
@@ -150,6 +162,8 @@ export function AiMediaLibraryCard({
             name: name.trim(),
             description: description.trim(),
             product_label: productLabel.trim(),
+            price: price.trim() ? Number(price.trim()) : null,
+            price_unit: priceUnit.trim() || null,
           }),
         });
         const data = await res.json();
@@ -221,6 +235,13 @@ export function AiMediaLibraryCard({
                       {item.product_label && (
                         <span className="text-muted-foreground"> -- {item.product_label}</span>
                       )}
+                      {item.price != null && (
+                        <span className="text-muted-foreground">
+                          {' '}
+                          ({item.price}
+                          {item.price_unit ? ` / ${item.price_unit.replace(/_/g, ' ')}` : ''})
+                        </span>
+                      )}
                     </span>
                     {canEdit && (
                       <span className="flex shrink-0 gap-1">
@@ -273,6 +294,34 @@ export function AiMediaLibraryCard({
                     />
                   </div>
                 </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="media-price">Price (optional)</Label>
+                    <Input
+                      id="media-price"
+                      type="number"
+                      step="any"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      placeholder="45"
+                      disabled={saving}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="media-price-unit">Unit</Label>
+                    <Input
+                      id="media-price-unit"
+                      value={priceUnit}
+                      onChange={(e) => setPriceUnit(e.target.value)}
+                      placeholder="per_meter"
+                      disabled={saving}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Reference only — the AI never quotes a price to the customer, but knowing the
+                  unit helps it ask the right clarifying question (e.g. how many meters).
+                </p>
                 <div className="space-y-2">
                   <Label htmlFor="media-description">
                     Description (read by the AI to decide relevance)

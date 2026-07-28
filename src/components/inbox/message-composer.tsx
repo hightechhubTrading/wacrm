@@ -22,6 +22,7 @@ import {
   Plus,
   MessageSquareDashed,
   Zap,
+  Languages,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
@@ -146,6 +147,7 @@ export function MessageComposer({
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
+  const [translatingDraft, setTranslatingDraft] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Interactive-message builder dialog + quick-reply picker.
@@ -297,6 +299,42 @@ export function MessageComposer({
       setDrafting(false);
     }
   }, [drafting, conversationId, adjustHeight]);
+
+  // Translate the composer's current text in place — agent types in
+  // their own language, this replaces it with the target-language
+  // version before sending. No per-agent locale exists, so the target
+  // is simply whichever of the app's two shipped UI locales isn't the
+  // build-time default (see message-actions.tsx for the same heuristic
+  // on the inbound side).
+  const handleTranslateDraft = useCallback(async () => {
+    if (translatingDraft || !text.trim()) return;
+    const appLocale = process.env.NEXT_PUBLIC_APP_LOCALE || "en";
+    const targetLanguage = appLocale === "ko" ? "English" : "Korean";
+    setTranslatingDraft(true);
+    try {
+      const res = await fetch("/api/ai/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, target_language: targetLanguage }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "Couldn't translate the message.");
+        return;
+      }
+      const translated = typeof data.translation === "string" ? data.translation.trim() : "";
+      if (!translated) {
+        toast.error("The assistant didn't return a translation.");
+        return;
+      }
+      setText(translated);
+      requestAnimationFrame(() => adjustHeight());
+    } catch {
+      toast.error("Couldn't reach the AI assistant.");
+    } finally {
+      setTranslatingDraft(false);
+    }
+  }, [translatingDraft, text, adjustHeight]);
 
   // ---- Interactive message + quick replies --------------------------
 
@@ -723,6 +761,23 @@ export function MessageComposer({
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Sparkles className="h-4 w-4" />
+            )}
+          </GatedButton>
+
+          <GatedButton
+            variant="ghost"
+            size="sm"
+            canAct={!readOnly}
+            gateReason="send messages"
+            disabled={translatingDraft || !text.trim()}
+            title={readOnly ? undefined : t("translateDraft")}
+            className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-primary"
+            onClick={handleTranslateDraft}
+          >
+            {translatingDraft ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Languages className="h-4 w-4" />
             )}
           </GatedButton>
 

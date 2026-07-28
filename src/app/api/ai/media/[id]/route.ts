@@ -17,7 +17,7 @@ export async function GET(_request: Request, { params }: Params) {
     const { id } = await params
     const { data, error } = await supabase
       .from('ai_media_library')
-      .select('id, name, product_label, description, media_kind, mime_type, storage_path, updated_at')
+      .select('id, name, product_label, description, price, price_unit, media_kind, mime_type, storage_path, updated_at')
       .eq('account_id', accountId)
       .eq('id', id)
       .maybeSingle()
@@ -46,13 +46,23 @@ export async function PATCH(request: Request, { params }: Params) {
     const { id } = await params
     const body = await request.json().catch(() => null)
 
-    const update: Record<string, string | null> = {}
+    const update: Record<string, string | number | null> = {}
     if (typeof body?.name === 'string') update.name = body.name.trim()
     if (typeof body?.description === 'string') {
       update.description = body.description.trim()
     }
     if (typeof body?.product_label === 'string') {
       update.product_label = body.product_label.trim() || null
+    }
+    if ('price' in (body ?? {})) {
+      update.price =
+        typeof body.price === 'number' && Number.isFinite(body.price) ? body.price : null
+    }
+    if (typeof body?.price_unit === 'string' || body?.price_unit === null) {
+      update.price_unit =
+        typeof body.price_unit === 'string' && body.price_unit.trim()
+          ? body.price_unit.trim()
+          : null
     }
     if (Object.keys(update).length === 0) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })

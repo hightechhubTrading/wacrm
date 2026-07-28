@@ -13,6 +13,10 @@ function config(overrides: Partial<AiConfig> = {}): AiConfig {
           autoReplyMaxPerConversation: 3,
           handoffAgentId: null,
           embeddingsApiKey: null,
+          lastKeyError: null,
+          lastKeyErrorAt: null,
+          transcribeVoiceMessages: false,
+          afterHoursTakeoverEnabled: false,
           ...overrides,
     }
 }
@@ -44,6 +48,10 @@ describe('parseGeneration', () => {
                   text: 'Hello there',
                   handoff: false,
                   mediaId: null,
+                  productTagId: null,
+                  fields: [],
+                  priority: null,
+                  priorityReason: null,
                   usage: null,
           })
     })
@@ -53,12 +61,20 @@ describe('parseGeneration', () => {
                          text: '',
                          handoff: true,
                          mediaId: null,
+                         productTagId: null,
+                         fields: [],
+                         priority: null,
+                         priorityReason: null,
                          usage: null,
                  })
                  expect(parseGeneration('Let me get a human [[HANDOFF]]')).toEqual({
                          text: 'Let me get a human',
                          handoff: true,
                          mediaId: null,
+                         productTagId: null,
+                         fields: [],
+                         priority: null,
+                         priorityReason: null,
                          usage: null,
                  })
            })
@@ -68,6 +84,10 @@ describe('parseGeneration', () => {
                          text: 'Here you go',
                          handoff: false,
                          mediaId: 'abc-123',
+                         productTagId: null,
+                         fields: [],
+                         priority: null,
+                         priorityReason: null,
                          usage: null,
                  })
            })
@@ -77,6 +97,10 @@ describe('parseGeneration', () => {
                          text: 'Here you go [[SEND_MEDIA:abc-123',
                          handoff: false,
                          mediaId: null,
+                         productTagId: null,
+                         fields: [],
+                         priority: null,
+                         priorityReason: null,
                          usage: null,
                  })
            })
@@ -87,8 +111,34 @@ describe('parseGeneration', () => {
                          text: 'Hi',
                          handoff: false,
                          mediaId: null,
+                         productTagId: null,
+                         fields: [],
+                         priority: null,
+                         priorityReason: null,
                          usage,
                  })
+           })
+
+           it('detects + strips the priority sentinel', () => {
+                 expect(
+                   parseGeneration('All good here [[PRIORITY:urgent|customer threatened to cancel]]'),
+                 ).toEqual({
+                         text: 'All good here',
+                         handoff: false,
+                         mediaId: null,
+                         productTagId: null,
+                         fields: [],
+                         priority: 'urgent',
+                         priorityReason: 'customer threatened to cancel',
+                         usage: null,
+                 })
+           })
+
+           it('ignores an unrecognized priority level', () => {
+                 const res = parseGeneration('Hi [[PRIORITY:critical|not a real level]]')
+                 expect(res.priority).toBeNull()
+                 expect(res.priorityReason).toBeNull()
+                 expect(res.text).toBe('Hi')
            })
 })
 
@@ -112,6 +162,10 @@ describe('generateReply — OpenAI', () => {
                    text: 'Sure — happy to help!',
                    handoff: false,
                    mediaId: null,
+                   productTagId: null,
+                   fields: [],
+                   priority: null,
+                   priorityReason: null,
                    usage: { promptTokens: 42, completionTokens: 8, totalTokens: 50 },
            })
           const [url, opts] = fetchMock.mock.calls[0]
@@ -172,6 +226,10 @@ describe('generateReply — Anthropic', () => {
                    text: 'Hi there!',
                    handoff: false,
                    mediaId: null,
+                   productTagId: null,
+                   fields: [],
+                   priority: null,
+                   priorityReason: null,
                    usage: { promptTokens: 30, completionTokens: 6, totalTokens: 36 },
            })
           const [url, opts] = fetchMock.mock.calls[0]

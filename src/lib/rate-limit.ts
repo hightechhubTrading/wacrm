@@ -167,6 +167,13 @@ export const RATE_LIMITS = {
    *  capping a stampede; excess inbounds simply don't get an auto-reply
    *  (they still land in the inbox for a human). */
   aiAutoReplyAccount: { limit: 30, windowMs: 60_000 },
+  /** On-demand message translation, per user. Same shape as aiDraft —
+   *  generous for normal use, bounds an accidental hold-down/script. */
+  aiTranslate: { limit: 20, windowMs: 60_000 },
+  /** On-demand message translation, per account — bounds the whole
+   *  team's draws on the shared BYO key, same reasoning as
+   *  aiDraftAccount. */
+  aiTranslateAccount: { limit: 60, windowMs: 60_000 },
 } as const;
 
 /** Test-only helper. Clears the in-memory state so unit tests don't
