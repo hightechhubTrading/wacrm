@@ -72,6 +72,15 @@
  * --sidebar-ring) live in the ACCENT blocks. They set disjoint
  * variables, so cascade order between them doesn't matter.
  *
+ * ONE EXCEPTION: `navy-gold` is a brand theme whose palette includes
+ * two surface colors (Deep Navy / Steel Blue) alongside its accent
+ * (Engineering Gold). It therefore also ships two
+ * `html[data-theme="navy-gold"][data-mode="..."]` blocks that
+ * re-tint the neutrals. Those selectors have specificity (0,2,1) vs
+ * (0,1,1) for the plain MODE blocks, so they win regardless of
+ * source order — the "order doesn't matter" property still holds.
+ * No other theme is affected.
+ *
  * `:root` carries the dark-mode + violet defaults so a visitor
  * renders correctly before JS runs; the boot script in
  * layout.tsx replays the saved mode + accent before first paint.
@@ -215,6 +224,101 @@ html[data-theme="rose"] {
   --sidebar-primary: oklch(0.645 0.22 16);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-ring: oklch(0.645 0.22 16);
+}
+
+/* ---- ACCENT: navy-gold (brand) ----
+ *
+ * Source palette:
+ *   #E8B84B Engineering Gold → oklch(0.806 0.136 85)
+ *   #1C2B3A Deep Navy        → oklch(0.285 0.034 245)
+ *   #2C3E50 Steel Blue       → oklch(0.356 0.039 249)
+ *
+ * Only the gold can carry --primary: navy sits at L 0.285, the same
+ * lightness as the default --border (0.28), so a navy button would
+ * vanish against any surface. Navy and steel are surface colors, so
+ * this theme also ships the two [data-theme][data-mode] blocks below
+ * (see the architecture note above for why that's safe). */
+html[data-theme="navy-gold"] {
+  --primary: oklch(0.806 0.136 85);
+  --primary-foreground: oklch(0.285 0.034 245);
+  --primary-hover: oklch(0.855 0.125 85);
+  --primary-soft: oklch(0.806 0.136 85 / 0.12);
+  --primary-soft-2: oklch(0.806 0.136 85 / 0.22);
+  --ring: oklch(0.806 0.136 85);
+  --chart-1: oklch(0.806 0.136 85);
+  --chart-2: oklch(0.6 0.09 245);
+  --sidebar-primary: oklch(0.806 0.136 85);
+  --sidebar-primary-foreground: oklch(0.285 0.034 245);
+  --sidebar-ring: oklch(0.806 0.136 85);
+}
+
+/* Dark surfaces — brand navy lands on --card, brand steel on --border.
+ * The whole ladder is lifted relative to the default dark mode (which
+ * bottoms out at L 0.13) because #1C2B3A is itself a mid-dark tone;
+ * --background sits just under it so cards still read as raised. */
+html[data-theme="navy-gold"][data-mode="dark"] {
+  --background: oklch(0.245 0.03 245);
+  --foreground: oklch(0.97 0.005 245);
+  --card: oklch(0.285 0.034 245);
+  --card-2: oklch(0.31 0.036 247);
+  --card-foreground: oklch(0.97 0.005 245);
+  --popover: oklch(0.285 0.034 245);
+  --popover-foreground: oklch(0.97 0.005 245);
+  --secondary: oklch(0.325 0.037 248);
+  --secondary-foreground: oklch(0.97 0.005 245);
+  --muted: oklch(0.325 0.037 248);
+  --muted-foreground: oklch(0.7 0.02 245);
+  --accent: oklch(0.325 0.037 248);
+  --accent-foreground: oklch(0.97 0.005 245);
+  --border: oklch(0.356 0.039 249);
+  --input: oklch(0.356 0.039 249);
+  --sidebar: oklch(0.265 0.032 245);
+  --sidebar-foreground: oklch(0.97 0.005 245);
+  --sidebar-accent: oklch(0.325 0.037 248);
+  --sidebar-accent-foreground: oklch(0.97 0.005 245);
+  --sidebar-border: oklch(0.356 0.039 249);
+}
+
+/* Light surfaces — brand navy becomes the text color, steel the
+ * secondary text. The neutrals carry a faint 245° tint so the light
+ * mode still reads as the same brand rather than generic grey. */
+html[data-theme="navy-gold"][data-mode="light"] {
+  --background: oklch(0.985 0.004 245);
+  --foreground: oklch(0.285 0.034 245);
+  --card: oklch(1 0 0);
+  --card-2: oklch(0.975 0.005 245);
+  --card-foreground: oklch(0.285 0.034 245);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.285 0.034 245);
+  --secondary: oklch(0.955 0.007 245);
+  --secondary-foreground: oklch(0.356 0.039 249);
+  --muted: oklch(0.955 0.007 245);
+  --muted-foreground: oklch(0.5 0.025 248);
+  --accent: oklch(0.945 0.009 245);
+  --accent-foreground: oklch(0.356 0.039 249);
+  --border: oklch(0.9 0.012 247);
+  --input: oklch(0.9 0.012 247);
+  --sidebar: oklch(0.975 0.005 245);
+  --sidebar-foreground: oklch(0.285 0.034 245);
+  --sidebar-accent: oklch(0.945 0.009 245);
+  --sidebar-accent-foreground: oklch(0.356 0.039 249);
+  --sidebar-border: oklch(0.9 0.012 247);
+
+  /* Brand gold at L 0.806 is ~1.8:1 on white — `text-primary` and
+   * `border-primary` are used widely (sidebar active pill, badges,
+   * links) and would fail WCAG AA. Darkened to L 0.58 here, which
+   * clears 4.5:1 on white while staying recognisably gold. Dark mode
+   * — the app default, and where the brand identity lives — keeps the
+   * exact #E8B84B value from the accent block above. */
+  --primary: oklch(0.58 0.125 78);
+  --primary-foreground: oklch(0.99 0.004 85);
+  --primary-hover: oklch(0.52 0.12 78);
+  --primary-soft: oklch(0.58 0.125 78 / 0.12);
+  --primary-soft-2: oklch(0.58 0.125 78 / 0.22);
+  --ring: oklch(0.58 0.125 78);
+  --chart-1: oklch(0.58 0.125 78);
+  --sidebar-primary: oklch(0.58 0.125 78);
+  --sidebar-primary-foreground: oklch(0.99 0.004 85);
 }
 
 @layer base {

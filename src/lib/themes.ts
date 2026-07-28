@@ -11,6 +11,15 @@
  *      with every token from an existing theme (use violet as the
  *      shape reference).
  *   2. Add an entry below. The order here drives the picker grid.
+ *
+ * A theme whose palette also specifies surface colors (not just an
+ * accent) needs a third step: `html[data-theme="<id>"][data-mode="…"]`
+ * blocks that re-tint the neutrals. `navy-gold` is the one example —
+ * see the architecture note at the top of globals.css.
+ *
+ * Nothing else needs touching: the boot script in layout.tsx
+ * serialises THEME_IDS, the settings picker maps THEMES, and the
+ * settings overview resolves the display name by id.
  */
 
 export const THEME_IDS = [
@@ -19,6 +28,7 @@ export const THEME_IDS = [
   "cobalt",
   "amber",
   "rose",
+  "navy-gold",
 ] as const;
 
 export type ThemeId = (typeof THEME_IDS)[number];
@@ -96,6 +106,15 @@ export const THEMES: ReadonlyArray<ThemeMeta> = [
     name: "Rose",
     tagline: "Bold and modern — D2C, creator-economy, lifestyle.",
     swatch: "oklch(0.645 0.22 16)",
+  },
+  {
+    id: "navy-gold",
+    name: "Navy & Gold",
+    tagline: "Brand palette — deep navy surfaces with engineering gold.",
+    // #E8B84B. Note this theme also re-tints surfaces, so unlike the
+    // others the swatch alone under-sells it in the picker — the card
+    // preview strip below it fills in the navy/steel side.
+    swatch: "oklch(0.806 0.136 85)",
   },
 ];
 
