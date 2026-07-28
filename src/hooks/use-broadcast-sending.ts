@@ -386,11 +386,14 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       }
 
       // ── Step 3: Insert recipient rows ─────────────────────────────
+      // Opted-out contacts still get a row (status 'skipped') so they're
+      // visible in the broadcast's recipient list — they're just never
+      // sent to below.
       setProgress(20);
       const recipientRows = contacts.map((contact) => ({
         broadcast_id: broadcast.id,
         contact_id: contact.id,
-        status: 'pending' as const,
+        status: contact.opted_out ? ('skipped' as const) : ('pending' as const),
       }));
 
       for (let i = 0; i < recipientRows.length; i += INSERT_BATCH_SIZE) {
@@ -457,8 +460,12 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       for (let i = 0; i < recipients.length; i += SEND_BATCH_SIZE) {
         const batch = recipients.slice(i, i + SEND_BATCH_SIZE);
 
+        // Opted-out recipients already got their 'skipped' row at insert
+        // time (Step 3) — never send to them, and never touch that row
+        // again below (they're excluded from apiRecipients AND from the
+        // per-recipient result processing that follows the fetch).
         const apiRecipients = batch
-          .filter((r) => r.contact?.phone)
+          .filter((r) => r.contact?.phone && !r.contact?.opted_out)
           .map((r) => ({
             phone: r.contact!.phone as string,
             params: r.contact
@@ -496,6 +503,10 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
           }
 
           for (const recipient of batch) {
+            // Already recorded as 'skipped' at insert time — don't
+            // overwrite it, and it was never sent so it has no result.
+            if (recipient.contact?.opted_out) continue;
+
             const phone = recipient.contact?.phone;
             const result = phone ? resultsByPhone.get(phone) : undefined;
 
@@ -534,6 +545,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
           }
         } catch (err) {
           for (const recipient of batch) {
+            if (recipient.contact?.opted_out) continue;
             failedCount++;
             await supabase
               .from('broadcast_recipients')
