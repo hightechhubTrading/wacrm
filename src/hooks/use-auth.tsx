@@ -33,6 +33,15 @@ interface Profile {
    * #134 — but the column survives for future beta gates.
    */
   beta_features: string[];
+  /**
+   * Appearance prefs, mirrored from localStorage so the choice follows
+   * the user across devices (migration 042). Deliberately typed as
+   * loose strings rather than ThemeId / Mode: the DB has no CHECK
+   * constraint, so consumers must narrow with `isThemeId` / `isMode`.
+   * `null` means "never picked anywhere" — see <ThemeSync>.
+   */
+  theme: string | null;
+  mode: string | null;
   account_id: string | null;
   account_role: AccountRole | null;
 }
@@ -138,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "id, full_name, email, avatar_url, role, beta_features, account_id, account_role",
+          "id, full_name, email, avatar_url, role, beta_features, theme, mode, account_id, account_role",
         )
         .eq("user_id", userId)
         .maybeSingle();
@@ -210,6 +219,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // (older deployments running 011 lazily) — `null` reads as no
           // opt-ins, which is the safe default for any future beta gate.
           beta_features: data.beta_features ?? [],
+          // Nullable by design (migration 042) — `null` is the real
+          // "never chosen" signal ThemeSync backfills from, so don't
+          // collapse it to a default here.
+          theme: data.theme ?? null,
+          mode: data.mode ?? null,
           account_id: data.account_id ?? null,
           account_role: accountRole,
         });
