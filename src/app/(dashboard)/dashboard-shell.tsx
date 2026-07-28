@@ -45,8 +45,16 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           signed in. Headless — renders nothing. */}
       <PresenceHeartbeat />
       <Sidebar open={sidebarOpen} onClose={closeSidebar} />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Header onOpenSidebar={() => setSidebarOpen(true)} />
+      {/* inert while the mobile drawer is open — keeps keyboard/screen-reader
+          focus from reaching content visually hidden behind the backdrop. */}
+      <div
+        className="flex flex-1 flex-col overflow-hidden"
+        inert={sidebarOpen || undefined}
+      >
+        <Header
+          sidebarOpen={sidebarOpen}
+          onOpenSidebar={() => setSidebarOpen(true)}
+        />
         {/* Thinner horizontal padding on mobile so cards have room to breathe. */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
       </div>

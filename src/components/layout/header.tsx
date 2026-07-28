@@ -38,6 +38,9 @@ function getPageTitleKey(pathname: string): string {
 }
 
 interface HeaderProps {
+  /** Whether the mobile sidebar drawer is currently open — drives the
+   *  hamburger's aria-expanded state. */
+  sidebarOpen?: boolean;
   /** Wired to the shell's drawer state. Used only on mobile — the
    *  hamburger button is hidden on lg+. */
   onOpenSidebar?: () => void;
@@ -45,7 +48,7 @@ interface HeaderProps {
 
 import { useTranslations } from "next-intl";
 
-export function Header({ onOpenSidebar }: HeaderProps) {
+export function Header({ sidebarOpen, onOpenSidebar }: HeaderProps) {
   const t = useTranslations("Header");
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
@@ -64,7 +67,9 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           type="button"
           onClick={onOpenSidebar}
           aria-label={t("openMenu")}
-          className="flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
+          aria-expanded={sidebarOpen ?? false}
+          aria-controls="primary-sidebar"
+          className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -78,7 +83,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
 
         <DropdownMenu>
         <DropdownMenuTrigger
-          className="flex items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-muted/70 focus:bg-muted/70 focus:outline-none data-popup-open:bg-muted/70 sm:gap-3 sm:pl-1 sm:pr-3"
+          className="flex items-center gap-2 rounded-md px-1 py-1 outline-none transition-colors hover:bg-muted/70 focus:bg-muted/70 focus-visible:ring-3 focus-visible:ring-ring/50 data-popup-open:bg-muted/70 sm:gap-3 sm:pl-1 sm:pr-3"
           aria-label={t("openAccountMenu")}
         >
           <Avatar className="size-8">
