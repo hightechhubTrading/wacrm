@@ -61,6 +61,17 @@ function InboxPageInner() {
   const [resyncToken, setResyncToken] = useState(0);
 
   /**
+   * Bumped whenever a new message lands on the active conversation —
+   * the signal ContactSidebar uses to refetch deals (and their
+   * order-info fields), since the AI bot may have just written to
+   * them via `[[SET_FIELD:...]]`. No dedicated realtime channel on
+   * `deals` exists anywhere in the app; this piggybacks on the
+   * message-event handling already happening here instead of adding
+   * a first one just for this.
+   */
+  const [dealsRefreshToken, setDealsRefreshToken] = useState(0);
+
+  /**
    * Whether the desktop contact sidebar (tags / deals / notes) is shown.
    * Defaults to `true` (the historical behaviour) and is restored from
    * localStorage after mount. We deliberately do NOT read localStorage in
@@ -232,6 +243,7 @@ function InboxPageInner() {
             );
             return [...withoutOptimistic, newMsg];
           });
+          setDealsRefreshToken((v) => v + 1);
         }
 
         // Update conversation list preview. We need to know *synchronously*
@@ -632,7 +644,10 @@ function InboxPageInner() {
             toggle — which is itself desktop-only — never affects it. */}
         {contactPanelOpen && (
           <div className="hidden lg:block">
-            <ContactSidebar contact={activeContact} />
+            <ContactSidebar
+              contact={activeContact}
+              refreshToken={dealsRefreshToken}
+            />
           </div>
         )}
       </div>
