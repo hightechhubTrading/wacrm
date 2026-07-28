@@ -2,7 +2,7 @@
 
 import { Moon, Sun } from "lucide-react";
 
-import { useTheme } from "@/hooks/use-theme";
+import { useAppearance } from "@/hooks/use-appearance";
 import { cn } from "@/lib/utils";
 
 import { useTranslations } from "next-intl";
@@ -14,10 +14,14 @@ import { useTranslations } from "next-intl";
  * the destination so screen-reader users hear what the click does.
  *
  * 40×40 hit target to match the header's other touch controls.
+ *
+ * Goes through useAppearance() rather than useTheme() so a flip here
+ * writes through to the profile row too — otherwise this control and
+ * the Settings panel would disagree about the stored value.
  */
 export function ModeToggle({ className }: { className?: string }) {
   const t = useTranslations("ModeToggle");
-  const { mode, toggleMode } = useTheme();
+  const { mode, toggleMode } = useAppearance();
   const goingTo = mode === "dark" ? "light" : "dark";
   const switchLabel = t("switchMode", { mode: goingTo });
   

@@ -2,7 +2,7 @@
 
 import { Check, Moon, Palette, SunMoon, Sun } from "lucide-react";
 
-import { useTheme } from "@/hooks/use-theme";
+import { useAppearance } from "@/hooks/use-appearance";
 import { MODES, THEMES, type Mode, type ThemeId } from "@/lib/themes";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
@@ -16,12 +16,13 @@ import { SettingsPanelHead } from "./settings-panel-head";
  * each change is a single attribute swap on <html>, there's nothing
  * to roll back.
  *
- * Persistence: localStorage only (device-scoped). The boot script in
- * layout.tsx replays both choices before first paint on subsequent
- * loads.
+ * Persistence is two-layer, via useAppearance(): localStorage (so the
+ * boot script in layout.tsx can replay the choice before first paint)
+ * plus a write-through to the profile row, so it follows the user to
+ * their other devices.
  */
 export function AppearancePanel() {
-  const { theme, setTheme, mode, setMode } = useTheme();
+  const { theme, setTheme, mode, setMode } = useAppearance();
   const t = useTranslations("Settings.appearance");
 
   return (
