@@ -1,17 +1,21 @@
 // ============================================================
 // /api/account/members/[userId]
 //
-//   PATCH  — change a member's role.   Admin+.
-//   DELETE — remove a member.          Admin+.
+//   PATCH  — change a member's role and/or WAHA session name. Admin+.
+//   DELETE — remove a member.                                 Admin+.
 //
-// Both delegate to SECURITY DEFINER RPCs from migration 018:
-//   - set_member_role(p_user_id, p_new_role)
-//   - remove_account_member(p_user_id)
+// Both delegate to SECURITY DEFINER RPCs:
+//   - set_member_role(p_user_id, p_new_role)               (018)
+//   - set_member_waha_session(p_user_id, p_session_name)    (045)
+//   - remove_account_member(p_user_id)                      (018)
 //
 // The RPCs do the *real* authorisation work — caller must be
-// admin+, target must be in caller's account, target can't be the
-// owner, can't be self. The TS layer here only forwards the call
-// and maps Postgres SQLSTATEs back to HTTP statuses.
+// admin+, target must be in caller's account (set_member_role also
+// blocks owner promotion/demotion and self-targeting; the WAHA
+// session RPC intentionally does NOT block self-targeting — an
+// admin who is also a working sales agent can set their own). The
+// TS layer here only forwards the call and maps Postgres SQLSTATEs
+// back to HTTP statuses.
 // ============================================================
 
 import { NextResponse } from "next/server";
@@ -58,35 +62,66 @@ export async function PATCH(
     const { userId } = await params;
 
     const body = (await request.json().catch(() => null)) as
-      | { role?: unknown }
+      | { role?: unknown; waha_session_name?: unknown }
       | null;
-    const role = body?.role;
 
-    if (!isAccountRole(role)) {
+    const roleProvided = body !== null && "role" in body;
+    const wahaProvided = body !== null && "waha_session_name" in body;
+
+    if (!roleProvided && !wahaProvided) {
       return NextResponse.json(
-        { error: "'role' must be one of owner, admin, agent, viewer" },
+        { error: "Provide 'role' and/or 'waha_session_name'" },
         { status: 400 },
       );
     }
 
-    // The RPC blocks promotion to / demotion from owner, but
-    // surface the friendlier 400 before crossing the wire too.
-    if (role === "owner") {
-      return NextResponse.json(
-        {
-          error:
-            "Use POST /api/account/transfer-ownership to promote a member to owner",
-        },
-        { status: 400 },
-      );
+    if (roleProvided) {
+      const role = body!.role;
+
+      if (!isAccountRole(role)) {
+        return NextResponse.json(
+          { error: "'role' must be one of owner, admin, agent, viewer" },
+          { status: 400 },
+        );
+      }
+
+      // The RPC blocks promotion to / demotion from owner, but
+      // surface the friendlier 400 before crossing the wire too.
+      if (role === "owner") {
+        return NextResponse.json(
+          {
+            error:
+              "Use POST /api/account/transfer-ownership to promote a member to owner",
+          },
+          { status: 400 },
+        );
+      }
+
+      const { error } = await ctx.supabase.rpc("set_member_role", {
+        p_user_id: userId,
+        p_new_role: role,
+      });
+
+      if (error) return rpcErrorToResponse(error);
     }
 
-    const { error } = await ctx.supabase.rpc("set_member_role", {
-      p_user_id: userId,
-      p_new_role: role,
-    });
+    if (wahaProvided) {
+      const raw = body!.waha_session_name;
+      if (raw !== null && typeof raw !== "string") {
+        return NextResponse.json(
+          { error: "'waha_session_name' must be a string or null" },
+          { status: 400 },
+        );
+      }
+      const sessionName = typeof raw === "string" ? raw.trim().slice(0, 100) : "";
 
-    if (error) return rpcErrorToResponse(error);
+      const { error } = await ctx.supabase.rpc("set_member_waha_session", {
+        p_user_id: userId,
+        p_session_name: sessionName,
+      });
+
+      if (error) return rpcErrorToResponse(error);
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

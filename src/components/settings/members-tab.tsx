@@ -46,6 +46,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
@@ -83,6 +84,10 @@ interface Member {
   avatar_url: string | null;
   role: AccountRole;
   joined_at: string;
+  /** Which WAHA (WhatsApp HTTP API) session — i.e. which logged-in
+   *  WhatsApp number — this member's assigned deals send stage-enter
+   *  group notifications from (migration 045). */
+  waha_session_name: string | null;
 }
 
 interface Invitation {
@@ -222,6 +227,61 @@ export function MembersTab() {
         ),
       );
       console.error('[MembersTab] role change error:', err);
+      toast.error('Could not reach the server');
+    } finally {
+      setPendingMemberAction(null);
+    }
+  }
+
+  // Unlike role, WAHA session is shown/editable for EVERY row —
+  // including self and the owner. Assigning a WhatsApp number isn't a
+  // privilege boundary the way role is (that's why the role Select
+  // hides those rows), and an admin/owner who is also a working sales
+  // agent needs to be able to set their own.
+  async function handleWahaSessionChange(member: Member, rawValue: string) {
+    const trimmed = rawValue.trim();
+    const nextValue = trimmed || null;
+    if ((member.waha_session_name ?? null) === nextValue) return;
+
+    const previousValue = member.waha_session_name;
+    setPendingMemberAction(member.user_id);
+    setMembers((prev) =>
+      prev.map((m) =>
+        m.user_id === member.user_id
+          ? { ...m, waha_session_name: nextValue }
+          : m,
+      ),
+    );
+    try {
+      const res = await fetch(`/api/account/members/${member.user_id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ waha_session_name: nextValue }),
+      });
+      if (!res.ok) {
+        setMembers((prev) =>
+          prev.map((m) =>
+            m.user_id === member.user_id
+              ? { ...m, waha_session_name: previousValue }
+              : m,
+          ),
+        );
+        const payload = await res.json().catch(() => ({}));
+        toast.error(payload.error || t('wahaSessionUpdateFailed'));
+        return;
+      }
+      toast.success(
+        t('wahaSessionUpdatedToast', { name: member.full_name || t('unnamed') }),
+      );
+    } catch (err) {
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.user_id === member.user_id
+            ? { ...m, waha_session_name: previousValue }
+            : m,
+        ),
+      );
+      console.error('[MembersTab] WAHA session change error:', err);
       toast.error('Could not reach the server');
     } finally {
       setPendingMemberAction(null);
@@ -410,6 +470,22 @@ export function MembersTab() {
                       inline. Items align to the start on mobile so the
                       role dropdown lines up under the avatar. */}
                   <div className="flex items-center gap-2 sm:gap-3">
+                    {/* WAHA session — shown/editable for every row,
+                        including self and the owner (unlike role,
+                        this isn't a privilege boundary). */}
+                    {canManageMembers && (
+                      <Input
+                        key={member.waha_session_name ?? ''}
+                        defaultValue={member.waha_session_name ?? ''}
+                        placeholder={t('wahaSessionPlaceholder')}
+                        disabled={isBusy}
+                        onBlur={(e) =>
+                          handleWahaSessionChange(member, e.target.value)
+                        }
+                        className="w-28 bg-muted border-border text-foreground text-xs"
+                      />
+                    )}
+
                     {/* Role display / editor. Inline Select is admin+
                         only AND not allowed on the owner row (owner
                         changes go through transfer, which lands later). */}
