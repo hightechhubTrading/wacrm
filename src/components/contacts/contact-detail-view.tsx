@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
 import { useAuth } from '@/hooks/use-auth';
+import { useCan } from '@/hooks/use-can';
+import { recordOptOutState } from '@/lib/whatsapp/opt-out';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag, ContactNote, CustomField, ContactCustomValue, Deal, MessageTemplate } from '@/types';
@@ -25,6 +27,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Phone,
@@ -58,6 +61,7 @@ export function ContactDetailView({
   const t = useTranslations('Contacts.detailView');
   const supabase = createClient();
   const { accountId, defaultCurrency } = useAuth();
+  const canManageOptOut = useCan('manage-contact-opt-out');
 
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(false);
@@ -75,6 +79,7 @@ export function ContactDetailView({
   const [editEmail, setEditEmail] = useState('');
   const [editCompany, setEditCompany] = useState('');
   const [savingDetails, setSavingDetails] = useState(false);
+  const [togglingOptOut, setTogglingOptOut] = useState(false);
 
   // Tags tab
   const [allTags, setAllTags] = useState<Tag[]>([]);
@@ -223,6 +228,20 @@ export function ContactDetailView({
       onUpdated();
     }
     setSavingDetails(false);
+  }
+
+  async function toggleOptedOut(next: boolean) {
+    if (!contactId) return;
+    setTogglingOptOut(true);
+    const { error } = await recordOptOutState(supabase, contactId, next, 'manual');
+    if (error) {
+      toast.error(t('toastUpdateFailed'));
+    } else {
+      toast.success(next ? t('toastOptedOut') : t('toastOptedIn'));
+      fetchContact();
+      onUpdated();
+    }
+    setTogglingOptOut(false);
   }
 
   async function toggleTag(tagId: string) {
@@ -398,9 +417,16 @@ export function ContactDetailView({
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <SheetTitle className="text-popover-foreground truncate">
-                    {contact.name || t('unnamed')}
-                  </SheetTitle>
+                  <div className="flex items-center gap-2">
+                    <SheetTitle className="text-popover-foreground truncate">
+                      {contact.name || t('unnamed')}
+                    </SheetTitle>
+                    {contact.opted_out && (
+                      <Badge className="border-amber-500/40 bg-amber-500/10 text-amber-300 shrink-0">
+                        {t('optedOutBadge')}
+                      </Badge>
+                    )}
+                  </div>
                   <SheetDescription className="text-muted-foreground text-xs mt-0.5">
                     {t('contactDetailsDesc')}
                   </SheetDescription>
@@ -534,6 +560,20 @@ export function ContactDetailView({
                     )}
                     {t('saveChangesBtn')}
                   </Button>
+
+                  {canManageOptOut && (
+                    <div className="flex items-center justify-between rounded-lg border border-border p-3 mt-1">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{t('optedOutLabel')}</p>
+                        <p className="text-xs text-muted-foreground">{t('optedOutHint')}</p>
+                      </div>
+                      <Switch
+                        checked={contact.opted_out ?? false}
+                        onCheckedChange={toggleOptedOut}
+                        disabled={togglingOptOut}
+                      />
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 

@@ -81,6 +81,19 @@ export function canEditSettings(role: AccountRole): boolean {
 }
 
 /**
+ * Owner / admin: manually set/clear a contact's opt-out state (e.g. a
+ * customer calls in and asks to be removed, or a STOP-keyword
+ * false-positive needs reversing). Not RLS-enforced at the column
+ * level — same UI-gated-only trust model as
+ * `pipeline_stages.requires_contact_identity` (migration 046) — since
+ * `contacts` UPDATE is already broadly agent+ and splitting one column
+ * into its own RLS tier isn't worth the complexity for a single flag.
+ */
+export function canManageContactOptOut(role: AccountRole): boolean {
+  return hasMinRole(role, "admin");
+}
+
+/**
  * Owner / admin / agent: write operational data — send messages,
  * create contacts, move deals, run broadcasts, edit automations.
  * Viewers are read-only.

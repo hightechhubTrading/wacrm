@@ -69,12 +69,17 @@ export async function engineSendText(
 
   const { data: contact, error: contactErr } = await db
     .from('contacts')
-    .select('id, phone')
+    .select('id, phone, opted_out')
     .eq('id', args.contactId)
     .eq('account_id', args.accountId)
     .maybeSingle()
   if (contactErr || !contact?.phone) {
     throw new Error('contact not found for this account')
+  }
+  // Opted out of AUTOMATED sends (see src/lib/whatsapp/opt-out.ts) —
+  // manual 1:1 replies are a separate, ungated path.
+  if (contact.opted_out) {
+    throw new Error('contact has opted out of automated messages')
   }
 
   const sanitized = sanitizePhoneForMeta(contact.phone)
@@ -179,12 +184,17 @@ export async function engineSendMedia(
 
   const { data: contact, error: contactErr } = await db
     .from('contacts')
-    .select('id, phone')
+    .select('id, phone, opted_out')
     .eq('id', args.contactId)
     .eq('account_id', args.accountId)
     .maybeSingle()
   if (contactErr || !contact?.phone) {
     throw new Error('contact not found for this account')
+  }
+  // Opted out of AUTOMATED sends (see src/lib/whatsapp/opt-out.ts) —
+  // manual 1:1 replies are a separate, ungated path.
+  if (contact.opted_out) {
+    throw new Error('contact has opted out of automated messages')
   }
 
   const sanitized = sanitizePhoneForMeta(contact.phone)
@@ -331,12 +341,17 @@ async function sendInteractiveViaMeta(
   // Migration 017 moved both tables to account-scoped tenancy.
   const { data: contact, error: contactErr } = await db
     .from('contacts')
-    .select('id, phone')
+    .select('id, phone, opted_out')
     .eq('id', input.contactId)
     .eq('account_id', input.accountId)
     .maybeSingle()
   if (contactErr || !contact?.phone) {
     throw new Error('contact not found for this account')
+  }
+  // Opted out of AUTOMATED sends (see src/lib/whatsapp/opt-out.ts) —
+  // manual 1:1 replies are a separate, ungated path.
+  if (contact.opted_out) {
+    throw new Error('contact has opted out of automated messages')
   }
 
   const sanitized = sanitizePhoneForMeta(contact.phone)

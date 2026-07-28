@@ -3,6 +3,9 @@ import { createClient } from '@supabase/supabase-js'
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption'
 import { getMediaUrl, downloadMedia } from '@/lib/whatsapp/meta-api'
 import { normalizePhone } from '@/lib/whatsapp/phone-utils'
+import { isOptOutKeyword, isOptInKeyword, recordOptOutState } from '@/lib/whatsapp/opt-out'
+import { loadAiConfig } from '@/lib/ai/config'
+import { transcribeAudio } from '@/lib/ai/transcribe'
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe'
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature'
 import { runAutomationsForTrigger } from '@/lib/automations/engine'
@@ -615,6 +618,52 @@ async function processMessage(
   const { contentText, mediaUrl, mediaType, interactiveReplyId } =
     await parseMessageContent(message, accessToken)
 
+  // Voice-note transcription (opt-in, requires the embeddings key --
+  // Whisper is OpenAI-only, same as embeddings). Best-effort: a failure
+  // here just leaves transcript null, never blocks ingestion. Feeds the
+  // same AI context window as a text message (see src/lib/ai/context.ts)
+  // and the opt-out keyword check below, so a voice "STOP" is honored.
+  let transcript: string | null = null
+  if (message.type === 'audio' && message.audio?.id) {
+    try {
+      const aiConfig = await loadAiConfig(supabaseAdmin(), accountId, {
+        requireActive: false,
+      })
+      if (aiConfig?.transcribeVoiceMessages && aiConfig.embeddingsApiKey) {
+        const { url: downloadUrl } = await getMediaUrl({
+          mediaId: message.audio.id,
+          accessToken,
+        })
+        const { buffer } = await downloadMedia({ downloadUrl, accessToken })
+        transcript = await transcribeAudio({
+          apiKey: aiConfig.embeddingsApiKey,
+          audioBuffer: buffer,
+          mimeType: message.audio.mime_type || 'audio/ogg',
+        })
+      }
+    } catch (err) {
+      console.error('[webhook] voice transcription failed:', err)
+    }
+  }
+
+  // Opt-out / opt-in compliance (STOP/UNSUBSCRIBE/CANCEL/END/QUIT and
+  // START/UNSTOP — see src/lib/whatsapp/opt-out.ts). Computed early so it
+  // can gate everything below: a recognized keyword is a control message,
+  // not a conversational one — it still gets stored (below) and still
+  // fires the public message.received webhook, but it must not consume a
+  // Flow step, fire an automation, or get an AI-drafted reply.
+  const inboundText = contentText ?? transcript ?? message.text?.body ?? ''
+  let isControlMessage = false
+  if (isOptOutKeyword(inboundText)) {
+    isControlMessage = true
+    const { error } = await recordOptOutState(supabaseAdmin(), contactRecord.id, true, 'keyword')
+    if (error) console.error('[webhook] opt-out record failed:', error)
+  } else if (isOptInKeyword(inboundText)) {
+    isControlMessage = true
+    const { error } = await recordOptOutState(supabaseAdmin(), contactRecord.id, false, 'keyword')
+    if (error) console.error('[webhook] opt-in record failed:', error)
+  }
+
   // Resolve swipe-reply context if present. A missing parent is fine —
   // we just store NULL and the UI renders the message without a quote.
   let replyToInternalId: string | null = null
@@ -680,6 +729,9 @@ async function processMessage(
     // the column; null for every other content_type so existing inserts
     // behave identically.
     interactive_reply_id: interactiveReplyId,
+    // Only populated for a transcribed audio message (migration 049);
+    // null otherwise.
+    transcript,
   })
 
   if (msgError) {
@@ -725,83 +777,97 @@ async function processMessage(
   // runner has its own try/catch and never throws. Accounts with
   // no active flows take the runner's early-exit "no_match" path
   // basically for free (one indexed SELECT for the active run).
+  //
+  // Skipped entirely for a recognized opt-out/opt-in control message —
+  // it must not consume a Flow step.
   // ============================================================
-  const flowResult = await dispatchInboundToFlows({
-    accountId,
-    userId: configOwnerUserId,
-    contactId: contactRecord.id,
-    conversationId: conversation.id,
-    message:
-      interactiveReplyId
-        ? {
-            kind: 'interactive_reply',
-            reply_id: interactiveReplyId,
-            reply_title: contentText ?? '',
-            meta_message_id: message.id,
-          }
-        : {
-            kind: 'text',
-            text: contentText ?? message.text?.body ?? '',
-            meta_message_id: message.id,
-          },
-    isFirstInboundMessage,
-  })
-  const flowConsumed = flowResult.consumed
+  let flowConsumed = false
+  if (!isControlMessage) {
+    const flowResult = await dispatchInboundToFlows({
+      accountId,
+      userId: configOwnerUserId,
+      contactId: contactRecord.id,
+      conversationId: conversation.id,
+      message:
+        interactiveReplyId
+          ? {
+              kind: 'interactive_reply',
+              reply_id: interactiveReplyId,
+              reply_title: contentText ?? '',
+              meta_message_id: message.id,
+            }
+          : {
+              kind: 'text',
+              text: inboundText,
+              meta_message_id: message.id,
+            },
+      isFirstInboundMessage,
+    })
+    flowConsumed = flowResult.consumed
+  }
 
   // Fire any automations that react to this webhook event. All dispatches
   // run here (not earlier) so the contact, conversation, and inbound
   // message all exist before any step — including send_message — runs.
   // Fire-and-forget: a slow or failing automation must not block the
   // webhook's 200 OK response to Meta.
-  const inboundText = contentText ?? message.text?.body ?? ''
-  const automationTriggers: (
-    | 'new_contact_created'
-    | 'first_inbound_message'
-    | 'new_message_received'
-    | 'keyword_match'
-    | 'interactive_reply'
-  )[] = []
-  // Content-level triggers are suppressed when a flow consumed the
-  // message — see the comment block above.
-  if (!flowConsumed) {
-    automationTriggers.push('new_message_received', 'keyword_match')
-    // Interactive tap → fire the interactive_reply trigger too (only
-    // meaningful when a button/list reply actually arrived). Enables
-    // automation-only chained menus; when a Flow owns the menu it will
-    // have consumed the reply and this is skipped.
-    if (interactiveReplyId) {
-      automationTriggers.push('interactive_reply')
+  //
+  // Skipped entirely for a recognized opt-out/opt-in control message —
+  // it's a compliance signal, not a trigger word (not even
+  // new_contact_created / first_inbound_message, on the off chance
+  // someone's very first-ever message happens to be "STOP").
+  if (!isControlMessage) {
+    const automationTriggers: (
+      | 'new_contact_created'
+      | 'first_inbound_message'
+      | 'new_message_received'
+      | 'keyword_match'
+      | 'interactive_reply'
+    )[] = []
+    // Content-level triggers are suppressed when a flow consumed the
+    // message — see the comment block above.
+    if (!flowConsumed) {
+      automationTriggers.push('new_message_received', 'keyword_match')
+      // Interactive tap → fire the interactive_reply trigger too (only
+      // meaningful when a button/list reply actually arrived). Enables
+      // automation-only chained menus; when a Flow owns the menu it will
+      // have consumed the reply and this is skipped.
+      if (interactiveReplyId) {
+        automationTriggers.push('interactive_reply')
+      }
     }
-  }
-  // new_contact_created fires only when the webhook just auto-created the
-  // contact row. first_inbound_message fires whenever this is the contact's
-  // first-ever customer-sent message — a superset that also catches
-  // manually-imported contacts sending for the first time. We dispatch both
-  // so users can pick whichever semantic they want; an automation that
-  // listens to only one trigger runs only when that trigger matches.
-  if (contactOutcome.wasCreated) automationTriggers.unshift('new_contact_created')
-  if (isFirstInboundMessage) automationTriggers.unshift('first_inbound_message')
-  for (const triggerType of automationTriggers) {
-    runAutomationsForTrigger({
-      accountId,
-      triggerType,
-      contactId: contactRecord.id,
-      context: {
-        message_text: inboundText,
-        conversation_id: conversation.id,
-        // Only set on interactive taps; drives the interactive_reply
-        // trigger's exact-id match.
-        interactive_reply_id: interactiveReplyId ?? undefined,
-      },
-    }).catch((err) => console.error('[automations] dispatch failed:', err))
+    // new_contact_created fires only when the webhook just auto-created the
+    // contact row. first_inbound_message fires whenever this is the contact's
+    // first-ever customer-sent message — a superset that also catches
+    // manually-imported contacts sending for the first time. We dispatch both
+    // so users can pick whichever semantic they want; an automation that
+    // listens to only one trigger runs only when that trigger matches.
+    if (contactOutcome.wasCreated) automationTriggers.unshift('new_contact_created')
+    if (isFirstInboundMessage) automationTriggers.unshift('first_inbound_message')
+    for (const triggerType of automationTriggers) {
+      runAutomationsForTrigger({
+        accountId,
+        triggerType,
+        contactId: contactRecord.id,
+        context: {
+          message_text: inboundText,
+          conversation_id: conversation.id,
+          // Only set on interactive taps; drives the interactive_reply
+          // trigger's exact-id match.
+          interactive_reply_id: interactiveReplyId ?? undefined,
+        },
+      }).catch((err) => console.error('[automations] dispatch failed:', err))
+    }
   }
 
   // AI auto-reply. Runs only for plain-text inbound the deterministic
   // flow runner did NOT consume (flows win over the LLM), and only when
   // the account has enabled it. Awaited inside `after()` (same reason as
   // the webhook dispatch below); `dispatchInboundToAiReply` owns its
-  // eligibility gates + try/catch and never throws.
-  if (!flowConsumed && !interactiveReplyId && inboundText.trim()) {
+  // eligibility gates + try/catch and never throws. Skipped for a
+  // recognized opt-out/opt-in control message — no AI-drafted reply to a
+  // STOP/START keyword.
+  if (!isControlMessage && !flowConsumed && !interactiveReplyId && inboundText.trim()) {
     await dispatchInboundToAiReply({
       accountId,
       conversationId: conversation.id,
@@ -934,9 +1000,13 @@ async function parseMessageContent(
     case 'location':
       if (message.location) {
         const loc = message.location
-        const locationText = [loc.name, loc.address, `${loc.latitude},${loc.longitude}`]
-          .filter(Boolean)
-          .join(' - ')
+        // Emit a real, clickable Google Maps link rather than raw
+        // coordinates — this is what lets the location double as a
+        // "Location" custom field group value (human-readable and
+        // directly usable) instead of a lat/long string nobody can act on.
+        const mapsUrl = `https://www.google.com/maps?q=${loc.latitude},${loc.longitude}`
+        const label = [loc.name, loc.address].filter(Boolean).join(' — ')
+        const locationText = label ? `${label}\n${mapsUrl}` : mapsUrl
         return { ...empty, contentText: locationText }
       }
       return empty

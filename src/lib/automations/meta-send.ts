@@ -118,12 +118,18 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
   // new tenancy column.
   const { data: contact, error: contactErr } = await db
     .from('contacts')
-    .select('id, phone')
+    .select('id, phone, opted_out')
     .eq('id', input.contactId)
     .eq('account_id', input.accountId)
     .maybeSingle()
   if (contactErr || !contact?.phone) {
     throw new Error('contact not found for this account')
+  }
+  // Opted out of AUTOMATED sends (see src/lib/whatsapp/opt-out.ts) —
+  // surfaces as a failed step with a clear reason rather than silently
+  // sending anyway. Manual 1:1 replies are a separate, ungated path.
+  if (contact.opted_out) {
+    throw new Error('contact has opted out of automated messages')
   }
 
   const sanitized = sanitizePhoneForMeta(contact.phone)

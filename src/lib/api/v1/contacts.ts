@@ -103,16 +103,19 @@ export interface ContactInput {
 
 /**
  * Find (by fuzzy phone match) or create a contact in `accountId`.
- * Returns the contact id and whether it was created. Reuses the shared
- * `findExistingContact` dedupe + unique-violation race backstop so an
- * API-created contact is indistinguishable from a webhook-created one.
+ * Returns the contact id, whether it was created, and its opt-out state
+ * (so callers that send automated messages — e.g. broadcast-core.ts —
+ * can skip a recipient who opted out without a second lookup). Reuses
+ * the shared `findExistingContact` dedupe + unique-violation race
+ * backstop so an API-created contact is indistinguishable from a
+ * webhook-created one.
  */
 export async function findOrCreateContact(
   db: SupabaseClient,
   accountId: string,
   auditUserId: string,
   input: ContactInput
-): Promise<{ id: string; created: boolean }> {
+): Promise<{ id: string; created: boolean; optedOut: boolean }> {
   const sanitized = sanitizePhoneForMeta(input.phone);
   if (!isValidE164(sanitized)) {
     throw new ContactError(
@@ -122,7 +125,9 @@ export async function findOrCreateContact(
   }
 
   const existing = await findExistingContact(db, accountId, sanitized);
-  if (existing) return { id: existing.id, created: false };
+  if (existing) {
+    return { id: existing.id, created: false, optedOut: existing.opted_out === true };
+  }
 
   const { data: created, error } = await db
     .from('contacts')
@@ -142,13 +147,15 @@ export async function findOrCreateContact(
     // rejected the duplicate. Re-resolve to the winner.
     if (isUniqueViolation(error)) {
       const raced = await findExistingContact(db, accountId, sanitized);
-      if (raced) return { id: raced.id, created: false };
+      if (raced) {
+        return { id: raced.id, created: false, optedOut: raced.opted_out === true };
+      }
     }
     console.error('[api/v1/contacts] create error:', error);
     throw new ContactError('Failed to create contact', 500);
   }
 
-  return { id: created.id, created: true };
+  return { id: created.id, created: true, optedOut: false };
 }
 
 /**

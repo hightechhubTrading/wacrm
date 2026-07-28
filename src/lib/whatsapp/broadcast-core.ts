@@ -145,7 +145,10 @@ export async function createBroadcast(
 
   // Resolve each recipient to a contact. Invalid phones are dropped
   // (counted as rejected) rather than aborting the whole broadcast.
-  const resolved: { contactId: string; phone: string; params: string[] }[] = [];
+  // Opted-out contacts still get resolved and a recipient row (below,
+  // with status 'skipped') so they're visible in reporting — they just
+  // never enter `planned`, so deliverBroadcast never attempts to send.
+  const resolved: { contactId: string; phone: string; params: string[]; optedOut: boolean }[] = [];
   let rejected = 0;
   for (const r of recipients) {
     const sanitized = sanitizePhoneForMeta(typeof r.to === 'string' ? r.to : '');
@@ -153,12 +156,13 @@ export async function createBroadcast(
       rejected++;
       continue;
     }
-    const { id } = await findOrCreateContact(db, accountId, auditUserId, {
+    const { id, optedOut } = await findOrCreateContact(db, accountId, auditUserId, {
       phone: sanitized,
     });
     resolved.push({
       contactId: id,
       phone: sanitized,
+      optedOut,
       params: Array.isArray(r.params)
         ? r.params.filter((p): p is string => typeof p === 'string')
         : [],
@@ -217,7 +221,7 @@ export async function createBroadcast(
       deduped.map((r) => ({
         broadcast_id: broadcast.id,
         contact_id: r.contactId,
-        status: 'pending' as const,
+        status: r.optedOut ? ('skipped' as const) : ('pending' as const),
       }))
     )
     .select('id, contact_id');
@@ -227,12 +231,16 @@ export async function createBroadcast(
   }
 
   // Pair each inserted recipient row back to its phone/params by
-  // contact_id — unambiguous now that duplicates are collapsed.
+  // contact_id — unambiguous now that duplicates are collapsed. Opted-out
+  // recipients are excluded from `planned` (they already got their
+  // 'skipped' row above) so deliverBroadcast never attempts to send.
   const byContact = new Map(deduped.map((r) => [r.contactId, r]));
-  const planned: PlannedRecipient[] = recipientRows.map((row) => {
-    const r = byContact.get(row.contact_id as string)!;
-    return { recipientRowId: row.id as string, phone: r.phone, params: r.params };
-  });
+  const planned: PlannedRecipient[] = recipientRows
+    .filter((row) => !byContact.get(row.contact_id as string)!.optedOut)
+    .map((row) => {
+      const r = byContact.get(row.contact_id as string)!;
+      return { recipientRowId: row.id as string, phone: r.phone, params: r.params };
+    });
 
   return {
     broadcastId: broadcast.id,

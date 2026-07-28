@@ -90,6 +90,7 @@ export function Step2SelectAudience({
   const [loadingTags, setLoadingTags] = useState(false);
   const [loadingFields, setLoadingFields] = useState(false);
   const [estimatedCount, setEstimatedCount] = useState<number | null>(null);
+  const [optedOutCount, setOptedOutCount] = useState(0);
   const [loadingCount, setLoadingCount] = useState(false);
 
   // Tags are used both by the primary "Filter by Tags" audience type
@@ -167,11 +168,16 @@ export function Step2SelectAudience({
         audience.csvContacts &&
         audience.csvContacts.length > 0
       ) {
+        // CSV rows aren't real contacts yet (upserted at send time), so
+        // there's nothing to check opted_out against here — the send
+        // path still enforces it once they exist.
         setEstimatedCount(audience.csvContacts.length);
+        setOptedOutCount(0);
         return;
       } else {
         // Partially-configured audience — wait for the user to finish.
         setEstimatedCount(null);
+        setOptedOutCount(0);
         return;
       }
 
@@ -190,6 +196,16 @@ export function Step2SelectAudience({
           (id) => !excludeSet?.has(id),
         );
         setEstimatedCount(effective.length);
+        if (effective.length > 0) {
+          const { count } = await supabase
+            .from('contacts')
+            .select('*', { count: 'exact', head: true })
+            .in('id', effective)
+            .eq('opted_out', true);
+          setOptedOutCount(count ?? 0);
+        } else {
+          setOptedOutCount(0);
+        }
       } else {
         // "All" — fetch the total, then subtract exclude set if any.
         const { count } = await supabase
@@ -197,6 +213,21 @@ export function Step2SelectAudience({
           .select('*', { count: 'exact', head: true });
         const total = count ?? 0;
         setEstimatedCount(excludeSet ? Math.max(0, total - excludeSet.size) : total);
+
+        const { count: optedOutTotal } = await supabase
+          .from('contacts')
+          .select('*', { count: 'exact', head: true })
+          .eq('opted_out', true);
+        let effectiveOptedOut = optedOutTotal ?? 0;
+        if (excludeSet && excludeSet.size > 0) {
+          const { count: excludedOptedOut } = await supabase
+            .from('contacts')
+            .select('*', { count: 'exact', head: true })
+            .in('id', [...excludeSet])
+            .eq('opted_out', true);
+          effectiveOptedOut -= excludedOptedOut ?? 0;
+        }
+        setOptedOutCount(Math.max(0, effectiveOptedOut));
       }
     } finally {
       setLoadingCount(false);
@@ -436,12 +467,22 @@ export function Step2SelectAudience({
             <span className="text-xs text-muted-foreground">Calculating…</span>
           </div>
         ) : estimatedCount !== null ? (
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-primary" />
-            <span className="text-sm text-foreground">
-              {estimatedCount.toLocaleString()}
-            </span>
-            <span className="text-xs text-muted-foreground">estimated recipients</span>
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-primary" />
+              <span className="text-sm text-foreground">
+                {estimatedCount.toLocaleString()}
+              </span>
+              <span className="text-xs text-muted-foreground">estimated recipients</span>
+            </div>
+            {optedOutCount > 0 && (
+              <p className="text-xs text-amber-500">
+                {t('selectAudience.optedOutWarning', {
+                  count: optedOutCount,
+                  total: estimatedCount,
+                })}
+              </p>
+            )}
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">
