@@ -461,6 +461,7 @@ export function MessageThread({
         status: "sending",
         created_at: new Date().toISOString(),
         reply_to_message_id: replyToId,
+        channel: 'meta',
       };
       onNewMessage(optimisticMsg);
       setReplyTo(null);
@@ -525,6 +526,7 @@ export function MessageThread({
         status: "sending",
         created_at: new Date().toISOString(),
         reply_to_message_id: payload.replyToId,
+        channel: 'meta',
       };
       onNewMessage(optimisticMsg);
       setReplyTo(null);
@@ -585,6 +587,7 @@ export function MessageThread({
         status: "sending",
         created_at: new Date().toISOString(),
         reply_to_message_id: replyToId,
+        channel: 'meta',
       };
       onNewMessage(optimisticMsg);
 
@@ -663,6 +666,7 @@ export function MessageThread({
         template_name: template.name,
         status: "sending",
         created_at: new Date().toISOString(),
+        channel: 'meta',
       };
       onNewMessage(optimisticMsg);
 

@@ -94,6 +94,10 @@ export interface AccountMember {
   /** Same admin+-only visibility tier as `email` — see `waha_session_name`
    *  on `Profile` for what this drives (migration 045). */
   waha_session_name: string | null;
+  /** The agent's own number (`profiles.phone`, migration 052) — needed
+   *  alongside `waha_session_name` to route a conversation through this
+   *  agent's WAHA channel (migration 053). Same visibility tier. */
+  phone: string | null;
 }
 
 /**
@@ -335,6 +339,10 @@ export interface Message {
   status: MessageStatus;
   created_at: string;
   reply_to_message_id?: string;
+  /** Which line this message went out/came in on (migration 053).
+   *  Defaults to 'meta'; 'waha' when routed through an assigned
+   *  agent's own connected WhatsApp number. */
+  channel: 'meta' | 'waha';
   /**
    * Only set when `content_type === 'interactive'` — the stable id of
    * the button or list row the customer tapped. The Flows engine uses
