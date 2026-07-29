@@ -78,6 +78,15 @@ export async function POST(
     return NextResponse.json({ status: 'ignored' }, { status: 200 });
   }
 
+  // Group chat JIDs look like `120363000000000000@g.us`, vs. an individual
+  // chat's `15551234567@c.us`. Group messages are explicitly out of scope
+  // for this handler (see header comment) — without this check, the digit
+  // strip below would treat the group ID as if it were a phone number and
+  // create a garbage contact/conversation for it.
+  if ((payload.from ?? '').endsWith('@g.us')) {
+    return NextResponse.json({ status: 'ignored' }, { status: 200 });
+  }
+
   const fromDigits = (payload.from ?? '').replace(/\D/g, '');
   if (!fromDigits) {
     return NextResponse.json({ status: 'ignored' }, { status: 200 });

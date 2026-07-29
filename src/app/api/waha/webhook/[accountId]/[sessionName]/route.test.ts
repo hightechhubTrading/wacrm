@@ -120,4 +120,23 @@ describe('POST /api/waha/webhook/[accountId]/[sessionName]', () => {
     expect(res.status).toBe(200);
     expect(messageInserts).toHaveLength(0);
   });
+
+  it('ignores a group message (from ending in @g.us)', async () => {
+    const res = await POST(
+      makeRequest('correct-secret', {
+        event: 'message',
+        session: 'sarah-agent',
+        payload: {
+          id: 'x',
+          timestamp: 1699999999,
+          from: '120363000000000000@g.us',
+          fromMe: false,
+          body: 'hi group',
+        },
+      }),
+      { params: Promise.resolve({ accountId: 'acct-1', sessionName: 'sarah-agent' }) },
+    );
+    expect(res.status).toBe(200);
+    expect(messageInserts).toHaveLength(0);
+  });
 });
