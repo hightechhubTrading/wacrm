@@ -27,6 +27,7 @@ import {
   RefreshCw,
   PanelRightOpen,
   PanelRightClose,
+  Phone,
 } from "lucide-react";
 import { format, isToday, isYesterday, differenceInHours } from "date-fns";
 import { useTranslations } from "next-intl";
@@ -871,6 +872,12 @@ export function MessageThread({
   const assignLabel = assignedAgentId
     ? (currentAssignee?.full_name ?? t("assigned"))
     : t("assign");
+  // A conversation is "WAHA-routed" once the assigned agent has both a
+  // connected WAHA session and their own phone number on file (wired up
+  // via Task 9's admin UI). Falls back to the default Meta Cloud API path
+  // whenever either field is missing, or nobody's assigned.
+  const activeChannel: 'meta' | 'waha' =
+    currentAssignee?.waha_session_name && currentAssignee?.phone ? 'waha' : 'meta';
 
   return (
     // `min-w-0` is load-bearing: the page already puts min-w-0 on the
@@ -1040,6 +1047,12 @@ export function MessageThread({
                         {p.full_name}
                         {p.user_id === user?.id ? t("me") : ""}
                       </span>
+                      {p.waha_session_name && p.phone && (
+                        <Phone
+                          className="ml-1 h-3 w-3 text-emerald-400"
+                          aria-label={t("hasWahaChannel")}
+                        />
+                      )}
                       {isSelected && <Check className="ml-2 h-3 w-3" />}
                     </DropdownMenuItem>
                   );
@@ -1058,6 +1071,15 @@ export function MessageThread({
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* WAHA-routing badge — only shown once the conversation is
+              actually routed through an agent's personal WhatsApp channel,
+              so the default Meta-Cloud-API path stays visually unmarked. */}
+          {activeChannel === 'waha' && currentAssignee && (
+            <Badge className="border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-400">
+              {t("viaWhatsapp", { name: currentAssignee.full_name })}
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -1157,7 +1179,8 @@ export function MessageThread({
       {/* Composer */}
       <MessageComposer
         conversationId={conversation.id}
-        sessionExpired={sessionInfo.expired}
+        sessionExpired={activeChannel === 'waha' ? false : sessionInfo.expired}
+        channel={activeChannel}
         onSend={handleSend}
         onSendMedia={handleSendMedia}
         onSendInteractive={handleSendInteractive}

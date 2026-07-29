@@ -163,6 +163,8 @@
       "unassign": "담당자 해제",
       "noTeammates": "지정 가능한 팀원이 없습니다",
       "me": " (나)",
+      "viaWhatsapp": "{name}님의 WhatsApp을 통해",
+      "hasWahaChannel": "연결된 WhatsApp 번호가 있습니다",
       "noMessagesYet": "아직 메시지가 없습니다",
       "sendTemplateHint": "템플릿을 보내 대화를 시작하세요",
       "selectConversation": "대화를 선택하세요",

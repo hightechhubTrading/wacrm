@@ -163,6 +163,8 @@
       "unassign": "Unassign",
       "noTeammates": "No teammates available",
       "me": " (me)",
+      "viaWhatsapp": "via {name}'s WhatsApp",
+      "hasWahaChannel": "Has a connected WhatsApp number",
       "noMessagesYet": "No messages yet",
       "sendTemplateHint": "Send a template to start the conversation",
       "selectConversation": "Select a conversation",
