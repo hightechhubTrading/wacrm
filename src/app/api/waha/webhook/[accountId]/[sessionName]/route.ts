@@ -104,11 +104,24 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to resolve contact' }, { status: 500 });
   }
 
+  // A customer who messages this agent's personal number must land in a
+  // conversation already assigned to that agent — that's what makes
+  // `resolveAgentWahaChannel` route the CRM's reply back out through the
+  // SAME number the customer is talking to. Without it, the first reply
+  // would come from the shared Meta business number, which from the
+  // customer's side looks like a stranger answering their private chat.
+  //
+  // Creation-only, by design: an existing conversation keeps whatever
+  // assignment it already has (including none). Reassigning it here
+  // would be a retroactive handoff, which this feature forbids — a
+  // customer pinging an agent's number must not silently pull an
+  // in-progress conversation away from whoever owns it.
   const conversationOutcome = await findOrCreateConversation(
     db,
     accountId,
     agentProfile.user_id,
     contactOutcome.contact.id,
+    agentProfile.user_id,
   );
   if (!conversationOutcome) {
     return NextResponse.json({ error: 'Failed to resolve conversation' }, { status: 500 });

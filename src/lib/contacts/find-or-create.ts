@@ -88,6 +88,19 @@ export async function findOrCreateConversation(
   accountId: string,
   configOwnerUserId: string,
   contactId: string,
+  /**
+   * Agent to own the conversation, applied ONLY when this call creates
+   * it. Used by the WAHA webhook so a customer who messages an agent's
+   * personal number lands in a conversation already routed back through
+   * that same number (otherwise the CRM's first reply goes out over the
+   * shared Meta number — a different number than the one the customer
+   * is actually talking to).
+   *
+   * Deliberately never applied to an existing conversation: that would
+   * be a retroactive handoff, which this feature explicitly forbids.
+   * The Meta webhook omits it and keeps today's unassigned behaviour.
+   */
+  assignedAgentIdOnCreate?: string | null,
 ): Promise<ConversationOutcome | null> {
   // Look for an existing conversation in this account, oldest-first.
   //
@@ -126,6 +139,12 @@ export async function findOrCreateConversation(
       account_id: accountId,
       user_id: configOwnerUserId,
       contact_id: contactId,
+      // Only present when the caller asked for it — omitted entirely
+      // otherwise so the column keeps its NULL default (unassigned),
+      // exactly as before.
+      ...(assignedAgentIdOnCreate
+        ? { assigned_agent_id: assignedAgentIdOnCreate }
+        : {}),
     })
     .select()
     .single();

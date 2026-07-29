@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const messageInserts: Record<string, unknown>[] = [];
 const conversationUpdates: Record<string, unknown>[] = [];
+const conversationInserts: Record<string, unknown>[] = [];
+// Rows findOrCreateConversation's lookup resolves to. Empty (default) →
+// it creates a new conversation; populated → it reuses that one.
+let existingConversations: Record<string, unknown>[] = [];
 
 vi.mock('@/lib/flows/admin-client', () => ({
   supabaseAdmin: () => ({
@@ -24,11 +28,12 @@ vi.mock('@/lib/flows/admin-client', () => ({
         like: () => builder,
         order: () => builder,
         limit: () =>
-          table === 'contacts'
-            ? Promise.resolve({ data: [], error: null })
+          table === 'conversations'
+            ? Promise.resolve({ data: existingConversations, error: null })
             : Promise.resolve({ data: [], error: null }),
         insert: (row: Record<string, unknown>) => {
           if (table === 'messages') messageInserts.push(row);
+          if (table === 'conversations') conversationInserts.push(row);
           return {
             select: () => ({
               single: () =>
@@ -63,6 +68,8 @@ import { POST } from './route';
 beforeEach(() => {
   messageInserts.length = 0;
   conversationUpdates.length = 0;
+  conversationInserts.length = 0;
+  existingConversations = [];
 });
 
 function makeRequest(secret: string, body: unknown) {
@@ -106,6 +113,68 @@ describe('POST /api/waha/webhook/[accountId]/[sessionName]', () => {
       content_text: 'Hello!',
     });
     expect(conversationUpdates).toHaveLength(1);
+  });
+
+  it('assigns a NEWLY created conversation to the agent whose number received it', async () => {
+    // Without this the CRM's first reply to a customer who messaged
+    // Sarah's personal number would go out over the shared Meta business
+    // number — a different number than the one the customer is talking
+    // to. resolveAgentWahaChannel keys off assigned_agent_id, so the
+    // assignment IS the routing.
+    const res = await POST(
+      makeRequest('correct-secret', {
+        event: 'message',
+        session: 'sarah-agent',
+        payload: {
+          id: 'msg-abc',
+          timestamp: 1699999999,
+          from: '15551234567@c.us',
+          fromMe: false,
+          body: 'Hi Sarah',
+        },
+      }),
+      { params: Promise.resolve({ accountId: 'acct-1', sessionName: 'sarah-agent' }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(conversationInserts).toHaveLength(1);
+    expect(conversationInserts[0]).toMatchObject({
+      account_id: 'acct-1',
+      contact_id: 'contact-1',
+      assigned_agent_id: 'agent-user-1',
+    });
+  });
+
+  it('never reassigns an EXISTING conversation to the receiving agent', async () => {
+    // "No retroactive handoff" is an explicit rule of this feature: an
+    // in-progress conversation someone else owns must not be yanked away
+    // just because the customer also pinged this agent's number.
+    existingConversations = [
+      { id: 'conv-existing', contact_id: 'contact-1', assigned_agent_id: null, unread_count: 3 },
+    ];
+
+    const res = await POST(
+      makeRequest('correct-secret', {
+        event: 'message',
+        session: 'sarah-agent',
+        payload: {
+          id: 'msg-def',
+          timestamp: 1699999999,
+          from: '15551234567@c.us',
+          fromMe: false,
+          body: 'Following up',
+        },
+      }),
+      { params: Promise.resolve({ accountId: 'acct-1', sessionName: 'sarah-agent' }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(conversationInserts).toHaveLength(0);
+    // The only conversation write is the last-message/unread bookkeeping —
+    // it must not carry an assignment.
+    expect(conversationUpdates).toHaveLength(1);
+    expect(conversationUpdates[0]).not.toHaveProperty('assigned_agent_id');
+    expect(conversationUpdates[0]).toMatchObject({ unread_count: 4 });
   });
 
   it('ignores an echo of the agent\'s own outbound message (fromMe: true)', async () => {

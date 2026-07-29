@@ -71,4 +71,67 @@ describe('findOrCreateConversation', () => {
     expect(result!.created).toBe(true);
     expect(result!.conversation.id).toBe('conv-1');
   });
+
+  it('omits assigned_agent_id entirely when no agent is passed (Meta webhook)', async () => {
+    const { db, calls } = makeDb({
+      'conversations.limit': { data: [], error: null },
+      'conversations.single': { data: { id: 'conv-1' }, error: null },
+    });
+
+    await findOrCreateConversation(db, 'acct-1', 'owner-1', 'contact-1');
+
+    const insert = calls.find(
+      (c) => c.table === 'conversations' && c.insert,
+    )!.insert as Record<string, unknown>;
+    // Absent, not null — the column keeps its NULL default and the
+    // conversation stays unassigned exactly as before.
+    expect('assigned_agent_id' in insert).toBe(false);
+  });
+
+  it('assigns the given agent when it CREATES the conversation', async () => {
+    const { db, calls } = makeDb({
+      'conversations.limit': { data: [], error: null },
+      'conversations.single': { data: { id: 'conv-1' }, error: null },
+    });
+
+    const result = await findOrCreateConversation(
+      db,
+      'acct-1',
+      'owner-1',
+      'contact-1',
+      'agent-user-1',
+    );
+
+    expect(result!.created).toBe(true);
+    const insert = calls.find(
+      (c) => c.table === 'conversations' && c.insert,
+    )!.insert as Record<string, unknown>;
+    expect(insert.assigned_agent_id).toBe('agent-user-1');
+  });
+
+  it('never touches assigned_agent_id on an EXISTING conversation', async () => {
+    // No retroactive handoff: a customer messaging an agent's WAHA
+    // number must not pull an already-owned conversation away from
+    // whoever holds it.
+    const existing = {
+      id: 'conv-existing',
+      contact_id: 'contact-1',
+      assigned_agent_id: 'someone-else',
+    };
+    const { db, calls } = makeDb({
+      'conversations.limit': { data: [existing], error: null },
+    });
+
+    const result = await findOrCreateConversation(
+      db,
+      'acct-1',
+      'owner-1',
+      'contact-1',
+      'agent-user-1',
+    );
+
+    expect(result!.created).toBe(false);
+    expect(result!.conversation.assigned_agent_id).toBe('someone-else');
+    expect(calls.some((c) => c.table === 'conversations' && c.insert)).toBe(false);
+  });
 });

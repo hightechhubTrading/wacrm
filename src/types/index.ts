@@ -51,8 +51,10 @@ export interface Profile {
    * group notifications from (migration 045). Null/unset means their
    * assigned deals' notifications are skipped entirely rather than
    * falling back to the account's shared `waha_config.session_name`.
-   * Set via `set_member_waha_session` (admin+ only; self-settable,
-   * unlike account_role).
+   * Set via `set_member_waha_channel` (migration 053, which replaced
+   * the original `set_member_waha_session` RPC when the agent's own
+   * `phone` joined this field as a settable pair) — admin+ only, but
+   * self-settable, unlike account_role.
    */
   waha_session_name?: string | null;
   /**
