@@ -13,11 +13,20 @@ callable number is to hand them a real WhatsApp account on a real device,
 which means giving them the assigned agent's own number.
 
 WAHA (a self-hosted, unofficial WhatsApp HTTP API client) already exists in
-this codebase, but only for one narrow, isolated purpose: posting a
-fire-and-forget text into an internal notification group when a deal moves
-pipeline stage (`src/lib/notifications/waha-client.ts`,
-`src/app/api/waha/config/route.ts`). It has never been used for a real,
-bidirectional customer conversation.
+this codebase for one narrow purpose today: posting a fire-and-forget text
+into an internal notification group when a deal moves pipeline stage
+(`src/lib/notifications/waha-client.ts`, `src/app/api/waha/config/route.ts`).
+It has never been used for a real, bidirectional customer conversation.
+
+Crucially, **per-agent WAHA sessions already exist too** — migration 045
+added `profiles.waha_session_name` (admin-editable in Settings → Members
+today) specifically so a deal's stage-enter group notification could be
+sent from the *assigned agent's own* WAHA session instead of one shared
+default (`src/lib/pipelines/notify.ts`). And migration 052 added
+`profiles.phone` — "the agent's own WhatsApp/call number, offered to a
+customer who asks to talk by phone" — currently only used by the AI to
+*mention* verbally. This spec is what connects those two existing pieces to
+actual conversation routing, rather than inventing new per-agent storage.
 
 This spec covers routing a conversation's messages through an assigned
 agent's own WAHA-connected WhatsApp number when one exists, so clients who
@@ -51,33 +60,26 @@ already shows.
 
 ## Data model
 
-New table, independent of `waha_config`:
+No new table. Everything needed already exists except one column:
 
-```sql
-CREATE TABLE agent_waha_channels (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  account_id    UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-  user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  base_url      TEXT NOT NULL,
-  api_key       TEXT NOT NULL,       -- encrypted, same scheme as whatsapp_config/waha_config
-  session_name  TEXT NOT NULL,       -- WAHA session, already paired externally
-  phone_number  TEXT NOT NULL,       -- E.164, filled in by the admin after pairing
-  is_active     BOOLEAN NOT NULL DEFAULT true,
-  created_by    UUID NOT NULL,
-  created_at    TIMESTAMPTZ DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE (account_id, session_name),
-  UNIQUE (account_id, user_id)   -- one active number per agent
-);
-```
-
-Kept fully separate from `waha_config` rather than extended into it: the
-existing table's code explicitly calls out its isolation for one narrow
-purpose (group notifications, fire-and-forget, never throws), and cramming a
-second, bidirectional, per-agent use case into the same table would mean
-both features branching around each other's assumptions in shared code. The
-duplication of `base_url`/`api_key` per row is an acceptable cost for keeping
-each feature simple and independently changeable.
+- **`waha_config`** (account-level, unchanged) — the one shared WAHA
+  server: `base_url`, `api_key`. Already there.
+- **`profiles.waha_session_name`** (already exists, migration 045) — which
+  WAHA session this agent's replies go out from. Already admin-editable in
+  Settings → Members.
+- **`profiles.phone`** (already exists, migration 052) — the agent's own
+  number. Already admin/self-editable. Reused as-is: whatever number the AI
+  is already allowed to mention verbally is the same number WAHA connects
+  to. A conversation only routes through WAHA when *both* `waha_session_name`
+  and `phone` are set for the assigned agent — either alone isn't enough
+  (a session with no known number can't be matched against inbound senders
+  or shown to the admin; a phone number with no session can't send).
+- **`profiles.waha_webhook_secret`** (new column) — encrypted, same scheme
+  as `waha_config.api_key`. Authenticates inbound webhook calls for this
+  agent's session (see Inbound routing below). Generated server-side the
+  first time an admin sets a `waha_session_name`; cleared whenever the
+  session is cleared, so a disconnected agent's old webhook URL stops
+  working immediately.
 
 `messages` gets one new column: `channel TEXT NOT NULL DEFAULT 'meta' CHECK
 (channel IN ('meta', 'waha'))`, recording which line a given message actually
@@ -85,20 +87,23 @@ went out/came in on.
 
 ## Registration flow (admin only)
 
-- New panel on a member's row/detail in Settings → Members (not the general
-  WAHA settings panel — this is per-agent, matching "the number they have in
-  their profile").
-- Same fields and pattern as today's group-notification WAHA config
-  (`waha-config.tsx`): base_url, session_name, api_key, plus which agent it
-  belongs to and their phone number.
-- Admin pairs the session externally on the WAHA server first (QR scan on
-  the agent's phone, exactly like today), then registers the session here.
-- New routes `GET/POST/DELETE /api/waha/agent-channels`, mirroring
-  `/api/waha/config`'s auth (`requireRole('admin')`) and encryption
-  (`encrypt`/`decrypt`) patterns.
-- Registration is rejected if the phone number is already bound to another
-  `agent_waha_channels` row or to the account's `whatsapp_config` number, to
-  avoid two channels resolving to the same number.
+- Extends the existing Settings → Members row UI (`members-tab.tsx`), which
+  already has an inline `waha_session_name` input — adds a phone-number
+  input next to it (writing to the existing `profiles.phone`) and a
+  "Get webhook URL" action once both are set.
+- The admin still pairs the session externally on the WAHA server first (QR
+  scan on the agent's phone), exactly like today's group-notification setup
+  and today's per-agent session for stage-enter notifications — nothing new
+  here.
+- "Get webhook URL" reveals the full URL (including the secret) once, for
+  the admin to paste into that WAHA session's webhook configuration on the
+  server side.
+- The existing `PATCH /api/account/members/[userId]` route (today handles
+  `role` and `waha_session_name`) is extended to also accept `phone`, and to
+  generate/return the webhook secret the first time a session is connected.
+  Same admin+ auth, same underlying SECURITY DEFINER RPC pattern as
+  `set_member_waha_session` (migration 045) — extended to also set `phone`
+  and (re)generate `waha_webhook_secret` in one call.
 
 ## Outbound routing
 
@@ -106,9 +111,10 @@ went out/came in on.
 channel-resolution step before it builds the send:
 
 1. Load `conversations.assigned_agent_id`.
-2. If set, look up an active `agent_waha_channels` row for
-   `(account_id, assigned_agent_id)`.
-3. If found → send via WAHA. Otherwise → today's Meta path, unchanged.
+2. If set, look up that agent's `profiles` row for `waha_session_name` and
+   `phone`. Both must be non-null.
+3. If found → send via WAHA (using `waha_config.base_url`/`api_key` plus the
+   agent's own `session_name`). Otherwise → today's Meta path, unchanged.
 
 The WAHA path is narrower than the Meta path by necessity — templates and
 interactive buttons/lists are Business-API-only features and simply don't
@@ -134,14 +140,18 @@ just not offered, since they're structurally inapplicable.
 
 ## Inbound routing
 
-New route: `POST /api/waha/webhook/[accountId]/[sessionName]`. The admin
-points each agent's WAHA session's webhook configuration at this URL
-(external, on the WAHA server side — same as any WAHA session setup).
+New route: `POST /api/waha/webhook/[accountId]/[sessionName]?secret=...`. The
+`secret` is `profiles.waha_webhook_secret`, generated when the admin
+connects the session (shown once in the admin panel, alongside the full
+webhook URL to paste into that WAHA session's webhook configuration on the
+server side) — without it, `accountId`/`sessionName` alone would be
+guessable/enumerable, letting anyone POST forged inbound messages.
 
 Handler:
 
-1. Resolve the `agent_waha_channels` row from `(accountId, sessionName)`;
-   404/ignore if not found or inactive.
+1. Resolve the `profiles` row for `(account_id = accountId, waha_session_name
+   = sessionName)`; 404/ignore if not found or the `secret` doesn't match
+   the (decrypted) `waha_webhook_secret`.
 2. Extract the sender's phone number and message content (text or basic
    media) from the WAHA event payload.
 3. Reuse the **same** `findOrCreateContact` / `findOrCreateConversation`
@@ -149,7 +159,7 @@ Handler:
    `whatsapp/webhook/route.ts` so both webhooks share one code path) — this
    is what keeps a contact's WAHA and Meta messages in one unified thread
    instead of forking a second conversation per channel.
-4. Insert the message (`sender_type: 'contact'`, `channel: 'waha'`), update
+4. Insert the message (`sender_type: 'customer'`, `channel: 'waha'`), update
    `conversations.last_message_text/at` and `unread_count`, same as the Meta
    path.
 5. Only text and basic media events are handled. Read receipts, reactions,
