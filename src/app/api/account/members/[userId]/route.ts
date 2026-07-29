@@ -1,22 +1,33 @@
 // ============================================================
 // /api/account/members/[userId]
 //
-//   PATCH  — change a member's role and/or WAHA session name. Admin+.
+//   PATCH  — change a member's role, WAHA session name, and/or
+//            phone number. Admin+.
 //   DELETE — remove a member.                                 Admin+.
 //
 // Both delegate to SECURITY DEFINER RPCs:
-//   - set_member_role(p_user_id, p_new_role)               (018)
-//   - set_member_waha_session(p_user_id, p_session_name)    (045)
-//   - remove_account_member(p_user_id)                      (018)
+//   - set_member_role(p_user_id, p_new_role)                          (018)
+//   - set_member_waha_channel(p_user_id, p_session_name, p_phone,
+//       p_new_webhook_secret)                                          (053)
+//   - remove_account_member(p_user_id)                                (018)
 //
 // The RPCs do the *real* authorisation work — caller must be
 // admin+, target must be in caller's account (set_member_role also
 // blocks owner promotion/demotion and self-targeting; the WAHA
-// session RPC intentionally does NOT block self-targeting — an
+// channel RPC intentionally does NOT block self-targeting — an
 // admin who is also a working sales agent can set their own). The
 // TS layer here only forwards the call and maps Postgres SQLSTATEs
 // back to HTTP statuses.
+//
+// Webhook secret: the first time a session is connected (i.e. the
+// row has no waha_webhook_secret yet), this route generates a
+// random secret, encrypts it, and passes the ciphertext to the RPC
+// to store. The plaintext secret is embedded in a webhook URL and
+// returned exactly once in the PATCH response — it is never stored
+// or returned again after that.
 // ============================================================
+
+import crypto from "crypto";
 
 import { NextResponse } from "next/server";
 import type { PostgrestError } from "@supabase/supabase-js";
@@ -28,6 +39,7 @@ import {
   rateLimitResponse,
   RATE_LIMITS,
 } from "@/lib/rate-limit";
+import { encrypt } from "@/lib/whatsapp/encryption";
 
 // Map known SQLSTATEs from the RPCs (see migration 018) onto HTTP
 // statuses. The `error.code` field is the SQLSTATE; the `message`
@@ -62,15 +74,16 @@ export async function PATCH(
     const { userId } = await params;
 
     const body = (await request.json().catch(() => null)) as
-      | { role?: unknown; waha_session_name?: unknown }
+      | { role?: unknown; waha_session_name?: unknown; phone?: unknown }
       | null;
 
     const roleProvided = body !== null && "role" in body;
     const wahaProvided = body !== null && "waha_session_name" in body;
+    const phoneProvided = body !== null && "phone" in body;
 
-    if (!roleProvided && !wahaProvided) {
+    if (!roleProvided && !wahaProvided && !phoneProvided) {
       return NextResponse.json(
-        { error: "Provide 'role' and/or 'waha_session_name'" },
+        { error: "Provide 'role', 'waha_session_name', and/or 'phone'" },
         { status: 400 },
       );
     }
@@ -105,25 +118,78 @@ export async function PATCH(
       if (error) return rpcErrorToResponse(error);
     }
 
-    if (wahaProvided) {
-      const raw = body!.waha_session_name;
-      if (raw !== null && typeof raw !== "string") {
-        return NextResponse.json(
-          { error: "'waha_session_name' must be a string or null" },
-          { status: 400 },
-        );
-      }
-      const sessionName = typeof raw === "string" ? raw.trim().slice(0, 100) : "";
+    let webhookUrlForResponse: string | null = null;
 
-      const { error } = await ctx.supabase.rpc("set_member_waha_session", {
+    if (wahaProvided || phoneProvided) {
+      let sessionRaw: unknown;
+      let phoneRaw: unknown;
+
+      if (wahaProvided) {
+        sessionRaw = body!.waha_session_name;
+        if (sessionRaw !== null && typeof sessionRaw !== "string") {
+          return NextResponse.json(
+            { error: "'waha_session_name' must be a string or null" },
+            { status: 400 },
+          );
+        }
+      }
+      if (phoneProvided) {
+        phoneRaw = body!.phone;
+        if (phoneRaw !== null && typeof phoneRaw !== "string") {
+          return NextResponse.json(
+            { error: "'phone' must be a string or null" },
+            { status: 400 },
+          );
+        }
+      }
+
+      const { data: current, error: currentError } = await ctx.supabase
+        .from("profiles")
+        .select("waha_session_name, phone, waha_webhook_secret")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (currentError || !current) {
+        return NextResponse.json({ error: "Target user not found" }, { status: 404 });
+      }
+
+      const finalSession = wahaProvided
+        ? typeof sessionRaw === "string"
+          ? sessionRaw.trim().slice(0, 100)
+          : ""
+        : (current.waha_session_name ?? "");
+      const finalPhone = phoneProvided
+        ? typeof phoneRaw === "string"
+          ? phoneRaw.trim().slice(0, 32)
+          : ""
+        : (current.phone ?? "");
+
+      let newSecretPlain: string | null = null;
+      let newSecretEncrypted: string | null = null;
+      if (finalSession && !current.waha_webhook_secret) {
+        newSecretPlain = crypto.randomBytes(24).toString("hex");
+        newSecretEncrypted = encrypt(newSecretPlain);
+      }
+
+      const { error } = await ctx.supabase.rpc("set_member_waha_channel", {
         p_user_id: userId,
-        p_session_name: sessionName,
+        p_session_name: finalSession,
+        p_phone: finalPhone,
+        p_new_webhook_secret: newSecretEncrypted,
       });
 
       if (error) return rpcErrorToResponse(error);
+
+      if (newSecretPlain && finalSession) {
+        const base = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "") ?? "";
+        webhookUrlForResponse = `${base}/api/waha/webhook/${ctx.account.id}/${encodeURIComponent(finalSession)}?secret=${newSecretPlain}`;
+      }
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({
+      ok: true,
+      ...(webhookUrlForResponse ? { webhook_url: webhookUrlForResponse } : {}),
+    });
   } catch (err) {
     return toErrorResponse(err);
   }
