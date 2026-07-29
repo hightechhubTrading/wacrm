@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { sendWahaGroupText } from './waha-client'
+import { sendWahaGroupText, sendWahaIndividualText, WahaSendError } from './waha-client'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -68,5 +68,52 @@ describe('sendWahaGroupText', () => {
 
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toContain('getaddrinfo ENOTFOUND')
+  })
+})
+
+describe('sendWahaIndividualText', () => {
+  const args = {
+    baseUrl: 'https://waha.example.com',
+    apiKey: 'secret-key',
+    session: 'sarah-agent',
+    toPhone: '+15551234567',
+    text: 'Hi, this is Sarah!',
+  }
+
+  it('posts to /api/sendText with an individual @c.us chatId', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 } as Response)
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await sendWahaIndividualText(args)
+
+    expect(result.ok).toBe(true)
+    const [url, opts] = fetchMock.mock.calls[0]
+    expect(url).toBe('https://waha.example.com/api/sendText')
+    expect(opts.headers['X-Api-Key']).toBe('secret-key')
+    expect(JSON.parse(opts.body)).toEqual({
+      session: 'sarah-agent',
+      chatId: '15551234567@c.us',
+      text: 'Hi, this is Sarah!',
+    })
+  })
+
+  it('throws WahaSendError on a non-2xx response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 422,
+        text: () => Promise.resolve('session not connected'),
+      } as unknown as Response),
+    )
+
+    await expect(sendWahaIndividualText(args)).rejects.toThrow(WahaSendError)
+    await expect(sendWahaIndividualText(args)).rejects.toThrow(/422/)
+  })
+
+  it('throws WahaSendError on a network failure', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('getaddrinfo ENOTFOUND')))
+
+    await expect(sendWahaIndividualText(args)).rejects.toThrow(WahaSendError)
   })
 })
