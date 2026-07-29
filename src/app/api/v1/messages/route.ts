@@ -10,6 +10,16 @@
 // Auth: API key with the `messages:send` scope. Account context (and
 // the service-role client) come from `requireApiKey`.
 //
+// WAHA-routed conversations are OFF LIMITS here. If the resolved
+// conversation is assigned to an agent with their own connected WhatsApp
+// session, the send core rejects with `waha_public_api_forbidden` (403)
+// instead of sending. That number is a real person's personal WhatsApp
+// account, not a Business API number: automated traffic through it is
+// the exact pattern WhatsApp bans numbers for, and the agent — not the
+// company — eats the ban. The dashboard is unaffected; a human agent
+// replying from their own number is the feature. This is why the
+// `publicApi: true` flag is passed to `sendMessageToConversation` below.
+//
 // Body:
 //   {
 //     "to": "+14155550123",                 // required, E.164
@@ -124,7 +134,10 @@ export async function POST(request: Request) {
           typeof body.reply_to_message_id === 'string'
             ? body.reply_to_message_id
             : null,
-      }
+      },
+      // Public/automated caller — see the header comment: never send
+      // through an agent's personal WAHA number from here.
+      { publicApi: true }
     );
 
     return ok(

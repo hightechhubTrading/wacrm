@@ -225,7 +225,11 @@ const VALID_REPLY_MESSAGE = {
   message_id: 'wamid-parent',
 };
 
-function makeWahaDb() {
+function makeWahaDb(
+  overrides: { profile?: Record<string, unknown> | null } = {},
+) {
+  const profileRow =
+    overrides.profile === undefined ? WAHA_PROFILE : overrides.profile;
   const messageInserts: Record<string, unknown>[] = [];
   const conversationUpdates: Record<string, unknown>[] = [];
 
@@ -243,7 +247,7 @@ function makeWahaDb() {
         return { data: WAHA_CONVERSATION, error: null };
       }
       if (table === 'profiles') {
-        return { data: WAHA_PROFILE, error: null };
+        return { data: profileRow, error: null };
       }
       if (table === 'waha_config') {
         return { data: WAHA_CONFIG, error: null };
@@ -415,6 +419,72 @@ describe('sendMessageToConversation — WAHA channel routing', () => {
     ).rejects.toThrow(/only supports plain text messages/i);
 
     expect(sendWahaIndividualText).not.toHaveBeenCalled();
+  });
+
+  it('refuses to send from the public API when the conversation is WAHA-routed', async () => {
+    // The spec's first non-goal: no automation on WAHA-routed
+    // conversations. That number belongs to a real person's personal
+    // WhatsApp account, and automated traffic through it is exactly what
+    // gets numbers banned — so /api/v1/messages must fail loudly rather
+    // than send, and must not silently fall back to Meta either (that
+    // would send from a different identity than the caller expects).
+    const { db, messageInserts } = makeWahaDb();
+
+    await expect(
+      sendMessageToConversation(
+        db,
+        'acct-1',
+        {
+          conversationId: 'conv-1',
+          messageType: 'text',
+          contentText: 'Automated order update',
+        },
+        { publicApi: true },
+      ),
+    ).rejects.toMatchObject({
+      code: 'waha_public_api_forbidden',
+      status: 403,
+      message: expect.stringMatching(/personal WhatsApp number/i),
+    });
+
+    expect(sendWahaIndividualText).not.toHaveBeenCalled();
+    expect(messageInserts).toHaveLength(0);
+  });
+
+  it('still lets the dashboard (no publicApi flag) send over WAHA', async () => {
+    // The guard above must be scoped to the public API only — a human
+    // agent replying from their own number is the whole feature.
+    sendWahaIndividualText.mockResolvedValue({ ok: true });
+    const { db } = makeWahaDb();
+
+    await sendMessageToConversation(db, 'acct-1', {
+      conversationId: 'conv-1',
+      messageType: 'text',
+      contentText: 'Hi, Sarah here',
+    });
+
+    expect(sendWahaIndividualText).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not block the public API on a conversation that is NOT WAHA-routed', async () => {
+    // Same publicApi flag, but the assigned agent has no session → the
+    // WAHA branch is skipped entirely and we fall through to the normal
+    // Meta path (which this stub has no config for, hence the
+    // whatsapp_not_configured error — proof we got past the guard).
+    const { db } = makeWahaDb({ profile: { waha_session_name: null, phone: null } });
+
+    await expect(
+      sendMessageToConversation(
+        db,
+        'acct-1',
+        {
+          conversationId: 'conv-1',
+          messageType: 'text',
+          contentText: 'Automated order update',
+        },
+        { publicApi: true },
+      ),
+    ).rejects.toMatchObject({ code: 'whatsapp_not_configured' });
   });
 
   it('surfaces a WahaSendError as a SendMessageError instead of throwing raw', async () => {

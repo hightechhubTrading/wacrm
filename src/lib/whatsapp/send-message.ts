@@ -17,6 +17,10 @@
 // envelope). Behaviour is identical to the original inline route —
 // this is a straight extraction so the public endpoint can reuse it
 // without duplicating ~250 lines of Meta plumbing.
+//
+// The ONE place the two callers diverge is `SendMessageOptions.publicApi`:
+// the public endpoint is forbidden from sending through an agent's
+// personal WAHA number. See the rejection in the WAHA branch below.
 // ============================================================
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -86,6 +90,17 @@ export interface SendMessageParams {
   /** Structured payload for `messageType === 'interactive'`. */
   interactivePayload?: InteractiveMessagePayload | null;
   replyToMessageId?: string | null;
+}
+
+export interface SendMessageOptions {
+  /**
+   * Set by the public, API-key-authenticated `/api/v1/messages` route.
+   * Makes a WAHA-routed conversation a hard rejection instead of a
+   * silent send through the assigned agent's personal WhatsApp account.
+   * Omitted (falsy) for the dashboard, where a human agent sending from
+   * their own number is the entire point of the feature.
+   */
+  publicApi?: boolean;
 }
 
 export interface SendMessageResult {
@@ -285,7 +300,8 @@ async function pauseAiAutoReplyForConversation(
 export async function sendMessageToConversation(
   db: SupabaseClient,
   accountId: string,
-  params: SendMessageParams
+  params: SendMessageParams,
+  options: SendMessageOptions = {}
 ): Promise<SendMessageResult> {
   const {
     conversationId,
@@ -363,6 +379,30 @@ export async function sendMessageToConversation(
   );
 
   if (wahaChannel) {
+    // Automated traffic must never leave an agent's personal WhatsApp
+    // account. It's a real, human-registered number with no Business
+    // API protections — bulk/automated sending from one is precisely
+    // the pattern WhatsApp bans numbers for, and the agent would lose
+    // their own account, not a company asset. The feature spec's first
+    // non-goal is "no automation on WAHA-routed conversations", and the
+    // WAHA inbound webhook enforces the same rule structurally by never
+    // importing the flow / automation / AI dispatchers.
+    //
+    // The dashboard path is unaffected: a human agent clicking Send in
+    // the inbox is the whole point. Only the API-key-authenticated
+    // `/api/v1/messages` endpoint passes `publicApi: true`, and it fails
+    // loudly here rather than silently falling back to Meta — an
+    // integration that thinks it's messaging a customer should be told
+    // its target is human-owned, not quietly re-routed to a different
+    // sending identity.
+    if (options.publicApi) {
+      throw new SendMessageError(
+        'waha_public_api_forbidden',
+        `This conversation is routed through ${wahaChannel.agentPhone}'s personal WhatsApp number, which the public API is not allowed to send from (automated traffic on a personal number risks a WhatsApp ban). Unassign the conversation, or clear that agent's WAHA session, to send it over the account's Business number.`,
+        403
+      );
+    }
+
     if (messageType !== 'text') {
       throw new SendMessageError(
         'waha_unsupported_type',
