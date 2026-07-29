@@ -29,6 +29,31 @@ vi.mock('@/lib/notifications/waha-client', () => ({
   WahaSendError,
 }));
 
+// Tracks the two best-effort "human is here" side effects (Flow-run
+// pause + AI-autoreply pause) so tests can assert they fire for BOTH
+// the Meta and the WAHA send paths — see admin-client mock below.
+const { flowRunUpdates, conversationAiUpdates } = vi.hoisted(() => ({
+  flowRunUpdates: [] as Record<string, unknown>[],
+  conversationAiUpdates: [] as Record<string, unknown>[],
+}));
+vi.mock('@/lib/flows/admin-client', () => ({
+  supabaseAdmin: () => ({
+    from: (table: string) => {
+      const b: Record<string, unknown> = {};
+      const chain = () => b;
+      b.update = vi.fn((payload: Record<string, unknown>) => {
+        if (table === 'flow_runs') flowRunUpdates.push(payload);
+        if (table === 'conversations') conversationAiUpdates.push(payload);
+        return b;
+      });
+      for (const m of ['eq', 'select']) b[m] = vi.fn(chain);
+      b.then = (resolve: (v: unknown) => unknown) =>
+        resolve({ data: null, error: null });
+      return b;
+    },
+  }),
+}));
+
 // A db that explodes if touched — these tests cover the param
 // validation that MUST short-circuit before any query runs.
 function noDb(): SupabaseClient {
@@ -191,6 +216,14 @@ const WAHA_CONFIG = {
   api_key: 'enc:key',
   is_active: true,
 };
+// A message that genuinely belongs to conv-1 — used to prove the
+// reply-target lookup accepts a same-conversation quote (filtered by
+// BOTH id and conversation_id, mirroring the real query).
+const VALID_REPLY_MESSAGE = {
+  id: 'msg-valid-reply',
+  conversation_id: 'conv-1',
+  message_id: 'wamid-parent',
+};
 
 function makeWahaDb() {
   const messageInserts: Record<string, unknown>[] = [];
@@ -199,6 +232,7 @@ function makeWahaDb() {
   function builder(table: string) {
     let mode: 'select' | 'insert' | 'update' = 'select';
     let payload: unknown = null;
+    const eqFilters: Record<string, unknown> = {};
 
     const result = () => {
       if (table === 'conversations') {
@@ -218,12 +252,30 @@ function makeWahaDb() {
         messageInserts.push(payload as Record<string, unknown>);
         return { data: { id: 'msg-1' }, error: null };
       }
+      if (table === 'messages') {
+        // reply-target lookup — only matches a row whose `id` AND
+        // `conversation_id` both match the filter (same as a real
+        // `.eq('id', x).eq('conversation_id', y)` query); anything
+        // else (a different conversation's message, a bogus UUID)
+        // comes back not-found, same as Postgres would filter it out.
+        if (
+          eqFilters.id === VALID_REPLY_MESSAGE.id &&
+          eqFilters.conversation_id === VALID_REPLY_MESSAGE.conversation_id
+        ) {
+          return { data: VALID_REPLY_MESSAGE, error: null };
+        }
+        return { data: null, error: null };
+      }
       return { data: null, error: null };
     };
 
     const b: Record<string, unknown> = {};
     const chain = () => b;
-    for (const m of ['select', 'eq', 'order', 'limit']) b[m] = vi.fn(chain);
+    for (const m of ['select', 'order', 'limit']) b[m] = vi.fn(chain);
+    b.eq = vi.fn((col: string, val: unknown) => {
+      eqFilters[col] = val;
+      return b;
+    });
     b.insert = vi.fn((p: unknown) => {
       mode = 'insert';
       payload = p;
@@ -250,6 +302,8 @@ function makeWahaDb() {
 describe('sendMessageToConversation — WAHA channel routing', () => {
   beforeEach(() => {
     sendWahaIndividualText.mockReset();
+    flowRunUpdates.length = 0;
+    conversationAiUpdates.length = 0;
   });
 
   it('routes to WAHA when the conversation is assigned to an agent with a connected channel', async () => {
@@ -284,6 +338,68 @@ describe('sendMessageToConversation — WAHA channel routing', () => {
     expect(conversationUpdates).toHaveLength(1);
     expect(conversationUpdates[0]).toMatchObject({
       last_message_text: 'Hi, this is Sarah!',
+    });
+  });
+
+  it('pauses any active Flow run and the AI auto-reply bot after a WAHA-routed send', async () => {
+    // Mirrors the Meta path's best-effort "agent replied" side effects
+    // (see the Meta-path tests further down covering the same pauses)
+    // — a WAHA send is exactly as strong a "human is here" signal.
+    sendWahaIndividualText.mockResolvedValue({ ok: true });
+    const { db } = makeWahaDb();
+
+    await sendMessageToConversation(db, 'acct-1', {
+      conversationId: 'conv-1',
+      messageType: 'text',
+      contentText: 'Hi, this is Sarah!',
+    });
+
+    expect(flowRunUpdates).toHaveLength(1);
+    expect(flowRunUpdates[0]).toMatchObject({
+      status: 'paused_by_agent',
+      end_reason: 'agent_replied',
+    });
+
+    expect(conversationAiUpdates).toHaveLength(1);
+    expect(conversationAiUpdates[0]).toMatchObject({
+      ai_autoreply_disabled: true,
+    });
+  });
+
+  it('rejects a reply_to_message_id that belongs to a different conversation on a WAHA-routed send', async () => {
+    const { db } = makeWahaDb();
+
+    await expect(
+      sendMessageToConversation(db, 'acct-1', {
+        conversationId: 'conv-1',
+        messageType: 'text',
+        contentText: 'Quoting something I should not see',
+        replyToMessageId: 'msg-from-a-different-conversation',
+      })
+    ).rejects.toMatchObject({
+      code: 'bad_request',
+      status: 400,
+      message: expect.stringMatching(/reply_to_message_id not found in this conversation/),
+    });
+
+    // Must reject before ever calling out to WAHA.
+    expect(sendWahaIndividualText).not.toHaveBeenCalled();
+  });
+
+  it('accepts a reply_to_message_id that genuinely belongs to this conversation on a WAHA-routed send', async () => {
+    sendWahaIndividualText.mockResolvedValue({ ok: true });
+    const { db, messageInserts } = makeWahaDb();
+
+    const result = await sendMessageToConversation(db, 'acct-1', {
+      conversationId: 'conv-1',
+      messageType: 'text',
+      contentText: 'Replying to a real message',
+      replyToMessageId: VALID_REPLY_MESSAGE.id,
+    });
+
+    expect(result.messageId).toBe('msg-1');
+    expect(messageInserts[0]).toMatchObject({
+      reply_to_message_id: VALID_REPLY_MESSAGE.id,
     });
   });
 

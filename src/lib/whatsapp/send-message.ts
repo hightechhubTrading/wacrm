@@ -182,6 +182,106 @@ export function validateSendMessageParams(params: {
   }
 }
 
+/**
+ * Validate that `replyToMessageId` (if provided) belongs to this
+ * conversation — otherwise a caller could quote a message from a
+ * conversation they don't have access to by guessing a UUID. Resolves
+ * to the parent's Meta `message_id` (wamid), for the Meta path's reply
+ * context; `undefined` if no reply was requested, or the parent has no
+ * wamid (e.g. it was itself sent via WAHA). Throws `SendMessageError`
+ * on a real mismatch/miss. Shared by both the Meta and WAHA send paths
+ * so the membership check can't be skipped by either.
+ */
+async function resolveReplyTarget(
+  db: SupabaseClient,
+  conversationId: string,
+  replyToMessageId: string | null | undefined
+): Promise<string | undefined> {
+  if (!replyToMessageId) return undefined;
+
+  const { data: parent, error: parentError } = await db
+    .from('messages')
+    .select('message_id, conversation_id')
+    .eq('id', replyToMessageId)
+    .eq('conversation_id', conversationId)
+    .maybeSingle();
+
+  if (parentError || !parent) {
+    throw new SendMessageError(
+      'bad_request',
+      'reply_to_message_id not found in this conversation',
+      400
+    );
+  }
+  if (!parent.message_id) {
+    console.warn(
+      '[send-message] reply target has no Meta message_id; sending without context'
+    );
+    return undefined;
+  }
+  return parent.message_id;
+}
+
+/**
+ * Pause any active Flow run for this contact — the agent stepping in
+ * (via any channel) is the strongest "yield, human is here" signal.
+ * Best-effort: must never fail the send itself.
+ */
+async function pauseFlowRunForContact(
+  accountId: string,
+  contactId: string
+): Promise<void> {
+  try {
+    const { error: pauseErr } = await supabaseAdmin()
+      .from('flow_runs')
+      .update({
+        status: 'paused_by_agent',
+        ended_at: new Date().toISOString(),
+        end_reason: 'agent_replied',
+      })
+      .eq('account_id', accountId)
+      .eq('contact_id', contactId)
+      .eq('status', 'active');
+    if (pauseErr) {
+      console.error('[flows] pause-on-agent-send failed:', pauseErr.message);
+    }
+  } catch (err) {
+    console.error(
+      '[flows] pause-on-agent-send threw:',
+      err instanceof Error ? err.message : err
+    );
+  }
+}
+
+/**
+ * Pause the AI auto-reply bot for this conversation — an agent
+ * manually sending a message (via any channel) is a strong "human is
+ * here" signal, the same as the explicit "Take over" toggle, so the
+ * bot must not talk over them on the next inbound. Sticky until an
+ * agent re-enables it (mirrors ai_autoreply_disabled semantics in
+ * auto-reply.ts). Best-effort: must never fail the send itself.
+ */
+async function pauseAiAutoReplyForConversation(
+  accountId: string,
+  conversationId: string
+): Promise<void> {
+  try {
+    const { error: aiPauseErr } = await supabaseAdmin()
+      .from('conversations')
+      .update({ ai_autoreply_disabled: true })
+      .eq('id', conversationId)
+      .eq('account_id', accountId);
+    if (aiPauseErr) {
+      console.error('[ai] pause-on-agent-send failed:', aiPauseErr.message);
+    }
+  } catch (err) {
+    console.error(
+      '[ai] pause-on-agent-send threw:',
+      err instanceof Error ? err.message : err
+    );
+  }
+}
+
 export async function sendMessageToConversation(
   db: SupabaseClient,
   accountId: string,
@@ -271,6 +371,13 @@ export async function sendMessageToConversation(
       );
     }
 
+    // Same conversation-membership check as the Meta path. WAHA sends
+    // don't thread reply context into the outbound API call, but the
+    // `reply_to_message_id` persisted on the new row still needs the
+    // same guard against quoting a message from a conversation the
+    // caller can't see.
+    await resolveReplyTarget(db, conversationId, replyToMessageId);
+
     try {
       await sendWahaIndividualText({
         baseUrl: wahaChannel.baseUrl,
@@ -323,6 +430,12 @@ export async function sendMessageToConversation(
       })
       .eq('id', conversationId);
 
+    // Pause any active Flow run and the AI auto-reply bot — an agent
+    // manually replying is exactly as strong a "human is here" signal
+    // over WAHA as it is over Meta. Best-effort.
+    await pauseFlowRunForContact(accountId, contact.id);
+    await pauseAiAutoReplyForConversation(accountId, conversationId);
+
     return { messageId: messageRecord.id, whatsappMessageId: waMessageId };
   }
 
@@ -362,30 +475,11 @@ export async function sendMessageToConversation(
   // Resolve the reply target to its Meta message_id. The parent must
   // belong to this same conversation — otherwise a caller could quote
   // messages they can't see by guessing UUIDs.
-  let contextMessageId: string | undefined;
-  if (replyToMessageId) {
-    const { data: parent, error: parentError } = await db
-      .from('messages')
-      .select('message_id, conversation_id')
-      .eq('id', replyToMessageId)
-      .eq('conversation_id', conversationId)
-      .maybeSingle();
-
-    if (parentError || !parent) {
-      throw new SendMessageError(
-        'bad_request',
-        'reply_to_message_id not found in this conversation',
-        400
-      );
-    }
-    if (!parent.message_id) {
-      console.warn(
-        '[send-message] reply target has no Meta message_id; sending without context'
-      );
-    } else {
-      contextMessageId = parent.message_id;
-    }
-  }
+  const contextMessageId = await resolveReplyTarget(
+    db,
+    conversationId,
+    replyToMessageId
+  );
 
   // Template row (for header + button components). isMessageTemplate
   // guards against a malformed local row crashing the send-builder.
@@ -569,50 +663,11 @@ export async function sendMessageToConversation(
     })
     .eq('id', conversationId);
 
-  // Pause any active Flow run for this contact — the agent stepping in
-  // is the strongest "yield, human is here" signal. Best-effort.
-  try {
-    const { error: pauseErr } = await supabaseAdmin()
-      .from('flow_runs')
-      .update({
-        status: 'paused_by_agent',
-        ended_at: new Date().toISOString(),
-        end_reason: 'agent_replied',
-      })
-      .eq('account_id', accountId)
-      .eq('contact_id', contact.id)
-      .eq('status', 'active');
-    if (pauseErr) {
-      console.error('[flows] pause-on-agent-send failed:', pauseErr.message);
-    }
-  } catch (err) {
-    console.error(
-      '[flows] pause-on-agent-send threw:',
-      err instanceof Error ? err.message : err
-    );
-  }
-
-    // Pause the AI auto-reply bot for this conversation — an agent
-  // manually sending a message is a strong "human is here" signal, the
-  // same as the explicit "Take over" toggle, so the bot must not talk
-  // over them on the next inbound. Sticky until an agent re-enables it
-  // (mirrors ai_autoreply_disabled semantics in auto-reply.ts). Best-
-  // effort: must never fail the send itself.
-  try {
-    const { error: aiPauseErr } = await supabaseAdmin()
-      .from('conversations')
-      .update({ ai_autoreply_disabled: true })
-      .eq('id', conversationId)
-      .eq('account_id', accountId);
-    if (aiPauseErr) {
-      console.error('[ai] pause-on-agent-send failed:', aiPauseErr.message);
-    }
-  } catch (err) {
-    console.error(
-      '[ai] pause-on-agent-send threw:',
-      err instanceof Error ? err.message : err
-    );
-  }
+  // Pause any active Flow run and the AI auto-reply bot for this
+  // contact/conversation — the agent stepping in is the strongest
+  // "yield, human is here" signal. Best-effort.
+  await pauseFlowRunForContact(accountId, contact.id);
+  await pauseAiAutoReplyForConversation(accountId, conversationId);
 
   return { messageId: messageRecord.id, whatsappMessageId: waMessageId };
 }
