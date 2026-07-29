@@ -262,6 +262,7 @@ export function MembersTab() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ waha_session_name: nextValue }),
       });
+      const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
         setMembers((prev) =>
           prev.map((m) =>
@@ -270,13 +271,26 @@ export function MembersTab() {
               : m,
           ),
         );
-        const payload = await res.json().catch(() => ({}));
         toast.error(payload.error || t('wahaSessionUpdateFailed'));
         return;
       }
       toast.success(
         t('wahaSessionUpdatedToast', { name: member.full_name || t('unnamed') }),
       );
+      // The server mints the webhook secret the FIRST time a session
+      // name lands on a member's row, so in the normal registration
+      // order (session name first, phone second) this handler — not the
+      // phone one — is the only place the URL is ever returned. It's a
+      // one-time reveal: if we drop it here the admin can never see it
+      // again without clearing and re-connecting the session. Same toast
+      // treatment as handleWahaPhoneChange below, which catches the
+      // reverse field order.
+      if (payload.webhook_url) {
+        toast.success(t('wahaWebhookUrlReady'), {
+          description: payload.webhook_url,
+          duration: 15000,
+        });
+      }
     } catch (err) {
       setMembers((prev) =>
         prev.map((m) =>
@@ -292,10 +306,12 @@ export function MembersTab() {
     }
   }
 
-  // Same pattern as handleWahaSessionChange above, plus a one-time
-  // toast surfacing the webhook URL when the PATCH response includes
-  // one (i.e. this call was the first to connect a session for this
-  // member and the server just minted a webhook secret).
+  // Same pattern as handleWahaSessionChange above, including the
+  // one-time toast surfacing the webhook URL when the PATCH response
+  // includes one (i.e. this call was the first to connect a session for
+  // this member and the server just minted a webhook secret). Both
+  // handlers must check, because either field can be the one that first
+  // completes the pair and triggers the mint.
   async function handleWahaPhoneChange(member: Member, rawValue: string) {
     const trimmed = rawValue.trim();
     const nextValue = trimmed || null;

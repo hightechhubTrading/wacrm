@@ -40,6 +40,7 @@ import {
   RATE_LIMITS,
 } from "@/lib/rate-limit";
 import { encrypt } from "@/lib/whatsapp/encryption";
+import { getBaseUrl } from "@/lib/http/base-url";
 
 // Map known SQLSTATEs from the RPCs (see migration 018) onto HTTP
 // statuses. The `error.code` field is the SQLSTATE; the `message`
@@ -180,8 +181,18 @@ export async function PATCH(
 
       if (error) return rpcErrorToResponse(error);
 
-      if (newSecretPlain && finalSession) {
-        const base = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "") ?? "";
+      // `newSecretPlain` is only ever set inside the `if (finalSession
+      // && !current.waha_webhook_secret)` branch above, so a truthy
+      // `finalSession` is already implied here — no need to re-check it.
+      //
+      // The base URL comes from the shared resolver rather than reading
+      // NEXT_PUBLIC_SITE_URL directly: this secret is a one-time reveal
+      // (we store only the ciphertext and never return it again), so
+      // handing the admin a *relative* URL because an env var wasn't set
+      // is unrecoverable — they'd have to clear and re-connect the
+      // session to mint a new one.
+      if (newSecretPlain) {
+        const base = getBaseUrl(request, "PATCH /api/account/members/[userId]");
         webhookUrlForResponse = `${base}/api/waha/webhook/${ctx.account.id}/${encodeURIComponent(finalSession)}?secret=${newSecretPlain}`;
       }
     }
