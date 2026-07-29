@@ -88,6 +88,10 @@ interface Member {
    *  WhatsApp number — this member's assigned deals send stage-enter
    *  group notifications from (migration 045). */
   waha_session_name: string | null;
+  /** The agent's own number (migration 052) — needed alongside
+   *  `waha_session_name` to route a conversation through this agent's
+   *  WAHA channel (migration 053). Same admin+-only visibility tier. */
+  phone: string | null;
 }
 
 interface Invitation {
@@ -282,6 +286,57 @@ export function MembersTab() {
         ),
       );
       console.error('[MembersTab] WAHA session change error:', err);
+      toast.error('Could not reach the server');
+    } finally {
+      setPendingMemberAction(null);
+    }
+  }
+
+  // Same pattern as handleWahaSessionChange above, plus a one-time
+  // toast surfacing the webhook URL when the PATCH response includes
+  // one (i.e. this call was the first to connect a session for this
+  // member and the server just minted a webhook secret).
+  async function handleWahaPhoneChange(member: Member, rawValue: string) {
+    const trimmed = rawValue.trim();
+    const nextValue = trimmed || null;
+    if ((member.phone ?? null) === nextValue) return;
+
+    const previousValue = member.phone;
+    setPendingMemberAction(member.user_id);
+    setMembers((prev) =>
+      prev.map((m) =>
+        m.user_id === member.user_id ? { ...m, phone: nextValue } : m,
+      ),
+    );
+    try {
+      const res = await fetch(`/api/account/members/${member.user_id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: nextValue }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMembers((prev) =>
+          prev.map((m) =>
+            m.user_id === member.user_id ? { ...m, phone: previousValue } : m,
+          ),
+        );
+        toast.error(payload.error || t('wahaPhoneUpdateFailed'));
+        return;
+      }
+      if (payload.webhook_url) {
+        toast.success(t('wahaWebhookUrlReady'), {
+          description: payload.webhook_url,
+          duration: 15000,
+        });
+      }
+    } catch (err) {
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.user_id === member.user_id ? { ...m, phone: previousValue } : m,
+        ),
+      );
+      console.error('[MembersTab] phone change error:', err);
       toast.error('Could not reach the server');
     } finally {
       setPendingMemberAction(null);
@@ -483,6 +538,24 @@ export function MembersTab() {
                           handleWahaSessionChange(member, e.target.value)
                         }
                         className="w-28 bg-muted border-border text-foreground text-xs"
+                      />
+                    )}
+
+                    {/* Agent's own WhatsApp number — paired with the
+                        session name above so the webhook route can
+                        route an inbound conversation to this agent's
+                        channel (migration 053). Same visibility gate
+                        as the session-name input. */}
+                    {canManageMembers && (
+                      <Input
+                        key={member.phone ?? ''}
+                        defaultValue={member.phone ?? ''}
+                        placeholder={t('wahaPhonePlaceholder')}
+                        disabled={isBusy}
+                        onBlur={(e) =>
+                          handleWahaPhoneChange(member, e.target.value)
+                        }
+                        className="w-32 bg-muted border-border text-foreground text-xs"
                       />
                     )}
 
