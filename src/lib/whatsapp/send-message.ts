@@ -44,6 +44,8 @@ import {
 } from '@/lib/whatsapp/phone-utils';
 import type { MessageTemplate } from '@/types';
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
+import { resolveAgentWahaChannel } from '@/lib/whatsapp/resolve-agent-channel';
+import { sendWahaIndividualText, WahaSendError } from '@/lib/notifications/waha-client';
 
 export const MEDIA_KINDS = ['image', 'video', 'document', 'audio'] as const;
 export const VALID_MESSAGE_TYPES = [
@@ -245,6 +247,83 @@ export async function sendMessageToConversation(
       'Invalid phone number format',
       400
     );
+  }
+
+  // If the conversation's assigned agent has their own connected WAHA
+  // channel, route through it instead of the account's shared Meta
+  // number — see resolve-agent-channel.ts for the resolution rule.
+  // This ships text-only: any other message type routed to WAHA is a
+  // hard error rather than a silent Meta fallback (which would send
+  // from the wrong number without the agent realizing it) or an
+  // unverified media call.
+  const wahaChannel = await resolveAgentWahaChannel(
+    db,
+    accountId,
+    conversation.assigned_agent_id ?? null
+  );
+
+  if (wahaChannel) {
+    if (messageType !== 'text') {
+      throw new SendMessageError(
+        'waha_unsupported_type',
+        `This conversation is routed through ${wahaChannel.agentPhone}'s WhatsApp number, which only supports plain text messages (no ${messageType}).`,
+        400
+      );
+    }
+
+    try {
+      await sendWahaIndividualText({
+        baseUrl: wahaChannel.baseUrl,
+        apiKey: wahaChannel.apiKey,
+        session: wahaChannel.session,
+        toPhone: sanitizedPhone,
+        text: contentText!,
+      });
+    } catch (err) {
+      if (err instanceof WahaSendError) {
+        throw new SendMessageError(
+          'waha_error',
+          `Failed to send from ${wahaChannel.agentPhone}'s WhatsApp — reconnect the agent's session in Settings → Members, or reassign the conversation. (${err.message})`,
+          502
+        );
+      }
+      throw err;
+    }
+
+    const waMessageId = '';
+    const { data: messageRecord, error: msgError } = await db
+      .from('messages')
+      .insert({
+        conversation_id: conversationId,
+        sender_type: 'agent',
+        content_type: 'text',
+        content_text: contentText,
+        message_id: waMessageId,
+        status: 'sent',
+        reply_to_message_id: replyToMessageId || null,
+        channel: 'waha',
+      })
+      .select()
+      .single();
+
+    if (msgError) {
+      throw new SendMessageError(
+        'db_error',
+        `Message sent via WAHA but failed to save to DB: ${msgError.message}`,
+        500
+      );
+    }
+
+    await db
+      .from('conversations')
+      .update({
+        last_message_text: contentText,
+        last_message_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', conversationId);
+
+    return { messageId: messageRecord.id, whatsappMessageId: waMessageId };
   }
 
   // WhatsApp config, account-scoped.
@@ -462,6 +541,7 @@ export async function sendMessageToConversation(
       message_id: waMessageId,
       status: 'sent',
       reply_to_message_id: replyToMessageId || null,
+      channel: 'meta',
     })
     .select()
     .single();
