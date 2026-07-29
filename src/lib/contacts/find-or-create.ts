@@ -37,6 +37,13 @@ export async function findOrCreateContact(
   phone: string,
   name: string,
 ): Promise<ContactOutcome | null> {
+  // Delegate the lookup to findExistingContact rather than a plain
+  // `.eq('phone', phone)` — it pre-filters in SQL by the last-8-digit
+  // suffix, then applies the strict `phonesMatch` in JS on the small
+  // candidate set. That's the same matching rule the manual contact
+  // form and CSV import use, so all callers agree on what "same
+  // number" means (issue #212), and it's also what keeps this insert
+  // aligned with the unique index migration 022 added on contacts.
   const existingContact = await findExistingContact(db, accountId, phone);
 
   if (existingContact) {
@@ -61,6 +68,10 @@ export async function findOrCreateContact(
     .single();
 
   if (createError) {
+    // Lost a race: a concurrent inbound delivery (or another path)
+    // created this contact between our lookup and insert, and the
+    // unique index (migration 022) rejected the duplicate. Re-resolve
+    // the existing row instead of dropping the message.
     if (isUniqueViolation(createError)) {
       const raced = await findExistingContact(db, accountId, phone);
       if (raced) return { contact: raced, wasCreated: false };
@@ -78,6 +89,20 @@ export async function findOrCreateConversation(
   configOwnerUserId: string,
   contactId: string,
 ): Promise<ConversationOutcome | null> {
+  // Look for an existing conversation in this account, oldest-first.
+  //
+  // We deliberately do NOT use `.single()` here. `.single()` errors on
+  // *both* 0 rows and >=2 rows, and treating any error as "none found"
+  // (as older code did) means that once two conversations exist for a
+  // contact — from a race, e.g. a provider retries a delivery or a
+  // batch fans out to concurrent runs — every later inbound message
+  // errors on the lookup and creates yet another conversation,
+  // snowballing into a wall of duplicate chats (issue #363). Do not
+  // "simplify" this back to `.single()`.
+  //
+  // Ordering oldest-first and taking one row makes the lookup resolve
+  // to the same canonical survivor a dedup migration would keep, so
+  // any pre-existing duplicates converge instead of compounding.
   const { data: existingRows, error: findError } = await db
     .from('conversations')
     .select('*')
@@ -106,6 +131,11 @@ export async function findOrCreateConversation(
     .single();
 
   if (createError) {
+    // Lost a race: a concurrent inbound delivery created the
+    // conversation between our lookup and insert, and the unique index
+    // on (account_id, contact_id) rejected the duplicate. Re-resolve
+    // the winning row (same oldest-first query as above) instead of
+    // dropping the message — mirrors findOrCreateContact.
     if (isUniqueViolation(createError)) {
       const { data: raced } = await db
         .from('conversations')

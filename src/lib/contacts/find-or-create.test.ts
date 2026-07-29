@@ -10,7 +10,12 @@ function makeDb(overrides: Record<string, unknown> = {}) {
       const builder: Record<string, unknown> = {
         select: () => builder,
         eq: () => builder,
-        like: () => builder,
+        // dedupe.ts's findExistingContact terminates its query chain at
+        // `.like(...)` and awaits that call directly (it never calls
+        // `.limit()` for the contacts table) — so this must resolve to
+        // { data, error } itself, matching the real chain, rather than
+        // returning the builder for further chaining.
+        like: () => Promise.resolve(overrides[`${table}.like`] ?? { data: [], error: null }),
         order: () => builder,
         limit: () => Promise.resolve(overrides[`${table}.limit`] ?? { data: [], error: null }),
         insert: (row: Record<string, unknown>) => {
@@ -29,7 +34,7 @@ function makeDb(overrides: Record<string, unknown> = {}) {
 describe('findOrCreateContact', () => {
   it('creates a new contact when none exists', async () => {
     const { db } = makeDb({
-      'contacts.limit': { data: [], error: null }, // findExistingContact's .like() query
+      'contacts.like': { data: [], error: null }, // findExistingContact's .like() query — no match, so it falls through to insert
       'contacts.single': {
         data: { id: 'contact-1', phone: '+15551234567', name: 'Jane' },
         error: null,
