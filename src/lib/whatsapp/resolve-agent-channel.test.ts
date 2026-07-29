@@ -24,9 +24,18 @@ function makeDb(rows: { profile?: unknown; wahaConfig?: unknown }) {
 }
 
 describe('resolveAgentWahaChannel', () => {
+  // Note: A Supabase query error is treated the same as "not found" (returns null).
+  // The resolver intentionally falls back to Meta's shared number on any resolution gap,
+  // treating missing data, null fields, and query errors identically for robustness.
+
   it('returns null when no agent is assigned', async () => {
     const db = makeDb({});
     expect(await resolveAgentWahaChannel(db, 'acct-1', null)).toBeNull();
+  });
+
+  it('returns null when profile query returns no row', async () => {
+    const db = makeDb({ profile: null });
+    expect(await resolveAgentWahaChannel(db, 'acct-1', 'user-1')).toBeNull();
   });
 
   it('returns null when the assigned agent has no session or phone', async () => {
@@ -39,10 +48,39 @@ describe('resolveAgentWahaChannel', () => {
     expect(await resolveAgentWahaChannel(db, 'acct-1', 'user-1')).toBeNull();
   });
 
-  it('returns null when waha_config is missing or inactive', async () => {
+  it('returns null when the agent has a phone but no session', async () => {
+    const db = makeDb({ profile: { waha_session_name: null, phone: '+15551234567' } });
+    expect(await resolveAgentWahaChannel(db, 'acct-1', 'user-1')).toBeNull();
+  });
+
+  it('returns null when waha_config is missing', async () => {
+    const db = makeDb({
+      profile: { waha_session_name: 'sarah-agent', phone: '+15551234567' },
+      wahaConfig: null,
+    });
+    expect(await resolveAgentWahaChannel(db, 'acct-1', 'user-1')).toBeNull();
+  });
+
+  it('returns null when waha_config is inactive', async () => {
     const db = makeDb({
       profile: { waha_session_name: 'sarah-agent', phone: '+15551234567' },
       wahaConfig: { base_url: 'https://waha.example.com', api_key: 'enc:key', is_active: false },
+    });
+    expect(await resolveAgentWahaChannel(db, 'acct-1', 'user-1')).toBeNull();
+  });
+
+  it('returns null when waha_config is missing api_key', async () => {
+    const db = makeDb({
+      profile: { waha_session_name: 'sarah-agent', phone: '+15551234567' },
+      wahaConfig: { base_url: 'https://waha.example.com', api_key: null, is_active: true },
+    });
+    expect(await resolveAgentWahaChannel(db, 'acct-1', 'user-1')).toBeNull();
+  });
+
+  it('returns null when waha_config is missing base_url', async () => {
+    const db = makeDb({
+      profile: { waha_session_name: 'sarah-agent', phone: '+15551234567' },
+      wahaConfig: { base_url: null, api_key: 'enc:key', is_active: true },
     });
     expect(await resolveAgentWahaChannel(db, 'acct-1', 'user-1')).toBeNull();
   });
