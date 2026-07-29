@@ -205,14 +205,25 @@ export function MessageThread({
   const [replyTo, setReplyTo] = useState<ReplyDraft | null>(null);
 
   // Profiles are bounded by RLS to rows the current user is allowed to
-  // see — today that's just the current user, but the dropdown keeps the
-  // shape ready for shared-team workspaces without a refactor.
+  // see — `profiles_select` (migration 017) lets any account member read
+  // every profile row in their account, which is what populates the
+  // assign dropdown for shared-team workspaces.
+  //
+  // Explicit column list, NOT `select("*")`: that RLS policy is
+  // row-level, so `*` would ship every column of every teammate's row to
+  // this browser — including `waha_webhook_secret` (migration 053).
+  // It's AES-256-GCM ciphertext rather than a plaintext secret, but a
+  // viewer-role user has no business holding any teammate's webhook
+  // credential material. Add columns here as the UI needs them; never
+  // add `waha_webhook_secret`.
   useEffect(() => {
     let cancelled = false;
     const supabase = createClient();
     supabase
       .from("profiles")
-      .select("*")
+      .select(
+        "id, user_id, full_name, email, avatar_url, role, account_id, account_role, waha_session_name, phone, created_at",
+      )
       .order("full_name")
       .then(({ data, error }) => {
         if (cancelled) return;
@@ -221,6 +232,48 @@ export function MessageThread({
           return;
         }
         setProfiles((data as Profile[]) ?? []);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Whether the ACCOUNT's WAHA integration is usable at all — the other
+  // half of the backend's `resolveAgentWahaChannel` rule (active config
+  // with a base_url + api_key). Without this the UI would decide
+  // "WAHA-routed" purely from the assigned agent's session/phone and
+  // disagree with the backend whenever `waha_config` is missing or
+  // inactive (`is_active` DEFAULTs false, so that's a normal state) —
+  // hiding the template button and showing a "no 24h window" badge on a
+  // conversation the backend still sends through Meta, leaving the agent
+  // with no way to reopen an expired session window.
+  //
+  // Only an existence probe: the filters live in the WHERE clause and we
+  // select just the id, so the encrypted `api_key` never reaches the
+  // browser. `waha_config.account_id` is UNIQUE and `waha_config_select`
+  // (migration 043) is scoped to `is_account_member(account_id)`, so at
+  // most one row is ever visible — no explicit account filter needed.
+  const [wahaConfigReady, setWahaConfigReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = createClient();
+    supabase
+      .from("waha_config")
+      .select("id")
+      .eq("is_active", true)
+      .not("base_url", "is", null)
+      .neq("base_url", "")
+      .not("api_key", "is", null)
+      .neq("api_key", "")
+      .limit(1)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error("Failed to check WAHA config:", error);
+          setWahaConfigReady(false);
+          return;
+        }
+        setWahaConfigReady((data?.length ?? 0) > 0);
       });
     return () => {
       cancelled = true;
@@ -874,10 +927,19 @@ export function MessageThread({
     : t("assign");
   // A conversation is "WAHA-routed" once the assigned agent has both a
   // connected WAHA session and their own phone number on file (wired up
-  // via Task 9's admin UI). Falls back to the default Meta Cloud API path
-  // whenever either field is missing, or nobody's assigned.
+  // via Task 9's admin UI) AND the account's own WAHA config is active
+  // and complete. That conjunction MUST mirror
+  // `resolveAgentWahaChannel` (src/lib/whatsapp/resolve-agent-channel.ts)
+  // exactly — if this is looser than the backend, the UI hides
+  // Meta-only controls (templates, interactive, media) on a conversation
+  // the backend still sends over Meta, and an agent whose 24h session
+  // window has closed is left with no way to reopen it. Falls back to
+  // the default Meta Cloud API path whenever any piece is missing, or
+  // nobody's assigned.
   const activeChannel: 'meta' | 'waha' =
-    currentAssignee?.waha_session_name && currentAssignee?.phone ? 'waha' : 'meta';
+    wahaConfigReady && currentAssignee?.waha_session_name && currentAssignee?.phone
+      ? 'waha'
+      : 'meta';
 
   return (
     // `min-w-0` is load-bearing: the page already puts min-w-0 on the
@@ -1047,7 +1109,11 @@ export function MessageThread({
                         {p.full_name}
                         {p.user_id === user?.id ? t("me") : ""}
                       </span>
-                      {p.waha_session_name && p.phone && (
+                      {/* Same full rule as `activeChannel` above —
+                          assigning to this teammate only actually routes
+                          through their number when the account's WAHA
+                          config is live too. */}
+                      {wahaConfigReady && p.waha_session_name && p.phone && (
                         <Phone
                           className="ml-1 h-3 w-3 text-emerald-400"
                           aria-label={t("hasWahaChannel")}

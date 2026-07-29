@@ -115,7 +115,15 @@ export function DealForm({
     (async () => {
       const [c, p] = await Promise.all([
         supabase.from("contacts").select("*").order("name"),
-        supabase.from("profiles").select("*").order("full_name"),
+        // Explicit column list, not `*`: `profiles_select` (migration
+        // 017) is row-level only, so `*` ships every column of every
+        // teammate's row to the browser — including the encrypted
+        // `waha_webhook_secret` (migration 053). Only the owner picker's
+        // label fields are needed here.
+        supabase
+          .from("profiles")
+          .select("id, user_id, full_name, email, avatar_url, role, created_at")
+          .order("full_name"),
       ]);
       if (cancelled) return;
       setContacts((c.data ?? []) as Contact[]);
