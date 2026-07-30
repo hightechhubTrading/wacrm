@@ -1642,7 +1642,10 @@
       "active": "Active",
       "accentColor": "Accent color",
       "useTheme": "Use {name} theme",
-      "syncFailed": "Couldn't save your appearance preference. It still applies on this device."
+      "syncFailed": "Couldn't save your appearance preference. It still applies on this device.",
+      "language": "Language",
+      "useLanguage": "Use {name}",
+      "switchFailed": "Couldn't switch language. Please try again."
     },
     "security": {
       "title": "Login & security",
