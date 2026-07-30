@@ -24,30 +24,30 @@ describe("i18n request config", () => {
 
   it("uses the locale cookie when it's a known locale", async () => {
     mocks.get.mockReturnValue({ value: "ar" });
-    const config = await requestConfig();
+    const config = await requestConfig({ requestLocale: Promise.resolve(undefined) });
     expect(config.locale).toBe("ar");
   });
 
   it("falls back to NEXT_PUBLIC_APP_LOCALE when the cookie is missing", async () => {
     process.env.NEXT_PUBLIC_APP_LOCALE = "ar";
-    const config = await requestConfig();
+    const config = await requestConfig({ requestLocale: Promise.resolve(undefined) });
     expect(config.locale).toBe("ar");
   });
 
   it("falls back to en when neither the cookie nor the env var is set", async () => {
-    const config = await requestConfig();
+    const config = await requestConfig({ requestLocale: Promise.resolve(undefined) });
     expect(config.locale).toBe("en");
   });
 
   it("ignores an invalid cookie value and falls back", async () => {
     mocks.get.mockReturnValue({ value: "ko" });
-    const config = await requestConfig();
+    const config = await requestConfig({ requestLocale: Promise.resolve(undefined) });
     expect(config.locale).toBe("en");
   });
 
   it("loads the messages file matching the resolved locale", async () => {
     mocks.get.mockReturnValue({ value: "ar" });
-    const config = await requestConfig();
+    const config = await requestConfig({ requestLocale: Promise.resolve(undefined) });
     expect(config.messages).toBeDefined();
     expect((config.messages as Record<string, unknown>).LoginPage).toBeDefined();
   });
