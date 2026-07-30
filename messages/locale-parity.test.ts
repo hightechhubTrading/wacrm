@@ -79,7 +79,8 @@ function groupSignature(groupContent: string): string {
 
   // Extract category keywords. Each category appears as "keyword {content}" or "keyword{content}".
   // We need to extract only the keywords that appear *before* their opening braces.
-  const remainder = groupContent.slice(parts[0].length + parts[1].length + 2); // Skip "argName, type, "
+  // Skip "argName" + ", " + "type" + ", " = parts[0].length + 2 + parts[1].length + 2
+  const remainder = groupContent.slice(parts[0].length + parts[1].length + 4); // Skip "argName, type, "
 
   const categories = new Set<string>();
   let braceDepth = 0;
@@ -133,6 +134,12 @@ describe("messages/locale-parity placeholder parsing", () => {
       const en = "{count, plural, =1 {conversation} other {conversations}}";
       const ar = "{count, plural, =1 {محادثة} other {محادثات}}";
       expect(placeholderSignatures(en)).toEqual(placeholderSignatures(ar));
+    });
+
+    it("category keywords must be extracted cleanly without stray commas or spaces", () => {
+      const signature = placeholderSignatures("{count, plural, =1 {x} other {y}}");
+      // Should be exactly ["count:plural:[=1|other]"], not ["count:plural:[, =1|other]"] or similar
+      expect(signature).toEqual(["count:plural:[=1|other]"]);
     });
 
     it("plural construct with missing category keyword must FAIL", () => {
