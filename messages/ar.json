@@ -114,7 +114,7 @@
     },
     "responseTimeChart": {
       "title": "متوسط وقت الاستجابة الأول",
-      "description": "الدقائق اللازمة للرد على أول رسالة غير مجاب عليها من العميل، حسب يوم الأسبوع",
+      "description": "الدقائق اللازمة للرد على أول رسالة من العميل لم يُرد عليها، حسب يوم الأسبوع",
       "target": "الهدف {minutes} د",
       "thisWeek": "هذا الأسبوع:",
       "lastWeek": "الأسبوع الماضي:",
@@ -495,7 +495,7 @@
       "newFieldNamePlaceholder": "اسم الحقل الجديد…",
       "addField": "إضافة",
       "required": "مطلوب",
-      "aiCollectible": "يمكن للذكاء الاصطناعي جمعه",
+      "aiCollectible": "يمكن لـ AI جمعه",
       "fieldType_text": "نص",
       "fieldType_textarea": "منطقة نص",
       "fieldType_number": "رقم",
