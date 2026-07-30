@@ -42,6 +42,13 @@ interface Profile {
    */
   theme: string | null;
   mode: string | null;
+  /**
+   * UI language, mirrored from the device choice so it follows the
+   * user across devices (migration 055). Same nullability contract
+   * as theme/mode: `null` means "never chosen anywhere" — see
+   * <LocaleSync>. Loose string, narrow with `isLocaleId()`.
+   */
+  locale: string | null;
   account_id: string | null;
   account_role: AccountRole | null;
   /**
@@ -153,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "id, full_name, email, avatar_url, role, beta_features, theme, mode, account_id, account_role, phone",
+          "id, full_name, email, avatar_url, role, beta_features, theme, mode, locale, account_id, account_role, phone",
         )
         .eq("user_id", userId)
         .maybeSingle();
@@ -230,6 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // collapse it to a default here.
           theme: data.theme ?? null,
           mode: data.mode ?? null,
+          locale: data.locale ?? null,
           account_id: data.account_id ?? null,
           account_role: accountRole,
           phone: data.phone ?? null,
