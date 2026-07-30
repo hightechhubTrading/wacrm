@@ -48,7 +48,7 @@ import {
   MEDIA_MAX_BYTES_BY_KIND,
 } from "@/lib/storage/upload-media";
 import { ReplyQuote } from "./reply-quote";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   InteractiveBuilder,
   blankButtonsPayload,
@@ -143,6 +143,7 @@ export function MessageComposer({
   onClearReply,
 }: MessageComposerProps) {
   const t = useTranslations("Inbox.composer");
+  const locale = useLocale();
 
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -308,8 +309,7 @@ export function MessageComposer({
   // on the inbound side).
   const handleTranslateDraft = useCallback(async () => {
     if (translatingDraft || !text.trim()) return;
-    const appLocale = process.env.NEXT_PUBLIC_APP_LOCALE || "en";
-    const targetLanguage = appLocale === "ko" ? "English" : "Korean";
+    const targetLanguage = locale === "ar" ? "English" : "Arabic";
     setTranslatingDraft(true);
     try {
       const res = await fetch("/api/ai/translate", {
@@ -334,7 +334,7 @@ export function MessageComposer({
     } finally {
       setTranslatingDraft(false);
     }
-  }, [translatingDraft, text, adjustHeight]);
+  }, [translatingDraft, text, adjustHeight, locale]);
 
   // ---- Interactive message + quick replies --------------------------
 
