@@ -1,8 +1,10 @@
 "use client";
 
-import { Check, Moon, Palette, SunMoon, Sun } from "lucide-react";
+import { Check, Languages, Moon, Palette, SunMoon, Sun } from "lucide-react";
 
 import { useAppearance } from "@/hooks/use-appearance";
+import { useLocalePreference } from "@/hooks/use-locale-preference";
+import { LOCALES, type LocaleId } from "@/lib/locales";
 import { MODES, THEMES, type Mode, type ThemeId } from "@/lib/themes";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
@@ -23,6 +25,7 @@ import { SettingsPanelHead } from "./settings-panel-head";
  */
 export function AppearancePanel() {
   const { theme, setTheme, mode, setMode } = useAppearance();
+  const { locale, setLocale } = useLocalePreference();
   const t = useTranslations("Settings.appearance");
 
   return (
@@ -70,6 +73,29 @@ export function AppearancePanel() {
               swatch={tObj.swatch}
               isActive={tObj.id === theme}
               onPick={() => setTheme(tObj.id)}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-8 space-y-4">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Languages className="size-4 text-muted-foreground" />
+          {t("language")}
+        </h3>
+
+        <div
+          role="radiogroup"
+          aria-label="Language"
+          className="grid max-w-md grid-cols-2 gap-3"
+        >
+          {LOCALES.map((l) => (
+            <LanguageCard
+              key={l.id}
+              id={l.id}
+              name={l.name}
+              isActive={l.id === locale}
+              onPick={() => setLocale(l.id)}
             />
           ))}
         </div>
@@ -184,6 +210,45 @@ function ThemeCard({
         <span className="w-3 bg-card" />
       </div>
       <span className="sr-only">Theme id: {id}</span>
+    </button>
+  );
+}
+
+function LanguageCard({
+  id,
+  name,
+  isActive,
+  onPick,
+}: {
+  id: LocaleId;
+  name: string;
+  isActive: boolean;
+  onPick: () => void;
+}) {
+  const t = useTranslations("Settings.appearance");
+  return (
+    <button
+      type="button"
+      role="radio"
+      onClick={onPick}
+      aria-checked={isActive}
+      aria-label={t("useLanguage", { name })}
+      className={cn(
+        "flex items-center gap-3 rounded-lg border bg-card p-4 text-start transition-colors",
+        isActive
+          ? "border-primary/60 ring-2 ring-primary/40"
+          : "border-border hover:border-border hover:bg-muted/40",
+      )}
+    >
+      <span className="flex-1 text-sm font-semibold text-foreground">
+        {name}
+      </span>
+      {isActive && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
+          <Check className="h-3 w-3" />
+          {t("active")}
+        </span>
+      )}
     </button>
   );
 }
