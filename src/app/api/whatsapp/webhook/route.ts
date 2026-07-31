@@ -6,6 +6,7 @@ import { normalizePhone } from '@/lib/whatsapp/phone-utils'
 import { isOptOutKeyword, isOptInKeyword, recordOptOutState } from '@/lib/whatsapp/opt-out'
 import { loadAiConfig } from '@/lib/ai/config'
 import { transcribeAudio } from '@/lib/ai/transcribe'
+import { analyzeImage } from '@/lib/ai/vision'
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe'
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature'
 import { runAutomationsForTrigger } from '@/lib/automations/engine'
@@ -618,6 +619,15 @@ async function processMessage(
   const { contentText, mediaUrl, mediaType, interactiveReplyId } =
     await parseMessageContent(message, accessToken)
 
+  // Shared by both best-effort blocks below (voice transcription, image
+  // analysis) so they don't each fetch the config separately.
+  const aiConfigForMedia = await loadAiConfig(supabaseAdmin(), accountId, {
+    requireActive: false,
+  }).catch((err) => {
+    console.error('[webhook] loadAiConfig failed (voice transcription / image analysis will be skipped):', err)
+    return null
+  })
+
   // Voice-note transcription (opt-in, requires the embeddings key --
   // Whisper is OpenAI-only, same as embeddings). Best-effort: a failure
   // here just leaves transcript null, never blocks ingestion. Feeds the
@@ -626,17 +636,14 @@ async function processMessage(
   let transcript: string | null = null
   if (message.type === 'audio' && message.audio?.id) {
     try {
-      const aiConfig = await loadAiConfig(supabaseAdmin(), accountId, {
-        requireActive: false,
-      })
-      if (aiConfig?.transcribeVoiceMessages && aiConfig.embeddingsApiKey) {
+      if (aiConfigForMedia?.transcribeVoiceMessages && aiConfigForMedia.embeddingsApiKey) {
         const { url: downloadUrl } = await getMediaUrl({
           mediaId: message.audio.id,
           accessToken,
         })
         const { buffer } = await downloadMedia({ downloadUrl, accessToken })
         transcript = await transcribeAudio({
-          apiKey: aiConfig.embeddingsApiKey,
+          apiKey: aiConfigForMedia.embeddingsApiKey,
           audioBuffer: buffer,
           mimeType: message.audio.mime_type || 'audio/ogg',
         })
@@ -646,13 +653,48 @@ async function processMessage(
     }
   }
 
+  // Photo analysis (opt-in, migration 054) -- describes an inbound
+  // photo so the bot isn't blind to it. Best-effort: a failure here
+  // just leaves imageDescription null, never blocks ingestion. Feeds
+  // the same AI context window as a text message (see context.ts).
+  let imageDescription: string | null = null
+  if (message.type === 'image' && message.image?.id) {
+    try {
+      if (
+        aiConfigForMedia?.imageAnalysisEnabled &&
+        aiConfigForMedia.imageAnalysisApiKey &&
+        aiConfigForMedia.imageAnalysisProvider
+      ) {
+        const { url: downloadUrl } = await getMediaUrl({
+          mediaId: message.image.id,
+          accessToken,
+        })
+        const { buffer } = await downloadMedia({ downloadUrl, accessToken })
+        imageDescription = await analyzeImage({
+          provider: aiConfigForMedia.imageAnalysisProvider,
+          apiKey: aiConfigForMedia.imageAnalysisApiKey,
+          imageBuffer: buffer,
+          mimeType: message.image.mime_type || 'image/jpeg',
+        })
+      }
+    } catch (err) {
+      console.error('[webhook] image analysis failed:', err)
+    }
+  }
+
   // Opt-out / opt-in compliance (STOP/UNSUBSCRIBE/CANCEL/END/QUIT and
   // START/UNSTOP — see src/lib/whatsapp/opt-out.ts). Computed early so it
   // can gate everything below: a recognized keyword is a control message,
   // not a conversational one — it still gets stored (below) and still
   // fires the public message.received webhook, but it must not consume a
   // Flow step, fire an automation, or get an AI-drafted reply.
-  const inboundText = contentText ?? transcript ?? message.text?.body ?? ''
+  // A captioned photo carries both a caption (contentText) and a
+  // description (imageDescription) -- combine them so neither is lost,
+  // matching buildConversationContext's handling of the stored row.
+  const inboundText =
+    contentText && imageDescription
+      ? `${contentText}\n[Image: ${imageDescription}]`
+      : contentText ?? transcript ?? imageDescription ?? message.text?.body ?? ''
   let isControlMessage = false
   if (isOptOutKeyword(inboundText)) {
     isControlMessage = true
@@ -732,6 +774,9 @@ async function processMessage(
     // Only populated for a transcribed audio message (migration 049);
     // null otherwise.
     transcript,
+    // Only populated for a described image message (migration 054);
+    // null otherwise.
+    image_description: imageDescription,
   })
 
   if (msgError) {

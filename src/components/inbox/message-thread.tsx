@@ -552,7 +552,11 @@ export function MessageThread({
           onUpdateMessage(tempId, { status: "failed" });
           // The upload never reached the recipient — GC the orphaned
           // object rather than leaving it in the public bucket forever.
-          void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(() => {});
+          // Never GC a catalog pick — it's a shared/reusable asset in a
+          // different bucket, not a one-off upload.
+          if (payload.source === "upload") {
+            void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(() => {});
+          }
           return;
         }
 
@@ -562,7 +566,9 @@ export function MessageThread({
         const reason = err instanceof Error ? err.message : "network error";
         toast.error(`Failed to send: ${reason}`);
         onUpdateMessage(tempId, { status: "failed" });
-        void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(() => {});
+        if (payload.source === "upload") {
+          void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(() => {});
+        }
       }
     },
     [conversation, onNewMessage, onUpdateMessage],

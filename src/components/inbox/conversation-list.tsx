@@ -8,7 +8,7 @@ import {
   normalizeConversations,
 } from "@/lib/inbox/conversations";
 import { cn } from "@/lib/utils";
-import type { Conversation, ConversationStatus, Tag } from "@/types";
+import type { Conversation, ConversationStatus, Tag, Profile } from "@/types";
 import { Search, ChevronDown, X, Flame, ArrowUpCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useTranslations } from "next-intl";
@@ -46,6 +46,10 @@ const STATUS_COLORS: Record<ConversationStatus, string> = {
 
 type InboxFilter = ConversationStatus | "all" | "unread";
 
+/** Sentinel for the "no assigned agent" filter option, distinct from
+ *  any real `profiles.user_id`. */
+const UNASSIGNED_AGENT = "__unassigned__";
+
 export function ConversationList({
   activeConversationId,
   onSelect,
@@ -72,6 +76,9 @@ export function ConversationList({
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  // null = no filter, 'unassigned' = the explicit unassigned bucket, or a profile's user_id.
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
   // Keep the latest callback in a ref so the fetch effect below can
   // have a stable, empty-dep identity. Previously the fetch useCallback
@@ -140,6 +147,29 @@ export function ConversationList({
     };
   }, []);
 
+  // Member names for the "assigned agent" filter picker — RLS already
+  // scopes this to the caller's own account (mirrors message-thread.tsx's
+  // assignee-dropdown fetch).
+  useEffect(() => {
+    const supabase = createClient();
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .order("full_name");
+      if (cancelled) return;
+      if (error) {
+        console.error("Failed to fetch profiles:", error);
+        return;
+      }
+      setProfiles((data as Profile[]) ?? []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Company options are derived from the loaded conversations — there's no
   // separate companies table, and only companies with a live conversation
   // are worth offering as an inbox filter.
@@ -157,6 +187,12 @@ export function ConversationList({
     for (const t of tags) m.set(t.id, t);
     return m;
   }, [tags]);
+
+  const profilesById = useMemo(() => {
+    const m = new Map<string, Profile>();
+    for (const p of profiles) m.set(p.user_id, p);
+    return m;
+  }, [profiles]);
 
   const filtered = useMemo(() => {
     let result = conversations;
@@ -177,6 +213,16 @@ export function ConversationList({
       );
     }
 
+    // Assigned-agent filter — a conversation-level field, not routed
+    // through matchesContactFilters (which is contact-specific).
+    if (selectedAgentId !== null) {
+      result = result.filter((c) =>
+        selectedAgentId === UNASSIGNED_AGENT
+          ? !c.assigned_agent_id
+          : c.assigned_agent_id === selectedAgentId
+      );
+    }
+
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter((c) => {
@@ -188,7 +234,7 @@ export function ConversationList({
     }
 
     return result;
-  }, [conversations, filter, search, selectedTagIds, selectedCompany]);
+  }, [conversations, filter, search, selectedTagIds, selectedCompany, selectedAgentId]);
 
   const toggleTag = useCallback((id: string) => {
     setSelectedTagIds((prev) =>
@@ -199,9 +245,11 @@ export function ConversationList({
   const clearContactFilters = useCallback(() => {
     setSelectedTagIds([]);
     setSelectedCompany(null);
+    setSelectedAgentId(null);
   }, []);
 
-  const hasContactFilters = selectedTagIds.length > 0 || selectedCompany !== null;
+  const hasContactFilters =
+    selectedTagIds.length > 0 || selectedCompany !== null || selectedAgentId !== null;
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -350,6 +398,69 @@ export function ConversationList({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+
+          {profiles.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className={cn(
+                  "inline-flex max-w-40 items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
+                  selectedAgentId
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <span className="truncate">
+                  {selectedAgentId === UNASSIGNED_AGENT
+                    ? t("unassigned")
+                    : selectedAgentId
+                      ? (profilesById.get(selectedAgentId)?.full_name ?? t("agent"))
+                      : t("agent")}
+                </span>
+                <ChevronDown className="h-3 w-3 shrink-0" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="max-h-64 w-56 border-border bg-popover"
+              >
+                <DropdownMenuItem
+                  onClick={() => setSelectedAgentId(null)}
+                  className={cn(
+                    "text-sm",
+                    selectedAgentId === null
+                      ? "text-primary"
+                      : "text-popover-foreground"
+                  )}
+                >
+                  {t("allAgents")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setSelectedAgentId(UNASSIGNED_AGENT)}
+                  className={cn(
+                    "text-sm",
+                    selectedAgentId === UNASSIGNED_AGENT
+                      ? "text-primary"
+                      : "text-popover-foreground"
+                  )}
+                >
+                  {t("unassigned")}
+                </DropdownMenuItem>
+                {profiles.map((p) => (
+                  <DropdownMenuItem
+                    key={p.user_id}
+                    onClick={() => setSelectedAgentId(p.user_id)}
+                    className={cn(
+                      "text-sm",
+                      selectedAgentId === p.user_id
+                        ? "text-primary"
+                        : "text-popover-foreground"
+                    )}
+                  >
+                    <span className="truncate">{p.full_name}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         {hasContactFilters && (
@@ -377,6 +488,19 @@ export function ConversationList({
                 className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-foreground hover:bg-muted/70"
               >
                 <span className="max-w-24 truncate">{selectedCompany}</span>
+                <X className="h-3 w-3" />
+              </button>
+            )}
+            {selectedAgentId && (
+              <button
+                onClick={() => setSelectedAgentId(null)}
+                className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-foreground hover:bg-muted/70"
+              >
+                <span className="max-w-24 truncate">
+                  {selectedAgentId === UNASSIGNED_AGENT
+                    ? t("unassigned")
+                    : (profilesById.get(selectedAgentId)?.full_name ?? t("agent"))}
+                </span>
                 <X className="h-3 w-3" />
               </button>
             )}
@@ -414,6 +538,7 @@ export function ConversationList({
                 isActive={conv.id === activeConversationId}
                 onSelect={handleSelect}
                 t={t}
+                profilesById={profilesById}
               />
             ))}
           </div>
@@ -428,6 +553,7 @@ interface ConversationItemProps {
   isActive: boolean;
   onSelect: (conversation: Conversation) => void;
   t: ReturnType<typeof useTranslations>;
+  profilesById: Map<string, Profile>;
 }
 
 function ConversationItem({
@@ -435,10 +561,14 @@ function ConversationItem({
   isActive,
   onSelect,
   t,
+  profilesById,
 }: ConversationItemProps) {
   const contact = conversation.contact;
   const displayName = contact?.name || contact?.phone || t("unknown");
   const initials = displayName.charAt(0).toUpperCase();
+  const assignedAgent = conversation.assigned_agent_id
+    ? profilesById.get(conversation.assigned_agent_id)
+    : undefined;
 
   const handleClick = useCallback(() => {
     onSelect(conversation);
@@ -489,7 +619,17 @@ function ConversationItem({
               </span>
             )}
           </span>
-          <span className="shrink-0 text-[10px] text-muted-foreground">{timeAgo}</span>
+          <span className="flex shrink-0 items-center gap-1">
+            {assignedAgent && (
+              <span
+                title={t("assignedTo", { name: assignedAgent.full_name ?? "" })}
+                className="flex h-4 w-4 items-center justify-center rounded-full bg-muted text-[9px] font-semibold text-muted-foreground"
+              >
+                {(assignedAgent.full_name ?? "?").charAt(0).toUpperCase()}
+              </span>
+            )}
+            <span className="text-[10px] text-muted-foreground">{timeAgo}</span>
+          </span>
         </div>
         <div className="mt-0.5 flex items-center justify-between gap-2">
           <p className="truncate text-xs text-muted-foreground">

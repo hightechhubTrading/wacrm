@@ -246,6 +246,13 @@ export interface ContactNote {
   user_id: string;
   note_text: string;
   created_at: string;
+  /** Set only on the AI-authored rolling conversation summary note --
+   * lets the app find-and-update it in place rather than duplicating
+   * a new row every refresh. Migration 055. */
+  conversation_id?: string | null;
+  /** True for the AI-authored summary note (migration 055); false/undefined
+   * for a human-written note. */
+  is_ai_generated?: boolean;
 }
 
 export type ConversationStatus = 'open' | 'pending' | 'closed';
@@ -359,6 +366,9 @@ export interface Message {
   /** Whisper transcript of an inbound voice note (content_type ===
    * 'audio'), when voice transcription is enabled. Migration 049. */
   transcript?: string | null;
+  /** AI-generated description of an inbound photo (content_type ===
+   * 'image'), when image analysis is enabled. Migration 054. */
+  image_description?: string | null;
 }
 
 export type ReactionActor = 'customer' | 'agent';

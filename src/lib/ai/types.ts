@@ -44,6 +44,13 @@ export interface AiConfig {
    * presumably offline too) — see src/lib/ai/business-hours.ts. Still
    * respects a prior explicit handoff. */
   afterHoursTakeoverEnabled: boolean
+  /** Separate, optional credential for describing inbound photos
+   * (migration 054) — mirrors `embeddingsApiKey`'s independence from
+   * the main provider. Only 'openai'/'gemini' are offered (no
+   * Anthropic vision request-building here, no DeepSeek vision model). */
+  imageAnalysisProvider: 'openai' | 'gemini' | null
+  imageAnalysisApiKey: string | null
+  imageAnalysisEnabled: boolean
 }
 
 /** A single conversation turn in the shape both providers accept. */

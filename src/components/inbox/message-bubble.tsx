@@ -141,6 +141,12 @@ function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof
               {message.content_text}
             </p>
           )}
+          {message.image_description && (
+            <p className="mt-1 flex items-start gap-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+              <Sparkles className="mt-0.5 h-3 w-3 shrink-0" />
+              <span>{message.image_description}</span>
+            </p>
+          )}
         </div>
       );
 

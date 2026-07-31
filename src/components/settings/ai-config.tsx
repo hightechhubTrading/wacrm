@@ -77,6 +77,11 @@ export function AiConfig() {
   const [embeddingsKey, setEmbeddingsKey] = useState('');
   const [embeddingsKeyEdited, setEmbeddingsKeyEdited] = useState(false);
   const [hasStoredEmbeddingsKey, setHasStoredEmbeddingsKey] = useState(false);
+  const [imageAnalysisProvider, setImageAnalysisProvider] = useState<'openai' | 'gemini'>('openai');
+  const [imageAnalysisKey, setImageAnalysisKey] = useState('');
+  const [imageAnalysisKeyEdited, setImageAnalysisKeyEdited] = useState(false);
+  const [hasStoredImageAnalysisKey, setHasStoredImageAnalysisKey] = useState(false);
+  const [imageAnalysisEnabled, setImageAnalysisEnabled] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState('');
   const [isActive, setIsActive] = useState(false);
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
@@ -126,6 +131,11 @@ export function AiConfig() {
         setLastKeyErrorAt(data.last_key_error_at ?? null);
         setTranscribeVoiceMessages(Boolean(data.transcribe_voice_messages));
         setAfterHoursTakeoverEnabled(Boolean(data.after_hours_takeover_enabled));
+        setImageAnalysisProvider(data.image_analysis_provider === 'gemini' ? 'gemini' : 'openai');
+        setHasStoredImageAnalysisKey(Boolean(data.has_image_analysis_key));
+        setImageAnalysisKey(data.has_image_analysis_key ? MASKED_KEY : '');
+        setImageAnalysisKeyEdited(false);
+        setImageAnalysisEnabled(Boolean(data.image_analysis_enabled));
       }
     } catch {
       toast.error(t('loadFailed'));
@@ -159,6 +169,8 @@ export function AiConfig() {
   // undefined = leave unchanged; '' typed = null (clear); text = set.
   const embeddingsKeyPayload = () =>
     embeddingsKeyEdited ? embeddingsKey.trim() || null : undefined;
+  const imageAnalysisKeyPayload = () =>
+    imageAnalysisKeyEdited ? imageAnalysisKey.trim() || null : undefined;
 
   const buildBody = () => ({
     provider,
@@ -172,6 +184,9 @@ export function AiConfig() {
     handoff_agent_id: handoffAgentId || null,
     transcribe_voice_messages: transcribeVoiceMessages,
     after_hours_takeover_enabled: afterHoursTakeoverEnabled,
+    image_analysis_provider: imageAnalysisProvider,
+    image_analysis_api_key: imageAnalysisKeyPayload(),
+    image_analysis_enabled: imageAnalysisEnabled,
   });
 
   const handleTest = async () => {
@@ -426,6 +441,51 @@ export function AiConfig() {
                 })}
               </p>
             </div>
+
+            <div className="space-y-2">
+              <Label>
+                {t('imageAnalysisKey')}{' '}
+                <span className="font-normal text-muted-foreground">
+                  {t('optionalImageAnalysis')}
+                </span>
+              </Label>
+              <div className="grid gap-2 sm:grid-cols-[auto_1fr]">
+                <Select
+                  value={imageAnalysisProvider}
+                  onValueChange={(v) => setImageAnalysisProvider(v as 'openai' | 'gemini')}
+                  disabled={disabled}
+                >
+                  <SelectTrigger className="sm:w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="openai">{PROVIDER_LABEL.openai}</SelectItem>
+                    <SelectItem value="gemini">{PROVIDER_LABEL.gemini}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  id="ai-image-analysis-key"
+                  type="password"
+                  value={imageAnalysisKey}
+                  onChange={(e) => {
+                    setImageAnalysisKey(e.target.value);
+                    setImageAnalysisKeyEdited(true);
+                  }}
+                  onFocus={() => {
+                    if (!imageAnalysisKeyEdited && hasStoredImageAnalysisKey) {
+                      setImageAnalysisKey('');
+                      setImageAnalysisKeyEdited(true);
+                    }
+                  }}
+                  placeholder={KEY_PLACEHOLDER[imageAnalysisProvider]}
+                  disabled={disabled}
+                  autoComplete="off"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t('imageAnalysisHint')}
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -496,6 +556,24 @@ export function AiConfig() {
                 checked={transcribeVoiceMessages}
                 onCheckedChange={setTranscribeVoiceMessages}
                 disabled={disabled || !hasStoredEmbeddingsKey}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-4 rounded-md border border-border p-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {t('analyzeImages')}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {hasStoredImageAnalysisKey
+                    ? t('analyzeImagesDesc')
+                    : t('analyzeImagesNeedsKey')}
+                </p>
+              </div>
+              <Switch
+                checked={imageAnalysisEnabled}
+                onCheckedChange={setImageAnalysisEnabled}
+                disabled={disabled || !hasStoredImageAnalysisKey}
               />
             </div>
 

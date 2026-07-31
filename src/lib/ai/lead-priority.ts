@@ -28,7 +28,11 @@ export async function notifyUrgentLead(
       .select('user_id')
       .eq('account_id', accountId)
       .in('account_role', ['owner', 'admin'])
-    if (error || !admins) return
+    if (error) {
+      console.error('[ai lead-priority] admin lookup for urgent-lead notice failed:', error)
+      return
+    }
+    if (!admins) return
     recipientIds = admins.map((a: { user_id: string }) => a.user_id)
   }
   if (recipientIds.length === 0) return
@@ -42,5 +46,6 @@ export async function notifyUrgentLead(
     title: 'Urgent conversation needs attention',
     body: reason || 'AI flagged this conversation as urgent.',
   }))
-  await db.from('notifications').insert(rows)
+  const { error: insertError } = await db.from('notifications').insert(rows)
+  if (insertError) console.error('[ai lead-priority] urgent-lead notification insert failed:', insertError)
 }

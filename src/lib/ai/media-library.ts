@@ -20,15 +20,20 @@ export interface MediaLibraryPromptItem {
   productLabel: string | null
   description: string
   tagId: string | null
-  /** Price, in the account's default currency (migration 052) --
-   * shown to the model for reference only; the assistant is still
-   * instructed (defaults.ts) never to quote a price to the customer,
-   * so this doesn't relax that rule, it just gives the model accurate
-   * context for the human handoff. */
-  price: number | null
-  /** Free-form unit label paired with `price` -- 'per_meter',
+  /** Price range, in the account's default currency (migration 053).
+   * When BOTH are set, the assistant may share this as a caveated
+   * estimate (see defaults.ts); when either is null, pricing for this
+   * item stays reference-only under the absolute no-pricing rule,
+   * exactly as before. */
+  priceMin: number | null
+  priceMax: number | null
+  /** Free-form unit label paired with the range -- 'per_meter',
    * 'per_item', 'per_kg', etc. */
   priceUnit: string | null
+  /** Free-text addon/option pricing not captured by the range (e.g.
+   * "Automatic +$60, manual included; motor add-on +$50-80",
+   * migration 053). Only ever surfaced alongside a configured range. */
+  priceNotes: string | null
 }
 
 export interface MediaLibraryItem extends MediaLibraryPromptItem {
@@ -49,7 +54,7 @@ export async function listMediaLibraryForPrompt(
   try {
     const { data, error } = await db
       .from('ai_media_library')
-      .select('id, name, product_label, description, tag_id, price, price_unit')
+      .select('id, name, product_label, description, tag_id, price_min, price_max, price_unit, price_notes')
       .eq('account_id', accountId)
     if (error || !data) return []
     return data.map((row) => ({
@@ -58,10 +63,13 @@ export async function listMediaLibraryForPrompt(
       productLabel: (row.product_label as string | null) ?? null,
       description: row.description as string,
       tagId: (row.tag_id as string | null) ?? null,
-      price: (row.price as number | null) ?? null,
+      priceMin: (row.price_min as number | null) ?? null,
+      priceMax: (row.price_max as number | null) ?? null,
       priceUnit: (row.price_unit as string | null) ?? null,
+      priceNotes: (row.price_notes as string | null) ?? null,
     }))
-  } catch {
+  } catch (err) {
+    console.error('[ai media-library] listMediaLibraryForPrompt failed:', err)
     return []
   }
 }
@@ -82,7 +90,7 @@ export async function getMediaLibraryItem(
     const { data, error } = await db
       .from('ai_media_library')
       .select(
-        'id, name, product_label, description, tag_id, price, price_unit, storage_path, mime_type, media_kind',
+        'id, name, product_label, description, tag_id, price_min, price_max, price_unit, price_notes, storage_path, mime_type, media_kind',
       )
       .eq('account_id', accountId)
       .eq('id', id)
@@ -94,13 +102,16 @@ export async function getMediaLibraryItem(
       productLabel: (data.product_label as string | null) ?? null,
       description: data.description as string,
       tagId: (data.tag_id as string | null) ?? null,
-      price: (data.price as number | null) ?? null,
+      priceMin: (data.price_min as number | null) ?? null,
+      priceMax: (data.price_max as number | null) ?? null,
       priceUnit: (data.price_unit as string | null) ?? null,
+      priceNotes: (data.price_notes as string | null) ?? null,
       storagePath: data.storage_path as string,
       mimeType: data.mime_type as string,
       mediaKind: data.media_kind as 'image' | 'document',
     }
-  } catch {
+  } catch (err) {
+    console.error('[ai media-library] getMediaLibraryItem failed:', err)
     return null
   }
 }

@@ -17,7 +17,7 @@ export async function GET(_request: Request, { params }: Params) {
     const { id } = await params
     const { data, error } = await supabase
       .from('ai_media_library')
-      .select('id, name, product_label, description, price, price_unit, media_kind, mime_type, storage_path, updated_at')
+      .select('id, name, product_label, description, price_min, price_max, price_unit, price_notes, media_kind, mime_type, storage_path, updated_at')
       .eq('account_id', accountId)
       .eq('id', id)
       .maybeSingle()
@@ -54,9 +54,17 @@ export async function PATCH(request: Request, { params }: Params) {
     if (typeof body?.product_label === 'string') {
       update.product_label = body.product_label.trim() || null
     }
-    if ('price' in (body ?? {})) {
-      update.price =
-        typeof body.price === 'number' && Number.isFinite(body.price) ? body.price : null
+    if ('price_min' in (body ?? {})) {
+      update.price_min =
+        typeof body.price_min === 'number' && Number.isFinite(body.price_min)
+          ? body.price_min
+          : null
+    }
+    if ('price_max' in (body ?? {})) {
+      update.price_max =
+        typeof body.price_max === 'number' && Number.isFinite(body.price_max)
+          ? body.price_max
+          : null
     }
     if (typeof body?.price_unit === 'string' || body?.price_unit === null) {
       update.price_unit =
@@ -64,8 +72,28 @@ export async function PATCH(request: Request, { params }: Params) {
           ? body.price_unit.trim()
           : null
     }
+    if (typeof body?.price_notes === 'string' || body?.price_notes === null) {
+      update.price_notes =
+        typeof body.price_notes === 'string' && body.price_notes.trim()
+          ? body.price_notes.trim()
+          : null
+    }
     if (Object.keys(update).length === 0) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
+    }
+    {
+      const nextMin = 'price_min' in update ? update.price_min : undefined
+      const nextMax = 'price_max' in update ? update.price_max : undefined
+      if (
+        typeof nextMin === 'number' &&
+        typeof nextMax === 'number' &&
+        nextMax < nextMin
+      ) {
+        return NextResponse.json(
+          { error: 'price_max must be greater than or equal to price_min' },
+          { status: 400 },
+        )
+      }
     }
     if ('name' in update && !update.name) {
       return NextResponse.json({ error: 'name cannot be empty' }, { status: 400 })

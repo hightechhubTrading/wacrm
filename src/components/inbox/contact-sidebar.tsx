@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { CustomFieldGroupFields } from "@/components/custom-fields/custom-field-group-fields";
+import { cn } from "@/lib/utils";
 import type { Contact, Deal, ContactNote, Tag } from "@/types";
 import {
   Phone,
@@ -16,6 +17,7 @@ import {
   Plus,
   X,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -310,6 +312,13 @@ export function ContactSidebar({ contact, refreshToken }: ContactSidebarProps) {
                       onSaved={fetchContactData}
                       className="mt-3 border-t border-border/60 pt-2.5"
                     />
+                    {deal.notes && (
+                      <div className="mt-3 border-t border-border/60 pt-2.5">
+                        <p className="whitespace-pre-wrap break-words text-[11px] text-muted-foreground">
+                          {deal.notes}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -348,12 +357,16 @@ export function ContactSidebar({ contact, refreshToken }: ContactSidebarProps) {
                 {notes.map((note) => (
                   <div
                     key={note.id}
-                    className="rounded-lg bg-muted px-3 py-2"
+                    className={cn(
+                      "rounded-lg px-3 py-2",
+                      note.is_ai_generated ? "bg-primary/5" : "bg-muted",
+                    )}
                   >
                     <p className="whitespace-pre-wrap text-xs text-muted-foreground">
                       {note.note_text}
                     </p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">
+                    <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+                      {note.is_ai_generated && <Sparkles className="h-2.5 w-2.5" />}
                       {format(new Date(note.created_at), "MMM d, yyyy HH:mm")}
                     </p>
                   </div>

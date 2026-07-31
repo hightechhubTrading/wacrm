@@ -58,6 +58,48 @@ describe('buildConversationContext', () => {
     expect(out).toEqual([])
   })
 
+  it('falls back to image_description for an undescribed-caption photo', async () => {
+    const out = await buildConversationContext(
+      fakeDb([
+        {
+          sender_type: 'customer',
+          content_text: null,
+          transcript: null,
+          image_description: 'a grey sofa',
+        },
+      ]),
+      'conv-1',
+    )
+    expect(out).toEqual([{ role: 'user', content: 'a grey sofa' }])
+  })
+
+  it('combines a caption and an image description on the same message', async () => {
+    const out = await buildConversationContext(
+      fakeDb([
+        {
+          sender_type: 'customer',
+          content_text: 'is this in stock?',
+          transcript: null,
+          image_description: 'a grey sofa',
+        },
+      ]),
+      'conv-1',
+    )
+    expect(out).toEqual([
+      { role: 'user', content: 'is this in stock?\n[Image: a grey sofa]' },
+    ])
+  })
+
+  it('drops an unanalyzed photo (no content_text, no image_description)', async () => {
+    const out = await buildConversationContext(
+      fakeDb([
+        { sender_type: 'customer', content_text: null, image_description: null },
+      ]),
+      'conv-1',
+    )
+    expect(out).toEqual([])
+  })
+
   it('drops empty / whitespace-only messages', async () => {
     const out = await buildConversationContext(
       fakeDb([

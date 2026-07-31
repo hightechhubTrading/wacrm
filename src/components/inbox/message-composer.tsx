@@ -23,6 +23,7 @@ import {
   MessageSquareDashed,
   Zap,
   Languages,
+  LayoutGrid,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
@@ -56,6 +57,7 @@ import {
 import { validateInteractivePayload } from "@/lib/whatsapp/interactive";
 import type { InteractiveMessagePayload, QuickReply } from "@/types";
 import { QuickReplyPicker } from "./quick-reply-picker";
+import { CatalogPickerDialog, type CatalogPick } from "./catalog-picker-dialog";
 
 /** Media content types an agent can send from the composer. */
 export type ComposerMediaKind = "image" | "video" | "document" | "audio";
@@ -81,6 +83,10 @@ export interface SendMediaPayload {
   /** Original file name — surfaced to the recipient for documents. */
   filename?: string;
   replyToId?: string;
+  /** 'upload' (chat-media bucket, GC'd on discard/failed-send) vs
+   *  'catalog' (ai-media bucket, a shared/reusable asset — never GC'd
+   *  through this flow). */
+  source: "upload" | "catalog";
 }
 
 interface ReplyDraft {
@@ -104,10 +110,15 @@ const PICKER_ACCEPT: Record<"image" | "video" | "document", string> = {
 interface MediaDraft {
   kind: ComposerMediaKind;
   mediaUrl: string;
-  /** Storage path — used to GC the object if the draft is discarded. */
+  /** Storage path — used to GC the object if the draft is discarded
+   *  (only when `source === "upload"` — see `removeStaged`). */
   path: string;
   filename: string;
   caption: string;
+  /** 'upload' = freshly uploaded to chat-media, GC'd on discard/failed
+   *  send. 'catalog' = picked from the product catalog (ai-media
+   *  bucket, a shared/reusable asset) — never GC'd through this flow. */
+  source: "upload" | "catalog";
 }
 
 interface MessageComposerProps {
@@ -156,6 +167,7 @@ export function MessageComposer({
     useState<InteractiveMessagePayload>(blankButtonsPayload);
   const [savingQuickReply, setSavingQuickReply] = useState(false);
   const [quickReplyOpen, setQuickReplyOpen] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
 
   // Media attachment state. `draft` holds an uploaded-but-not-yet-sent
   // attachment; `busy` covers the upload/transcode window.
@@ -173,10 +185,15 @@ export function MessageComposer({
   }, [draft]);
 
   // Best-effort GC of a staged object the user never sent. Fire-and-forget.
-  const removeStaged = useCallback((path: string | undefined) => {
-    if (!path) return;
-    void deleteAccountMedia(CHAT_MEDIA_BUCKET, path).catch(() => {});
-  }, []);
+  // Never fires for a catalog pick — that file lives in the shared
+  // `ai-media` bucket and must never be deleted through this flow.
+  const removeStaged = useCallback(
+    (path: string | undefined, source: "upload" | "catalog" | undefined) => {
+      if (!path || source !== "upload") return;
+      void deleteAccountMedia(CHAT_MEDIA_BUCKET, path).catch(() => {});
+    },
+    [],
+  );
 
   // Voice recording state. The recorder encodes Ogg/Opus in-browser
   // (opus-recorder) so there's no server-side transcode.
@@ -210,7 +227,7 @@ export function MessageComposer({
       cancelledRef.current = true;
       // stop() releases the mic stream + audio context inside opus-recorder.
       void recorderRef.current?.stop().catch(() => {});
-      removeStaged(draftRef.current?.path);
+      removeStaged(draftRef.current?.path, draftRef.current?.source);
     };
   }, [clearTimer, removeStaged]);
 
@@ -438,8 +455,8 @@ export function MessageComposer({
       try {
         const { publicUrl, path } = await uploadAccountMedia(CHAT_MEDIA_BUCKET, file);
         // Replacing an existing draft? GC the previous object first.
-        removeStaged(draftRef.current?.path);
-        setDraft({ kind, mediaUrl: publicUrl, path, filename: file.name, caption: "" });
+        removeStaged(draftRef.current?.path, draftRef.current?.source);
+        setDraft({ kind, mediaUrl: publicUrl, path, filename: file.name, caption: "", source: "upload" });
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Upload failed.");
       } finally {
@@ -454,6 +471,23 @@ export function MessageComposer({
       if (file) void stageUpload(kind, file);
     },
     [stageUpload],
+  );
+
+  // A catalog pick is already hosted publicly (ai-media bucket) — stage
+  // it directly as a draft, no upload step, no GC of the shared asset.
+  const handlePickCatalogItem = useCallback(
+    (item: CatalogPick) => {
+      removeStaged(draftRef.current?.path, draftRef.current?.source);
+      setDraft({
+        kind: item.kind,
+        mediaUrl: item.mediaUrl,
+        path: item.path,
+        filename: item.filename,
+        caption: "",
+        source: "catalog",
+      });
+    },
+    [removeStaged],
   );
 
   // ---- Voice recording (client-side Ogg/Opus, no server transcode) ---
@@ -475,8 +509,8 @@ export function MessageComposer({
       setBusy(true);
       try {
         const { publicUrl, path } = await uploadAccountMedia(CHAT_MEDIA_BUCKET, file);
-        removeStaged(draftRef.current?.path);
-        setDraft({ kind: "audio", mediaUrl: publicUrl, path, filename: file.name, caption: "" });
+        removeStaged(draftRef.current?.path, draftRef.current?.source);
+        setDraft({ kind: "audio", mediaUrl: publicUrl, path, filename: file.name, caption: "", source: "upload" });
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Upload failed.");
       } finally {
@@ -555,6 +589,7 @@ export function MessageComposer({
         draft.kind === "audio" ? undefined : draft.caption.trim() || undefined,
       filename: draft.kind === "document" ? draft.filename : undefined,
       replyToId: replyTo?.id,
+      source: draft.source,
     });
     // The object is now owned by the sent message — clear without GC.
     setDraft(null);
@@ -562,10 +597,11 @@ export function MessageComposer({
   }, [draft, busy, onSendMedia, replyTo?.id, onClearReply]);
 
   // Discard GCs the staged object — it was uploaded but never sent.
+  // No-op for a catalog pick (see removeStaged).
   const discardDraft = useCallback(() => {
-    removeStaged(draft?.path);
+    removeStaged(draft?.path, draft?.source);
     setDraft(null);
-  }, [draft?.path, removeStaged]);
+  }, [draft?.path, draft?.source, removeStaged]);
 
   const setCaption = useCallback((caption: string) => {
     setDraft((d) => (d ? { ...d, caption } : d));
@@ -703,6 +739,10 @@ export function MessageComposer({
               <DropdownMenuItem onClick={() => void startRecording()}>
                 <Mic className="mr-2 h-4 w-4" />
                 {t("voiceNote")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCatalogOpen(true)}>
+                <LayoutGrid className="mr-2 h-4 w-4" />
+                {t("catalog")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -865,6 +905,13 @@ export function MessageComposer({
         open={quickReplyOpen}
         onOpenChange={setQuickReplyOpen}
         onPick={handlePickQuickReply}
+      />
+
+      {/* Product-catalog picker. */}
+      <CatalogPickerDialog
+        open={catalogOpen}
+        onOpenChange={setCatalogOpen}
+        onPick={handlePickCatalogItem}
       />
     </div>
   );
