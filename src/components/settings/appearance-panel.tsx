@@ -4,24 +4,28 @@ import { Check, Languages, Moon, Palette, SunMoon, Sun } from "lucide-react";
 
 import { useAppearance } from "@/hooks/use-appearance";
 import { useLocalePreference } from "@/hooks/use-locale-preference";
-import { LOCALES, type LocaleId } from "@/lib/locales";
+import { LOCALES } from "@/lib/locales";
 import { MODES, THEMES, type Mode, type ThemeId } from "@/lib/themes";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { SettingsPanelHead } from "./settings-panel-head";
 
 /**
- * Appearance panel — light/dark mode + accent-color picker.
+ * Appearance panel — light/dark mode, accent-color picker, and UI
+ * language.
  *
- * Two independent controls: a mode toggle (light / dark) and the
- * accent grid. Either applies + persists immediately. No save button:
- * each change is a single attribute swap on <html>, there's nothing
- * to roll back.
+ * Three independent controls: a mode toggle (light / dark), the
+ * accent grid, and the language switcher. Each applies + persists
+ * immediately. No save button: mode/theme are a single attribute
+ * swap on <html>; language is a cookie write followed by
+ * router.refresh() (see useLocalePreference()). Nothing to roll back
+ * in any case.
  *
- * Persistence is two-layer, via useAppearance(): localStorage (so the
- * boot script in layout.tsx can replay the choice before first paint)
- * plus a write-through to the profile row, so it follows the user to
- * their other devices.
+ * Persistence is two-layer, via useAppearance() and
+ * useLocalePreference(): localStorage / cookie (so the boot script in
+ * layout.tsx and the server-rendered <html> can replay the choice
+ * before/at first paint) plus a write-through to the profile row, so
+ * it follows the user to their other devices.
  */
 export function AppearancePanel() {
   const { theme, setTheme, mode, setMode } = useAppearance();
@@ -86,13 +90,12 @@ export function AppearancePanel() {
 
         <div
           role="radiogroup"
-          aria-label="Language"
+          aria-label={t("language")}
           className="grid max-w-md grid-cols-2 gap-3"
         >
           {LOCALES.map((l) => (
             <LanguageCard
               key={l.id}
-              id={l.id}
               name={l.name}
               isActive={l.id === locale}
               onPick={() => setLocale(l.id)}
@@ -215,12 +218,10 @@ function ThemeCard({
 }
 
 function LanguageCard({
-  id,
   name,
   isActive,
   onPick,
 }: {
-  id: LocaleId;
   name: string;
   isActive: boolean;
   onPick: () => void;

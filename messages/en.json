@@ -234,7 +234,7 @@
       "translate": "Translate",
       "translateFailed": "Translation failed",
       "translatedTo": "Translated to {language}",
-      "targetLanguagePlaceholder": "Language (e.g. Korean)"
+      "targetLanguagePlaceholder": "Language (e.g. Arabic)"
     },
     "replyQuote": {
       "photo": "[Photo]",

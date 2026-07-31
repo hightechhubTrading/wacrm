@@ -10,10 +10,10 @@ vi.mock("next/headers", () => ({
 
 import { POST } from "./route";
 
-function request(body: unknown) {
+function request(body: unknown, extraHeaders?: Record<string, string>) {
   return new Request("http://localhost/api/locale", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...extraHeaders },
     body: JSON.stringify(body),
   });
 }
@@ -45,5 +45,28 @@ describe("POST /api/locale", () => {
     const res = await POST(request({}));
     expect(res.status).toBe(400);
     expect(mocks.set).not.toHaveBeenCalled();
+  });
+
+  it("rejects a cross-site request even with a known locale", async () => {
+    const res = await POST(
+      request({ locale: "ar" }, { "Sec-Fetch-Site": "cross-site" }),
+    );
+    expect(res.status).toBe(400);
+    expect(mocks.set).not.toHaveBeenCalled();
+  });
+
+  it("sets the cookie with secure: true in production", async () => {
+    const original = process.env.NODE_ENV;
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      await POST(request({ locale: "ar" }));
+      expect(mocks.set).toHaveBeenCalledWith(
+        "wacrm.locale",
+        "ar",
+        expect.objectContaining({ secure: true }),
+      );
+    } finally {
+      vi.stubEnv("NODE_ENV", original ?? "test");
+    }
   });
 });

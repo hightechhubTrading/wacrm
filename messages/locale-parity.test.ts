@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import en from "./en.json";
 import ar from "./ar.json";
+import { DEFAULT_LOCALE, LOCALE_IDS, type LocaleId } from "@/lib/locales";
 
 type Messages = { [key: string]: string | Messages };
 
@@ -59,6 +60,16 @@ function extractTopLevelGroups(value: string): string[] {
  * - ICU plural/select/selectordinal: return "argName:type:[category keywords]"
  *   The category keywords are sorted and joined so order doesn't matter.
  */
+// Matches the "argName, type," header of an ICU plural/select/
+// selectordinal construct — e.g. "count, plural," or "count,plural,"
+// (no space) or "count ,  plural ,". Whitespace-tolerant by design:
+// slicing by a hardcoded offset (the previous approach) silently
+// mis-parses as soon as a translator omits a space, e.g.
+// "{count,plural, =1 {x} other {y}}" would shift the offset and
+// truncate the first category keyword into the signature, producing
+// a confusing false test failure instead of a clean parse.
+const ICU_HEADER_RE = /^\s*(\S+)\s*,\s*(plural|select|selectordinal)\s*,/;
+
 function groupSignature(groupContent: string): string {
   // Check if this is an ICU construct (contains a comma before the first brace)
   const commaIdx = groupContent.indexOf(",");
@@ -68,19 +79,18 @@ function groupSignature(groupContent: string): string {
   }
 
   // ICU construct: {argName, type, ...}
-  const parts = groupContent.split(",").map((p) => p.trim());
-  const argName = parts[0];
-  const typeKeyword = parts[1]; // "plural", "select", "selectordinal", etc.
+  const headerMatch = groupContent.match(ICU_HEADER_RE);
 
-  if (!typeKeyword || !["plural", "select", "selectordinal"].includes(typeKeyword)) {
+  if (!headerMatch) {
     // Not a recognized ICU type; treat as simple interpolation
     return `{${groupContent}}`;
   }
 
+  const [header, argName, typeKeyword] = headerMatch;
+
   // Extract category keywords. Each category appears as "keyword {content}" or "keyword{content}".
   // We need to extract only the keywords that appear *before* their opening braces.
-  // Skip "argName" + ", " + "type" + ", " = parts[0].length + 2 + parts[1].length + 2
-  const remainder = groupContent.slice(parts[0].length + parts[1].length + 4); // Skip "argName, type, "
+  const remainder = groupContent.slice(header.length);
 
   const categories = new Set<string>();
   let braceDepth = 0;
@@ -142,6 +152,18 @@ describe("messages/locale-parity placeholder parsing", () => {
       expect(signature).toEqual(["count:plural:[=1|other]"]);
     });
 
+    it("handles an ICU header with no space after the first comma (count,plural,=1 {x} other {y})", () => {
+      // A translator writing "{count,plural, =1 {x} other {y}}" (no
+      // space after the first comma) used to shift a hardcoded offset
+      // and truncate the first category keyword. The header is now
+      // parsed with a regex, so this must resolve identically to the
+      // fully-spaced form.
+      const noSpace = placeholderSignatures("{count,plural,=1 {x} other {y}}");
+      const spaced = placeholderSignatures("{count, plural, =1 {x} other {y}}");
+      expect(noSpace).toEqual(["count:plural:[=1|other]"]);
+      expect(noSpace).toEqual(spaced);
+    });
+
     it("plural construct with missing category keyword must FAIL", () => {
       const en = "{count, plural, =1 {one} other {many}}";
       const ar = "{count, plural, =1 {واحد}}"; // Missing "other"
@@ -167,25 +189,53 @@ describe("messages/locale-parity placeholder parsing", () => {
     });
   });
 
-  describe("messages/ar.json structural parity with en.json", () => {
-    const enPaths = collectPaths(en as Messages).sort();
-    const arPaths = collectPaths(ar as Messages).sort();
+  // Statically-imported messages for every non-default locale, keyed
+  // by LocaleId. Adding a locale per src/lib/locales.ts's documented
+  // three-step process (id -> LOCALE_IDS, meta -> LOCALES, file ->
+  // messages/<id>.json) means step 3 also needs an entry registered
+  // here — the test below throws a clear, actionable error rather
+  // than silently skipping a locale that has no entry, so a forgotten
+  // registration fails loudly instead of leaving that locale
+  // unchecked.
+  const LOCALE_MESSAGES: Partial<Record<LocaleId, Messages>> = {
+    ar: ar as Messages,
+  };
 
-    it("has exactly the same set of keys as en.json", () => {
-      expect(arPaths).toEqual(enPaths);
-    });
+  const nonDefaultLocales = LOCALE_IDS.filter((id) => id !== DEFAULT_LOCALE);
 
-    it("preserves ICU structure (argName, type, category keywords) in all {..} groups", () => {
-      const mismatches = enPaths
-        .filter((path) => arPaths.includes(path))
-        .map((path) => ({
-          path,
-          en: placeholderSignatures(getAt(en as Messages, path)),
-          ar: placeholderSignatures(getAt(ar as Messages, path)),
-        }))
-        .filter(({ en, ar }) => JSON.stringify(en) !== JSON.stringify(ar));
+  describe.each(nonDefaultLocales)(
+    "messages/%s.json structural parity with en.json",
+    (localeId) => {
+      const messages = LOCALE_MESSAGES[localeId];
 
-      expect(mismatches).toEqual([]);
-    });
-  });
+      if (!messages) {
+        throw new Error(
+          `locale-parity.test.ts has no registered messages for locale "${localeId}". ` +
+            `Add \`import ${localeId} from "./${localeId}.json"\` and register it in LOCALE_MESSAGES.`,
+        );
+      }
+
+      const enPaths = collectPaths(en as Messages).sort();
+      const localePaths = collectPaths(messages).sort();
+
+      it(`has exactly the same set of keys as en.json`, () => {
+        expect(localePaths).toEqual(enPaths);
+      });
+
+      it(`preserves ICU structure (argName, type, category keywords) in all {..} groups`, () => {
+        const mismatches = enPaths
+          .filter((path) => localePaths.includes(path))
+          .map((path) => ({
+            path,
+            en: placeholderSignatures(getAt(en as Messages, path)),
+            [localeId]: placeholderSignatures(getAt(messages, path)),
+          }))
+          .filter(
+            (entry) => JSON.stringify(entry.en) !== JSON.stringify(entry[localeId]),
+          );
+
+        expect(mismatches).toEqual([]);
+      });
+    },
+  );
 });
