@@ -530,7 +530,7 @@
       "newPipeline": "مسار مبيعات جديد",
       "pipelineName": "اسم مسار المبيعات",
       "pipelineNamePlaceholder": "مثال: مبيعات الشركات",
-      "defaultStagesDesc": "سيتم إنشاء المراحل الافتراضية (عميل محتمل جديد ← فاز) تلقائيًا.",
+      "defaultStagesDesc": "سيتم إنشاء المراحل الافتراضية (New Lead ← Won) تلقائيًا.",
       "cancel": "إلغاء",
       "creating": "جارٍ الإنشاء...",
       "createPipelineBtn": "إنشاء مسار مبيعات",
