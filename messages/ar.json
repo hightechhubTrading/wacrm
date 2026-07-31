@@ -833,210 +833,210 @@
   },
   "Automations": {
     "list": {
-      "title": "Automations",
-      "subtitle": "Build workflows that react to WhatsApp® events automatically.",
-      "create": "Create Automation",
-      "retry": "Retry",
-      "templatesTitle": "Quick-start templates",
-      "emptyTitle": "No automations yet",
-      "emptyDesc": "Pick a template above or create one from scratch.",
-      "runs": "{count} run",
-      "runsPlural": "{count} runs",
-      "lastRun": "last {time}",
-      "activate": "Activate",
-      "deactivate": "Deactivate",
-      "edit": "Edit",
-      "duplicate": "Duplicate",
-      "viewLogs": "View Logs",
-      "delete": "Delete",
-      "cancel": "Cancel",
-      "deleteTitle": "Delete automation",
-      "deleteDesc": "This permanently removes {name} and its execution history. This cannot be undone.",
+      "title": "الأتمتة",
+      "subtitle": "أنشئ مسارات عمل تستجيب تلقائيًا لأحداث WhatsApp®.",
+      "create": "إنشاء أتمتة",
+      "retry": "إعادة المحاولة",
+      "templatesTitle": "قوالب البدء السريع",
+      "emptyTitle": "لا توجد أتمتة بعد",
+      "emptyDesc": "اختر قالبًا أعلاه أو أنشئ واحدة من الصفر.",
+      "runs": "{count} تشغيل",
+      "runsPlural": "{count} تشغيلات",
+      "lastRun": "آخر تشغيل {time}",
+      "activate": "تفعيل",
+      "deactivate": "إيقاف",
+      "edit": "تعديل",
+      "duplicate": "تكرار",
+      "viewLogs": "عرض السجلات",
+      "delete": "حذف",
+      "cancel": "إلغاء",
+      "deleteTitle": "حذف الأتمتة",
+      "deleteDesc": "سيؤدي هذا إلى حذف \"{name}\" وسجل تنفيذها نهائيًا. لا يمكن التراجع عن هذا الإجراء.",
       "toasts": {
-        "activated": "Automation activated",
-        "paused": "Automation paused",
-        "duplicated": "Automation duplicated",
-        "deleted": "Automation deleted",
-        "updateError": "Failed to update",
-        "duplicateError": "Failed to duplicate",
-        "deleteError": "Failed to delete"
+        "activated": "تم تفعيل الأتمتة",
+        "paused": "تم إيقاف الأتمتة",
+        "duplicated": "تم تكرار الأتمتة",
+        "deleted": "تم حذف الأتمتة",
+        "updateError": "فشل التحديث",
+        "duplicateError": "فشل التكرار",
+        "deleteError": "فشل الحذف"
       }
     },
     "edit": {
-      "loading": "Loading...",
-      "loadError": "Failed to load ({status})",
-      "back": "Back to Automations"
+      "loading": "جارٍ التحميل...",
+      "loadError": "فشل التحميل ({status})",
+      "back": "العودة إلى الأتمتة"
     },
     "logs": {
-      "title": "Execution logs",
-      "loadError": "Failed to load logs",
-      "emptyTitle": "No executions yet",
-      "emptyDesc": "Trigger this automation to see runs here.",
-      "unknownContact": "Unknown contact",
-      "step": "{count} step",
-      "stepPlural": "{count} steps",
-      "noSteps": "No steps recorded.",
+      "title": "سجلات التنفيذ",
+      "loadError": "فشل تحميل السجلات",
+      "emptyTitle": "لا توجد عمليات تنفيذ بعد",
+      "emptyDesc": "شغّل هذه الأتمتة لرؤية التشغيلات هنا.",
+      "unknownContact": "جهة اتصال غير معروفة",
+      "step": "{count} خطوة",
+      "stepPlural": "{count} خطوات",
+      "noSteps": "لم يتم تسجيل أي خطوات.",
       "status": {
-        "success": "success",
-        "partial": "partial",
-        "failed": "failed"
+        "success": "ناجح",
+        "partial": "جزئي",
+        "failed": "فاشل"
       },
-      "back": "Back",
-      "backAria": "Back"
+      "back": "رجوع",
+      "backAria": "رجوع"
     },
     "builder": {
       "steps": {
-        "send_message": "Send Message",
-        "send_buttons": "Send Buttons",
-        "send_list": "Send List",
-        "send_template": "Send Template",
-        "add_tag": "Add Tag",
-        "remove_tag": "Remove Tag",
-        "assign_conversation": "Assign Conversation",
-        "update_contact_field": "Update Contact Field",
-        "create_deal": "Create Deal",
-        "wait": "Wait",
-        "condition": "Condition (If/Else)",
-        "send_webhook": "Send Webhook",
-        "close_conversation": "Close Conversation"
+        "send_message": "إرسال رسالة",
+        "send_buttons": "إرسال أزرار",
+        "send_list": "إرسال قائمة",
+        "send_template": "إرسال قالب",
+        "add_tag": "إضافة وسم",
+        "remove_tag": "إزالة وسم",
+        "assign_conversation": "تعيين محادثة",
+        "update_contact_field": "تحديث حقل جهة الاتصال",
+        "create_deal": "إنشاء صفقة",
+        "wait": "انتظار",
+        "condition": "شرط (إذا/وإلا)",
+        "send_webhook": "إرسال Webhook",
+        "close_conversation": "إغلاق المحادثة"
       },
       "triggers": {
         "new_message_received": {
-          "label": "New Message Received",
-          "hint": "Any incoming message"
+          "label": "استلام رسالة جديدة",
+          "hint": "أي رسالة واردة"
         },
         "first_inbound_message": {
-          "label": "First Message from Contact",
-          "hint": "First time this contact ever messages you (works for manually-added contacts too)"
+          "label": "أول رسالة من جهة الاتصال",
+          "hint": "أول مرة تراسلك فيها جهة الاتصال هذه على الإطلاق (يعمل أيضًا مع جهات الاتصال المُضافة يدويًا)"
         },
         "keyword_match": {
-          "label": "Keyword Match",
-          "hint": "Message contains specific keyword(s)"
+          "label": "تطابق كلمة مفتاحية",
+          "hint": "تحتوي الرسالة على كلمة/كلمات مفتاحية محددة"
         },
         "interactive_reply": {
-          "label": "Button / List Reply",
-          "hint": "Customer taps a button or list row whose id matches — chain menus across automations"
+          "label": "رد زر / قائمة",
+          "hint": "ينقر العميل على زر أو عنصر قائمة يتطابق معرّفه — لربط القوائم عبر عدة عمليات أتمتة"
         },
         "new_contact_created": {
-          "label": "New Contact Created",
-          "hint": "When a contact is auto-created from an incoming message"
+          "label": "إنشاء جهة اتصال جديدة",
+          "hint": "عند إنشاء جهة اتصال تلقائيًا من رسالة واردة"
         },
         "conversation_assigned": {
-          "label": "Conversation Assigned",
-          "hint": "When assigned to an agent"
+          "label": "تعيين المحادثة",
+          "hint": "عند تعيينها لأحد الوكلاء"
         },
         "tag_added": {
-          "label": "Tag Added",
-          "hint": "When a tag is added to a contact"
+          "label": "إضافة وسم",
+          "hint": "عند إضافة وسم إلى جهة اتصال"
         },
         "time_based": {
-          "label": "Time-Based",
-          "hint": "On a recurring schedule"
+          "label": "حسب الوقت",
+          "hint": "وفق جدول زمني متكرر"
         }
       },
-      "trigger": "Trigger",
-      "triggerType": "Trigger type",
-      "keywords": "Keywords",
-      "keywordsHint": "Comma-separated list (e.g. hello, help, buy)",
-      "replyIds": "Reply IDs",
+      "trigger": "المشغّل",
+      "triggerType": "نوع المشغّل",
+      "keywords": "الكلمات المفتاحية",
+      "keywordsHint": "قائمة مفصولة بفواصل (مثال: مرحبا، مساعدة، شراء)",
+      "replyIds": "معرّفات الردود",
       "replyIdsHint": "yes, no, more_info",
-      "replyIdsHelp": "Comma-separated button/list-row ids to match, exact. Use the same ids you set on a Send Buttons / Send List step.",
-      "schedule": "Schedule",
-      "scheduleHint": "Cron expression (e.g. 0 9 * * 1-5)",
-      "active": "Active",
-      "activeAria": "Active",
-      "save": "Save",
-      "saveDraft": "Save Draft",
-      "untitled": "Untitled automation",
-      "backToAutomations": "Back to automations",
+      "replyIdsHelp": "معرّفات الأزرار/عناصر القائمة المطلوب مطابقتها، مفصولة بفواصل، بشكل دقيق. استخدم نفس المعرّفات التي حددتها في خطوة إرسال أزرار / إرسال قائمة.",
+      "schedule": "الجدولة",
+      "scheduleHint": "تعبير Cron (مثال: 0 9 * * 1-5)",
+      "active": "نشط",
+      "activeAria": "نشط",
+      "save": "حفظ",
+      "saveDraft": "حفظ كمسودة",
+      "untitled": "أتمتة بلا عنوان",
+      "backToAutomations": "العودة إلى الأتمتة",
       "toasts": {
-        "saved": "Automation saved",
-        "created": "Automation created",
-        "saveFailed": "Save failed"
+        "saved": "تم حفظ الأتمتة",
+        "created": "تم إنشاء الأتمتة",
+        "saveFailed": "فشل الحفظ"
       },
       "tags": {
-        "select": "Select a tag…",
-        "placeholder": "Tag id",
-        "unknown": "{id} (unknown tag)"
+        "select": "اختر وسمًا…",
+        "placeholder": "معرّف الوسم",
+        "unknown": "{id} (وسم غير معروف)"
       },
       "fields": {
-        "name": "Name",
-        "email": "Email",
-        "company": "Company",
-        "customFields": "Custom fields",
-        "unknown": "{id} (unknown field)"
+        "name": "الاسم",
+        "email": "البريد الإلكتروني",
+        "company": "الشركة",
+        "customFields": "الحقول المخصصة",
+        "unknown": "{id} (حقل غير معروف)"
       },
       "agents": {
-        "select": "Select an agent…",
-        "placeholder": "Agent id",
-        "unknown": "{id} (unknown agent)"
+        "select": "اختر وكيلاً…",
+        "placeholder": "معرّف الوكيل",
+        "unknown": "{id} (وكيل غير معروف)"
       },
       "pipelines": {
-        "pipelineLabel": "Pipeline",
-        "pipelineIdLabel": "Pipeline id",
-        "stageLabel": "Stage",
-        "stageIdLabel": "Stage id",
-        "selectPipeline": "Select a pipeline…",
-        "selectStage": "Select a stage…",
-        "selectPipelineFirst": "Select a pipeline first…",
-        "unknownPipeline": "{id} (unknown pipeline)",
-        "unknownStage": "{id} (unknown stage)"
+        "pipelineLabel": "مسار المبيعات",
+        "pipelineIdLabel": "معرّف مسار المبيعات",
+        "stageLabel": "المرحلة",
+        "stageIdLabel": "معرّف المرحلة",
+        "selectPipeline": "اختر مسار مبيعات…",
+        "selectStage": "اختر مرحلة…",
+        "selectPipelineFirst": "اختر مسار مبيعات أولاً…",
+        "unknownPipeline": "{id} (مسار مبيعات غير معروف)",
+        "unknownStage": "{id} (مرحلة غير معروفة)"
       },
       "templates": {
-        "templateLabel": "Template",
-        "templateNameLabel": "Template name",
-        "languageLabel": "Language",
-        "select": "Select a template…",
-        "unknown": "{name} ({lang}) — not in approved list",
-        "unknownLang": "unknown"
+        "templateLabel": "القالب",
+        "templateNameLabel": "اسم القالب",
+        "languageLabel": "اللغة",
+        "select": "اختر قالبًا…",
+        "unknown": "{name} ({lang}) — غير مدرج في القائمة المعتمدة",
+        "unknownLang": "غير معروف"
       },
       "branches": {
-        "yes": "Yes",
-        "no": "No"
+        "yes": "نعم",
+        "no": "لا"
       },
-      "addStep": "Add step",
-      "delete": "Delete",
+      "addStep": "إضافة خطوة",
+      "delete": "حذف",
       "config": {
-        "messageText": "Message text",
-        "placeholderMessageText": "Hi! Thanks for reaching out…",
-        "tagLabel": "Tag",
-        "modeLabel": "Mode",
+        "messageText": "نص الرسالة",
+        "placeholderMessageText": "مرحبًا! شكرًا لتواصلك معنا…",
+        "tagLabel": "الوسم",
+        "modeLabel": "الوضع",
         "modes": {
-          "round_robin": "Round-robin",
-          "specific": "Specific agent"
+          "round_robin": "التناوب",
+          "specific": "وكيل محدد"
         },
-        "agentLabel": "Agent",
-        "fieldLabel": "Field",
-        "valueLabel": "Value",
-        "placeholderValue": "Text or '{{ vars.x }}' / '{{ message.text }}'",
-        "titleLabel": "Title",
-        "amountLabel": "Amount",
-        "unitLabel": "Unit",
+        "agentLabel": "الوكيل",
+        "fieldLabel": "الحقل",
+        "valueLabel": "القيمة",
+        "placeholderValue": "نص أو '{{ vars.x }}' / '{{ message.text }}'",
+        "titleLabel": "العنوان",
+        "amountLabel": "المقدار",
+        "unitLabel": "الوحدة",
         "units": {
-          "minutes": "Minutes",
-          "hours": "Hours",
-          "days": "Days"
+          "minutes": "دقائق",
+          "hours": "ساعات",
+          "days": "أيام"
         },
-        "subjectLabel": "Subject",
+        "subjectLabel": "الموضوع",
         "subjects": {
-          "tag_presence": "Tag presence",
-          "contact_field": "Contact field",
-          "message_content": "Message content",
-          "time_of_day": "Time of day"
+          "tag_presence": "وجود وسم",
+          "contact_field": "حقل جهة اتصال",
+          "message_content": "محتوى الرسالة",
+          "time_of_day": "وقت اليوم"
         },
-        "operandLabel": "Operand",
+        "operandLabel": "المعامل",
         "placeholderTime": "HH:mm-HH:mm",
-        "placeholderContact": "name / email / company",
-        "placeholderTag": "tag id",
+        "placeholderContact": "الاسم / البريد الإلكتروني / الشركة",
+        "placeholderTag": "معرّف الوسم",
         "urlLabel": "URL",
-        "headersLabel": "Headers",
+        "headersLabel": "الترويسات",
         "placeholderHeaders": "'{\"Authorization\": \"Bearer ...\"}'",
-        "bodyTemplateLabel": "Body template",
+        "bodyTemplateLabel": "قالب نص الطلب",
         "placeholderBody": "'{\"id\": \"{{ contact.id }}\"}'",
-        "matchType": "Match type",
-        "matchContains": "Contains",
-        "matchExact": "Exact",
-        "closeConversationHint": "Sets the conversation status to \"closed\". No configuration needed."
+        "matchType": "نوع المطابقة",
+        "matchContains": "يحتوي على",
+        "matchExact": "تطابق تام",
+        "closeConversationHint": "يضبط حالة المحادثة على \"مغلقة\". لا حاجة إلى أي إعداد."
       }
     }
   },
