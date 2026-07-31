@@ -127,7 +127,7 @@
   },
   "Inbox": {
     "page": {
-      "whatsappNotConnected": "واتساب® غير متصل. انتقل إلى الإعدادات لربط حسابك."
+      "whatsappNotConnected": "WhatsApp® غير متصل. انتقل إلى الإعدادات لربط حسابك."
     },
     "conversationList": {
       "searchPlaceholder": "البحث في المحادثات...",
@@ -143,8 +143,8 @@
       "noConversations": "لا توجد محادثات",
       "noMessagesYet": "لا توجد رسائل بعد",
       "unknown": "غير معروف",
-      "aiPriorityUrgent": "صنّف الذكاء الاصطناعي هذه المحادثة كعاجلة",
-      "aiPriorityHigh": "صنّف الذكاء الاصطناعي هذه المحادثة كعالية الأولوية"
+      "aiPriorityUrgent": "صنّف AI هذه المحادثة كعاجلة",
+      "aiPriorityHigh": "صنّف AI هذه المحادثة كعالية الأولوية"
     },
     "messageThread": {
       "backToConversations": "العودة إلى المحادثات",
@@ -166,7 +166,7 @@
       "noMessagesYet": "لا توجد رسائل بعد",
       "sendTemplateHint": "أرسل قالبًا لبدء المحادثة",
       "selectConversation": "اختر محادثة",
-      "selectConversationHint": "اختر محادثة من القائمة على اليسار لبدء المراسلة",
+      "selectConversationHint": "اختر محادثة من قائمة المحادثات لبدء المراسلة",
       "today": "اليوم",
       "yesterday": "أمس"
     },
@@ -177,7 +177,7 @@
       "noCustomerMessages": "لا توجد رسائل من العميل"
     },
     "composer": {
-      "draftHint": "اضغط على ✨ لصياغة رد باستخدام الذكاء الاصطناعي — يمكنك تعديله قبل الإرسال",
+      "draftHint": "اضغط على ✨ لصياغة رد باستخدام AI — يمكنك تعديله قبل الإرسال",
       "sessionExpiredHint": "انتهت جلسة الـ24 ساعة. استخدم قالبًا لإعادة التواصل.",
       "templates": "القوالب",
       "readOnlyPlaceholder": "للقراءة فقط — يمكن للمُشاهدين التصفح دون الرد",
@@ -193,7 +193,7 @@
       "document": "مستند",
       "voiceNote": "رسالة صوتية",
       "sendTemplate": "إرسال قالب",
-      "draftWithAI": "صياغة رد بالذكاء الاصطناعي",
+      "draftWithAI": "صياغة رد بواسطة AI",
       "translateDraft": "ترجمة هذه الرسالة",
       "addCaption": "أضف وصفًا…",
       "removeAttachment": "إزالة المرفق",
@@ -220,7 +220,7 @@
       "interactiveReply": "[رد تفاعلي]",
       "unsupported": "[نوع رسالة غير مدعوم]",
       "aiBadge": "AI",
-      "aiBadgeTitle": "أُرسلت تلقائيًا بواسطة مساعد الذكاء الاصطناعي"
+      "aiBadgeTitle": "أُرسلت تلقائيًا بواسطة مساعد AI"
     },
     "actions": {
       "reply": "رد",
@@ -250,14 +250,14 @@
     "templatePicker": {
       "sendTemplate": "إرسال قالب",
       "fillPlaceholders": "املأ الحقول لعرض هذا القالب. يتطلب Meta تعيين كل متغير.",
-      "pickTemplate": "اختر قالب واتساب معتمدًا لإرساله إلى جهة الاتصال هذه.",
+      "pickTemplate": "اختر قالب WhatsApp معتمدًا لإرساله إلى جهة الاتصال هذه.",
       "noApprovedTemplates": "لا توجد قوالب معتمدة",
       "noApprovedTemplatesHint": "اعتمد قالبًا في Meta WhatsApp Manager، ثم زامنه من الإعدادات ← القوالب.",
       "preview": "معاينة",
       "headerValuePlaceholder": "قيمة متغير الترويسة",
       "bodyValuePlaceholder": "القيمة لـ {val}",
-      "urlSuffixValuePlaceholder": "قيمة لاحقة الرابط",
-      "finalUrl": "الرابط النهائي: {url}",
+      "urlSuffixValuePlaceholder": "قيمة لاحقة URL",
+      "finalUrl": "URL النهائي: {url}",
       "back": "رجوع",
       "cancel": "إلغاء",
       "send": "إرسال القالب"
@@ -280,14 +280,14 @@
       "optedOutBadge": "ألغى الاشتراك"
     },
     "aiBanner": {
-      "pausedTitle": "مساعد الذكاء الاصطناعي متوقف هنا",
-      "afterHoursTitle": "تولى الذكاء الاصطناعي الرد خارج أوقات الدوام",
-      "activeText": "مساعد الذكاء الاصطناعي يرد تلقائيًا",
+      "pausedTitle": "مساعد AI متوقف هنا",
+      "afterHoursTitle": "تولى AI الرد خارج أوقات الدوام",
+      "activeText": "مساعد AI يرد تلقائيًا",
       "takeOver": "تولّي المحادثة",
-      "resume": "استئناف الذكاء الاصطناعي",
+      "resume": "استئناف AI",
       "tookOver": "لقد توليت هذه المحادثة.",
-      "resumed": "تم استئناف الذكاء الاصطناعي.",
-      "updateError": "تعذّر تحديث مساعد الذكاء الاصطناعي.",
+      "resumed": "تم استئناف AI.",
+      "updateError": "تعذّر تحديث مساعد AI.",
       "networkError": "تعذّر الوصول إلى الخادم."
     }
   },
