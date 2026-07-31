@@ -10,7 +10,7 @@ vi.mock("next/headers", () => ({
 
 // Mock getRequestConfig to just pass through the config function
 vi.mock("next-intl/server", () => ({
-  getRequestConfig: (fn: () => Promise<any>) => fn,
+  getRequestConfig: (fn: () => Promise<unknown>) => fn,
 }));
 
 import requestConfig from "./request";
