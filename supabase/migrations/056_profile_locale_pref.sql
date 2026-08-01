@@ -1,4 +1,4 @@
--- supabase/migrations/055_profile_locale_pref.sql
+-- supabase/migrations/056_profile_locale_pref.sql
 -- ============================================================
 -- Per-user locale (UI language) preference on `profiles`.
 --
