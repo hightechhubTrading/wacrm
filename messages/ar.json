@@ -144,7 +144,11 @@
       "noMessagesYet": "لا توجد رسائل بعد",
       "unknown": "غير معروف",
       "aiPriorityUrgent": "صنّف AI هذه المحادثة كعاجلة",
-      "aiPriorityHigh": "صنّف AI هذه المحادثة كعالية الأولوية"
+      "aiPriorityHigh": "صنّف AI هذه المحادثة كعالية الأولوية",
+      "agent": "الوكيل",
+      "allAgents": "جميع الوكلاء",
+      "unassigned": "غير مسندة",
+      "assignedTo": "مسندة إلى {name}"
     },
     "messageThread": {
       "backToConversations": "العودة إلى المحادثات",
@@ -205,7 +209,9 @@
       "send": "إرسال",
       "quickReplyNamePrompt": "سمِّ هذا الرد السريع:",
       "quickReplySaved": "تم الحفظ كرد سريع.",
-      "quickReplySaveError": "تعذّر حفظ الرد السريع."
+      "quickReplySaveError": "تعذّر حفظ الرد السريع.",
+      "catalog": "الكتالوج",
+      "catalogEmpty": "لا توجد عناصر في الكتالوج بعد — أضف بعضها من الإعدادات ← مساعد AI ← مكتبة الوسائط."
     },
     "bubble": {
       "photo": "صورة",
@@ -281,7 +287,7 @@
     },
     "aiBanner": {
       "pausedTitle": "مساعد AI متوقف هنا",
-      "afterHoursTitle": "تولى AI الرد خارج أوقات الدوام",
+      "afterHoursTitle": "ملخص محادثة AI",
       "activeText": "مساعد AI يرد تلقائيًا",
       "takeOver": "تولّي المحادثة",
       "resume": "استئناف AI",
@@ -1795,7 +1801,13 @@
       "saveSuccess": "تم حفظ مساعد AI.",
       "saveFailed": "تعذّر الحفظ.",
       "removeSuccess": "تمت إزالة إعدادات AI.",
-      "removeFailed": "تعذّر الإزالة."
+      "removeFailed": "تعذّر الإزالة.",
+      "imageAnalysisKey": "مفتاح تحليل الصور",
+      "optionalImageAnalysis": "(اختياري — يفعّل وصف الصور الواردة)",
+      "imageAnalysisHint": "يُستخدم فقط لوصف صورة واردة (مثال: \"أريكة رمادية على شكل حرف L\") حتى لا يكون المساعد أعمى تجاهها. اختر OpenAI أو Gemini — فئة Gemini flash أقل تكلفة لكل صورة.",
+      "analyzeImages": "وصف الصور الواردة",
+      "analyzeImagesDesc": "يُنشأ وصف مختصر لكل صورة واردة ويُغذّى للمسودات والرد التلقائي وجمع الحقول، حتى لا يكون المساعد أعمى تجاه ما أرسله العميل.",
+      "analyzeImagesNeedsKey": "يتطلب مفتاح تحليل الصور (أعلاه)."
     },
     "aiKnowledge": {
       "loadFailed": "تعذّر تحميل قاعدة المعرفة",
