@@ -1,28 +1,35 @@
 "use client";
 
-import { Check, Moon, Palette, SunMoon, Sun } from "lucide-react";
+import { Check, Languages, Moon, Palette, SunMoon, Sun } from "lucide-react";
 
 import { useAppearance } from "@/hooks/use-appearance";
+import { useLocalePreference } from "@/hooks/use-locale-preference";
+import { LOCALES } from "@/lib/locales";
 import { MODES, THEMES, type Mode, type ThemeId } from "@/lib/themes";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { SettingsPanelHead } from "./settings-panel-head";
 
 /**
- * Appearance panel — light/dark mode + accent-color picker.
+ * Appearance panel — light/dark mode, accent-color picker, and UI
+ * language.
  *
- * Two independent controls: a mode toggle (light / dark) and the
- * accent grid. Either applies + persists immediately. No save button:
- * each change is a single attribute swap on <html>, there's nothing
- * to roll back.
+ * Three independent controls: a mode toggle (light / dark), the
+ * accent grid, and the language switcher. Each applies + persists
+ * immediately. No save button: mode/theme are a single attribute
+ * swap on <html>; language is a cookie write followed by
+ * router.refresh() (see useLocalePreference()). Nothing to roll back
+ * in any case.
  *
- * Persistence is two-layer, via useAppearance(): localStorage (so the
- * boot script in layout.tsx can replay the choice before first paint)
- * plus a write-through to the profile row, so it follows the user to
- * their other devices.
+ * Persistence is two-layer, via useAppearance() and
+ * useLocalePreference(): localStorage / cookie (so the boot script in
+ * layout.tsx and the server-rendered <html> can replay the choice
+ * before/at first paint) plus a write-through to the profile row, so
+ * it follows the user to their other devices.
  */
 export function AppearancePanel() {
   const { theme, setTheme, mode, setMode } = useAppearance();
+  const { locale, setLocale } = useLocalePreference();
   const t = useTranslations("Settings.appearance");
 
   return (
@@ -70,6 +77,28 @@ export function AppearancePanel() {
               swatch={tObj.swatch}
               isActive={tObj.id === theme}
               onPick={() => setTheme(tObj.id)}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-8 space-y-4">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Languages className="size-4 text-muted-foreground" />
+          {t("language")}
+        </h3>
+
+        <div
+          role="radiogroup"
+          aria-label={t("language")}
+          className="grid max-w-md grid-cols-2 gap-3"
+        >
+          {LOCALES.map((l) => (
+            <LanguageCard
+              key={l.id}
+              name={l.name}
+              isActive={l.id === locale}
+              onPick={() => setLocale(l.id)}
             />
           ))}
         </div>
@@ -184,6 +213,43 @@ function ThemeCard({
         <span className="w-3 bg-card" />
       </div>
       <span className="sr-only">Theme id: {id}</span>
+    </button>
+  );
+}
+
+function LanguageCard({
+  name,
+  isActive,
+  onPick,
+}: {
+  name: string;
+  isActive: boolean;
+  onPick: () => void;
+}) {
+  const t = useTranslations("Settings.appearance");
+  return (
+    <button
+      type="button"
+      role="radio"
+      onClick={onPick}
+      aria-checked={isActive}
+      aria-label={t("useLanguage", { name })}
+      className={cn(
+        "flex items-center gap-3 rounded-lg border bg-card p-4 text-start transition-colors",
+        isActive
+          ? "border-primary/60 ring-2 ring-primary/40"
+          : "border-border hover:border-border hover:bg-muted/40",
+      )}
+    >
+      <span className="flex-1 text-sm font-semibold text-foreground">
+        {name}
+      </span>
+      {isActive && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
+          <Check className="h-3 w-3" />
+          {t("active")}
+        </span>
+      )}
     </button>
   );
 }

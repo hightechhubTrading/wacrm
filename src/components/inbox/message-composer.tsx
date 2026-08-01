@@ -49,7 +49,7 @@ import {
   MEDIA_MAX_BYTES_BY_KIND,
 } from "@/lib/storage/upload-media";
 import { ReplyQuote } from "./reply-quote";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   InteractiveBuilder,
   blankButtonsPayload,
@@ -154,6 +154,7 @@ export function MessageComposer({
   onClearReply,
 }: MessageComposerProps) {
   const t = useTranslations("Inbox.composer");
+  const locale = useLocale();
 
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -325,8 +326,7 @@ export function MessageComposer({
   // on the inbound side).
   const handleTranslateDraft = useCallback(async () => {
     if (translatingDraft || !text.trim()) return;
-    const appLocale = process.env.NEXT_PUBLIC_APP_LOCALE || "en";
-    const targetLanguage = appLocale === "ko" ? "English" : "Korean";
+    const targetLanguage = locale === "ar" ? "English" : "Arabic";
     setTranslatingDraft(true);
     try {
       const res = await fetch("/api/ai/translate", {
@@ -351,7 +351,7 @@ export function MessageComposer({
     } finally {
       setTranslatingDraft(false);
     }
-  }, [translatingDraft, text, adjustHeight]);
+  }, [translatingDraft, text, adjustHeight, locale]);
 
   // ---- Interactive message + quick replies --------------------------
 
@@ -631,7 +631,7 @@ export function MessageComposer({
             className="h-7 text-xs text-amber-400 hover:text-amber-300"
             onClick={onOpenTemplates}
           >
-            <LayoutTemplate className="mr-1 h-3 w-3" />
+            <LayoutTemplate className="me-1 h-3 w-3" />
             {t("templates")}
           </Button>
         </div>
@@ -725,19 +725,19 @@ export function MessageComposer({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="border-border bg-popover">
               <DropdownMenuItem onClick={() => imageInputRef.current?.click()}>
-                <ImageIcon className="mr-2 h-4 w-4" />
+                <ImageIcon className="me-2 h-4 w-4" />
                 {t("photo")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => videoInputRef.current?.click()}>
-                <Video className="mr-2 h-4 w-4" />
+                <Video className="me-2 h-4 w-4" />
                 {t("video")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => documentInputRef.current?.click()}>
-                <FileText className="mr-2 h-4 w-4" />
+                <FileText className="me-2 h-4 w-4" />
                 {t("document")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => void startRecording()}>
-                <Mic className="mr-2 h-4 w-4" />
+                <Mic className="me-2 h-4 w-4" />
                 {t("voiceNote")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setCatalogOpen(true)}>
@@ -765,11 +765,11 @@ export function MessageComposer({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="border-border bg-popover">
               <DropdownMenuItem onClick={() => openInteractiveBuilder()}>
-                <MessageSquareDashed className="mr-2 h-4 w-4" />
+                <MessageSquareDashed className="me-2 h-4 w-4" />
                 {t("interactiveMessage")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setQuickReplyOpen(true)}>
-                <Zap className="mr-2 h-4 w-4" />
+                <Zap className="me-2 h-4 w-4" />
                 {t("quickReplies")}
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -862,7 +862,7 @@ export function MessageComposer({
           `items-end` buttons below the textarea. Indented to line up
           under the textarea left edge. */}
       {!draft && !recording && (
-        <p className="mt-1 pl-[5.5rem] text-[10px] text-muted-foreground">
+        <p className="mt-1 ps-[5.5rem] text-[10px] text-muted-foreground">
           {t("draftHint")}
         </p>
       )}
@@ -886,14 +886,14 @@ export function MessageComposer({
               onClick={saveAsQuickReply}
             >
               {savingQuickReply ? (
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                <Loader2 className="me-1 h-4 w-4 animate-spin" />
               ) : (
-                <Zap className="mr-1 h-4 w-4" />
+                <Zap className="me-1 h-4 w-4" />
               )}
               {t("saveAsQuickReply")}
             </Button>
             <Button onClick={sendInteractive}>
-              <Send className="mr-1 h-4 w-4" />
+              <Send className="me-1 h-4 w-4" />
               {t("send")}
             </Button>
           </DialogFooter>
@@ -999,7 +999,7 @@ function MediaDraftPreview({
           onClick={onSend}
           className={cn(
             "h-9 w-9 shrink-0 bg-primary p-0 hover:bg-primary/90 disabled:opacity-40",
-            draft.kind === "audio" && "ml-auto",
+            draft.kind === "audio" && "ms-auto",
           )}
         >
           <Send className="h-4 w-4" />

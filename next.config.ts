@@ -143,6 +143,16 @@ const nextConfig: NextConfig = {
             value:
               "public, max-age=0, s-maxage=300, stale-while-revalidate=86400",
           },
+          {
+            // Server-rendered HTML varies by the wacrm.locale cookie
+            // (<html lang>, <html dir>, and every translated string —
+            // see src/i18n/request.ts). Without this, a shared/CDN
+            // cache could serve a response cached under one locale's
+            // cookie to a request carrying a different one, up to
+            // s-maxage fresh / stale-while-revalidate stale.
+            key: "Vary",
+            value: "Cookie",
+          },
         ],
       },
       {

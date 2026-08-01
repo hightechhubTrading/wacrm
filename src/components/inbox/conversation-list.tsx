@@ -275,12 +275,12 @@ export function ConversationList({
       {/* Search + Filter */}
       <div className="space-y-2 border-b border-border p-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={handleSearchChange}
             placeholder={t("searchPlaceholder")}
-            className="border-border bg-muted pl-9 text-sm text-foreground placeholder-muted-foreground focus:border-primary/50"
+            className="border-border bg-muted ps-9 text-sm text-foreground placeholder-muted-foreground focus:border-primary/50"
           />
         </div>
 
@@ -585,7 +585,7 @@ function ConversationItem({
       onClick={handleClick}
       className={cn(
         "flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/50",
-        isActive && "border-l-2 border-primary bg-muted/70"
+        isActive && "border-s-2 border-primary bg-muted/70"
       )}
     >
       {/* Avatar */}

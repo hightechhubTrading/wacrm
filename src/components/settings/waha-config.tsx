@@ -200,12 +200,12 @@ export function WahaConfig() {
                     setKeyEdited(true);
                   }
                 }}
-                className="bg-muted border-border text-foreground placeholder:text-muted-foreground pr-10"
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground pe-10"
               />
               <button
                 type="button"
                 onClick={() => setShowKey(!showKey)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                className="absolute end-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 {showKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </button>

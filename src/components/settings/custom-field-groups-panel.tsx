@@ -517,7 +517,7 @@ function SortableGroupRow({
       </div>
 
       {expanded && (
-        <div className="space-y-2 border-t border-border/60 p-2 pl-8">
+        <div className="space-y-2 border-t border-border/60 p-2 ps-8">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onReorderFields}>
             <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
               <div className="space-y-1.5">
@@ -654,7 +654,7 @@ function SortableFieldRow({
         variant="ghost"
         size="icon-xs"
         onClick={onDelete}
-        className="ml-auto shrink-0 text-muted-foreground hover:text-red-400"
+        className="ms-auto shrink-0 text-muted-foreground hover:text-red-400"
       >
         <Trash2 className="h-3 w-3" />
       </Button>

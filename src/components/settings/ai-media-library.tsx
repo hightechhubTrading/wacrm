@@ -233,7 +233,7 @@ export function AiMediaLibraryCard({
       <CardContent className="space-y-4">
         {loading ? (
           <div className="flex items-center py-4 text-sm text-muted-foreground">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...
+            <Loader2 className="me-2 h-4 w-4 animate-spin" /> Loading...
           </div>
         ) : (
           <>
@@ -403,7 +403,7 @@ export function AiMediaLibraryCard({
                     Cancel
                   </Button>
                   <Button onClick={save} disabled={saving}>
-                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {saving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                     Save
                   </Button>
                 </div>
@@ -411,7 +411,7 @@ export function AiMediaLibraryCard({
             ) : (
               canEdit && (
                 <Button variant="outline" size="sm" onClick={openNew}>
-                  <Plus className="mr-2 h-4 w-4" /> Add media item
+                  <Plus className="me-2 h-4 w-4" /> Add media item
                 </Button>
               )
             )}

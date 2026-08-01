@@ -6,6 +6,7 @@ import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { ThemedToaster } from "@/components/themed-toaster";
+import { localeDir } from "@/lib/locales";
 import {
   DEFAULT_MODE,
   DEFAULT_THEME,
@@ -83,11 +84,13 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const locale = await getLocale();
+  const dir = localeDir(locale);
   const messages = await getMessages();
 
   return (
     <html
       lang={locale}
+      dir={dir}
       data-theme={DEFAULT_THEME}
       data-mode={DEFAULT_MODE}
       className={`${inter.variable} h-full antialiased`}

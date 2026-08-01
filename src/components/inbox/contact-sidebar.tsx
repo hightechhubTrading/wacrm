@@ -246,7 +246,7 @@ export function ContactSidebar({ contact, refreshToken }: ContactSidebarProps) {
                 tags.map((tag) => (
                   <span
                     key={tag.contact_tag_id}
-                    className="group inline-flex items-center gap-1 rounded-full py-0.5 pl-2 pr-1 text-[10px] font-medium"
+                    className="group inline-flex items-center gap-1 rounded-full py-0.5 ps-2 pe-1 text-[10px] font-medium"
                     style={{
                       backgroundColor: `${tag.color}20`,
                       color: tag.color,
