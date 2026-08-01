@@ -3,7 +3,7 @@ import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 import { loadAiConfig } from '@/lib/ai/config'
 import { retrieveKnowledge } from '@/lib/ai/knowledge'
-import { listMediaLibraryForPrompt } from '@/lib/ai/media-library'
+import { listProductsForPrompt } from '@/lib/ai/media-library'
 import { generateReply } from '@/lib/ai/generate'
 import { buildSystemPrompt } from '@/lib/ai/defaults'
 import { latestUserMessage } from '@/lib/ai/query'
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
       config,
       latestUserMessage(messages),
     )
-    const media = await listMediaLibraryForPrompt(supabase, accountId)
+    const media = await listProductsForPrompt(supabase, accountId)
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'auto_reply',

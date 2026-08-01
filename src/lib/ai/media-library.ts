@@ -121,7 +121,7 @@ export async function getProductMediaItem(
       .eq('id', fileId)
       .maybeSingle()
     if (error || !data) return null
-    const product = data.ai_products as { name: string } | null
+    const product = (data.ai_products as any) as { name: string } | null
     return {
       id: data.id as string,
       productId: data.product_id as string,
