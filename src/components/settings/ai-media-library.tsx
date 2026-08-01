@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, Plus, Trash2, Pencil, ImageIcon, FileText, X } from 'lucide-react';
+import { Loader2, Plus, Trash2, Pencil, ImageIcon, FileText, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -64,6 +64,9 @@ export function AiMediaLibraryCard({
   const [saving, setSaving] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [newFileLabel, setNewFileLabel] = useState('');
+  const [editingFileId, setEditingFileId] = useState<string | null>(null);
+  const [editFileLabel, setEditFileLabel] = useState('');
+  const [savingFileLabel, setSavingFileLabel] = useState(false);
   const loadedAccountIdRef = useRef<string | null>(null);
 
   const fetchItems = useCallback(async () => {
@@ -95,6 +98,8 @@ export function AiMediaLibraryCard({
     setPriceUnit('');
     setPriceNotes('');
     setNewFileLabel('');
+    setEditingFileId(null);
+    setEditFileLabel('');
   };
 
   const openNew = () => {
@@ -112,6 +117,8 @@ export function AiMediaLibraryCard({
     setPriceUnit(item.price_unit ?? '');
     setPriceNotes(item.price_notes ?? '');
     setNewFileLabel('');
+    setEditingFileId(null);
+    setEditFileLabel('');
   };
 
   const cancelEdit = () => {
@@ -241,6 +248,40 @@ export function AiMediaLibraryCard({
       }
     } catch {
       toast.error('Failed to remove file.');
+    }
+  };
+
+  const startEditFileLabel = (file: ProductFile) => {
+    setEditingFileId(file.id);
+    setEditFileLabel(file.label ?? '');
+  };
+
+  const cancelEditFileLabel = () => {
+    setEditingFileId(null);
+    setEditFileLabel('');
+  };
+
+  const saveFileLabel = async (productId: string, fileId: string) => {
+    setSavingFileLabel(true);
+    try {
+      const res = await fetch(`/api/ai/products/${productId}/media/${fileId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: editFileLabel.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success('File label updated.');
+        setEditingFileId(null);
+        setEditFileLabel('');
+        await fetchItems();
+      } else {
+        toast.error(data.error ?? 'Failed to update file label.');
+      }
+    } catch {
+      toast.error('Failed to update file label.');
+    } finally {
+      setSavingFileLabel(false);
     }
   };
 
@@ -428,23 +469,75 @@ export function AiMediaLibraryCard({
                             key={f.id}
                             className="flex items-center justify-between gap-2 rounded border border-border bg-muted/30 px-2 py-1.5 text-sm"
                           >
-                            <span className="flex min-w-0 items-center gap-2">
+                            <span className="flex min-w-0 flex-1 items-center gap-2">
                               {f.media_kind === 'image' ? (
                                 <ImageIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                               ) : (
                                 <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                               )}
-                              <span className="truncate">{f.label || '(no label)'}</span>
+                              {editingFileId === f.id ? (
+                                <Input
+                                  autoFocus
+                                  value={editFileLabel}
+                                  onChange={(e) => setEditFileLabel(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') void saveFileLabel(editing, f.id);
+                                    if (e.key === 'Escape') cancelEditFileLabel();
+                                  }}
+                                  className="h-6 py-0 text-sm"
+                                  disabled={savingFileLabel}
+                                />
+                              ) : (
+                                <span className="truncate">{f.label || '(no label)'}</span>
+                              )}
                             </span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 shrink-0 p-0 text-destructive hover:text-destructive"
-                              onClick={() => void removeFile(editing, f.id)}
-                              title="Remove file"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
+                            <span className="flex shrink-0 items-center gap-1">
+                              {editingFileId === f.id ? (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 shrink-0 p-0"
+                                    onClick={() => void saveFileLabel(editing, f.id)}
+                                    disabled={savingFileLabel}
+                                    title="Save label"
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 shrink-0 p-0"
+                                    onClick={cancelEditFileLabel}
+                                    disabled={savingFileLabel}
+                                    title="Cancel"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 shrink-0 p-0"
+                                    onClick={() => startEditFileLabel(f)}
+                                    title="Edit label"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 shrink-0 p-0 text-destructive hover:text-destructive"
+                                    onClick={() => void removeFile(editing, f.id)}
+                                    title="Remove file"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </Button>
+                                </>
+                              )}
+                            </span>
                           </li>
                         ))}
                       </ul>

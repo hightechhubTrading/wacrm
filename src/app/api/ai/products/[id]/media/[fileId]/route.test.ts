@@ -19,13 +19,17 @@ describe('DELETE /api/ai/products/[id]/media/[fileId]', () => {
         select: () => ({
           eq: () => ({
             eq: () => ({
-              maybeSingle: () => Promise.resolve({ data: { storage_path: 'library/f-1.jpg' }, error: null }),
+              eq: () => ({
+                maybeSingle: () => Promise.resolve({ data: { storage_path: 'library/f-1.jpg' }, error: null }),
+              }),
             }),
           }),
         }),
         delete: () => ({
           eq: () => ({
-            eq: () => Promise.resolve({ error: null }),
+            eq: () => ({
+              eq: () => Promise.resolve({ error: null }),
+            }),
           }),
         }),
       }),
@@ -47,8 +51,10 @@ describe('PATCH /api/ai/products/[id]/media/[fileId]', () => {
         update: () => ({
           eq: () => ({
             eq: () => ({
-              select: () => ({
-                maybeSingle: () => Promise.resolve({ data: { id: 'f-1' }, error: null }),
+              eq: () => ({
+                select: () => ({
+                  maybeSingle: () => Promise.resolve({ data: { id: 'f-1' }, error: null }),
+                }),
               }),
             }),
           }),

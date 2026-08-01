@@ -11,7 +11,7 @@ type Params = { params: Promise<{ id: string; fileId: string }> }
 export async function PATCH(request: Request, { params }: Params) {
   try {
     const { supabase, accountId } = await requireRole('admin')
-    const { fileId } = await params
+    const { id, fileId } = await params
     const body = await request.json().catch(() => null)
     if (typeof body?.label !== 'string' && body?.label !== null) {
       return NextResponse.json({ error: "'label' must be a string or null" }, { status: 400 })
@@ -23,6 +23,7 @@ export async function PATCH(request: Request, { params }: Params) {
       .update({ label })
       .eq('account_id', accountId)
       .eq('id', fileId)
+      .eq('product_id', id)
       .select('id')
       .maybeSingle()
     if (error) {
@@ -43,13 +44,14 @@ export async function PATCH(request: Request, { params }: Params) {
 export async function DELETE(_request: Request, { params }: Params) {
   try {
     const { supabase, accountId } = await requireRole('admin')
-    const { fileId } = await params
+    const { id, fileId } = await params
 
     const { data: row } = await supabase
       .from('ai_product_media')
       .select('storage_path')
       .eq('account_id', accountId)
       .eq('id', fileId)
+      .eq('product_id', id)
       .maybeSingle()
 
     const { error } = await supabase
@@ -57,6 +59,7 @@ export async function DELETE(_request: Request, { params }: Params) {
       .delete()
       .eq('account_id', accountId)
       .eq('id', fileId)
+      .eq('product_id', id)
     if (error) {
       console.error('[ai/products/[id]/media/[fileId] DELETE] error:', error)
       return NextResponse.json({ error: 'Failed to delete file' }, { status: 500 })
