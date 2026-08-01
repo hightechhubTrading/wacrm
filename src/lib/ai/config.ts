@@ -1,9 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { decrypt } from '@/lib/whatsapp/encryption'
-import type { AiConfig } from './types'
+import type { AiConfig, AiProvider } from './types'
 
 interface AiConfigRow {
-  provider: 'openai' | 'anthropic'
+  provider: AiProvider
   model: string
   api_key: string
   system_prompt: string | null
@@ -16,10 +16,13 @@ interface AiConfigRow {
   last_key_error_at: string | null
   transcribe_voice_messages: boolean
   after_hours_takeover_enabled: boolean
+  image_analysis_provider: 'openai' | 'gemini' | null
+  image_analysis_api_key: string | null
+  image_analysis_enabled: boolean
 }
 
 const CONFIG_COLUMNS =
-  'provider, model, api_key, system_prompt, is_active, auto_reply_enabled, auto_reply_max_per_conversation, handoff_agent_id, embeddings_api_key, last_key_error, last_key_error_at, transcribe_voice_messages, after_hours_takeover_enabled'
+  'provider, model, api_key, system_prompt, is_active, auto_reply_enabled, auto_reply_max_per_conversation, handoff_agent_id, embeddings_api_key, last_key_error, last_key_error_at, transcribe_voice_messages, after_hours_takeover_enabled, image_analysis_provider, image_analysis_api_key, image_analysis_enabled'
 
 /**
  * Load and decrypt the account's AI config for *use* (draft or
@@ -73,6 +76,21 @@ export async function loadAiConfig(
     }
   }
 
+  // Same reasoning as the embeddings key: a corrupt/undecryptable
+  // image-analysis key should disable that feature, not take down
+  // draft/auto-reply.
+  let imageAnalysisApiKey: string | null = null
+  if (row.image_analysis_api_key) {
+    try {
+      imageAnalysisApiKey = decrypt(row.image_analysis_api_key)
+    } catch {
+      console.error(
+        `[ai config] image-analysis key for account ${accountId} could not be decrypted — check ENCRYPTION_KEY; image analysis is disabled until it is re-entered.`,
+      )
+      imageAnalysisApiKey = null
+    }
+  }
+
   return {
     provider: row.provider,
     model: row.model,
@@ -87,6 +105,9 @@ export async function loadAiConfig(
     lastKeyErrorAt: row.last_key_error_at,
     transcribeVoiceMessages: row.transcribe_voice_messages,
     afterHoursTakeoverEnabled: row.after_hours_takeover_enabled,
+    imageAnalysisProvider: row.image_analysis_provider,
+    imageAnalysisApiKey,
+    imageAnalysisEnabled: row.image_analysis_enabled,
   }
 }
 
@@ -118,5 +139,37 @@ export async function loadEmbeddingsKey(
       `[ai config] embeddings key for account ${accountId} could not be decrypted — check ENCRYPTION_KEY.`,
     )
     return { key: null, corrupt: true }
+  }
+}
+
+/**
+ * Load + decrypt just the image-analysis key/provider, independent of
+ * `is_active` — mirrors `loadEmbeddingsKey`. Used by the webhook so a
+ * photo gets described whenever the feature is configured, even if the
+ * assistant's master switch is currently off.
+ */
+export async function loadImageAnalysisKey(
+  db: SupabaseClient,
+  accountId: string,
+): Promise<{ provider: 'openai' | 'gemini' | null; key: string | null; corrupt: boolean }> {
+  const { data, error } = await db
+    .from('ai_configs')
+    .select('image_analysis_provider, image_analysis_api_key, image_analysis_enabled')
+    .eq('account_id', accountId)
+    .maybeSingle()
+  if (error || !data?.image_analysis_enabled || !data.image_analysis_api_key) {
+    return { provider: null, key: null, corrupt: false }
+  }
+  try {
+    return {
+      provider: data.image_analysis_provider,
+      key: decrypt(data.image_analysis_api_key),
+      corrupt: false,
+    }
+  } catch {
+    console.error(
+      `[ai config] image-analysis key for account ${accountId} could not be decrypted — check ENCRYPTION_KEY.`,
+    )
+    return { provider: null, key: null, corrupt: true }
   }
 }

@@ -55,7 +55,8 @@ export async function listAiCollectibleFields(
       name: row.field_name as string,
       scope: 'contact' as const,
     }))
-  } catch {
+  } catch (err) {
+    console.error('[ai collect-fields] listAiCollectibleFields failed:', err)
     return []
   }
 }
@@ -96,7 +97,8 @@ export async function resolveCurrentOpenDeal(
       .maybeSingle()
     if (error || !data) return null
     return data as CurrentDeal
-  } catch {
+  } catch (err) {
+    console.error('[ai collect-fields] resolveCurrentOpenDeal failed:', err)
     return null
   }
 }
@@ -139,7 +141,8 @@ export async function listGroupFieldsForStage(
       name: f.field_name,
       scope: scopeByGroupId.get(f.group_id) ?? 'deal',
     }))
-  } catch {
+  } catch (err) {
+    console.error('[ai collect-fields] listGroupFieldsForStage failed:', err)
     return []
   }
 }
@@ -246,7 +249,8 @@ export async function listCollectedFieldValues(
         value: row.value as string,
       }))
       .filter((f) => f.name && f.value)
-  } catch {
+  } catch (err) {
+    console.error('[ai collect-fields] listCollectedFieldValues failed:', err)
     return []
   }
 }

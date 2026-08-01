@@ -139,6 +139,10 @@
       "tags": "Tags",
       "company": "Company",
       "allCompanies": "All companies",
+      "agent": "Agent",
+      "allAgents": "All agents",
+      "unassigned": "Unassigned",
+      "assignedTo": "Assigned to {name}",
       "clearAll": "Clear all",
       "noConversations": "No conversations found",
       "noMessagesYet": "No messages yet",
@@ -194,6 +198,8 @@
       "video": "Video",
       "document": "Document",
       "voiceNote": "Voice note",
+      "catalog": "Catalog",
+      "catalogEmpty": "No catalog items yet — add some in Settings → AI assistant → Media library.",
       "sendTemplate": "Send template",
       "draftWithAI": "Draft a reply with AI",
       "translateDraft": "Translate this message",
@@ -236,7 +242,7 @@
       "translate": "Translate",
       "translateFailed": "Translation failed",
       "translatedTo": "Translated to {language}",
-      "targetLanguagePlaceholder": "Language (e.g. Korean)"
+      "targetLanguagePlaceholder": "Language (e.g. Arabic)"
     },
     "replyQuote": {
       "photo": "[Photo]",
@@ -283,7 +289,7 @@
     },
     "aiBanner": {
       "pausedTitle": "AI assistant is paused here",
-      "afterHoursTitle": "AI handled this after hours",
+      "afterHoursTitle": "AI conversation summary",
       "activeText": "AI assistant is replying automatically",
       "takeOver": "Take over",
       "resume": "Resume AI",
@@ -1647,7 +1653,10 @@
       "active": "Active",
       "accentColor": "Accent color",
       "useTheme": "Use {name} theme",
-      "syncFailed": "Couldn't save your appearance preference. It still applies on this device."
+      "syncFailed": "Couldn't save your appearance preference. It still applies on this device.",
+      "language": "Language",
+      "useLanguage": "Use {name}",
+      "switchFailed": "Couldn't switch language. Please try again."
     },
     "security": {
       "title": "Login & security",
@@ -1749,6 +1758,9 @@
       "optionalSemanticSearch": "(optional — enables semantic knowledge-base search)",
       "embeddingsHint": "An OpenAI key used only to embed your knowledge base (text-embedding-3-small){sameKeyText}. Leave blank to use keyword search instead. Clear it to turn semantic search off.",
       "sameKeyText": " — can be the same key as above",
+      "imageAnalysisKey": "Image analysis key",
+      "optionalImageAnalysis": "(optional — enables describing inbound photos)",
+      "imageAnalysisHint": "Used only to describe an inbound photo (e.g. \"a grey L-shaped sofa\") so the assistant isn't blind to it. Pick OpenAI or Gemini — Gemini's flash tier costs less per image.",
       "behaviour": "Behaviour",
       "behaviourDesc": "Tell the assistant about your business — products, tone, what it may and may not promise. This context feeds both drafts and auto-replies.",
       "businessContext": "Business context & instructions",
@@ -1760,6 +1772,9 @@
       "transcribeVoice": "Transcribe voice messages",
       "transcribeVoiceDesc": "Inbound WhatsApp voice notes are transcribed (OpenAI Whisper) so drafts, auto-reply, and field-collection can see what was said.",
       "transcribeVoiceNeedsKey": "Requires an embeddings key (above) — Whisper is OpenAI-only.",
+      "analyzeImages": "Describe inbound photos",
+      "analyzeImagesDesc": "A short description of each inbound photo is generated and fed to drafts, auto-reply, and field-collection, so the assistant isn't blind to what the customer sent.",
+      "analyzeImagesNeedsKey": "Requires an image analysis key (above).",
       "afterHoursTakeover": "After-hours AI takeover",
       "afterHoursTakeoverDesc": "Outside business hours (set below), AI keeps replying even if a human agent is assigned — they're presumably offline too. A prior explicit handoff is still respected.",
       "businessHours": {

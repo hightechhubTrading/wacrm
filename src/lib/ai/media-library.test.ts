@@ -21,7 +21,7 @@ function fakeDb(opts: {
 }
 
 describe('listMediaLibraryForPrompt', () => {
-  it('maps price and price_unit through to camelCase', async () => {
+  it('maps price_min/price_max/price_unit/price_notes through to camelCase', async () => {
     const db = fakeDb({
       listRows: [
         {
@@ -30,8 +30,10 @@ describe('listMediaLibraryForPrompt', () => {
           product_label: 'Fabric',
           description: 'Soft velvet',
           tag_id: 'tag-1',
-          price: 45,
+          price_min: 80,
+          price_max: 120,
           price_unit: 'per_meter',
+          price_notes: 'Motor add-on +$50-80',
         },
       ],
     })
@@ -43,13 +45,15 @@ describe('listMediaLibraryForPrompt', () => {
         productLabel: 'Fabric',
         description: 'Soft velvet',
         tagId: 'tag-1',
-        price: 45,
+        priceMin: 80,
+        priceMax: 120,
         priceUnit: 'per_meter',
+        priceNotes: 'Motor add-on +$50-80',
       },
     ])
   })
 
-  it('defaults price/priceUnit to null when absent', async () => {
+  it('defaults price fields to null when absent', async () => {
     const db = fakeDb({
       listRows: [
         {
@@ -58,14 +62,18 @@ describe('listMediaLibraryForPrompt', () => {
           product_label: null,
           description: 'PDF catalog',
           tag_id: null,
-          price: null,
+          price_min: null,
+          price_max: null,
           price_unit: null,
+          price_notes: null,
         },
       ],
     })
     const [item] = await listMediaLibraryForPrompt(db, 'acc-1')
-    expect(item.price).toBeNull()
+    expect(item.priceMin).toBeNull()
+    expect(item.priceMax).toBeNull()
     expect(item.priceUnit).toBeNull()
+    expect(item.priceNotes).toBeNull()
   })
 
   it('returns [] on a query error', async () => {
@@ -75,7 +83,7 @@ describe('listMediaLibraryForPrompt', () => {
 })
 
 describe('getMediaLibraryItem', () => {
-  it('returns the full record including price fields', async () => {
+  it('returns the full record including price range fields', async () => {
     const db = fakeDb({
       singleRow: {
         id: 'm-1',
@@ -83,8 +91,10 @@ describe('getMediaLibraryItem', () => {
         product_label: 'Fabric',
         description: 'Soft velvet',
         tag_id: 'tag-1',
-        price: 45,
+        price_min: 80,
+        price_max: 120,
         price_unit: 'per_meter',
+        price_notes: 'Motor add-on +$50-80',
         storage_path: 'library/m-1.jpg',
         mime_type: 'image/jpeg',
         media_kind: 'image',
@@ -97,8 +107,10 @@ describe('getMediaLibraryItem', () => {
       productLabel: 'Fabric',
       description: 'Soft velvet',
       tagId: 'tag-1',
-      price: 45,
+      priceMin: 80,
+      priceMax: 120,
       priceUnit: 'per_meter',
+      priceNotes: 'Motor add-on +$50-80',
       storagePath: 'library/m-1.jpg',
       mimeType: 'image/jpeg',
       mediaKind: 'image',

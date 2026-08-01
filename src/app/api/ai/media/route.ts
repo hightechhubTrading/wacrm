@@ -18,7 +18,7 @@ export async function GET() {
     const { supabase, accountId } = await getCurrentAccount()
     const { data, error } = await supabase
       .from('ai_media_library')
-      .select('id, name, product_label, description, price, price_unit, media_kind, mime_type, storage_path, updated_at')
+      .select('id, name, product_label, description, price_min, price_max, price_unit, price_notes, media_kind, mime_type, storage_path, updated_at')
       .eq('account_id', accountId)
       .order('updated_at', { ascending: false })
     if (error) {
@@ -69,12 +69,29 @@ export async function POST(request: Request) {
         ? body.media_kind
         : ''
     const fileSize = typeof body?.file_size === 'number' ? body.file_size : null
-    const price =
-      typeof body?.price === 'number' && Number.isFinite(body.price) ? body.price : null
+    const priceMin =
+      typeof body?.price_min === 'number' && Number.isFinite(body.price_min)
+        ? body.price_min
+        : null
+    const priceMax =
+      typeof body?.price_max === 'number' && Number.isFinite(body.price_max)
+        ? body.price_max
+        : null
     const priceUnit =
       typeof body?.price_unit === 'string' && body.price_unit.trim()
         ? body.price_unit.trim()
         : null
+    const priceNotes =
+      typeof body?.price_notes === 'string' && body.price_notes.trim()
+        ? body.price_notes.trim()
+        : null
+
+    if (priceMin !== null && priceMax !== null && priceMax < priceMin) {
+      return NextResponse.json(
+        { error: 'price_max must be greater than or equal to price_min' },
+        { status: 400 },
+      )
+    }
 
     if (!name || !description || !storagePath || !mimeType || !mediaKind) {
       return NextResponse.json(
@@ -115,8 +132,10 @@ export async function POST(request: Request) {
         media_kind: mediaKind,
         file_size: fileSize,
         tag_id: tagId,
-        price,
+        price_min: priceMin,
+        price_max: priceMax,
         price_unit: priceUnit,
+        price_notes: priceNotes,
       })
       .select('id')
       .single()

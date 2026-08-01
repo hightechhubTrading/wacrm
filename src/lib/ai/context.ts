@@ -6,16 +6,18 @@ interface DbMessage {
   sender_type: 'customer' | 'agent' | 'bot'
   content_text: string | null
   transcript: string | null
+  image_description: string | null
 }
 
 /**
- * Fetch the last N text (and transcribed-audio) messages of a
- * conversation and map them to the provider-neutral chat shape.
- * Customer messages become `user`; agent and bot messages become
- * `assistant`. A transcribed voice note (migration 049) is treated
- * like text via its `transcript` column; other non-text messages
- * (media without a transcript, templates, interactive) are excluded —
- * they carry no text to model.
+ * Fetch the last N text (and transcribed-audio / described-photo)
+ * messages of a conversation and map them to the provider-neutral chat
+ * shape. Customer messages become `user`; agent and bot messages
+ * become `assistant`. A transcribed voice note (migration 049) is
+ * treated like text via its `transcript` column, and a described photo
+ * (migration 054) via `image_description`; other non-text messages
+ * (media without either, templates, interactive) are excluded — they
+ * carry no text to model.
  *
  * Ordered oldest-first (chronological) so the transcript reads
  * naturally and the most recent customer message lands last.
@@ -27,9 +29,9 @@ export async function buildConversationContext(
 ): Promise<ChatMessage[]> {
   const { data, error } = await db
     .from('messages')
-    .select('sender_type, content_text, transcript')
+    .select('sender_type, content_text, transcript, image_description')
     .eq('conversation_id', conversationId)
-    .in('content_type', ['text', 'audio'])
+    .in('content_type', ['text', 'audio', 'image'])
     .order('created_at', { ascending: false })
     .limit(limit)
 
@@ -38,7 +40,15 @@ export async function buildConversationContext(
   const rows = ((data ?? []) as DbMessage[]).reverse()
   const result: ChatMessage[] = []
   for (const m of rows) {
-    const text = (m.content_text ?? m.transcript)?.trim()
+    // A captioned photo carries both a caption (content_text) and a
+    // description (image_description) -- combine them so neither is
+    // lost, rather than letting the caption shadow the description.
+    const caption = m.content_text?.trim()
+    const description = m.image_description?.trim()
+    const text =
+      caption && description
+        ? `${caption}\n[Image: ${description}]`
+        : (caption ?? m.transcript?.trim() ?? description)
     if (!text) continue
     result.push({
       role: m.sender_type === 'customer' ? 'user' : 'assistant',

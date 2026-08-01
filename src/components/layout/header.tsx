@@ -83,7 +83,7 @@ export function Header({ sidebarOpen, onOpenSidebar }: HeaderProps) {
 
         <DropdownMenu>
         <DropdownMenuTrigger
-          className="flex items-center gap-2 rounded-md px-1 py-1 outline-none transition-colors hover:bg-muted/70 focus:bg-muted/70 focus-visible:ring-3 focus-visible:ring-ring/50 data-popup-open:bg-muted/70 sm:gap-3 sm:pl-1 sm:pr-3"
+          className="flex items-center gap-2 rounded-md px-1 py-1 outline-none transition-colors hover:bg-muted/70 focus:bg-muted/70 focus-visible:ring-3 focus-visible:ring-ring/50 data-popup-open:bg-muted/70 sm:gap-3 sm:ps-1 sm:pe-3"
           aria-label={t("openAccountMenu")}
         >
           <Avatar className="size-8">

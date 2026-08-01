@@ -607,7 +607,11 @@ export function MessageThread({
           onUpdateMessage(tempId, { status: "failed" });
           // The upload never reached the recipient — GC the orphaned
           // object rather than leaving it in the public bucket forever.
-          void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(() => {});
+          // Never GC a catalog pick — it's a shared/reusable asset in a
+          // different bucket, not a one-off upload.
+          if (payload.source === "upload") {
+            void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(() => {});
+          }
           return;
         }
 
@@ -617,7 +621,9 @@ export function MessageThread({
         const reason = err instanceof Error ? err.message : "network error";
         toast.error(`Failed to send: ${reason}`);
         onUpdateMessage(tempId, { status: "failed" });
-        void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(() => {});
+        if (payload.source === "upload") {
+          void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(() => {});
+        }
       }
     },
     [conversation, onNewMessage, onUpdateMessage],
@@ -978,7 +984,7 @@ export function MessageThread({
           <Badge
             variant="outline"
             className={cn(
-              "ml-1 hidden gap-1 border-border text-[10px] sm:inline-flex sm:ml-2",
+              "ms-1 hidden gap-1 border-border text-[10px] sm:inline-flex sm:ms-2",
               sessionInfo.expired ? "text-red-400" : "text-primary"
             )}
           >
@@ -1102,7 +1108,7 @@ export function MessageThread({
                           getRow(p.user_id)?.last_seen_at ?? null,
                           now
                         )}
-                        className="mr-2"
+                        className="me-2"
                       />
                       <span className="flex-1">
                         {p.full_name}
@@ -1114,11 +1120,11 @@ export function MessageThread({
                           config is live too. */}
                       {wahaConfigReady && p.waha_session_name && p.phone && (
                         <Phone
-                          className="ml-1 h-3 w-3 text-emerald-400"
+                          className="ms-1 h-3 w-3 text-emerald-400"
                           aria-label={t("hasWahaChannel")}
                         />
                       )}
-                      {isSelected && <Check className="ml-2 h-3 w-3" />}
+                      {isSelected && <Check className="ms-2 h-3 w-3" />}
                     </DropdownMenuItem>
                   );
                 })

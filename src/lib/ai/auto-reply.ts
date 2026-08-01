@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from './admin-client'
 import { loadAiConfig } from './config'
 import { buildConversationContext } from './context'
@@ -33,6 +34,46 @@ import { notifyUrgentLead } from './lead-priority'
  * it's regenerated -- bounds the extra LLM call to at most once per
  * conversation per window, not once per reply. */
 const CONTEXT_SUMMARY_TTL_MS = 6 * 60 * 60 * 1000
+
+/**
+ * Mirror the rolling AI conversation summary onto the contact's Notes
+ * list (contact_notes, migration 055) so it's visible right where an
+ * agent is actually reading -- the inbox sidebar -- not just the
+ * after-hours banner. One row per conversation, updated in place on
+ * each refresh (via the `is_ai_generated` marker) rather than
+ * appended, so the Notes list doesn't fill up with stale duplicates.
+ */
+async function upsertAiSummaryNote(
+  db: SupabaseClient,
+  args: {
+    accountId: string
+    contactId: string
+    conversationId: string
+    authorUserId: string
+    summary: string
+  },
+): Promise<void> {
+  const { accountId, contactId, conversationId, authorUserId, summary } = args
+  const noteText = `🤖 AI summary: ${summary}`
+  const { data: existing } = await db
+    .from('contact_notes')
+    .select('id')
+    .eq('conversation_id', conversationId)
+    .eq('is_ai_generated', true)
+    .maybeSingle()
+  if (existing) {
+    await db.from('contact_notes').update({ note_text: noteText }).eq('id', existing.id)
+  } else {
+    await db.from('contact_notes').insert({
+      account_id: accountId,
+      contact_id: contactId,
+      conversation_id: conversationId,
+      user_id: authorUserId,
+      note_text: noteText,
+      is_ai_generated: true,
+    })
+  }
+}
 
 interface DispatchArgs {
   /** Tenancy key -- drives config, contact, and whatsapp_config lookups. */
@@ -142,37 +183,46 @@ export async function dispatchInboundToAiReply(
     const messages = await buildConversationContext(db, conversationId)
     if (messages.length === 0) return
 
-    // Context summary: only during after-hours takeover, and only
-    // regenerated when stale (TTL above) -- never on every reply. Gives
-    // the model continuity on a long-running thread beyond the normal
-    // message window, and doubles as the "AI handled this after hours"
-    // recap a returning agent sees (message-thread.tsx).
+    // Rolling conversation summary: regenerated at most once per TTL
+    // window (never on every reply), for every conversation -- not
+    // just after-hours takeover. Gives the model continuity on a
+    // long-running thread beyond the normal message window (fed into
+    // its own prompt only during after-hours takeover, see
+    // buildSystemPrompt below), and is mirrored onto the contact's
+    // Notes list so a human agent always has an up-to-date recap
+    // without having to scroll the whole thread -- not just the
+    // "AI handled this after hours" case (message-thread.tsx).
     let contextSummary: string | null = conv.ai_context_summary ?? null
-    if (isAfterHoursTakeover) {
-      const summaryAge = conv.ai_context_summary_at
-        ? Date.now() - new Date(conv.ai_context_summary_at).getTime()
-        : Infinity
-      if (summaryAge > CONTEXT_SUMMARY_TTL_MS) {
-        try {
-          const { text: summaryText } = await generateReply({
-            config,
-            systemPrompt:
-              "Summarize this WhatsApp conversation in 2-3 short sentences for a teammate catching up: what the customer wants, what's been resolved, what's still outstanding. Output only the summary, no preamble.",
-            messages,
+    const summaryAge = conv.ai_context_summary_at
+      ? Date.now() - new Date(conv.ai_context_summary_at).getTime()
+      : Infinity
+    if (summaryAge > CONTEXT_SUMMARY_TTL_MS) {
+      try {
+        const { text: summaryText } = await generateReply({
+          config,
+          systemPrompt:
+            "Summarize this WhatsApp conversation in 2-3 short sentences for a teammate catching up: what the customer wants, what's been resolved, what's still outstanding. Output only the summary, no preamble.",
+          messages,
+        })
+        if (summaryText.trim()) {
+          contextSummary = summaryText.trim()
+          await db
+            .from('conversations')
+            .update({
+              ai_context_summary: contextSummary,
+              ai_context_summary_at: new Date().toISOString(),
+            })
+            .eq('id', conversationId)
+          await upsertAiSummaryNote(db, {
+            accountId,
+            contactId,
+            conversationId,
+            authorUserId: configOwnerUserId,
+            summary: contextSummary,
           })
-          if (summaryText.trim()) {
-            contextSummary = summaryText.trim()
-            await db
-              .from('conversations')
-              .update({
-                ai_context_summary: contextSummary,
-                ai_context_summary_at: new Date().toISOString(),
-              })
-              .eq('id', conversationId)
-          }
-        } catch (err) {
-          console.error('[ai auto-reply] context summary generation failed:', err)
         }
+      } catch (err) {
+        console.error('[ai auto-reply] context summary generation failed:', err)
       }
     }
 

@@ -77,6 +77,11 @@ export function AiConfig() {
   const [embeddingsKey, setEmbeddingsKey] = useState('');
   const [embeddingsKeyEdited, setEmbeddingsKeyEdited] = useState(false);
   const [hasStoredEmbeddingsKey, setHasStoredEmbeddingsKey] = useState(false);
+  const [imageAnalysisProvider, setImageAnalysisProvider] = useState<'openai' | 'gemini'>('openai');
+  const [imageAnalysisKey, setImageAnalysisKey] = useState('');
+  const [imageAnalysisKeyEdited, setImageAnalysisKeyEdited] = useState(false);
+  const [hasStoredImageAnalysisKey, setHasStoredImageAnalysisKey] = useState(false);
+  const [imageAnalysisEnabled, setImageAnalysisEnabled] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState('');
   const [isActive, setIsActive] = useState(false);
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
@@ -126,6 +131,11 @@ export function AiConfig() {
         setLastKeyErrorAt(data.last_key_error_at ?? null);
         setTranscribeVoiceMessages(Boolean(data.transcribe_voice_messages));
         setAfterHoursTakeoverEnabled(Boolean(data.after_hours_takeover_enabled));
+        setImageAnalysisProvider(data.image_analysis_provider === 'gemini' ? 'gemini' : 'openai');
+        setHasStoredImageAnalysisKey(Boolean(data.has_image_analysis_key));
+        setImageAnalysisKey(data.has_image_analysis_key ? MASKED_KEY : '');
+        setImageAnalysisKeyEdited(false);
+        setImageAnalysisEnabled(Boolean(data.image_analysis_enabled));
       }
     } catch {
       toast.error(t('loadFailed'));
@@ -159,6 +169,8 @@ export function AiConfig() {
   // undefined = leave unchanged; '' typed = null (clear); text = set.
   const embeddingsKeyPayload = () =>
     embeddingsKeyEdited ? embeddingsKey.trim() || null : undefined;
+  const imageAnalysisKeyPayload = () =>
+    imageAnalysisKeyEdited ? imageAnalysisKey.trim() || null : undefined;
 
   const buildBody = () => ({
     provider,
@@ -172,6 +184,9 @@ export function AiConfig() {
     handoff_agent_id: handoffAgentId || null,
     transcribe_voice_messages: transcribeVoiceMessages,
     after_hours_takeover_enabled: afterHoursTakeoverEnabled,
+    image_analysis_provider: imageAnalysisProvider,
+    image_analysis_api_key: imageAnalysisKeyPayload(),
+    image_analysis_enabled: imageAnalysisEnabled,
   });
 
   const handleTest = async () => {
@@ -259,7 +274,7 @@ export function AiConfig() {
   if (loading || profileLoading) {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('loadFailed')} {/* Re-using label or a global one, wait, loading is better. Let's use useTranslations from overview or just hardcode Loading... actually I should add loading to aiConfig */}
+        <Loader2 className="me-2 h-4 w-4 animate-spin" /> {t('loadFailed')} {/* Re-using label or a global one, wait, loading is better. Let's use useTranslations from overview or just hardcode Loading... actually I should add loading to aiConfig */}
         {/* Wait, I didn't add loading to aiConfig. I'll just use loading. */}
       </div>
     );
@@ -370,7 +385,7 @@ export function AiConfig() {
                   <button
                     type="button"
                     onClick={() => setShowKey((s) => !s)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute end-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     tabIndex={-1}
                   >
                     {showKey ? (
@@ -386,9 +401,9 @@ export function AiConfig() {
                   disabled={disabled || testing}
                 >
                   {testing ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="me-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    <CheckCircle2 className="me-2 h-4 w-4" />
                   )}
                   {t('testKey')}
                 </Button>
@@ -424,6 +439,51 @@ export function AiConfig() {
                 {t('embeddingsHint', {
                   sameKeyText: provider === 'openai' ? t('sameKeyText') : '',
                 })}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>
+                {t('imageAnalysisKey')}{' '}
+                <span className="font-normal text-muted-foreground">
+                  {t('optionalImageAnalysis')}
+                </span>
+              </Label>
+              <div className="grid gap-2 sm:grid-cols-[auto_1fr]">
+                <Select
+                  value={imageAnalysisProvider}
+                  onValueChange={(v) => setImageAnalysisProvider(v as 'openai' | 'gemini')}
+                  disabled={disabled}
+                >
+                  <SelectTrigger className="sm:w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="openai">{PROVIDER_LABEL.openai}</SelectItem>
+                    <SelectItem value="gemini">{PROVIDER_LABEL.gemini}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  id="ai-image-analysis-key"
+                  type="password"
+                  value={imageAnalysisKey}
+                  onChange={(e) => {
+                    setImageAnalysisKey(e.target.value);
+                    setImageAnalysisKeyEdited(true);
+                  }}
+                  onFocus={() => {
+                    if (!imageAnalysisKeyEdited && hasStoredImageAnalysisKey) {
+                      setImageAnalysisKey('');
+                      setImageAnalysisKeyEdited(true);
+                    }
+                  }}
+                  placeholder={KEY_PLACEHOLDER[imageAnalysisProvider]}
+                  disabled={disabled}
+                  autoComplete="off"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t('imageAnalysisHint')}
               </p>
             </div>
           </CardContent>
@@ -496,6 +556,24 @@ export function AiConfig() {
                 checked={transcribeVoiceMessages}
                 onCheckedChange={setTranscribeVoiceMessages}
                 disabled={disabled || !hasStoredEmbeddingsKey}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-4 rounded-md border border-border p-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {t('analyzeImages')}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {hasStoredImageAnalysisKey
+                    ? t('analyzeImagesDesc')
+                    : t('analyzeImagesNeedsKey')}
+                </p>
+              </div>
+              <Switch
+                checked={imageAnalysisEnabled}
+                onCheckedChange={setImageAnalysisEnabled}
+                disabled={disabled || !hasStoredImageAnalysisKey}
               />
             </div>
 
@@ -601,9 +679,9 @@ export function AiConfig() {
               className="text-destructive hover:text-destructive"
             >
               {removing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="me-2 h-4 w-4 animate-spin" />
               ) : (
-                <Trash2 className="mr-2 h-4 w-4" />
+                <Trash2 className="me-2 h-4 w-4" />
               )}
               {t('remove')}
             </Button>
@@ -612,7 +690,7 @@ export function AiConfig() {
           )}
 
           <Button onClick={handleSave} disabled={disabled}>
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {saving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
             {t('save')}
           </Button>
         </div>

@@ -360,7 +360,7 @@ export function Step2SelectAudience({
                     }`}
                   >
                     <span
-                      className="mr-1.5 h-2 w-2 rounded-full"
+                      className="me-1.5 h-2 w-2 rounded-full"
                       style={{ backgroundColor: tag.color }}
                     />
                     {tag.name}
@@ -447,7 +447,7 @@ export function Step2SelectAudience({
                   }`}
                 >
                   <span
-                    className="mr-1.5 h-2 w-2 rounded-full"
+                    className="me-1.5 h-2 w-2 rounded-full"
                     style={{ backgroundColor: tag.color }}
                   />
                   {tag.name}

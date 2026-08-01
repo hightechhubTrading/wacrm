@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { PresenceHeartbeat } from "@/components/presence/presence-heartbeat";
 import { ThemeSync } from "@/components/theme-sync";
+import { LocaleSync } from "@/components/locale-sync";
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
 // itself can stay a server component and export metadata (noindex) —
@@ -48,6 +49,8 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       {/* Pulls the saved accent/mode off the profile row on sign-in and
           back-fills it from this device when unset. Headless. */}
       <ThemeSync />
+      {/* Same reconcile-on-login pattern, for the UI language. Headless. */}
+      <LocaleSync />
       <Sidebar open={sidebarOpen} onClose={closeSidebar} />
       {/* inert while the mobile drawer is open — keeps keyboard/screen-reader
           focus from reaching content visually hidden behind the backdrop. */}

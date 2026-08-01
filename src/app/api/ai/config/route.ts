@@ -30,7 +30,7 @@ export async function GET() {
       // `api_key` is selected only to derive `has_key` — it is stripped
       // out below and never returned to the client.
       .select(
-        'provider, model, system_prompt, is_active, auto_reply_enabled, auto_reply_max_per_conversation, handoff_agent_id, api_key, embeddings_api_key, last_key_error, last_key_error_at, transcribe_voice_messages, after_hours_takeover_enabled',
+        'provider, model, system_prompt, is_active, auto_reply_enabled, auto_reply_max_per_conversation, handoff_agent_id, api_key, embeddings_api_key, last_key_error, last_key_error_at, transcribe_voice_messages, after_hours_takeover_enabled, image_analysis_provider, image_analysis_api_key, image_analysis_enabled',
       )
       .eq('account_id', accountId)
       .maybeSingle()
@@ -46,11 +46,12 @@ export async function GET() {
     if (!data) return NextResponse.json({ configured: false })
     // The keys are selected only to derive the has_* flags; neither is
     // returned to the client.
-    const { api_key, embeddings_api_key, ...safe } = data
+    const { api_key, embeddings_api_key, image_analysis_api_key, ...safe } = data
     return NextResponse.json({
       configured: true,
       has_key: !!api_key,
       has_embeddings_key: !!embeddings_api_key,
+      has_image_analysis_key: !!image_analysis_api_key,
       ...safe,
     })
   } catch (err) {
@@ -132,6 +133,24 @@ export async function POST(request: Request) {
         : ''
     const clearEmbeddingsKey = body.embeddings_api_key === null
 
+    // Image-analysis credential (optional, migration 054): same
+    // set/clear/leave-unchanged semantics as the embeddings key. No
+    // pre-save validation round-trip (see comment near its use below).
+    const rawImageAnalysisKey =
+      typeof body.image_analysis_api_key === 'string'
+        ? body.image_analysis_api_key.trim()
+        : ''
+    const clearImageAnalysisKey = body.image_analysis_api_key === null
+    const imageAnalysisEnabled = body.image_analysis_enabled === true
+    let imageAnalysisProvider: 'openai' | 'gemini' | null = null
+    if ('image_analysis_provider' in body) {
+      if (body.image_analysis_provider === 'openai' || body.image_analysis_provider === 'gemini') {
+        imageAnalysisProvider = body.image_analysis_provider
+      } else if (body.image_analysis_provider !== null) {
+        return bad('image_analysis_provider must be "openai", "gemini", or null')
+      }
+    }
+
     // Reuse the stored key when the form didn't send a fresh one.
     const { data: existing } = await supabase
       .from('ai_configs')
@@ -178,6 +197,9 @@ export async function POST(request: Request) {
           lastKeyErrorAt: null,
           transcribeVoiceMessages: false,
           afterHoursTakeoverEnabled: false,
+          imageAnalysisProvider: null,
+          imageAnalysisApiKey: null,
+          imageAnalysisEnabled: false,
         })
       } catch (err) {
         if (err instanceof AiError) {
@@ -226,6 +248,17 @@ export async function POST(request: Request) {
       shared.embeddings_api_key = encrypt(rawEmbeddingsKey)
     } else if (clearEmbeddingsKey) {
       shared.embeddings_api_key = null
+    }
+    if ('image_analysis_provider' in body) {
+      shared.image_analysis_provider = imageAnalysisProvider
+    }
+    if (rawImageAnalysisKey) {
+      shared.image_analysis_api_key = encrypt(rawImageAnalysisKey)
+    } else if (clearImageAnalysisKey) {
+      shared.image_analysis_api_key = null
+    }
+    if ('image_analysis_enabled' in body) {
+      shared.image_analysis_enabled = imageAnalysisEnabled
     }
     // The chat key just re-validated successfully (or this is unchanged
     // from a working config) -- clear any previously recorded failure

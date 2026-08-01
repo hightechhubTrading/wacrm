@@ -19,6 +19,9 @@ const h = vi.hoisted(() => ({
     conversationUpdates: [] as Record<string, unknown>[],
     notificationInserts: [] as Record<string, unknown>[],
     rpcCalls: [] as { name: string; args: unknown }[],
+    existingAiNote: null as Record<string, unknown> | null,
+    noteInserts: [] as Record<string, unknown>[],
+    noteUpdates: [] as Record<string, unknown>[],
   },
 }))
 
@@ -73,6 +76,25 @@ vi.mock('./admin-client', () => ({
           },
         }
       }
+      if (table === 'contact_notes') {
+        // .select('id').eq('conversation_id', ...).eq('is_ai_generated', true).maybeSingle()
+        // .insert({...}) / .update({...}).eq('id', ...)
+        const chain = {
+          select: () => chain,
+          eq: () => chain,
+          maybeSingle: () =>
+            Promise.resolve({ data: h.state.existingAiNote, error: null }),
+          insert: (row: Record<string, unknown>) => {
+            h.state.noteInserts.push(row)
+            return Promise.resolve({ data: null, error: null })
+          },
+          update: (payload: Record<string, unknown>) => {
+            h.state.noteUpdates.push(payload)
+            return { eq: () => Promise.resolve({ data: null, error: null }) }
+          },
+        }
+        return chain
+      }
       // conversations
       return {
         select: () => ({
@@ -119,6 +141,9 @@ function aiConfig(overrides: Partial<AiConfig> = {}): AiConfig {
     lastKeyErrorAt: null,
     transcribeVoiceMessages: false,
     afterHoursTakeoverEnabled: false,
+    imageAnalysisProvider: null,
+    imageAnalysisApiKey: null,
+    imageAnalysisEnabled: false,
     ...overrides,
   }
 }
@@ -129,7 +154,11 @@ beforeEach(() => {
     ai_autoreply_disabled: false,
     ai_reply_count: 0,
     ai_context_summary: null,
-    ai_context_summary_at: null,
+    // Fresh, not stale -- most tests shouldn't incidentally trigger the
+    // summary-regeneration side path. Tests exercising it explicitly
+    // override this back to null (see the "rolling conversation
+    // summary" describe block below).
+    ai_context_summary_at: new Date().toISOString(),
     ai_priority: null,
   }
   h.state.account = null
@@ -141,6 +170,9 @@ beforeEach(() => {
   h.state.conversationUpdates = []
   h.state.notificationInserts = []
   h.state.rpcCalls = []
+  h.state.existingAiNote = null
+  h.state.noteInserts = []
+  h.state.noteUpdates = []
   h.loadAiConfig.mockResolvedValue(aiConfig())
   h.buildConversationContext.mockResolvedValue([{ role: 'user', content: 'hi' }])
   h.retrieveKnowledge.mockResolvedValue([])
@@ -366,5 +398,47 @@ describe('dispatchInboundToAiReply — AI priority', () => {
     })
     await dispatchInboundToAiReply(ARGS)
     expect(h.state.notificationInserts).toHaveLength(0)
+  })
+})
+
+describe('dispatchInboundToAiReply — rolling conversation summary', () => {
+  it('regenerates a stale summary for every conversation, not just after-hours takeover, and mirrors it onto contact_notes', async () => {
+    h.state.conv = { ...h.state.conv, ai_context_summary_at: null }
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.state.conversationUpdates).toContainEqual(
+      expect.objectContaining({ ai_context_summary: 'Hello!' }),
+    )
+    expect(h.state.noteInserts).toHaveLength(1)
+    expect(h.state.noteInserts[0]).toMatchObject({
+      account_id: 'acct-1',
+      contact_id: 'contact-1',
+      conversation_id: 'conv-1',
+      user_id: 'user-1',
+      is_ai_generated: true,
+    })
+    expect(h.state.noteInserts[0].note_text).toContain('Hello!')
+  })
+
+  it('updates the existing AI summary note in place instead of duplicating it', async () => {
+    h.state.conv = { ...h.state.conv, ai_context_summary_at: null }
+    h.state.existingAiNote = { id: 'note-1' }
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.state.noteInserts).toHaveLength(0)
+    expect(h.state.noteUpdates).toHaveLength(1)
+    expect(h.state.noteUpdates[0].note_text).toContain('Hello!')
+  })
+
+  it('does not regenerate a fresh (non-stale) summary', async () => {
+    h.state.conv = {
+      ...h.state.conv,
+      ai_context_summary: 'existing summary',
+      ai_context_summary_at: new Date().toISOString(),
+    }
+    await dispatchInboundToAiReply(ARGS)
+    expect(
+      h.state.conversationUpdates.some((u) => 'ai_context_summary' in u),
+    ).toBe(false)
+    expect(h.state.noteInserts).toHaveLength(0)
+    expect(h.state.noteUpdates).toHaveLength(0)
   })
 })

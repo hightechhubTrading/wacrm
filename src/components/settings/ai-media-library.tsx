@@ -25,8 +25,10 @@ interface MediaItem {
   name: string;
   product_label: string | null;
   description: string;
-  price: number | null;
+  price_min: number | null;
+  price_max: number | null;
   price_unit: string | null;
+  price_notes: string | null;
   media_kind: 'image' | 'document';
   mime_type: string;
   storage_path: string;
@@ -49,8 +51,10 @@ export function AiMediaLibraryCard({
   const [name, setName] = useState('');
   const [productLabel, setProductLabel] = useState('');
   const [description, setDescription] = useState('');
-  const [price, setPrice] = useState('');
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
   const [priceUnit, setPriceUnit] = useState('');
+  const [priceNotes, setPriceNotes] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const loadedAccountIdRef = useRef<string | null>(null);
@@ -80,8 +84,10 @@ export function AiMediaLibraryCard({
     setName('');
     setProductLabel('');
     setDescription('');
-    setPrice('');
+    setPriceMin('');
+    setPriceMax('');
     setPriceUnit('');
+    setPriceNotes('');
     setFile(null);
   };
 
@@ -90,8 +96,10 @@ export function AiMediaLibraryCard({
     setName(item.name);
     setProductLabel(item.product_label ?? '');
     setDescription(item.description);
-    setPrice(item.price != null ? String(item.price) : '');
+    setPriceMin(item.price_min != null ? String(item.price_min) : '');
+    setPriceMax(item.price_max != null ? String(item.price_max) : '');
     setPriceUnit(item.price_unit ?? '');
+    setPriceNotes(item.price_notes ?? '');
     setFile(null);
   };
 
@@ -100,8 +108,10 @@ export function AiMediaLibraryCard({
     setName('');
     setProductLabel('');
     setDescription('');
-    setPrice('');
+    setPriceMin('');
+    setPriceMax('');
     setPriceUnit('');
+    setPriceNotes('');
     setFile(null);
   };
 
@@ -113,6 +123,12 @@ export function AiMediaLibraryCard({
     const isNew = editing === 'new';
     if (isNew && !file) {
       toast.error('Choose a file to upload.');
+      return;
+    }
+    const parsedMin = priceMin.trim() ? Number(priceMin.trim()) : null;
+    const parsedMax = priceMax.trim() ? Number(priceMax.trim()) : null;
+    if (parsedMin !== null && parsedMax !== null && parsedMax < parsedMin) {
+      toast.error('Max price must be greater than or equal to min price.');
       return;
     }
     setSaving(true);
@@ -137,8 +153,10 @@ export function AiMediaLibraryCard({
             name: name.trim(),
             description: description.trim(),
             product_label: productLabel.trim(),
-            price: price.trim() ? Number(price.trim()) : null,
+            price_min: parsedMin,
+            price_max: parsedMax,
             price_unit: priceUnit.trim() || null,
+            price_notes: priceNotes.trim() || null,
             storage_path: path,
             mime_type: file.type,
             media_kind: mediaKind,
@@ -162,8 +180,10 @@ export function AiMediaLibraryCard({
             name: name.trim(),
             description: description.trim(),
             product_label: productLabel.trim(),
-            price: price.trim() ? Number(price.trim()) : null,
+            price_min: parsedMin,
+            price_max: parsedMax,
             price_unit: priceUnit.trim() || null,
+            price_notes: priceNotes.trim() || null,
           }),
         });
         const data = await res.json();
@@ -213,7 +233,7 @@ export function AiMediaLibraryCard({
       <CardContent className="space-y-4">
         {loading ? (
           <div className="flex items-center py-4 text-sm text-muted-foreground">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...
+            <Loader2 className="me-2 h-4 w-4 animate-spin" /> Loading...
           </div>
         ) : (
           <>
@@ -235,11 +255,12 @@ export function AiMediaLibraryCard({
                       {item.product_label && (
                         <span className="text-muted-foreground"> -- {item.product_label}</span>
                       )}
-                      {item.price != null && (
+                      {item.price_min != null && item.price_max != null && (
                         <span className="text-muted-foreground">
                           {' '}
-                          ({item.price}
-                          {item.price_unit ? ` / ${item.price_unit.replace(/_/g, ' ')}` : ''})
+                          ({item.price_min}-{item.price_max}
+                          {item.price_unit ? ` / ${item.price_unit.replace(/_/g, ' ')}` : ''}
+                          {item.price_notes ? ', + options' : ''})
                         </span>
                       )}
                     </span>
@@ -294,16 +315,28 @@ export function AiMediaLibraryCard({
                     />
                   </div>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-3">
                   <div className="space-y-2">
-                    <Label htmlFor="media-price">Price (optional)</Label>
+                    <Label htmlFor="media-price-min">Price min (optional)</Label>
                     <Input
-                      id="media-price"
+                      id="media-price-min"
                       type="number"
                       step="any"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                      placeholder="45"
+                      value={priceMin}
+                      onChange={(e) => setPriceMin(e.target.value)}
+                      placeholder="80"
+                      disabled={saving}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="media-price-max">Price max (optional)</Label>
+                    <Input
+                      id="media-price-max"
+                      type="number"
+                      step="any"
+                      value={priceMax}
+                      onChange={(e) => setPriceMax(e.target.value)}
+                      placeholder="120"
                       disabled={saving}
                     />
                   </div>
@@ -319,9 +352,24 @@ export function AiMediaLibraryCard({
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Reference only — the AI never quotes a price to the customer, but knowing the
-                  unit helps it ask the right clarifying question (e.g. how many meters).
+                  Optional — when both min and max are set, the AI may share this as a rough
+                  estimate (always caveated as non-final); leave both blank to keep pricing
+                  strictly human-confirmed.
                 </p>
+                <div className="space-y-2">
+                  <Label htmlFor="media-price-notes">Add-on / option pricing (optional)</Label>
+                  <Textarea
+                    id="media-price-notes"
+                    value={priceNotes}
+                    onChange={(e) => setPriceNotes(e.target.value)}
+                    placeholder="Automatic +$60, manual included; custom colors +$20; motor add-on +$50-80"
+                    rows={2}
+                    disabled={saving}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Only referenced by the AI alongside the price range above, never on its own.
+                  </p>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="media-description">
                     Description (read by the AI to decide relevance)
@@ -355,7 +403,7 @@ export function AiMediaLibraryCard({
                     Cancel
                   </Button>
                   <Button onClick={save} disabled={saving}>
-                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {saving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                     Save
                   </Button>
                 </div>
@@ -363,7 +411,7 @@ export function AiMediaLibraryCard({
             ) : (
               canEdit && (
                 <Button variant="outline" size="sm" onClick={openNew}>
-                  <Plus className="mr-2 h-4 w-4" /> Add media item
+                  <Plus className="me-2 h-4 w-4" /> Add media item
                 </Button>
               )
             )}

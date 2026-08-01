@@ -15,17 +15,19 @@ export async function recordKeyError(
   accountId: string,
   message: string,
 ): Promise<void> {
-  await db
+  const { error } = await db
     .from('ai_configs')
     .update({ last_key_error: message, last_key_error_at: new Date().toISOString() })
     .eq('account_id', accountId)
+  if (error) console.error('[ai key-health] recordKeyError write failed:', error)
 }
 
 export async function clearKeyError(db: SupabaseClient, accountId: string): Promise<void> {
-  await db
+  const { error } = await db
     .from('ai_configs')
     .update({ last_key_error: null, last_key_error_at: null })
     .eq('account_id', accountId)
+  if (error) console.error('[ai key-health] clearKeyError write failed:', error)
 }
 
 /**
@@ -43,7 +45,11 @@ export async function notifyAdminsOfKeyError(
     .select('user_id')
     .eq('account_id', accountId)
     .in('account_role', ['owner', 'admin'])
-  if (error || !admins || admins.length === 0) return
+  if (error) {
+    console.error('[ai key-health] admin lookup for key-error notice failed:', error)
+    return
+  }
+  if (!admins || admins.length === 0) return
 
   const rows = admins.map((a: { user_id: string }) => ({
     account_id: accountId,
@@ -52,5 +58,6 @@ export async function notifyAdminsOfKeyError(
     title: 'AI assistant key stopped working',
     body: message,
   }))
-  await db.from('notifications').insert(rows)
+  const { error: insertError } = await db.from('notifications').insert(rows)
+  if (insertError) console.error('[ai key-health] key-error notification insert failed:', insertError)
 }

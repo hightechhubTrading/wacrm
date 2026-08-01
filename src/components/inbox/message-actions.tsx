@@ -12,13 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { Message } from "@/types";
-import { useTranslations } from "next-intl";
-
-// No per-agent locale exists — default the target language to whichever
-// of the app's two shipped UI locales ISN'T the build-time default, and
-// let the agent override it in the popover.
-const APP_LOCALE = process.env.NEXT_PUBLIC_APP_LOCALE || "en";
-const DEFAULT_TARGET_LANGUAGE = APP_LOCALE === "ko" ? "English" : "Korean";
+import { useLocale, useTranslations } from "next-intl";
 
 // WhatsApp's own quick-reaction bar starts with these six. Picking the same
 // set keeps the affordance familiar without pulling in a 300KB emoji library.
@@ -43,6 +37,12 @@ export function MessageActions({
   children,
 }: MessageActionsProps) {
   const t = useTranslations("Inbox.actions");
+  const locale = useLocale();
+
+  // No per-agent locale exists — default the target language to
+  // whichever of the app's two shipped UI locales ISN'T the current
+  // one, and let the agent override it in the popover.
+  const defaultTargetLanguage = locale === "ar" ? "English" : "Arabic";
 
   // Touch devices have no hover. Long-press fires `contextmenu`; we capture
   // it, suppress the native menu, and pin the toolbar open until the user
@@ -50,7 +50,7 @@ export function MessageActions({
   const [touchOpen, setTouchOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [translateOpen, setTranslateOpen] = useState(false);
-  const [targetLanguage, setTargetLanguage] = useState(DEFAULT_TARGET_LANGUAGE);
+  const [targetLanguage, setTargetLanguage] = useState(defaultTargetLanguage);
   const [translating, setTranslating] = useState(false);
   const [translation, setTranslation] = useState<string | null>(null);
 
@@ -147,7 +147,7 @@ export function MessageActions({
           "absolute -top-3 z-10 flex h-7 items-center gap-0.5 rounded-full border border-border bg-popover/95 px-1 shadow-md backdrop-blur-sm transition-opacity",
           "opacity-0 group-hover/actions:opacity-100 group-focus-within/actions:opacity-100",
           "data-[touch-open=true]:opacity-100",
-          isAgent ? "right-3" : "left-3",
+          isAgent ? "end-3" : "start-3",
         )}
       >
         <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
