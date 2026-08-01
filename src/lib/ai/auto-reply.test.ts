@@ -8,12 +8,14 @@ const h = vi.hoisted(() => ({
   retrieveKnowledge: vi.fn(),
   generateReply: vi.fn(),
   engineSendText: vi.fn(),
+  addContactTagAndDispatch: vi.fn(),
   state: {
     conv: null as Record<string, unknown> | null,
     account: null as Record<string, unknown> | null,
     admins: [] as { user_id: string }[],
     agentProfile: null as Record<string, unknown> | null,
     autoResponders: [] as { id: string }[],
+    products: [] as Record<string, unknown>[],
     claim: true as boolean,
     updatePayload: null as Record<string, unknown> | null,
     conversationUpdates: [] as Record<string, unknown>[],
@@ -30,6 +32,7 @@ vi.mock('./context', () => ({ buildConversationContext: h.buildConversationConte
 vi.mock('./knowledge', () => ({ retrieveKnowledge: h.retrieveKnowledge }))
 vi.mock('./generate', () => ({ generateReply: h.generateReply }))
 vi.mock('@/lib/flows/meta-send', () => ({ engineSendText: h.engineSendText }))
+vi.mock('@/lib/contacts/tag-events', () => ({ addContactTagAndDispatch: h.addContactTagAndDispatch }))
 vi.mock('./admin-client', () => ({
   supabaseAdmin: () => ({
     from: (table: string) => {
@@ -94,6 +97,14 @@ vi.mock('./admin-client', () => ({
           },
         }
         return chain
+      }
+      if (table === 'ai_products') {
+        // .select(...).eq('account_id', accountId) -> listProductsForPrompt
+        return {
+          select: () => ({
+            eq: () => Promise.resolve({ data: h.state.products, error: null }),
+          }),
+        }
       }
       // conversations
       return {
@@ -165,6 +176,7 @@ beforeEach(() => {
   h.state.admins = []
   h.state.agentProfile = null
   h.state.autoResponders = []
+  h.state.products = []
   h.state.claim = true
   h.state.updatePayload = null
   h.state.conversationUpdates = []
@@ -191,6 +203,34 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
     ])
     expect(h.engineSendText).toHaveBeenCalledWith(
       expect.objectContaining({ conversationId: 'conv-1', text: 'Hello!' }),
+    )
+  })
+
+  it('applies a product tag when the model flags a product with zero attachable files, without attaching anything', async () => {
+    h.state.products = [
+      {
+        id: 'prod-1',
+        name: 'Pool fence',
+        description: 'Safety fencing',
+        tag_id: 'tag-1',
+        price_min: null,
+        price_max: null,
+        price_unit: null,
+        price_notes: null,
+        ai_product_media: [],
+      },
+    ]
+    h.generateReply.mockResolvedValue({
+      text: 'Sure, let me get you details on our pool fencing.',
+      handoff: false,
+      mediaId: null,
+      productTagId: 'prod-1',
+    })
+
+    await dispatchInboundToAiReply(ARGS)
+
+    expect(h.addContactTagAndDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: 'acct-1', contactId: 'contact-1', tagId: 'tag-1' }),
     )
   })
 
