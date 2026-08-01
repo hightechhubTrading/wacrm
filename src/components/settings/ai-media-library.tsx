@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, Plus, Trash2, Pencil, ImageIcon } from 'lucide-react';
+import { Loader2, Plus, Trash2, Pencil, ImageIcon, FileText, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,22 +20,28 @@ import {
   MEDIA_MAX_BYTES_BY_KIND,
 } from '@/lib/storage/upload-media';
 
-interface MediaItem {
+interface ProductFile {
+  id: string;
+  label: string | null;
+  media_kind: 'image' | 'document';
+  mime_type: string;
+  storage_path: string;
+}
+
+interface Product {
   id: string;
   name: string;
-  product_label: string | null;
   description: string;
+  tag_label: string | null;
   price_min: number | null;
   price_max: number | null;
   price_unit: string | null;
   price_notes: string | null;
-  media_kind: 'image' | 'document';
-  mime_type: string;
-  storage_path: string;
   updated_at: string;
+  files: ProductFile[];
 }
 
-/** Editor target: 'new' when creating, an item id when editing, null when closed. */
+/** Editor target: 'new' when creating, a product id when editing, null when closed. */
 type EditTarget = 'new' | string | null;
 
 export function AiMediaLibraryCard({
@@ -45,29 +51,30 @@ export function AiMediaLibraryCard({
   accountId: string | null;
   canEdit: boolean;
 }) {
-  const [items, setItems] = useState<MediaItem[]>([]);
+  const [items, setItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<EditTarget>(null);
   const [name, setName] = useState('');
-  const [productLabel, setProductLabel] = useState('');
+  const [tagLabel, setTagLabel] = useState('');
   const [description, setDescription] = useState('');
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
   const [priceUnit, setPriceUnit] = useState('');
   const [priceNotes, setPriceNotes] = useState('');
-  const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [newFileLabel, setNewFileLabel] = useState('');
   const loadedAccountIdRef = useRef<string | null>(null);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/ai/media');
+      const res = await fetch('/api/ai/products');
       const data = await res.json();
       if (res.ok) setItems(data.items ?? []);
-      else toast.error(data.error ?? 'Failed to load media library.');
+      else toast.error(data.error ?? 'Failed to load product catalog.');
     } catch {
-      toast.error('Failed to load media library.');
+      toast.error('Failed to load product catalog.');
     } finally {
       setLoading(false);
     }
@@ -79,50 +86,44 @@ export function AiMediaLibraryCard({
     void fetchItems();
   }, [accountId, fetchItems]);
 
-  const openNew = () => {
-    setEditing('new');
+  const resetForm = () => {
     setName('');
-    setProductLabel('');
+    setTagLabel('');
     setDescription('');
     setPriceMin('');
     setPriceMax('');
     setPriceUnit('');
     setPriceNotes('');
-    setFile(null);
+    setNewFileLabel('');
   };
 
-  const openEdit = (item: MediaItem) => {
+  const openNew = () => {
+    setEditing('new');
+    resetForm();
+  };
+
+  const openEdit = (item: Product) => {
     setEditing(item.id);
     setName(item.name);
-    setProductLabel(item.product_label ?? '');
+    setTagLabel(item.tag_label ?? '');
     setDescription(item.description);
     setPriceMin(item.price_min != null ? String(item.price_min) : '');
     setPriceMax(item.price_max != null ? String(item.price_max) : '');
     setPriceUnit(item.price_unit ?? '');
     setPriceNotes(item.price_notes ?? '');
-    setFile(null);
+    setNewFileLabel('');
   };
 
   const cancelEdit = () => {
     setEditing(null);
-    setName('');
-    setProductLabel('');
-    setDescription('');
-    setPriceMin('');
-    setPriceMax('');
-    setPriceUnit('');
-    setPriceNotes('');
-    setFile(null);
+    resetForm();
   };
+
+  const currentEditingItem = editing !== 'new' ? items.find((i) => i.id === editing) : null;
 
   const save = async () => {
     if (!name.trim() || !description.trim()) {
       toast.error('Name and description are required.');
-      return;
-    }
-    const isNew = editing === 'new';
-    if (isNew && !file) {
-      toast.error('Choose a file to upload.');
       return;
     }
     const parsedMin = priceMin.trim() ? Number(priceMin.trim()) : null;
@@ -133,70 +134,37 @@ export function AiMediaLibraryCard({
     }
     setSaving(true);
     try {
-      if (isNew && file) {
-        const mediaKind = file.type.startsWith('image/') ? 'image' : 'document';
-        const maxBytes = MEDIA_MAX_BYTES_BY_KIND[mediaKind];
-        if (file.size > maxBytes) {
-          toast.error(
-            mediaKind === 'image'
-              ? 'Images must be 5 MB or smaller.'
-              : 'Documents must be 16 MB or smaller.',
-          );
-          setSaving(false);
-          return;
-        }
-        const { publicUrl: _publicUrl, path } = await uploadAccountMedia('ai-media', file);
-        const res = await fetch('/api/ai/media', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: name.trim(),
-            description: description.trim(),
-            product_label: productLabel.trim(),
-            price_min: parsedMin,
-            price_max: parsedMax,
-            price_unit: priceUnit.trim() || null,
-            price_notes: priceNotes.trim() || null,
-            storage_path: path,
-            mime_type: file.type,
-            media_kind: mediaKind,
-            file_size: file.size,
-          }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-          toast.success('Media item added.');
-          cancelEdit();
-          await fetchItems();
+      const isNew = editing === 'new';
+      const payload = {
+        name: name.trim(),
+        description: description.trim(),
+        tag_label: tagLabel.trim(),
+        price_min: parsedMin,
+        price_max: parsedMax,
+        price_unit: priceUnit.trim() || null,
+        price_notes: priceNotes.trim() || null,
+      };
+      const res = await fetch(isNew ? '/api/ai/products' : `/api/ai/products/${editing}`, {
+        method: isNew ? 'POST' : 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(isNew ? 'Product added.' : 'Product updated.');
+        await fetchItems();
+        if (isNew && data.id) {
+          // Stay in the editor, now scoped to the new product, so
+          // "Add file" becomes available immediately.
+          setEditing(data.id);
         } else {
-          toast.error(data.error ?? 'Failed to save media item.');
-          await deleteAccountMedia('ai-media', path).catch(() => {});
+          cancelEdit();
         }
       } else {
-        const res = await fetch(`/api/ai/media/${editing}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: name.trim(),
-            description: description.trim(),
-            product_label: productLabel.trim(),
-            price_min: parsedMin,
-            price_max: parsedMax,
-            price_unit: priceUnit.trim() || null,
-            price_notes: priceNotes.trim() || null,
-          }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-          toast.success('Media item updated.');
-          cancelEdit();
-          await fetchItems();
-        } else {
-          toast.error(data.error ?? 'Failed to save media item.');
-        }
+        toast.error(data.error ?? 'Failed to save product.');
       }
     } catch {
-      toast.error('Failed to save media item.');
+      toast.error('Failed to save product.');
     } finally {
       setSaving(false);
     }
@@ -204,16 +172,75 @@ export function AiMediaLibraryCard({
 
   const remove = async (id: string) => {
     try {
-      const res = await fetch(`/api/ai/media/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/ai/products/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        toast.success('Media item removed.');
+        toast.success('Product removed.');
         setItems((d) => d.filter((x) => x.id !== id));
+        if (editing === id) cancelEdit();
       } else {
         const data = await res.json();
-        toast.error(data.error ?? 'Failed to remove media item.');
+        toast.error(data.error ?? 'Failed to remove product.');
       }
     } catch {
-      toast.error('Failed to remove media item.');
+      toast.error('Failed to remove product.');
+    }
+  };
+
+  const addFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || editing === 'new' || editing === null) return;
+    const productId = editing;
+    const mediaKind = file.type.startsWith('image/') ? 'image' : 'document';
+    const maxBytes = MEDIA_MAX_BYTES_BY_KIND[mediaKind];
+    if (file.size > maxBytes) {
+      toast.error(
+        mediaKind === 'image' ? 'Images must be 5 MB or smaller.' : 'Documents must be 16 MB or smaller.',
+      );
+      return;
+    }
+    setUploadingFile(true);
+    try {
+      const { path } = await uploadAccountMedia('ai-media', file);
+      const res = await fetch(`/api/ai/products/${productId}/media`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          label: newFileLabel.trim(),
+          storage_path: path,
+          mime_type: file.type,
+          media_kind: mediaKind,
+          file_size: file.size,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success('File added.');
+        setNewFileLabel('');
+        await fetchItems();
+      } else {
+        toast.error(data.error ?? 'Failed to save file.');
+        await deleteAccountMedia('ai-media', path).catch(() => {});
+      }
+    } catch {
+      toast.error('Failed to upload file.');
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const removeFile = async (productId: string, fileId: string) => {
+    try {
+      const res = await fetch(`/api/ai/products/${productId}/media/${fileId}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast.success('File removed.');
+        await fetchItems();
+      } else {
+        const data = await res.json();
+        toast.error(data.error ?? 'Failed to remove file.');
+      }
+    } catch {
+      toast.error('Failed to remove file.');
     }
   };
 
@@ -224,10 +251,10 @@ export function AiMediaLibraryCard({
           <ImageIcon className="h-4 w-4 text-primary" /> Media library
         </CardTitle>
         <CardDescription>
-          Product photos and catalogs your AI agent can attach on its own,
-          mid-conversation, when what the customer asks for clearly matches
-          one -- no scripted flow needed. The description below is what the
-          AI reads to decide relevance, so be specific.
+          Products your AI agent can discuss and attach photos/catalogs for on its own,
+          mid-conversation, when what the customer asks for clearly matches one -- no scripted
+          flow needed. Each product&apos;s description is what the AI reads to decide relevance, so be
+          specific. A product can have any number of files, or none yet.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -239,7 +266,7 @@ export function AiMediaLibraryCard({
           <>
             {items.length === 0 && editing === null && (
               <p className="text-sm text-muted-foreground">
-                No media items yet. Add a product photo or catalog file below.
+                No products yet. Add one below.
               </p>
             )}
 
@@ -252,9 +279,10 @@ export function AiMediaLibraryCard({
                   >
                     <span className="min-w-0 flex-1 truncate text-sm text-foreground">
                       {item.name}
-                      {item.product_label && (
-                        <span className="text-muted-foreground"> -- {item.product_label}</span>
-                      )}
+                      <span className="text-muted-foreground">
+                        {' '}
+                        ({item.files.length} file{item.files.length === 1 ? '' : 's'})
+                      </span>
                       {item.price_min != null && item.price_max != null && (
                         <span className="text-muted-foreground">
                           {' '}
@@ -295,31 +323,35 @@ export function AiMediaLibraryCard({
               <div className="space-y-3 rounded-md border border-border p-3">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="media-name">Name</Label>
+                    <Label htmlFor="product-name">Name</Label>
                     <Input
-                      id="media-name"
+                      id="product-name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="Shutter catalog"
+                      placeholder="Rollup Shutter door"
                       disabled={saving}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="media-product">Product (optional)</Label>
+                    <Label htmlFor="product-tag-label">Tag label (optional)</Label>
                     <Input
-                      id="media-product"
-                      value={productLabel}
-                      onChange={(e) => setProductLabel(e.target.value)}
-                      placeholder="Roller shutters"
+                      id="product-tag-label"
+                      value={tagLabel}
+                      onChange={(e) => setTagLabel(e.target.value)}
+                      placeholder="Shutters"
                       disabled={saving}
                     />
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Tag label names the CRM tag applied to a contact when this product is clearly
+                  the topic of conversation. Leave blank to use the product name.
+                </p>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="space-y-2">
-                    <Label htmlFor="media-price-min">Price min (optional)</Label>
+                    <Label htmlFor="product-price-min">Price min (optional)</Label>
                     <Input
-                      id="media-price-min"
+                      id="product-price-min"
                       type="number"
                       step="any"
                       value={priceMin}
@@ -329,9 +361,9 @@ export function AiMediaLibraryCard({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="media-price-max">Price max (optional)</Label>
+                    <Label htmlFor="product-price-max">Price max (optional)</Label>
                     <Input
-                      id="media-price-max"
+                      id="product-price-max"
                       type="number"
                       step="any"
                       value={priceMax}
@@ -341,9 +373,9 @@ export function AiMediaLibraryCard({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="media-price-unit">Unit</Label>
+                    <Label htmlFor="product-price-unit">Unit</Label>
                     <Input
-                      id="media-price-unit"
+                      id="product-price-unit"
                       value={priceUnit}
                       onChange={(e) => setPriceUnit(e.target.value)}
                       placeholder="per_meter"
@@ -357,9 +389,9 @@ export function AiMediaLibraryCard({
                   strictly human-confirmed.
                 </p>
                 <div className="space-y-2">
-                  <Label htmlFor="media-price-notes">Add-on / option pricing (optional)</Label>
+                  <Label htmlFor="product-price-notes">Add-on / option pricing (optional)</Label>
                   <Textarea
-                    id="media-price-notes"
+                    id="product-price-notes"
                     value={priceNotes}
                     onChange={(e) => setPriceNotes(e.target.value)}
                     placeholder="Automatic +$60, manual included; custom colors +$20; motor add-on +$50-80"
@@ -371,36 +403,90 @@ export function AiMediaLibraryCard({
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="media-description">
+                  <Label htmlFor="product-description">
                     Description (read by the AI to decide relevance)
                   </Label>
                   <Textarea
-                    id="media-description"
+                    id="product-description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Full product catalog with prices and sizes for our roller shutter range. Send when a customer asks about roller shutters, pricing, or a catalog."
+                    placeholder="Aluminum roller shutters for windows, cabins, and pool enclosures. Send when a customer asks about roller shutters, pricing, or a catalog."
                     rows={3}
                     disabled={saving}
                   />
                 </div>
-                {editing === 'new' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="media-file">File (image or document)</Label>
-                    <Input
-                      id="media-file"
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp,application/pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx"
-                      onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                      disabled={saving}
-                    />
+
+                {editing !== 'new' && (
+                  <div className="space-y-2 rounded-md border border-dashed border-border p-3">
+                    <Label>Files</Label>
+                    {(currentEditingItem?.files.length ?? 0) === 0 ? (
+                      <p className="text-xs text-muted-foreground">No files yet.</p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {currentEditingItem?.files.map((f) => (
+                          <li
+                            key={f.id}
+                            className="flex items-center justify-between gap-2 rounded border border-border bg-muted/30 px-2 py-1.5 text-sm"
+                          >
+                            <span className="flex min-w-0 items-center gap-2">
+                              {f.media_kind === 'image' ? (
+                                <ImageIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              ) : (
+                                <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              )}
+                              <span className="truncate">{f.label || '(no label)'}</span>
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 shrink-0 p-0 text-destructive hover:text-destructive"
+                              onClick={() => void removeFile(editing, f.id)}
+                              title="Remove file"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="flex items-end gap-2 pt-1">
+                      <div className="flex-1 space-y-1">
+                        <Label htmlFor="new-file-label" className="text-xs">
+                          Label for next file (optional)
+                        </Label>
+                        <Input
+                          id="new-file-label"
+                          value={newFileLabel}
+                          onChange={(e) => setNewFileLabel(e.target.value)}
+                          placeholder="front view"
+                          disabled={uploadingFile}
+                        />
+                      </div>
+                      <label className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm hover:bg-accent">
+                        {uploadingFile ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Plus className="h-4 w-4" />
+                        )}
+                        Add file
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/png,image/jpeg,image/webp,application/pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx"
+                          onChange={(e) => void addFile(e)}
+                          disabled={uploadingFile}
+                        />
+                      </label>
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       Images up to 5 MB, documents up to 16 MB.
                     </p>
                   </div>
                 )}
+
                 <div className="flex justify-end gap-2">
                   <Button variant="ghost" onClick={cancelEdit} disabled={saving}>
-                    Cancel
+                    {editing === 'new' ? 'Cancel' : 'Done'}
                   </Button>
                   <Button onClick={save} disabled={saving}>
                     {saving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
@@ -411,7 +497,7 @@ export function AiMediaLibraryCard({
             ) : (
               canEdit && (
                 <Button variant="outline" size="sm" onClick={openNew}>
-                  <Plus className="me-2 h-4 w-4" /> Add media item
+                  <Plus className="me-2 h-4 w-4" /> Add product
                 </Button>
               )
             )}
