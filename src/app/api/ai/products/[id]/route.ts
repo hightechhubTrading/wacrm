@@ -9,36 +9,39 @@ import { resolveImportTagIds } from '@/lib/contacts/resolve-import-tags'
 type Params = { params: Promise<{ id: string }> }
 
 /**
- * GET /api/ai/media/[id] -- full item (any member).
+ * GET /api/ai/products/[id] -- full product + files (any member).
  */
 export async function GET(_request: Request, { params }: Params) {
   try {
     const { supabase, accountId } = await getCurrentAccount()
     const { id } = await params
     const { data, error } = await supabase
-      .from('ai_media_library')
-      .select('id, name, product_label, description, price_min, price_max, price_unit, price_notes, media_kind, mime_type, storage_path, updated_at')
+      .from('ai_products')
+      .select(
+        'id, name, description, tag_label, price_min, price_max, price_unit, price_notes, updated_at, ai_product_media(id, label, media_kind, mime_type, storage_path)',
+      )
       .eq('account_id', accountId)
       .eq('id', id)
       .maybeSingle()
     if (error) {
-      console.error('[ai/media/[id] GET] error:', error)
-      return NextResponse.json({ error: 'Failed to load item' }, { status: 500 })
+      console.error('[ai/products/[id] GET] error:', error)
+      return NextResponse.json({ error: 'Failed to load product' }, { status: 500 })
     }
     if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    return NextResponse.json(data)
+    return NextResponse.json({
+      ...data,
+      files: data.ai_product_media ?? [],
+    })
   } catch (err) {
     return toErrorResponse(err)
   }
 }
 
 /**
- * PATCH /api/ai/media/[id] (admin+) -- edit name/description/product
- * label. Re-uploading the file itself isn't supported here -- delete
- * and re-add the item instead. Whenever the name or product label
- * changes, the linked product tag (product_label || name) is
- * re-resolved (find-or-create) so it stays in sync -- see PATCH's
- * sibling in media/route.ts for the same logic on create.
+ * PATCH /api/ai/products/[id] (admin+) -- edit info fields. Files are
+ * managed separately (see [id]/media). Whenever name or tag_label
+ * changes, the linked contact tag is re-resolved (find-or-create) so
+ * it stays in sync -- same logic as POST's create path.
  */
 export async function PATCH(request: Request, { params }: Params) {
   try {
@@ -48,11 +51,12 @@ export async function PATCH(request: Request, { params }: Params) {
 
     const update: Record<string, string | number | null> = {}
     if (typeof body?.name === 'string') update.name = body.name.trim()
-    if (typeof body?.description === 'string') {
-      update.description = body.description.trim()
-    }
-    if (typeof body?.product_label === 'string') {
-      update.product_label = body.product_label.trim() || null
+    if (typeof body?.description === 'string') update.description = body.description.trim()
+    if (typeof body?.tag_label === 'string' || body?.tag_label === null) {
+      update.tag_label =
+        typeof body.tag_label === 'string' && body.tag_label.trim()
+          ? body.tag_label.trim()
+          : null
     }
     if ('price_min' in (body ?? {})) {
       update.price_min =
@@ -84,11 +88,7 @@ export async function PATCH(request: Request, { params }: Params) {
     {
       const nextMin = 'price_min' in update ? update.price_min : undefined
       const nextMax = 'price_max' in update ? update.price_max : undefined
-      if (
-        typeof nextMin === 'number' &&
-        typeof nextMax === 'number' &&
-        nextMax < nextMin
-      ) {
+      if (typeof nextMin === 'number' && typeof nextMax === 'number' && nextMax < nextMin) {
         return NextResponse.json(
           { error: 'price_max must be greater than or equal to price_min' },
           { status: 400 },
@@ -99,25 +99,20 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'name cannot be empty' }, { status: 400 })
     }
     if ('description' in update && !update.description) {
-      return NextResponse.json(
-        { error: 'description cannot be empty' },
-        { status: 400 },
-      )
+      return NextResponse.json({ error: 'description cannot be empty' }, { status: 400 })
     }
 
-    if ('name' in update || 'product_label' in update) {
+    if ('name' in update || 'tag_label' in update) {
       try {
         const { data: current } = await supabase
-          .from('ai_media_library')
-          .select('name, product_label')
+          .from('ai_products')
+          .select('name, tag_label')
           .eq('account_id', accountId)
           .eq('id', id)
           .maybeSingle()
         const effectiveName = 'name' in update ? update.name : current?.name ?? null
         const effectiveLabel =
-          'product_label' in update
-            ? update.product_label
-            : current?.product_label ?? null
+          'tag_label' in update ? update.tag_label : current?.tag_label ?? null
         const tagName = effectiveLabel || effectiveName
         if (tagName) {
           const { tagIdByKey } = await resolveImportTagIds(supabase, {
@@ -129,20 +124,20 @@ export async function PATCH(request: Request, { params }: Params) {
           update.tag_id = tagIdByKey.get(tagName.toLowerCase()) ?? null
         }
       } catch (err) {
-        console.error('[ai/media/[id] PATCH] tag resolution failed:', err)
+        console.error('[ai/products/[id] PATCH] tag resolution failed:', err)
       }
     }
 
     const { data: updated, error } = await supabase
-      .from('ai_media_library')
+      .from('ai_products')
       .update(update)
       .eq('account_id', accountId)
       .eq('id', id)
       .select('id')
       .maybeSingle()
     if (error) {
-      console.error('[ai/media/[id] PATCH] error:', error)
-      return NextResponse.json({ error: 'Failed to update item' }, { status: 500 })
+      console.error('[ai/products/[id] PATCH] error:', error)
+      return NextResponse.json({ error: 'Failed to update product' }, { status: 500 })
     }
     if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     return NextResponse.json({ success: true })
@@ -152,34 +147,35 @@ export async function PATCH(request: Request, { params }: Params) {
 }
 
 /**
- * DELETE /api/ai/media/[id] (admin+) -- removes the DB row, then
- * best-effort GCs the underlying storage object so deleted items don't
- * linger in the public `ai-media` bucket.
+ * DELETE /api/ai/products/[id] (admin+) -- removes the product row
+ * (ai_product_media rows cascade via FK), then best-effort GCs each
+ * removed file's underlying storage object so nothing lingers in the
+ * public `ai-media` bucket.
  */
 export async function DELETE(_request: Request, { params }: Params) {
   try {
     const { supabase, accountId } = await requireRole('admin')
     const { id } = await params
 
-    const { data: row } = await supabase
-      .from('ai_media_library')
+    const { data: files } = await supabase
+      .from('ai_product_media')
       .select('storage_path')
       .eq('account_id', accountId)
-      .eq('id', id)
-      .maybeSingle()
+      .eq('product_id', id)
 
     const { error } = await supabase
-      .from('ai_media_library')
+      .from('ai_products')
       .delete()
       .eq('account_id', accountId)
       .eq('id', id)
     if (error) {
-      console.error('[ai/media/[id] DELETE] error:', error)
-      return NextResponse.json({ error: 'Failed to delete item' }, { status: 500 })
+      console.error('[ai/products/[id] DELETE] error:', error)
+      return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 })
     }
 
-    if (row?.storage_path) {
-      await supabase.storage.from('ai-media').remove([row.storage_path])
+    const paths = (files ?? []).map((f) => f.storage_path as string).filter(Boolean)
+    if (paths.length > 0) {
+      await supabase.storage.from('ai-media').remove(paths)
     }
 
     return NextResponse.json({ success: true })

@@ -3,7 +3,7 @@ import { supabaseAdmin } from './admin-client'
 import { loadAiConfig } from './config'
 import { buildConversationContext } from './context'
 import { retrieveKnowledge } from './knowledge'
-import { listMediaLibraryForPrompt, getMediaLibraryItem } from './media-library'
+import { listProductsForPrompt, getProductMediaItem } from './media-library'
 import { generateReply } from './generate'
 import {
   buildSystemPrompt,
@@ -254,7 +254,7 @@ export async function dispatchInboundToAiReply(
     // id, and/or flag a product as the topic via a tag (best-effort;
     // empty when the account hasn't set one up, in which case
     // buildSystemPrompt omits the whole capability).
-    const media = await listMediaLibraryForPrompt(db, accountId)
+    const media = await listProductsForPrompt(db, accountId)
 
     // AI-collectible fields -- lets the model save lead details (product
     // interest, measurements, budget, timeline, etc.) onto the contact as
@@ -444,11 +444,11 @@ export async function dispatchInboundToAiReply(
     // Best-effort media attach: the text reply already landed, so a
     // failure here must not surface as a dispatch failure -- it's logged
     // and swallowed. Never sends anything the model didn't explicitly
-    // choose by a real, existing library id (getMediaLibraryItem returns
+    // choose by a real, existing file id (getProductMediaItem returns
     // null for a deleted-mid-conversation or hallucinated id).
     if (mediaId) {
       try {
-        const item = await getMediaLibraryItem(db, accountId, mediaId)
+        const item = await getProductMediaItem(db, accountId, mediaId)
         if (item) {
           const {
             data: { publicUrl },
@@ -460,11 +460,11 @@ export async function dispatchInboundToAiReply(
             contactId,
             kind: item.mediaKind,
             link: publicUrl,
-            filename: item.mediaKind === 'document' ? item.name : undefined,
+            filename: item.mediaKind === 'document' ? (item.label || item.productName) : undefined,
           })
         } else {
           console.warn(
-            `[ai auto-reply] model chose media id "${mediaId}" but it no longer exists for account ${accountId}.`,
+            `[ai auto-reply] model chose file id "${mediaId}" but it no longer exists for account ${accountId}.`,
           )
         }
       } catch (err) {
@@ -474,17 +474,17 @@ export async function dispatchInboundToAiReply(
 
     // Best-effort product tag: independent of attaching a file -- the
     // model flags a product as clearly the topic of conversation by its
-    // media-library id, and (if that item has a linked tag) we apply it
+    // product id, and (if that item has a linked tag) we apply it
     // to the contact. Never blocks or fails the reply/attach above.
     if (productTagId) {
       try {
-        const taggedItem = media.find((m) => m.id === productTagId)
-        if (taggedItem?.tagId) {
+        const taggedProduct = media.find((m) => m.id === productTagId)
+        if (taggedProduct?.tagId) {
           await addContactTagAndDispatch({
             db,
             accountId,
             contactId,
-            tagId: taggedItem.tagId,
+            tagId: taggedProduct.tagId,
           })
         } else {
           console.warn(

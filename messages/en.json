@@ -200,6 +200,8 @@
       "voiceNote": "Voice note",
       "catalog": "Catalog",
       "catalogEmpty": "No catalog items yet — add some in Settings → AI assistant → Media library.",
+      "catalogBack": "Back",
+      "catalogNoFiles": "No files for this product yet.",
       "sendTemplate": "Send template",
       "draftWithAI": "Draft a reply with AI",
       "translateDraft": "Translate this message",

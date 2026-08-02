@@ -200,6 +200,8 @@
       "voiceNote": "رسالة صوتية",
       "catalog": "الكتالوج",
       "catalogEmpty": "لا توجد عناصر في الكتالوج بعد — أضف بعضها من الإعدادات ← مساعد AI ← مكتبة الوسائط.",
+      "catalogBack": "رجوع",
+      "catalogNoFiles": "لا توجد ملفات لهذا المنتج بعد.",
       "sendTemplate": "إرسال قالب",
       "draftWithAI": "صياغة رد بواسطة AI",
       "translateDraft": "ترجمة هذه الرسالة",

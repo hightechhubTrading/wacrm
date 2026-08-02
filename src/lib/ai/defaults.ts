@@ -110,25 +110,34 @@ export function aiContextMessageLimit(): number {
   return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : DEFAULT_CONTEXT_MESSAGE_LIMIT
 }
 
-/** One media-library item as fed into the auto-reply system prompt. */
+/** One file nested under a product in the auto-reply system prompt. */
+export interface MediaPromptFileItem {
+  id: string
+  label: string | null
+  mediaKind: 'image' | 'document'
+}
+
+/** One product (with its files) as fed into the auto-reply system
+ * prompt. Replaces the old flat file-per-row shape -- a product's
+ * info is listed once, with any number of files nested under it. */
 export interface MediaPromptItem {
   id: string
   name: string
-  productLabel: string | null
   description: string
-  /** When BOTH are set (migration 053), the model may share this range
-   * as a caveated estimate instead of the usual absolute no-pricing
-   * rule -- see the media-library prompt block below. When either is
-   * null, pricing for this item is reference-only exactly like before:
-   * never quoted, only used to ask the right clarifying question. */
+  /** When BOTH are set, the model may share this range as a caveated
+   * estimate instead of the usual absolute no-pricing rule -- see the
+   * media-library prompt block below. When either is null, pricing
+   * for this product is reference-only exactly like before: never
+   * quoted, only used to ask the right clarifying question. */
   priceMin?: number | null
   priceMax?: number | null
   priceUnit?: string | null
   /** Free-text addon/option pricing not captured by the range (e.g.
-   * "Automatic +$60, manual included; motor add-on +$50-80",
-   * migration 053). Only ever surfaced alongside a configured range --
-   * never as a standalone estimate. */
+   * "Automatic +$60, manual included; motor add-on +$50-80"). Only
+   * ever surfaced alongside a configured range -- never as a
+   * standalone estimate. */
   priceNotes?: string | null
+  files: MediaPromptFileItem[]
 }
 
 /** One AI-collectible field as fed into the auto-reply system prompt --
@@ -254,12 +263,12 @@ export function buildSystemPrompt(args: {
 
   if (mode === 'auto_reply' && media && media.length > 0) {
     parts.push(
-      'Media library -- product photos / catalog files you may attach to your reply, listed as `[id] name (product label) [pricing info, if any] -- description`. ' +
-        `Attach ONE only when the customer's request clearly matches an item: end your reply with ${MEDIA_SENTINEL_OPEN}id${MEDIA_SENTINEL_CLOSE}, using the exact id shown (never invent or guess an id). ` +
-        `Independently of attaching a file, whenever a specific product from this list is clearly the topic of the conversation -- the customer is asking about it, comparing it, or showing interest in it, even if you don't attach anything -- also add ${PRODUCT_TAG_SENTINEL_OPEN}id${PRODUCT_TAG_SENTINEL_CLOSE} using that product's id, so the business can track the contact's interest. You may include both markers, only one, or neither. ` +
+      'Product catalog -- products you may reference, and files (photos / catalog documents) you may attach to your reply. Listed as `[product id] name [pricing info, if any] -- description`, with each product\'s files indented underneath as `- [file id] label (image|document)`. ' +
+        `Attach AT MOST ONE FILE, only when the customer's request clearly matches one: end your reply with ${MEDIA_SENTINEL_OPEN}id${MEDIA_SENTINEL_CLOSE}, using the exact FILE id shown on one of the indented lines (never a product id, never invent or guess an id). A product with no files listed beneath it has nothing to attach -- you can still discuss or tag it, just never emit a media marker for it. ` +
+        `Independently of attaching a file, whenever a specific product from this list is clearly the topic of the conversation -- the customer is asking about it, comparing it, or showing interest in it, even if you don't attach anything -- also add ${PRODUCT_TAG_SENTINEL_OPEN}id${PRODUCT_TAG_SENTINEL_CLOSE} using that product's own id (the outer, unindented id, never a file id), so the business can track the contact's interest. You may include both markers, only one, or neither. ` +
         'The customer never sees these markers -- they are stripped before sending and the matching file (if any) is attached automatically. ' +
-        "When an item's pricing shows only a unit (e.g. \"per meter\") with no range, that is for YOUR reference only, to ask the right clarifying question (e.g. a per-meter product -> ask how many meters) -- it is NOT permission to state a number; the absolute no-pricing rule above still applies. " +
-        'When an item\'s pricing shows an estimated range (e.g. "estimated 80-120 per meter"), you MAY share that range with the customer as a clearly-labeled estimate -- always say it is an estimate and that the final price is confirmed by the team, never state it as a confirmed final number, and never state a number outside the shown range. If the item also lists addon/option notes (e.g. "options: automatic +$60, custom colors +$20"), you may reference those the same way, as part of the same estimate -- never as a separate confirmed price. Sharing an estimate does not require a handoff; keep the conversation going normally afterward. ' +
+        "When a product's pricing shows only a unit (e.g. \"per meter\") with no range, that is for YOUR reference only, to ask the right clarifying question (e.g. a per-meter product -> ask how many meters) -- it is NOT permission to state a number; the absolute no-pricing rule above still applies. " +
+        'When a product\'s pricing shows an estimated range (e.g. "estimated 80-120 per meter"), you MAY share that range with the customer as a clearly-labeled estimate -- always say it is an estimate and that the final price is confirmed by the team, never state it as a confirmed final number, and never state a number outside the shown range. If the product also lists addon/option notes (e.g. "options: automatic +$60, custom colors +$20"), you may reference those the same way, as part of the same estimate -- never as a separate confirmed price. Sharing an estimate does not require a handoff; keep the conversation going normally afterward. ' +
         'If nothing clearly matches, do not attach anything and do not mention any marker.\n\n' +
         media
           .map((m) => {
@@ -272,7 +281,11 @@ export function buildSystemPrompt(args: {
                 ? ' [priced ' + unit + ']'
                 : ''
             const notes = hasRange && m.priceNotes ? ` (options: ${m.priceNotes})` : ''
-            return `[${m.id}] ${m.name}${m.productLabel ? ` (${m.productLabel})` : ''}${pricing} -- ${m.description}${notes}`
+            const fileLines = m.files
+              .map((f) => `  - [${f.id}] ${f.label ? f.label + ' ' : ''}(${f.mediaKind})`)
+              .join('\n')
+            const header = `[${m.id}] ${m.name}${pricing} -- ${m.description}${notes}`
+            return fileLines ? `${header}\n${fileLines}` : header
           })
           .join('\n'),
     )
