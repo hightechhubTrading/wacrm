@@ -13,7 +13,7 @@ import type { AiProvider } from './types'
 export const AI_PROVIDER_DEFAULT_MODEL: Record<AiProvider, string> = {
   openai: 'gpt-5.4',
   anthropic: 'claude-sonnet-4-5-20250929',
-  gemini: 'gemini-2.0-flash',
+  gemini: 'gemini-3.5-flash',
   deepseek: 'deepseek-chat',
 }
 

@@ -43,7 +43,7 @@ describe('analyzeImage', () => {
         'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
       )
       const body = JSON.parse(opts.body)
-      expect(body.model).toBe('gemini-2.0-flash')
+      expect(body.model).toBe('gemini-3.5-flash')
       return okResponse('A red chair.')
     })
     vi.stubGlobal('fetch', fetchMock)

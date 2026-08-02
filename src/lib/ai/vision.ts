@@ -20,7 +20,7 @@ const OPENAI_VISION_URL = 'https://api.openai.com/v1/chat/completions'
 const OPENAI_VISION_MODEL = 'gpt-4o-mini'
 
 const GEMINI_VISION_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
-const GEMINI_VISION_MODEL = 'gemini-2.0-flash'
+const GEMINI_VISION_MODEL = 'gemini-3.5-flash'
 
 const DESCRIBE_PROMPT =
   'Describe what is shown in this photo in one short, factual sentence, for a customer-service context (e.g. "A grey L-shaped fabric sofa in a living room."). Do not guess brand names or prices. Output only the description, nothing else.'
