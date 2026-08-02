@@ -228,7 +228,9 @@
       "interactiveReply": "[رد تفاعلي]",
       "unsupported": "[نوع رسالة غير مدعوم]",
       "aiBadge": "AI",
-      "aiBadgeTitle": "أُرسلت تلقائيًا بواسطة مساعد AI"
+      "aiBadgeTitle": "أُرسلت تلقائيًا بواسطة مساعد AI",
+      "openImage": "فتح الصورة",
+      "download": "تنزيل"
     },
     "actions": {
       "reply": "رد",

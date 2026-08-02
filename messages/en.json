@@ -228,7 +228,9 @@
       "interactiveReply": "[Interactive reply]",
       "unsupported": "[Unsupported message type]",
       "aiBadge": "AI",
-      "aiBadgeTitle": "Sent automatically by the AI assistant"
+      "aiBadgeTitle": "Sent automatically by the AI assistant",
+      "openImage": "Open image",
+      "download": "Download"
     },
     "actions": {
       "reply": "Reply",

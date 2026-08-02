@@ -14,11 +14,13 @@ import {
   ImageOff,
   CornerDownLeft,
   Sparkles,
+  Download,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ReplyQuote } from "./reply-quote";
 import { MessageReactions } from "./message-reactions";
 import { InteractivePreview } from "@/components/interactive/interactive-preview";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useTranslations } from "next-intl";
 
 interface MessageBubbleProps {
@@ -56,10 +58,24 @@ function MediaUnavailable({ label, t }: { label: string, t: ReturnType<typeof us
   );
 }
 
-function MediaImage({ url, alt }: { url: string; alt: string }) {
+function MediaImage({
+  url,
+  alt,
+  t,
+}: {
+  url: string;
+  alt: string;
+  t: ReturnType<typeof useTranslations>;
+}) {
   const [src, setSrc] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  // Proxy URLs resolve to a blob: URL (see loadImage below), which is
+  // same-origin and safe to drive a real download; a raw external URL
+  // is cross-origin, where the `download` attribute is silently ignored
+  // by the browser -- open it in a new tab instead.
+  const isBlobSrc = src?.startsWith("blob:") ?? false;
 
   const loadImage = useCallback(async () => {
     if (!url) return;
@@ -110,12 +126,41 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
   }
 
   return (
-    <img
-      src={src ?? ""}
-      alt={alt}
-      className="max-h-64 max-w-60 rounded-lg object-cover"
-      onError={() => setError(true)}
-    />
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="block cursor-zoom-in"
+        aria-label={t("openImage")}
+      >
+        <img
+          src={src ?? ""}
+          alt={alt}
+          className="max-h-64 max-w-60 rounded-lg object-cover"
+          onError={() => setError(true)}
+        />
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="flex w-auto max-w-[92vw] flex-col items-start gap-3 p-2 sm:max-w-3xl">
+          <DialogTitle className="sr-only">{alt}</DialogTitle>
+          <img
+            src={src ?? ""}
+            alt={alt}
+            className="max-h-[80vh] max-w-full rounded-lg object-contain"
+          />
+          <a
+            href={src ?? ""}
+            download={isBlobSrc || undefined}
+            target={isBlobSrc ? undefined : "_blank"}
+            rel={isBlobSrc ? undefined : "noopener noreferrer"}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+          >
+            <Download className="h-3.5 w-3.5" />
+            {t("download")}
+          </a>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -132,7 +177,7 @@ function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof
       return (
         <div>
           {message.media_url ? (
-            <MediaImage url={message.media_url} alt="Shared image" />
+            <MediaImage url={message.media_url} alt="Shared image" t={t} />
           ) : (
             <MediaUnavailable label={t("photo")} t={t} />
           )}
