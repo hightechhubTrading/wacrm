@@ -101,7 +101,10 @@ export async function POST(request: Request) {
 
     let maxPer = Number(body.auto_reply_max_per_conversation)
     if (!Number.isFinite(maxPer)) maxPer = 3
-    maxPer = Math.min(20, Math.max(1, Math.floor(maxPer)))
+    // 0 (or less) means "unlimited" -- the cap is opt-in. Only clamp the
+    // upper bound; do not floor a real 0 up to 1 (see auto-reply.ts and
+    // migration 039_ai_reply_cap_and_product_tags.sql).
+    maxPer = Math.min(20, Math.max(0, Math.floor(maxPer)))
 
     // Handoff routing target for auto-reply. A non-empty string must be a
     // member of this account (else the conversation would be assigned to a
