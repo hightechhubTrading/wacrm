@@ -12,7 +12,7 @@ const DEFAULT_WINDOW_DAYS = 30
 
 interface UsageRow {
   created_at: string
-  mode: 'auto_reply' | 'draft'
+  mode: 'auto_reply' | 'draft' | 'translate'
   provider: string
   model: string
   prompt_tokens: number
@@ -78,10 +78,16 @@ export async function GET(request: Request) {
     let completionTokens = 0
     let totalTokens = 0
 
-    // Per-mode + per-model tallies.
+    // Per-mode + per-model tallies. Keys must cover every value the
+    // `ai_usage_log_mode_check` CHECK constraint allows (migration
+    // 050 added 'translate') -- a row whose mode isn't a key here
+    // throws on the `byMode[r.mode].calls += 1` below, which isn't an
+    // UnauthorizedError/ForbiddenError, so it was silently surfacing
+    // as a generic 500 with no indication of the real cause.
     const byMode = {
       auto_reply: { calls: 0, tokens: 0 },
       draft: { calls: 0, tokens: 0 },
+      translate: { calls: 0, tokens: 0 },
     }
     const modelMap = new Map<
       string,
