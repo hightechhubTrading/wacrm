@@ -25,7 +25,7 @@ import {
   listGroupFieldsForStage,
 } from './collect-fields'
 import { AiError } from './types'
-import type { AiConfig } from './types'
+import type { AiConfig, ChatMessage } from './types'
 import { recordKeyError, clearKeyError, notifyAdminsOfKeyError } from './key-health'
 import { isWithinBusinessHours, type BusinessHours } from './business-hours'
 import { notifyUrgentLead } from './lead-priority'
@@ -72,6 +72,118 @@ async function upsertAiSummaryNote(
       note_text: noteText,
       is_ai_generated: true,
     })
+  }
+}
+
+/**
+ * Actually perform a handoff: send the fixed closing message, disable
+ * auto-reply on the thread, route it to a human, leave a real recap
+ * note, and explicitly notify whoever should pick it up. Shared by
+ * two triggers: (1) the model itself decided to hand off (or
+ * produced no text), and (2) the deterministic reply-cap backstop
+ * below, when the model never asked to hand off on its own and the
+ * conversation would otherwise just go silently dead once the cap is
+ * reached. Same path either way -- the customer and the team see
+ * identical behavior regardless of which trigger fired.
+ *
+ * Never throws -- every side effect here is already independently
+ * best-effort (matches the pre-extraction behavior); a failure in one
+ * step must not skip the rest.
+ */
+async function performHandoff(args: {
+  db: SupabaseClient
+  accountId: string
+  conversationId: string
+  contactId: string
+  configOwnerUserId: string
+  messages: ChatMessage[]
+  replyCount: number
+  handoffAgentId: string | null
+  currentAssignedAgentId: string | null
+  /** Lead details the model recorded in the same turn it decided to
+   * hand off -- captured before the thread goes quiet. Omitted by the
+   * reply-cap backstop, which has no fresh model output to draw from. */
+  fields?: { name: string; value: string }[]
+}): Promise<void> {
+  const {
+    db,
+    accountId,
+    conversationId,
+    contactId,
+    configOwnerUserId,
+    messages,
+    replyCount,
+    handoffAgentId,
+    currentAssignedAgentId,
+    fields,
+  } = args
+
+  if (fields && fields.length > 0) {
+    try {
+      await applyCollectedFields({ db, accountId, contactId, fields })
+    } catch (err) {
+      console.error('[ai auto-reply] field collection before handoff failed:', err)
+    }
+  }
+
+  // Let the customer know a person is taking over instead of the
+  // thread simply going quiet. This closing message is a fixed,
+  // human-authored line -- never the model's own text, so a handoff
+  // can never go out silently or with a message the model forgot to
+  // write -- picked by the customer's own language. Best-effort; a
+  // send failure here must not block the handoff.
+  const closingMessage = isArabicText(latestUserMessage(messages))
+    ? HANDOFF_CLOSING_MESSAGE_AR
+    : HANDOFF_CLOSING_MESSAGE_EN
+  try {
+    await engineSendText({
+      accountId,
+      userId: configOwnerUserId,
+      conversationId,
+      contactId,
+      text: closingMessage,
+      aiGenerated: true,
+    })
+  } catch (err) {
+    console.error('[ai auto-reply] handoff closing message failed:', err)
+  }
+
+  // Stop auto-replying on this thread and hand it to a human. We (a)
+  // pause the bot here (sticky until re-enabled), (b) route the
+  // conversation to the configured handoff agent -- null leaves it in
+  // the shared queue -- and (c) leave a short internal note -- a real
+  // recap of whatever lead details have been collected so far, not
+  // just a tally -- so whoever picks it up has context.
+  const collectedFields = await listCollectedFieldValues(db, accountId, contactId)
+  const summary = buildHandoffSummary({ messages, replyCount, collectedFields })
+  const update: Record<string, unknown> = {
+    ai_autoreply_disabled: true,
+    ai_handoff_summary: summary,
+  }
+  // Only set the assignee when a target is configured AND the thread
+  // isn't already owned -- never stomp an existing human assignment.
+  if (handoffAgentId && !currentAssignedAgentId) {
+    update.assigned_agent_id = handoffAgentId
+  }
+  await db.from('conversations').update(update).eq('id', conversationId)
+
+  // Explicitly notify a human -- never rely solely on the generic
+  // `on_conversation_assigned` trigger (it fires too when the update
+  // above just set assigned_agent_id, but under this service-role
+  // client it can't say the assignment came from the AI or why).
+  // Best-effort; a notification failure must not undo the handoff
+  // above, which has already happened.
+  try {
+    await notifyAiHandoff(db, {
+      accountId,
+      conversationId,
+      contactId,
+      assignedAgentId:
+        (update.assigned_agent_id as string | undefined) ?? currentAssignedAgentId ?? null,
+      summary,
+    })
+  } catch (err) {
+    console.error('[ai auto-reply] handoff notification failed:', err)
   }
 }
 
@@ -177,8 +289,31 @@ export async function dispatchInboundToAiReply(
     if (
       config.autoReplyMaxPerConversation > 0 &&
       conv.ai_reply_count >= config.autoReplyMaxPerConversation
-    )
+    ) {
+      // Deterministic backstop: don't let the conversation just go
+      // silently dead because the LLM never emitted the handoff
+      // sentinel on its own before running out of replies. Runs
+      // through the exact same performHandoff path a model-initiated
+      // handoff does, so the customer and the team see identical
+      // behavior either way. This fires at most once -- the very next
+      // inbound message hits `ai_autoreply_disabled` above and
+      // returns before ever reaching this check again.
+      const capMessages = await buildConversationContext(db, conversationId)
+      if (capMessages.length > 0) {
+        await performHandoff({
+          db,
+          accountId,
+          conversationId,
+          contactId,
+          configOwnerUserId,
+          messages: capMessages,
+          replyCount: conv.ai_reply_count ?? 0,
+          handoffAgentId: config.handoffAgentId,
+          currentAssignedAgentId: conv.assigned_agent_id,
+        })
+      }
       return
+    }
 
     const messages = await buildConversationContext(db, conversationId)
     if (messages.length === 0) return
@@ -350,81 +485,18 @@ export async function dispatchInboundToAiReply(
     }
 
     if (handoff || !text) {
-      // Best-effort: the model may have recorded lead details in the
-      // same turn it decided to hand off -- capture them before the
-      // thread goes quiet.
-      if (fields && fields.length > 0) {
-        try {
-          await applyCollectedFields({ db, accountId, contactId, fields })
-        } catch (err) {
-          console.error('[ai auto-reply] field collection before handoff failed:', err)
-        }
-      }
-
-      // Let the customer know a person is taking over instead of the
-      // thread simply going quiet. This closing message is a fixed,
-      // human-authored line -- never the model's own text, so a
-      // handoff can never go out silently or with a message the model
-      // forgot to write -- picked by the customer's own language.
-      // Best-effort; a send failure here must not block the handoff.
-      const closingMessage = isArabicText(latestUserMessage(messages))
-        ? HANDOFF_CLOSING_MESSAGE_AR
-        : HANDOFF_CLOSING_MESSAGE_EN
-      try {
-        await engineSendText({
-          accountId,
-          userId: configOwnerUserId,
-          conversationId,
-          contactId,
-          text: closingMessage,
-          aiGenerated: true,
-        })
-      } catch (err) {
-        console.error('[ai auto-reply] handoff closing message failed:', err)
-      }
-
-      // The model can't (or shouldn't) answer -- stop auto-replying on
-      // this thread and hand it to a human. We (a) pause the bot here
-      // (sticky until re-enabled), (b) route the conversation to the
-      // configured handoff agent -- null leaves it in the shared queue --
-      // and (c) leave a short internal note -- a real recap of whatever
-      // lead details have been collected so far, not just a tally --
-      // so whoever picks it up has context.
-      const collectedFields = await listCollectedFieldValues(db, accountId, contactId)
-      const summary = buildHandoffSummary({
+      await performHandoff({
+        db,
+        accountId,
+        conversationId,
+        contactId,
+        configOwnerUserId,
         messages,
         replyCount: conv.ai_reply_count ?? 0,
-        collectedFields,
+        handoffAgentId: config.handoffAgentId,
+        currentAssignedAgentId: conv.assigned_agent_id,
+        fields,
       })
-      const update: Record<string, unknown> = {
-        ai_autoreply_disabled: true,
-        ai_handoff_summary: summary,
-      }
-      // Only set the assignee when a target is configured AND the thread
-      // isn't already owned -- never stomp an existing human assignment.
-      if (config.handoffAgentId && !conv.assigned_agent_id) {
-        update.assigned_agent_id = config.handoffAgentId
-      }
-      await db.from('conversations').update(update).eq('id', conversationId)
-
-      // Explicitly notify a human -- never rely solely on the generic
-      // `on_conversation_assigned` trigger (it fires too when the update
-      // above just set assigned_agent_id, but under this service-role
-      // client it can't say the assignment came from the AI or why).
-      // Best-effort; a notification failure must not undo the handoff
-      // above, which has already happened.
-      try {
-        await notifyAiHandoff(db, {
-          accountId,
-          conversationId,
-          contactId,
-          assignedAgentId: (update.assigned_agent_id as string | undefined) ?? conv.assigned_agent_id ?? null,
-          summary,
-        })
-      } catch (err) {
-        console.error('[ai auto-reply] handoff notification failed:', err)
-      }
-
       return
     }
 

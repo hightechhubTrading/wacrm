@@ -98,6 +98,21 @@ vi.mock('./admin-client', () => ({
         }
         return chain
       }
+      if (table === 'custom_fields') {
+        // .select('id, field_name').eq('account_id', accountId)
+        //   .eq('ai_collectible', true).is('group_id', null)
+        //   -> listAiCollectibleFields, via listCollectedFieldValues
+        //   on every handoff (model-initiated or the reply-cap backstop).
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                is: () => Promise.resolve({ data: [], error: null }),
+              }),
+            }),
+          }),
+        }
+      }
       if (table === 'ai_products') {
         // .select(...).eq('account_id', accountId) -> listProductsForPrompt
         return {
@@ -290,14 +305,25 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
     expect(h.engineSendText).not.toHaveBeenCalled()
   })
 
-  it('skips when the per-conversation cap is reached', async () => {
+  it('forces a real handoff — closing message, disabled flag, notification — when the per-conversation cap is reached, instead of just going silent', async () => {
     h.state.conv = {
       assigned_agent_id: null,
       ai_autoreply_disabled: false,
       ai_reply_count: 3,
     }
+    h.state.admins = [{ user_id: 'admin-1' }]
     await dispatchInboundToAiReply(ARGS)
-    expect(h.engineSendText).not.toHaveBeenCalled()
+    // generateReply is never called -- the cap trips before any LLM call.
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.engineSendText).toHaveBeenCalledTimes(1)
+    expect(h.engineSendText.mock.calls[0][0]).toMatchObject({
+      text: expect.stringContaining('team members will follow up'),
+    })
+    expect(h.state.updatePayload).toMatchObject({ ai_autoreply_disabled: true })
+    expect(h.state.updatePayload?.ai_handoff_summary).toContain('AI agent handed off')
+    expect(h.state.notificationInserts).toContainEqual(
+      expect.objectContaining({ user_id: 'admin-1', type: 'ai_handoff' }),
+    )
   })
 
   it('skips when there is nothing to reply to', async () => {
