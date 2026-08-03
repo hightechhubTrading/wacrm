@@ -304,7 +304,7 @@ export interface Conversation {
 // Notifications (migration 027)
 // ============================================================
 
-export type NotificationType = 'conversation_assigned' | 'ai_key_invalid' | 'urgent_lead';
+export type NotificationType = 'conversation_assigned' | 'ai_key_invalid' | 'urgent_lead' | 'ai_handoff';
 
 export interface Notification {
   id: string;

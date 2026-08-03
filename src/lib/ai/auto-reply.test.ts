@@ -336,6 +336,33 @@ describe('dispatchInboundToAiReply — handoff', () => {
       assigned_agent_id: 'agent-7',
     })
   })
+
+  it('explicitly notifies the newly-assigned agent, not just the generic assignment trigger', async () => {
+    h.loadAiConfig.mockResolvedValue(aiConfig({ handoffAgentId: 'agent-7' }))
+    h.generateReply.mockResolvedValue({ text: '', handoff: true })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.state.notificationInserts).toContainEqual(
+      expect.objectContaining({
+        user_id: 'agent-7',
+        type: 'ai_handoff',
+        title: 'AI assistant handed off a conversation',
+        body: expect.stringContaining('AI agent handed off'),
+      }),
+    )
+  })
+
+  it('falls back to notifying every admin when no handoff agent is configured or already assigned', async () => {
+    h.state.admins = [{ user_id: 'admin-1' }, { user_id: 'admin-2' }]
+    h.generateReply.mockResolvedValue({ text: '', handoff: true })
+    await dispatchInboundToAiReply(ARGS)
+    const handoffNotices = h.state.notificationInserts.filter(
+      (n) => (n as { type: string }).type === 'ai_handoff',
+    )
+    expect(handoffNotices.map((n) => (n as { user_id: string }).user_id)).toEqual([
+      'admin-1',
+      'admin-2',
+    ])
+  })
 })
 
 const CLOSED_HOURS = { mon: null, tue: null, wed: null, thu: null, fri: null, sat: null, sun: null }

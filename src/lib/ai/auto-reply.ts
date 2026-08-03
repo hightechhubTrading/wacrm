@@ -11,7 +11,7 @@ import {
   HANDOFF_CLOSING_MESSAGE_EN,
   HANDOFF_CLOSING_MESSAGE_AR,
 } from './defaults'
-import { buildHandoffSummary } from './handoff'
+import { buildHandoffSummary, notifyAiHandoff } from './handoff'
 import { logAiUsage } from './usage'
 import { latestUserMessage } from './query'
 import { engineSendText, engineSendMedia } from '@/lib/flows/meta-send'
@@ -389,8 +389,7 @@ export async function dispatchInboundToAiReply(
       // configured handoff agent -- null leaves it in the shared queue --
       // and (c) leave a short internal note -- a real recap of whatever
       // lead details have been collected so far, not just a tally --
-      // so whoever picks it up has context. Assigning fires the
-      // `on_conversation_assigned` trigger, which notifies the agent.
+      // so whoever picks it up has context.
       const collectedFields = await listCollectedFieldValues(db, accountId, contactId)
       const summary = buildHandoffSummary({
         messages,
@@ -407,6 +406,25 @@ export async function dispatchInboundToAiReply(
         update.assigned_agent_id = config.handoffAgentId
       }
       await db.from('conversations').update(update).eq('id', conversationId)
+
+      // Explicitly notify a human -- never rely solely on the generic
+      // `on_conversation_assigned` trigger (it fires too when the update
+      // above just set assigned_agent_id, but under this service-role
+      // client it can't say the assignment came from the AI or why).
+      // Best-effort; a notification failure must not undo the handoff
+      // above, which has already happened.
+      try {
+        await notifyAiHandoff(db, {
+          accountId,
+          conversationId,
+          contactId,
+          assignedAgentId: (update.assigned_agent_id as string | undefined) ?? conv.assigned_agent_id ?? null,
+          summary,
+        })
+      } catch (err) {
+        console.error('[ai auto-reply] handoff notification failed:', err)
+      }
+
       return
     }
 
