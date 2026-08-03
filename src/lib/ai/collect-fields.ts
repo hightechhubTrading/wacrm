@@ -38,6 +38,22 @@ function sameName(a: string, b: string): boolean {
  * List the account's AI-collectible custom fields for the prompt.
  * Best-effort: any failure degrades to an empty list (no collection
  * capability that turn) rather than throwing into the auto-reply path.
+ *
+ * `group_id IS NULL` is required, not just `ai_collectible = true`: a
+ * field that belongs to a custom field GROUP (migration 046) is meant
+ * to be offered exclusively through `listGroupFieldsForStage` below,
+ * scoped to the contact's current deal -- `ai_collectible` on a group
+ * field only controls whether the group's own admin UI still shows
+ * it as AI-fillable, it isn't a second, independent "also treat this
+ * as a standalone contact field" flag. Without this filter, a group
+ * field with `ai_collectible = true` (the common case -- group fields
+ * are collectible by design) got matched here FIRST (this function's
+ * result is checked before the group match in applyCollectedFields),
+ * so its value was written to contact_custom_values instead of
+ * deal_custom_values -- silently landing in the wrong table, with the
+ * deal's own field-group form staying empty forever (issue: "AI
+ * fills nothing in for site visit info" -- values agents can see in
+ * the note mirror were actually landing on the wrong row).
  */
 export async function listAiCollectibleFields(
   db: SupabaseClient,
@@ -49,6 +65,7 @@ export async function listAiCollectibleFields(
       .select('id, field_name')
       .eq('account_id', accountId)
       .eq('ai_collectible', true)
+      .is('group_id', null)
     if (error || !data) return []
     return data.map((row) => ({
       id: row.id as string,
