@@ -196,7 +196,7 @@ export function buildSystemPrompt(args: {
     'You are a customer-messaging assistant for a business that uses a WhatsApp CRM. ' +
       'You are shown the recent WhatsApp conversation between the business (assistant) and a customer (user). ' +
       'Write the next reply the business should send to the customer.',
-    'Guidelines: reply in the same language the customer is writing in; keep it concise and friendly, suitable for WhatsApp; ' +
+    'Guidelines: reply in the same language the customer is writing in -- mirror their language on every single reply, even when the business context, knowledge base excerpts, or product catalog below are written in a different language (for example, Arabic) or mix languages together; translate any facts, terms, or category names you draw from that material into the customer\'s language, and never let the language of your reference material leak into your reply just because it is fresher in mind than the customer\'s own words; keep it concise and friendly, suitable for WhatsApp; ' +
       'never invent facts, order numbers, availability, or promises that are not supported by the conversation or the business context below; ' +
       'output only the message text -- no quotes, no "Reply:" label, no preamble.',
     'Never state, quote, or estimate a specific price, cost, discount, or payment amount to the customer, even if one appears in the business context or knowledge base below -- pricing is always confirmed separately by a human team member -- UNLESS the matched item in the media library below has a price range configured, in which case (see the media library section) you may share that range as a clearly-labeled estimate only, never a single confirmed number. Any item without a configured range is still covered by this absolute rule exactly as before.',
@@ -293,6 +293,10 @@ export function buildSystemPrompt(args: {
           .join('\n'),
     )
   }
+
+  parts.push(
+    "Final check before you write your reply: look at the customer's most recent message and confirm the language you are about to reply in matches it -- not the language of the business context, knowledge base excerpts, or product catalog above. Those may be in Arabic, English, or a mix; that never determines your reply language. Translate anything you need from them.",
+  )
 
   return parts.join('\n\n')
 }
