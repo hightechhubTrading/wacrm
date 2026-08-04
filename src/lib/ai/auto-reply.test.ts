@@ -494,6 +494,79 @@ describe('dispatchInboundToAiReply — AI priority', () => {
   })
 })
 
+describe('dispatchInboundToAiReply — language correction', () => {
+  it('translates and sends the corrected text when the reply lands in the wrong script', async () => {
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: 'We have a gate 6x3 m' },
+    ])
+    h.generateReply
+      .mockResolvedValueOnce({
+        text: 'أكيد، أقدر أرسل صور الخيارات المتوفرة. هل تقصد بوابات المحلات التجارية أو بوابات الكراجات؟',
+        handoff: false,
+      })
+      .mockResolvedValueOnce({
+        text: 'Sure, I can send photos of the available options. Do you mean commercial gates or garage gates?',
+        handoff: false,
+        usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+      })
+
+    await dispatchInboundToAiReply(ARGS)
+
+    expect(h.generateReply).toHaveBeenCalledTimes(2)
+    const correctionCall = h.generateReply.mock.calls[1][0]
+    expect(correctionCall.systemPrompt).toContain('English')
+    expect(correctionCall.messages).toEqual([
+      {
+        role: 'user',
+        content:
+          'أكيد، أقدر أرسل صور الخيارات المتوفرة. هل تقصد بوابات المحلات التجارية أو بوابات الكراجات؟',
+      },
+    ])
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: 'Sure, I can send photos of the available options. Do you mean commercial gates or garage gates?',
+      }),
+    )
+  })
+
+  it('does not call generateReply a second time when the reply already matches the customer script', async () => {
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: 'We have a gate 6x3 m' },
+    ])
+    h.generateReply.mockResolvedValue({ text: 'Sure, happy to help.', handoff: false })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).toHaveBeenCalledTimes(1)
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'Sure, happy to help.' }),
+    )
+  })
+
+  it('falls back to the original text when the correction call also fails to land in the right script', async () => {
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: 'We have a gate 6x3 m' },
+    ])
+    h.generateReply
+      .mockResolvedValueOnce({ text: 'مرحبا، كيف أساعدك؟', handoff: false })
+      .mockResolvedValueOnce({ text: 'مرحبا مجددا', handoff: false })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'مرحبا، كيف أساعدك؟' }),
+    )
+  })
+
+  it('leaves mixed-script replies alone rather than risk a false correction', async () => {
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: 'بكم سعر ال UPVC؟' },
+    ])
+    h.generateReply.mockResolvedValue({
+      text: 'السعر يعتمد على المقاس -- هل هو للنوافذ أو الباب؟',
+      handoff: false,
+    })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('dispatchInboundToAiReply — rolling conversation summary', () => {
   it('regenerates a stale summary for every conversation, not just after-hours takeover, and mirrors it onto contact_notes', async () => {
     h.state.conv = { ...h.state.conv, ai_context_summary_at: null }

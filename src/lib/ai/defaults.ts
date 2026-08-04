@@ -42,6 +42,28 @@ export function isArabicText(text: string): boolean {
 }
 
 /**
+ * Rough script classifier used to deterministically catch a reply that
+ * drifted into the wrong language -- e.g. Arabic reference material
+ * (knowledge base, product catalog, business-context prompt) leaking
+ * into a reply to an English-writing customer, even though the system
+ * prompt says to mirror the customer's language. That instruction is
+ * probabilistic; this check is not.
+ *
+ * 'mixed' covers text with no alphabetic content at all (numbers,
+ * emoji, a bare product code) or text that genuinely combines both
+ * scripts -- neither is a safe basis for judging or correcting a
+ * language mismatch, so callers should treat 'mixed' as "don't judge
+ * this one" rather than force a script.
+ */
+export function detectScript(text: string): 'arabic' | 'latin' | 'mixed' {
+  const arabicCount = (text.match(/[\u0600-\u06FF]/g) || []).length
+  const latinCount = (text.match(/[A-Za-z]/g) || []).length
+  if (arabicCount > 0 && latinCount === 0) return 'arabic'
+  if (latinCount > 0 && arabicCount === 0) return 'latin'
+  return 'mixed'
+}
+
+/**
  * Sentinel wrapper the model is instructed to emit (in auto-reply mode,
  * only when the account has media-library items) to attach ONE product
  * photo/catalog by id -- e.g. `[[SEND_MEDIA:3f2a...]]`. Parsed and

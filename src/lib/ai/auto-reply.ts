@@ -8,6 +8,7 @@ import { generateReply } from './generate'
 import {
   buildSystemPrompt,
   isArabicText,
+  detectScript,
   HANDOFF_CLOSING_MESSAGE_EN,
   HANDOFF_CLOSING_MESSAGE_AR,
 } from './defaults'
@@ -184,6 +185,74 @@ async function performHandoff(args: {
     })
   } catch (err) {
     console.error('[ai auto-reply] handoff notification failed:', err)
+  }
+}
+
+/**
+ * Deterministic backstop against a reply landing in the wrong language --
+ * the prompt already instructs the model to mirror the customer's
+ * language (see buildSystemPrompt), but that's a probabilistic
+ * instruction competing against a lot of reference-material text
+ * (knowledge base, product catalog, business-context prompt) that may
+ * itself be in a different language. This check doesn't trust the
+ * model's word for it: it compares scripts and, on a genuine mismatch,
+ * runs one corrective translation call before the reply ever reaches
+ * the customer.
+ *
+ * Only acts when both the customer's message and the reply are
+ * unambiguously one script or the other (see `detectScript`) -- mixed
+ * content is common and legitimate in this account's bilingual
+ * material, so it's left alone rather than risk a false correction.
+ * Never throws; any failure here falls back to the original text
+ * rather than blocking the send.
+ */
+async function correctReplyLanguageIfNeeded(args: {
+  db: SupabaseClient
+  accountId: string
+  conversationId: string
+  config: AiConfig
+  customerMessage: string
+  replyText: string
+}): Promise<string> {
+  const { db, accountId, conversationId, config, customerMessage, replyText } = args
+  const customerScript = detectScript(customerMessage)
+  const replyScript = detectScript(replyText)
+  if (
+    customerScript === 'mixed' ||
+    replyScript === 'mixed' ||
+    customerScript === replyScript
+  ) {
+    return replyText
+  }
+
+  const targetLanguage = customerScript === 'arabic' ? 'Arabic' : 'English'
+  try {
+    const { text: translated, usage } = await generateReply({
+      config,
+      systemPrompt:
+        `The message below was about to be sent to a customer, but it is written in the wrong language -- translate it into ${targetLanguage} instead. ` +
+        'Preserve the meaning, tone, and any numbers, product names, or URLs exactly -- do not add, remove, or answer anything new. ' +
+        'Output ONLY the translated message text, nothing else.',
+      messages: [{ role: 'user', content: replyText }],
+    })
+    void logAiUsage(db, {
+      accountId,
+      conversationId,
+      mode: 'translate',
+      provider: config.provider,
+      model: config.model,
+      usage,
+    })
+    if (translated.trim() && detectScript(translated) === customerScript) {
+      return translated.trim()
+    }
+    console.warn(
+      '[ai auto-reply] language correction did not land in the target script -- sending the original.',
+    )
+    return replyText
+  } catch (err) {
+    console.error('[ai auto-reply] language correction call failed:', err)
+    return replyText
   }
 }
 
@@ -500,6 +569,15 @@ export async function dispatchInboundToAiReply(
       return
     }
 
+    const outboundText = await correctReplyLanguageIfNeeded({
+      db,
+      accountId,
+      conversationId,
+      config,
+      customerMessage: latestUserMessage(messages),
+      replyText: text,
+    })
+
     // Atomically claim a reply slot: the cap check + increment happen in
     // one UPDATE, so concurrent inbounds can never overshoot the cap. If
     // another inbound just took the last slot, `claimed` is false and we
@@ -527,7 +605,7 @@ export async function dispatchInboundToAiReply(
       userId: configOwnerUserId,
       conversationId,
       contactId,
-      text,
+      text: outboundText,
       aiGenerated: true,
     })
 
