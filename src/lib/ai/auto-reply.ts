@@ -9,6 +9,7 @@ import {
   buildSystemPrompt,
   isArabicText,
   detectScript,
+  containsPriceFigure,
   HANDOFF_CLOSING_MESSAGE_EN,
   HANDOFF_CLOSING_MESSAGE_AR,
 } from './defaults'
@@ -553,7 +554,28 @@ export async function dispatchInboundToAiReply(
       }
     }
 
-    if (handoff || !text) {
+    // Deterministic backstop against quoting a price for a product the
+    // model never actually committed to (see the price/TAG_PRODUCT
+    // coupling rule in defaults.ts) -- a hedged "if you mean X, it's Y"
+    // answer is still a price, and the prompt alone can't guarantee the
+    // model won't reach for one anyway. If the reply states a
+    // price-shaped figure without tagging a product that has a
+    // configured range to back it up, treat it exactly like the
+    // no-match case: hand off instead of sending an unverified number.
+    const quotesUnverifiedPrice =
+      !!text &&
+      containsPriceFigure(text) &&
+      !(
+        productTagId &&
+        media.some((m) => m.id === productTagId && m.priceMin != null && m.priceMax != null)
+      )
+    if (quotesUnverifiedPrice) {
+      console.warn(
+        '[ai auto-reply] reply quoted a price without a matching tagged product -- forcing handoff instead of sending it.',
+      )
+    }
+
+    if (handoff || !text || quotesUnverifiedPrice) {
       await performHandoff({
         db,
         accountId,

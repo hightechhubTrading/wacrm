@@ -567,6 +567,107 @@ describe('dispatchInboundToAiReply — language correction', () => {
   })
 })
 
+describe('dispatchInboundToAiReply — unverified price backstop', () => {
+  it('hands off instead of sending a price that was not tagged to any product', async () => {
+    h.generateReply.mockResolvedValue({
+      text: 'إذا تقصد بديل الخشب الخارجي للحوش، فالسعر التقديري للمتر يبدأ من 350 إلى 380 ريال للمتر.',
+      handoff: false,
+      mediaId: null,
+      productTagId: null,
+    })
+    h.state.admins = [{ user_id: 'admin-1' }]
+
+    await dispatchInboundToAiReply(ARGS)
+
+    expect(h.state.rpcCalls).toHaveLength(0) // never claimed a reply slot -- no send attempted
+    expect(h.engineSendText).toHaveBeenCalledTimes(1)
+    expect(h.engineSendText.mock.calls[0][0]).toMatchObject({
+      text: expect.stringContaining('team members will follow up'),
+    })
+    expect(h.state.updatePayload).toMatchObject({ ai_autoreply_disabled: true })
+  })
+
+  it('hands off when the tagged product has no configured price range to back up the quoted number', async () => {
+    h.state.products = [
+      {
+        id: 'prod-1',
+        name: 'Wood alternative cladding',
+        description: 'Composite decking',
+        tag_id: null,
+        price_min: null,
+        price_max: null,
+        price_unit: null,
+        price_notes: null,
+        ai_product_media: [],
+      },
+    ]
+    h.generateReply.mockResolvedValue({
+      text: 'السعر التقديري للمتر يبدأ من 350 إلى 380 ريال للمتر.',
+      handoff: false,
+      mediaId: null,
+      productTagId: 'prod-1',
+    })
+
+    await dispatchInboundToAiReply(ARGS)
+
+    expect(h.state.rpcCalls).toHaveLength(0)
+    expect(h.engineSendText.mock.calls[0][0]).toMatchObject({
+      text: expect.stringContaining('team members will follow up'),
+    })
+  })
+
+  it('sends normally when the quoted price is backed by the actually-tagged product', async () => {
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: 'كم سعر المتر بديل الخشب' },
+    ])
+    h.state.products = [
+      {
+        id: 'prod-1',
+        name: 'Wood alternative cladding',
+        description: 'Composite decking',
+        tag_id: null,
+        price_min: 350,
+        price_max: 380,
+        price_unit: 'per_meter',
+        price_notes: null,
+        ai_product_media: [],
+      },
+    ]
+    h.generateReply.mockResolvedValue({
+      text: 'السعر التقديري للمتر يبدأ من 350 إلى 380 ريال للمتر.',
+      handoff: false,
+      mediaId: null,
+      productTagId: 'prod-1',
+    })
+
+    await dispatchInboundToAiReply(ARGS)
+
+    expect(h.state.rpcCalls).toHaveLength(1)
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: 'السعر التقديري للمتر يبدأ من 350 إلى 380 ريال للمتر.',
+      }),
+    )
+  })
+
+  it('does not affect a reply with no price figure at all', async () => {
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: 'كم سعر المتر بديل الخشب' },
+    ])
+    h.generateReply.mockResolvedValue({
+      text: 'ممكن ترسل المقاسات التقريبية أو صورة للمكان؟',
+      handoff: false,
+      mediaId: null,
+      productTagId: null,
+    })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.state.rpcCalls).toHaveLength(1)
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'ممكن ترسل المقاسات التقريبية أو صورة للمكان؟' }),
+    )
+  })
+})
+
 describe('dispatchInboundToAiReply — rolling conversation summary', () => {
   it('regenerates a stale summary for every conversation, not just after-hours takeover, and mirrors it onto contact_notes', async () => {
     h.state.conv = { ...h.state.conv, ai_context_summary_at: null }

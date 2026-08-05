@@ -64,6 +64,30 @@ export function detectScript(text: string): 'arabic' | 'latin' | 'mixed' {
 }
 
 /**
+ * Rough currency-figure sniff -- a digit adjacent to a currency word,
+ * in either order ("350 \u0631\u064A\u0627\u0644" or "QAR 350"). Deliberately loose (any
+ * of this business's plausible currencies, Arabic or Latin), because
+ * the point isn't identifying the exact amount, only whether the reply
+ * states a price-shaped number at all.
+ *
+ * Used as one half of a deterministic backstop against the model
+ * quoting a number for a product it never actually committed to (see
+ * PRODUCT_TAG_SENTINEL_* below and the check in auto-reply.ts) -- a
+ * plain measurement like "3.5\u00D72.5" has no currency word nearby and
+ * correctly does not match.
+ */
+export function containsPriceFigure(text: string): boolean {
+  const num = '[0-9\u0660-\u0669][0-9\u0660-\u0669,.]*'
+  const currency = '(?:\u0631\u064A\u0627\u0644|\u0631\\.\u0642|\u062F\u0631\u0647\u0645|\u062F\u064A\u0646\u0627\u0631|\u062C\u0646\u064A\u0647|\u062F\u0648\u0644\u0627\u0631|QAR|QR|SAR|AED|USD|EGP|\\$)'
+  const numberThenCurrency = new RegExp(
+    `${num}\\s*(?:-|\u2013|\u0625\u0644\u0649|to)?\\s*(?:${num})?\\s*${currency}`,
+    'i',
+  )
+  const currencyThenNumber = new RegExp(`${currency}\\s*${num}`, 'i')
+  return numberThenCurrency.test(text) || currencyThenNumber.test(text)
+}
+
+/**
  * Sentinel wrapper the model is instructed to emit (in auto-reply mode,
  * only when the account has media-library items) to attach ONE product
  * photo/catalog by id -- e.g. `[[SEND_MEDIA:3f2a...]]`. Parsed and
@@ -293,6 +317,7 @@ export function buildSystemPrompt(args: {
         'The customer never sees these markers -- they are stripped before sending and the matching file (if any) is attached automatically. ' +
         "When a product's pricing shows only a unit (e.g. \"per meter\") with no range, that is for YOUR reference only, to ask the right clarifying question (e.g. a per-meter product -> ask how many meters) -- it is NOT permission to state a number; the absolute no-pricing rule above still applies. " +
         'When a product\'s pricing shows an estimated range (e.g. "estimated 80-120 per meter"), you MAY share that range with the customer as a clearly-labeled estimate -- always say it is an estimate and that the final price is confirmed by the team, never state it as a confirmed final number, and never state a number outside the shown range. If the product also lists addon/option notes (e.g. "options: automatic +$60, custom colors +$20"), you may reference those the same way, as part of the same estimate -- never as a separate confirmed price. Sharing an estimate does not require a handoff; keep the conversation going normally afterward. ' +
+        `Sharing a price this way REQUIRES the same certainty as tagging a product: whenever you state any number, range, or estimate to the customer, you MUST also emit ${PRODUCT_TAG_SENTINEL_OPEN}id${PRODUCT_TAG_SENTINEL_CLOSE} for that exact product in the same reply -- the two always travel together, and a reply that states a price without tagging the product it belongs to will be treated as invalid and never reach the customer. Never phrase a price as a conditional guess to get around this -- "if you mean X, it's Y" or "assuming this is X, the price is Y" is still stating a price, and if you are not sure enough of the match to tag the product plainly, you are not sure enough to attach any number to it, hedged or not. When you are that unsure and the customer has already asked for a price before in this conversation, treat it exactly like the no-match case: do not guess -- hand off instead of offering a hedged number. ` +
         'Whenever the customer explicitly asks for an approximate, rough, or estimated number -- words like "roughly," "about how much," or "just give me an estimate" -- and a range is configured for the matched product, that is your cue to actually share it. Do not refuse or keep deferring just because final measurements, installation details, or site visit info are not yet known -- the range exists precisely so you can answer this question before those details are settled; only decline a number when NO range is configured for the matched product, or nothing matches at all. ' +
         'If nothing clearly matches, do not attach anything and do not mention any marker.\n\n' +
         media
