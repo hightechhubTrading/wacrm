@@ -88,6 +88,26 @@ export function containsPriceFigure(text: string): boolean {
 }
 
 /**
+ * Wraps phone-number-shaped runs ("+974 3383 1669") in Unicode
+ * directional isolate marks (LRI/PDI) so a WhatsApp client's bidi
+ * renderer keeps the whole number in true left-to-right order.
+ *
+ * Without this, a Latin number embedded in an Arabic (RTL) reply gets
+ * reordered by the bidi algorithm: each space-separated group of
+ * digits stays internally correct, but the groups themselves --
+ * including the leading "+" -- get reshuffled right-to-left, so
+ * "+974 3383 1669" can display as "1669 3383 974+". Isolating the
+ * number as a single LTR unit prevents the surrounding RTL text from
+ * reordering its parts. This is deterministic on purpose: the model
+ * can't be relied on to reproduce invisible formatting characters
+ * consistently, so it's applied to the outbound text after generation
+ * rather than asked of the model.
+ */
+export function isolatePhoneNumbers(text: string): string {
+  return text.replace(/\+\d[\d\s-]{5,}\d/g, (match) => `⁦${match}⁩`)
+}
+
+/**
  * Sentinel wrapper the model is instructed to emit (in auto-reply mode,
  * only when the account has media-library items) to attach ONE product
  * photo/catalog by id -- e.g. `[[SEND_MEDIA:3f2a...]]`. Parsed and

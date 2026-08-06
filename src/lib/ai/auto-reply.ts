@@ -10,6 +10,7 @@ import {
   isArabicText,
   detectScript,
   containsPriceFigure,
+  isolatePhoneNumbers,
   HANDOFF_CLOSING_MESSAGE_EN,
   HANDOFF_CLOSING_MESSAGE_AR,
 } from './defaults'
@@ -591,14 +592,16 @@ export async function dispatchInboundToAiReply(
       return
     }
 
-    const outboundText = await correctReplyLanguageIfNeeded({
-      db,
-      accountId,
-      conversationId,
-      config,
-      customerMessage: latestUserMessage(messages),
-      replyText: text,
-    })
+    const outboundText = isolatePhoneNumbers(
+      await correctReplyLanguageIfNeeded({
+        db,
+        accountId,
+        conversationId,
+        config,
+        customerMessage: latestUserMessage(messages),
+        replyText: text,
+      }),
+    )
 
     // Atomically claim a reply slot: the cap check + increment happen in
     // one UPDATE, so concurrent inbounds can never overshoot the cap. If
