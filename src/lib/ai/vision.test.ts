@@ -106,4 +106,42 @@ describe('analyzeImage', () => {
       }),
     ).rejects.toBeInstanceOf(AiError)
   })
+
+  it('folds recent conversation text into the prompt when given, so the description can reason about relevance', async () => {
+    const fetchMock = vi.fn(async (_url: string, opts: { body: string }) => {
+      const body = JSON.parse(opts.body)
+      const promptText = body.messages[0].content[0].text
+      expect(promptText).toContain('Customer: I need to replace only the motor')
+      expect(promptText).toContain('relevant to what the customer is asking about above')
+      return okResponse('A roller shutter power unit; the motor housing matches what the customer described.')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await analyzeImage({
+      provider: 'openai',
+      apiKey: 'sk-x',
+      imageBuffer: Buffer.from('fake-image'),
+      mimeType: 'image/jpeg',
+      conversationContext: 'Customer: I need to replace only the motor',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('omits the context clause entirely when no conversation context is given', async () => {
+    const fetchMock = vi.fn(async (_url: string, opts: { body: string }) => {
+      const body = JSON.parse(opts.body)
+      const promptText = body.messages[0].content[0].text
+      expect(promptText).not.toContain('Recent conversation')
+      return okResponse('A grey sofa.')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await analyzeImage({
+      provider: 'openai',
+      apiKey: 'sk-x',
+      imageBuffer: Buffer.from('fake-image'),
+      mimeType: 'image/jpeg',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
 })

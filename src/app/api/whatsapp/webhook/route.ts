@@ -8,6 +8,7 @@ import { loadAiConfig } from '@/lib/ai/config'
 import { transcribeAudio } from '@/lib/ai/transcribe'
 import { findOrCreateContact, findOrCreateConversation } from '@/lib/contacts/find-or-create'
 import { analyzeImage } from '@/lib/ai/vision'
+import { buildConversationContext } from '@/lib/ai/context'
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature'
 import { runAutomationsForTrigger } from '@/lib/automations/engine'
 import { dispatchInboundToFlows } from '@/lib/flows/engine'
@@ -672,11 +673,28 @@ async function processMessage(
           accessToken,
         })
         const { buffer } = await downloadMedia({ downloadUrl, accessToken })
+        // Best-effort: a handful of prior turns so the description can
+        // reason about what the customer actually wants (e.g. call out a
+        // motor/control box because they asked about a motor replacement)
+        // instead of captioning the photo in isolation. Never blocks the
+        // analysis itself if this lookup fails.
+        const priorMessages = await buildConversationContext(supabaseAdmin(), conversation.id, 6).catch(
+          (err) => {
+            console.error('[webhook] fetching prior context for image analysis failed:', err)
+            return []
+          },
+        )
+        const conversationContext = priorMessages.length
+          ? priorMessages
+              .map((m) => `${m.role === 'user' ? 'Customer' : 'Business'}: ${m.content}`)
+              .join('\n')
+          : undefined
         imageDescription = await analyzeImage({
           provider: aiConfigForMedia.imageAnalysisProvider,
           apiKey: aiConfigForMedia.imageAnalysisApiKey,
           imageBuffer: buffer,
           mimeType: message.image.mime_type || 'image/jpeg',
+          conversationContext,
         })
       }
     } catch (err) {
