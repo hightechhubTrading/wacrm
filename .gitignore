@@ -51,3 +51,4 @@ next-env.d.ts
 # network/domain setup and secrets via env interpolation — not for the repo)
 /docker-compose.yml
 .worktrees/
+supabase/.temp/
