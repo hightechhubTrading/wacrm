@@ -150,6 +150,12 @@ ALTER TABLE quotation_sequences ENABLE ROW LEVEL SECURITY;
 -- is added on purpose: RLS enabled with zero policies denies all
 -- direct client access while the function itself bypasses RLS.
 
+-- Bug caught in Task 1's review, not present when this was first drafted:
+-- SECURITY DEFINER + GRANT EXECUTE TO authenticated means ANY authenticated
+-- user of ANY account could call this with someone else's account_id and
+-- burn/observe that account's sequence counter. The membership check below
+-- closes it, mirroring the pattern migration 018's set_member_role already
+-- uses for exactly this class of privileged RPC.
 CREATE OR REPLACE FUNCTION next_quotation_reference(p_account_id uuid, p_code text)
 RETURNS text
 LANGUAGE plpgsql
@@ -160,6 +166,10 @@ DECLARE
   v_year text := to_char(now(), 'YY');
   v_n integer;
 BEGIN
+  IF NOT is_account_member(p_account_id, 'agent') THEN
+    RAISE EXCEPTION 'Unauthorized' USING ERRCODE = '42501';
+  END IF;
+
   INSERT INTO quotation_sequences (account_id, year, code, next_number)
   VALUES (p_account_id, v_year, p_code, 2)
   ON CONFLICT (account_id, year, code)
@@ -292,9 +302,21 @@ CREATE INDEX IF NOT EXISTS quotation_items_account_id_idx ON quotation_items (ac
 
 ALTER TABLE quotation_items ENABLE ROW LEVEL SECURITY;
 
+-- Bug caught in Task 1's review: this used to trust quotation_items.account_id
+-- directly, a column the client sets on insert with nothing tying it to the
+-- item's actual parent quotation. A row whose account_id didn't match its
+-- quotation_id's real account would be visible to the wrong tenant. Now
+-- derives from the parent exactly like quotation_items_write already did --
+-- account_id stays on the row for indexing only, never as a security boundary.
 DROP POLICY IF EXISTS quotation_items_select ON quotation_items;
 CREATE POLICY quotation_items_select ON quotation_items FOR SELECT
-  USING (is_account_member(account_id));
+  USING (
+    EXISTS (
+      SELECT 1 FROM quotations q
+      WHERE q.id = quotation_items.quotation_id
+        AND is_account_member(q.account_id)
+    )
+  );
 
 -- Re-checks the PARENT quotation's own assigned_to rule, not just "does
 -- some quotation with this id exist" -- see spec self-review note.
