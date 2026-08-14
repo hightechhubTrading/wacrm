@@ -856,16 +856,46 @@ git commit -m "feat(quotations): add race-safe reference number data access"
 
 ### Task 5: Quotation CRUD data access
 
+**Revision note (post-review):** this task's original version shipped, was
+reviewed, and the review found three real defects — all inherited from
+this plan's own reference code, not implementer deviations. This section
+is the corrected version; the fixes below are what an implementer should
+build. See the ledger for the original review findings.
+
+1. `createQuotation` returned a bare `as unknown as Quotation` cast with
+   no snake_case→camelCase mapping — every field except the two that
+   happen to be spelled identically (`reference`, `status`) came back
+   `undefined` at runtime despite TypeScript believing otherwise. Fixed
+   with explicit `mapQuotationRow`/`mapQuotationItemRow` functions that
+   every future task returning a quotation to a client must use — see
+   the equivalent notes added to Tasks 6, 11, and 12.
+2. `saveQuotationItems` did delete-then-insert-then-update as three
+   separate `supabase-js` calls with no transaction — an insert failing
+   after the delete succeeded left a quotation with zero items but a
+   stale non-zero total, with no rollback. Fixed by moving all three
+   writes into one atomic Postgres function
+   (`supabase/migrations/060_quotation_atomic_save.sql`), called via a
+   single `.rpc()`.
+3. `QuotationItemInput` (Task 3) is intentionally narrow — it carries
+   only what `computeQuotationTotals` needs for arithmetic. But the
+   original `saveQuotationItems` read exclusively from that narrow type,
+   so no item ever actually got a `description`, `sizeW`/`sizeH`,
+   `itemCode`, or catalog `productId` persisted — every saved item would
+   show blank text with no dimensions. Fixed with a new
+   `QuotationItemToSave` type (`extends QuotationItemInput`) carrying the
+   display fields, which is what `saveQuotationItems` now accepts.
+
 **Files:**
 - Create: `src/lib/quotations/types.ts`
+- Create: `supabase/migrations/060_quotation_atomic_save.sql`
 - Create: `src/lib/quotations/crud.ts`
 - Test: `src/lib/quotations/crud.test.ts`
 
 **Interfaces:**
 - Consumes: `computeQuotationTotals`, `QuotationItemInput` (Task 3); `getNextQuotationReference` (Task 4); `supabaseAdmin` (Task 4).
-- Produces: `type Quotation`, `type QuotationItem` (Task 6+ API routes and Task 11+ UI import these); `createQuotation(input: CreateQuotationInput): Promise<Quotation>`; `saveQuotationItems(quotationId: string, accountId: string, items: QuotationItemInput[]): Promise<void>` (recomputes and writes `subtotal`/`discount_amount`/`total`/`line_total` on every call — server is always the source of truth, per Global Constraints).
+- Produces: `type Quotation`, `type QuotationItem`, `type QuotationItemToSave`, `mapQuotationRow(row): Quotation`, `mapQuotationItemRow(row): QuotationItem` (Task 6+ API routes and Task 11+ UI import these — **always map a raw Supabase row through these before returning it to a client; never pass a raw row through directly**); `createQuotation(input: CreateQuotationInput): Promise<Quotation>`; `saveQuotationItems(quotationId: string, accountId: string, items: QuotationItemToSave[], orderDiscount?): Promise<void>` (recomputes and writes `subtotal`/`discount_amount`/`total`/`line_total` atomically on every call — server is always the source of truth, per Global Constraints).
 
-- [ ] **Step 1: Write shared types**
+- [ ] **Step 1: Write shared types and mappers**
 
 ```typescript
 // src/lib/quotations/types.ts
@@ -915,13 +945,169 @@ export interface QuotationItem {
   discountValue: number | null;
   lineTotal: number;
 }
+
+// Postgres/PostgREST returns snake_case columns; the app works in
+// camelCase throughout. A bare cast (`row as Quotation`) silently
+// produces `undefined` for every field whose name isn't spelled
+// identically in both conventions — found in Task 5's review, where
+// only `reference`/`status` happened to match and hid the bug from the
+// original test. Every quotation row reaching a client MUST go through
+// this mapper.
+export function mapQuotationRow(row: Record<string, any>): Quotation {
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    reference: row.reference,
+    revision: row.revision,
+    status: row.status,
+    clientName: row.client_name,
+    clientPhone: row.client_phone,
+    clientCompany: row.client_company,
+    location: row.location,
+    projectName: row.project_name,
+    subject: row.subject,
+    currency: row.currency,
+    contactId: row.contact_id,
+    dealId: row.deal_id,
+    assignedTo: row.assigned_to,
+    discountType: row.discount_type,
+    discountValue: row.discount_value,
+    subtotal: row.subtotal,
+    discountAmount: row.discount_amount,
+    total: row.total,
+    validUntil: row.valid_until,
+    pdfStoragePath: row.pdf_storage_path,
+  };
+}
+
+export function mapQuotationItemRow(row: Record<string, any>): QuotationItem {
+  return {
+    id: row.id,
+    quotationId: row.quotation_id,
+    parentItemId: row.parent_item_id,
+    productId: row.product_id,
+    position: row.position,
+    itemType: row.item_type,
+    kind: row.kind,
+    itemCode: row.item_code,
+    description: row.description,
+    descriptionAr: row.description_ar,
+    sizeW: row.size_w,
+    sizeH: row.size_h,
+    qty: row.qty,
+    unitPrice: row.unit_price,
+    discountType: row.discount_type,
+    discountValue: row.discount_value,
+    lineTotal: row.line_total,
+  };
+}
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [ ] **Step 2: Write the atomic-save migration**
+
+```sql
+-- ============================================================
+-- 060_quotation_atomic_save.sql
+--
+-- save_quotation_items() wraps delete-existing-items, insert-new-items,
+-- and update-quotation-totals in ONE Postgres function, so all three
+-- writes commit or roll back together. Fixes a real data-loss window
+-- found in Task 5's review: three separate supabase-js calls (no
+-- client-side transaction support) meant an insert failing after the
+-- delete succeeded left a quotation with zero items but a stale
+-- non-zero total, with no recovery path.
+--
+-- p_items is a jsonb array -- supabase-js's .rpc() accepts a plain JS
+-- array/object for a jsonb parameter directly. Each element's own `id`
+-- must be a real UUID generated by the CALLER (crypto.randomUUID()
+-- client-side -- see the Task 13 fix), not a placeholder string, so a
+-- child item's parent_item_id can reference a sibling item in the SAME
+-- batch by its real id before either row exists in the table yet.
+--
+-- Authorization mirrors quotation_items_write (059) exactly: admin, or
+-- the quotation's own assigned agent, and nobody else.
+--
+-- Idempotent -- safe to run multiple times.
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION save_quotation_items(
+  p_quotation_id uuid,
+  p_account_id uuid,
+  p_items jsonb,
+  p_subtotal numeric,
+  p_discount_amount numeric,
+  p_total numeric
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM quotations q
+    WHERE q.id = p_quotation_id
+      AND (
+        is_account_member(q.account_id, 'admin')
+        OR (is_account_member(q.account_id, 'agent')
+            AND q.assigned_to = (SELECT id FROM profiles WHERE profiles.user_id = auth.uid()))
+      )
+  ) THEN
+    RAISE EXCEPTION 'Unauthorized' USING ERRCODE = '42501';
+  END IF;
+
+  DELETE FROM quotation_items WHERE quotation_id = p_quotation_id;
+
+  INSERT INTO quotation_items (
+    id, quotation_id, account_id, parent_item_id, product_id, position,
+    item_type, kind, item_code, description, description_ar,
+    size_w, size_h, qty, unit_price, discount_type, discount_value, line_total
+  )
+  SELECT
+    (elem->>'id')::uuid,
+    p_quotation_id,
+    p_account_id,
+    NULLIF(elem->>'parent_item_id', '')::uuid,
+    NULLIF(elem->>'product_id', '')::uuid,
+    (elem->>'position')::integer,
+    elem->>'item_type',
+    elem->>'kind',
+    elem->>'item_code',
+    elem->>'description',
+    elem->>'description_ar',
+    (elem->>'size_w')::numeric,
+    (elem->>'size_h')::numeric,
+    COALESCE((elem->>'qty')::numeric, 1),
+    (elem->>'unit_price')::numeric,
+    elem->>'discount_type',
+    (elem->>'discount_value')::numeric,
+    COALESCE((elem->>'line_total')::numeric, 0)
+  FROM jsonb_array_elements(p_items) AS elem;
+
+  UPDATE quotations
+  SET subtotal = p_subtotal, discount_amount = p_discount_amount, total = p_total
+  WHERE id = p_quotation_id;
+END;
+$$;
+
+ALTER FUNCTION save_quotation_items(uuid, uuid, jsonb, numeric, numeric, numeric) OWNER TO postgres;
+GRANT EXECUTE ON FUNCTION save_quotation_items(uuid, uuid, jsonb, numeric, numeric, numeric) TO authenticated, service_role;
+```
+
+Apply and verify per this repo's actual process (hand-run in the Supabase
+SQL editor — see Task 1). Verification: call `save_quotation_items` with
+a real `quotation_id` you're NOT the assigned agent for (and aren't
+admin) — expect `42501 Unauthorized`. Then call it with a valid
+quotation and a small items array, and confirm `select * from
+quotation_items where quotation_id = '<id>'` shows the rows with
+`description`/`size_w`/`size_h` actually populated — the exact fields
+the original version silently dropped.
+
+- [ ] **Step 3: Write the failing tests**
 
 ```typescript
 import { describe, expect, it, vi } from 'vitest';
-import type { QuotationItemInput } from './totals';
+import type { QuotationItemToSave } from './crud';
 
 const rpc = vi.fn();
 const from = vi.fn();
@@ -933,6 +1119,7 @@ vi.mock('./reference', () => ({
 }));
 
 import { createQuotation, saveQuotationItems } from './crud';
+import { mapQuotationRow, mapQuotationItemRow } from './types';
 
 function chain(finalResult: unknown) {
   const builder: Record<string, unknown> = {};
@@ -944,9 +1131,44 @@ function chain(finalResult: unknown) {
   return builder;
 }
 
+describe('mapQuotationRow', () => {
+  it('maps every snake_case column to its camelCase field, not just the ones that happen to match', () => {
+    const row = {
+      id: 'q-1', account_id: 'acc-1', reference: 'HT-26-PIV-001', revision: 0, status: 'draft',
+      client_name: 'Ahmed', client_phone: '+97455509200', client_company: 'Al Sulaiti Villas',
+      location: 'Al Waab', project_name: 'Private villa', subject: 'Pivot Door', currency: 'QAR',
+      contact_id: null, deal_id: null, assigned_to: 'p-1', discount_type: null, discount_value: null,
+      subtotal: 3600, discount_amount: 0, total: 3600, valid_until: '2026-03-01', pdf_storage_path: null,
+    };
+    const result = mapQuotationRow(row);
+    expect(result.accountId).toBe('acc-1');
+    expect(result.clientName).toBe('Ahmed');
+    expect(result.projectName).toBe('Private villa');
+    expect(result.assignedTo).toBe('p-1');
+  });
+});
+
+describe('mapQuotationItemRow', () => {
+  it('maps size and description fields, not just the arithmetic ones', () => {
+    const row = {
+      id: 'i-1', quotation_id: 'q-1', parent_item_id: null, product_id: null, position: 0,
+      item_type: 'line', kind: null, item_code: 'D01', description: 'Pivot door', description_ar: null,
+      size_w: 1.74, size_h: 3.86, qty: 1, unit_price: 16000, discount_type: null, discount_value: null,
+      line_total: 16000,
+    };
+    const result = mapQuotationItemRow(row);
+    expect(result.description).toBe('Pivot door');
+    expect(result.sizeW).toBe(1.74);
+    expect(result.sizeH).toBe(3.86);
+  });
+});
+
 describe('createQuotation', () => {
-  it('fetches a reference number and inserts with defaults', async () => {
-    const inserted = { id: 'q-1', reference: 'HT-26-PIV-001', account_id: 'acc-1', status: 'draft' };
+  it('fetches a reference number, inserts, and returns a fully-mapped Quotation', async () => {
+    const inserted = {
+      id: 'q-1', reference: 'HT-26-PIV-001', account_id: 'acc-1', status: 'draft',
+      client_name: 'Ahmed', subtotal: 0, discount_amount: 0, total: 0,
+    };
     from.mockReturnValueOnce(chain({ data: inserted, error: null }));
 
     const result = await createQuotation({ accountId: 'acc-1', productCode: 'PIV', currency: 'QAR' });
@@ -954,42 +1176,54 @@ describe('createQuotation', () => {
     expect(from).toHaveBeenCalledWith('quotations');
     expect(result.reference).toBe('HT-26-PIV-001');
     expect(result.status).toBe('draft');
+    expect(result.accountId).toBe('acc-1'); // the field the original bug silently dropped
+    expect(result.clientName).toBe('Ahmed');
   });
 });
 
 describe('saveQuotationItems', () => {
-  it('recomputes totals server-side and writes them alongside the items', async () => {
-    const deleteChain = chain({ error: null });
-    const insertChain = chain({ error: null });
-    const updateChain = chain({ error: null });
-    from
-      .mockReturnValueOnce(deleteChain) // delete existing items
-      .mockReturnValueOnce(insertChain) // insert new items
-      .mockReturnValueOnce(updateChain); // update quotation totals
+  it('recomputes totals server-side and saves atomically via one RPC call, with description/size fields intact', async () => {
+    rpc.mockResolvedValueOnce({ error: null });
 
-    const items: QuotationItemInput[] = [{ id: 'a', itemType: 'line', qty: 1, unitPrice: 3600 }];
+    const items: QuotationItemToSave[] = [{
+      id: 'a1111111-1111-1111-1111-111111111111', itemType: 'line', qty: 1, unitPrice: 3600,
+      description: 'Electric roll-up door', sizeW: 3.66, sizeH: 2.6,
+    }];
     await saveQuotationItems('q-1', 'acc-1', items);
 
-    expect(updateChain.update).toHaveBeenCalledWith(
-      expect.objectContaining({ subtotal: 3600, discount_amount: 0, total: 3600 }),
-    );
+    expect(rpc).toHaveBeenCalledWith('save_quotation_items', expect.objectContaining({
+      p_quotation_id: 'q-1',
+      p_account_id: 'acc-1',
+      p_subtotal: 3600,
+      p_discount_amount: 0,
+      p_total: 3600,
+    }));
+    const call = rpc.mock.calls[0][1];
+    expect(call.p_items[0].description).toBe('Electric roll-up door');
+    expect(call.p_items[0].size_w).toBe(3.66);
+  });
+
+  it('throws with the Postgres error message on failure, e.g. the Unauthorized case', async () => {
+    rpc.mockResolvedValueOnce({ error: { message: 'Unauthorized' } });
+    const items: QuotationItemToSave[] = [{ id: 'a1111111-1111-1111-1111-111111111111', itemType: 'line', qty: 1, unitPrice: 100 }];
+    await expect(saveQuotationItems('q-1', 'acc-1', items)).rejects.toThrow('Unauthorized');
   });
 });
 ```
 
-- [ ] **Step 3: Run to verify failure**
+- [ ] **Step 4: Run to verify failure**
 
 Run: `npx vitest run src/lib/quotations/crud.test.ts`
-Expected: FAIL — `Cannot find module './crud'`.
+Expected: FAIL — `Cannot find module './crud'` (and the two `mapQuotation*` tests fail against the not-yet-widened `types.ts` if Step 1 wasn't done first — do Step 1 before this step).
 
-- [ ] **Step 4: Write the implementation**
+- [ ] **Step 5: Write the implementation**
 
 ```typescript
 // src/lib/quotations/crud.ts
 import { supabaseAdmin } from './admin-client';
 import { getNextQuotationReference } from './reference';
 import { computeQuotationTotals, type QuotationItemInput, type OrderDiscount } from './totals';
-import type { Quotation } from './types';
+import { mapQuotationRow, type Quotation } from './types';
 
 export interface CreateQuotationInput {
   accountId: string;
@@ -1002,6 +1236,18 @@ export interface CreateQuotationInput {
   clientName?: string;
   clientPhone?: string;
   clientCompany?: string;
+}
+
+// Wider than QuotationItemInput (Task 3), which stays narrow on purpose —
+// it only carries what computeQuotationTotals needs for arithmetic. This
+// is what actually gets persisted, so it carries the display fields too.
+export interface QuotationItemToSave extends QuotationItemInput {
+  productId?: string;
+  itemCode?: string;
+  description?: string;
+  descriptionAr?: string;
+  sizeW?: number;
+  sizeH?: number;
 }
 
 export async function createQuotation(input: CreateQuotationInput): Promise<Quotation> {
@@ -1026,61 +1272,59 @@ export async function createQuotation(input: CreateQuotationInput): Promise<Quot
     .single();
 
   if (error) throw new Error(error.message);
-  return data as unknown as Quotation;
+  return mapQuotationRow(data);
 }
 
 export async function saveQuotationItems(
   quotationId: string,
   accountId: string,
-  items: QuotationItemInput[],
+  items: QuotationItemToSave[],
   orderDiscount?: OrderDiscount,
 ): Promise<void> {
-  const admin = supabaseAdmin();
   const totals = computeQuotationTotals(items, orderDiscount);
 
-  const { error: deleteError } = await admin.from('quotation_items').delete().eq('quotation_id', quotationId);
-  if (deleteError) throw new Error(deleteError.message);
+  const payload = items.map((item, index) => ({
+    id: item.id,
+    parent_item_id: item.parentItemId ?? null,
+    product_id: item.productId ?? null,
+    position: index,
+    item_type: item.itemType,
+    kind: item.kind ?? null,
+    item_code: item.itemCode ?? null,
+    description: item.description ?? null,
+    description_ar: item.descriptionAr ?? null,
+    size_w: item.sizeW ?? null,
+    size_h: item.sizeH ?? null,
+    qty: item.qty ?? 1,
+    unit_price: item.unitPrice ?? 0,
+    discount_type: item.discountType ?? null,
+    discount_value: item.discountValue ?? null,
+    line_total: totals.itemTotals[item.id] ?? 0,
+  }));
 
-  if (items.length > 0) {
-    const rows = items.map((item, index) => ({
-      quotation_id: quotationId,
-      account_id: accountId,
-      parent_item_id: item.parentItemId ?? null,
-      position: index,
-      item_type: item.itemType,
-      kind: item.kind ?? null,
-      qty: item.qty ?? 1,
-      unit_price: item.unitPrice ?? 0,
-      discount_type: item.discountType ?? null,
-      discount_value: item.discountValue ?? null,
-      line_total: totals.itemTotals[item.id] ?? 0,
-    }));
-    const { error: insertError } = await admin.from('quotation_items').insert(rows);
-    if (insertError) throw new Error(insertError.message);
-  }
-
-  const { error: updateError } = await admin
-    .from('quotations')
-    .update({
-      subtotal: totals.subtotal,
-      discount_amount: totals.discountAmount,
-      total: totals.total,
-    })
-    .eq('id', quotationId);
-  if (updateError) throw new Error(updateError.message);
+  const { error } = await supabaseAdmin().rpc('save_quotation_items', {
+    p_quotation_id: quotationId,
+    p_account_id: accountId,
+    p_items: payload,
+    p_subtotal: totals.subtotal,
+    p_discount_amount: totals.discountAmount,
+    p_total: totals.total,
+  });
+  if (error) throw new Error(error.message);
 }
 ```
 
-- [ ] **Step 5: Run to verify pass**
+- [ ] **Step 6: Run to verify pass**
 
 Run: `npx vitest run src/lib/quotations/crud.test.ts`
-Expected: PASS, 2 tests.
+Expected: PASS, 6 tests.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add src/lib/quotations/types.ts src/lib/quotations/crud.ts src/lib/quotations/crud.test.ts
-git commit -m "feat(quotations): add quotation CRUD with server-side totals"
+git add src/lib/quotations/types.ts supabase/migrations/060_quotation_atomic_save.sql \
+  src/lib/quotations/crud.ts src/lib/quotations/crud.test.ts
+git commit -m "feat(quotations): add quotation CRUD with mapped rows and atomic item save"
 ```
 
 ---
@@ -1093,8 +1337,15 @@ git commit -m "feat(quotations): add quotation CRUD with server-side totals"
 - Test: `src/app/api/quotations/route.test.ts`
 
 **Interfaces:**
-- Consumes: `createQuotation`, `saveQuotationItems` (Task 5).
+- Consumes: `createQuotation`, `saveQuotationItems`, `mapQuotationRow`, `mapQuotationItemRow` (Task 5).
 - Produces: `POST /api/quotations`, `GET /api/quotations`, `GET /api/quotations/[id]`, `PATCH /api/quotations/[id]`.
+
+**Note (post Task-5-review):** any route that returns a quotation row (or
+its items) to the client must run it through `mapQuotationRow`/
+`mapQuotationItemRow` first — a raw Supabase row is snake_case and the
+client-side `Quotation`/`QuotationItem` types are camelCase. `POST` below
+is already correct because `createQuotation` maps internally; `GET` and
+`PATCH` do their own raw `.select()` calls and must map explicitly.
 
 Follows the existing route-handler pattern in
 `src/app/api/pipelines/deals/[id]/move/route.ts` (Next.js App Router route
@@ -1161,6 +1412,18 @@ export async function POST(request: Request) {
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/quotations/admin-client';
 import { saveQuotationItems } from '@/lib/quotations/crud';
+import { mapQuotationRow, mapQuotationItemRow } from '@/lib/quotations/types';
+
+// Shared by GET and PATCH — both return the same shape. Keeping the
+// nested-items mapping in one place means a future field added to
+// QuotationItem only needs mapQuotationItemRow updated, not every caller.
+function mapQuotationWithItems(row: any) {
+  const { quotation_items, ...quotationRow } = row;
+  return {
+    ...mapQuotationRow(quotationRow),
+    items: (quotation_items ?? []).map(mapQuotationItemRow),
+  };
+}
 
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   const { data, error } = await supabaseAdmin()
@@ -1169,7 +1432,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     .eq('id', params.id)
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 404 });
-  return NextResponse.json(data);
+  return NextResponse.json(mapQuotationWithItems(data));
 }
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
@@ -1187,7 +1450,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 
   const { data } = await admin.from('quotations').select('*, quotation_items(*)').eq('id', params.id).single();
-  return NextResponse.json(data);
+  return NextResponse.json(mapQuotationWithItems(data));
 }
 ```
 
@@ -1482,7 +1745,7 @@ git commit -m "feat(quotations): vendor branded template and add HTML filler"
 **Files:**
 - Modify: `package.json` (add `playwright` dependency)
 - Create: `src/lib/quotations/pdf.ts`
-- Create: `supabase/migrations/060_quotation_pdfs_storage.sql`
+- Create: `supabase/migrations/061_quotation_pdfs_storage.sql`
 - Test: `src/lib/quotations/pdf.test.ts`
 
 **Interfaces:**
@@ -1506,7 +1769,7 @@ npm install playwright
 
 ```sql
 -- ============================================================
--- 060_quotation_pdfs_storage.sql
+-- 061_quotation_pdfs_storage.sql
 --
 -- Creates the `quotation-pdfs` bucket. Public, matching `chat_media`
 -- (023) exactly and for the same reason: WhatsApp's delivery servers
@@ -1659,7 +1922,7 @@ total band, correct bilingual text direction.
 - [ ] **Step 9: Commit**
 
 ```bash
-git add package.json package-lock.json supabase/migrations/060_quotation_pdfs_storage.sql \
+git add package.json package-lock.json supabase/migrations/061_quotation_pdfs_storage.sql \
   src/lib/quotations/render.ts src/lib/quotations/pdf.ts src/lib/quotations/pdf.test.ts
 git commit -m "feat(quotations): add Playwright PDF generation and storage upload"
 ```
@@ -1852,6 +2115,7 @@ git commit -m "feat(quotations): add generate-PDF route and send-handoff route (
 ```typescript
 // Add to src/app/api/quotations/route.ts, alongside the existing POST:
 import { supabaseAdmin } from '@/lib/quotations/admin-client';
+import { mapQuotationRow } from '@/lib/quotations/types';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -1863,7 +2127,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json(data);
+  return NextResponse.json((data ?? []).map(mapQuotationRow));
 }
 ```
 
@@ -2159,7 +2423,15 @@ git commit -m "feat(quotations): add quotation detail page with party/project fo
 - Modify: `src/app/(dashboard)/quotations/[id]/page.tsx` (render the tree below the form)
 
 **Interfaces:**
-- Consumes: `computeQuotationTotals`, `QuotationItemInput` (Task 3); `GET`/`POST /api/catalog-items` (Task 7); `PATCH /api/quotations/[id]` with an `items` body (Task 6).
+- Consumes: `computeQuotationTotals` (Task 3); `QuotationItemToSave` (Task 5 — **not** `QuotationItemInput`; that type is arithmetic-only and doesn't carry `description`/`sizeW`/`sizeH`, see Task 5's revision note); `GET`/`POST /api/catalog-items` (Task 7); `PATCH /api/quotations/[id]` with an `items` body (Task 6).
+
+**Note (post Task-5-review):** the state type below is `QuotationItemToSave`, not
+`QuotationItemInput` — using the narrow type here was part of the same
+defect that made `saveQuotationItems` drop description/size fields.
+`newId()` generates a real UUID (`crypto.randomUUID()`), not a placeholder
+string — a child item's `parentItemId` must be a valid `uuid` before it's
+ever sent to the database (the atomic save function resolves parent-child
+links within one batch by real id, not by re-mapping temp strings).
 
 - [ ] **Step 1: Write the catalog picker**
 
@@ -2168,7 +2440,7 @@ git commit -m "feat(quotations): add quotation detail page with party/project fo
 'use client';
 
 import { useState } from 'react';
-import type { QuotationItemInput } from '@/lib/quotations/totals';
+import type { QuotationItemToSave } from '@/lib/quotations/crud';
 
 interface CatalogItem {
   id: string;
@@ -2182,7 +2454,7 @@ export function CatalogItemPicker({
   onPick,
 }: {
   accountId: string;
-  onPick: (item: Partial<QuotationItemInput> & { productId?: string; description?: string; saveToCatalog?: boolean; newName?: string }) => void;
+  onPick: (item: Partial<QuotationItemToSave> & { productId?: string; description?: string; saveToCatalog?: boolean; newName?: string }) => void;
 }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<CatalogItem[]>([]);
@@ -2235,11 +2507,15 @@ export function CatalogItemPicker({
 'use client';
 
 import { useMemo, useState } from 'react';
-import { computeQuotationTotals, type QuotationItemInput } from '@/lib/quotations/totals';
+import { computeQuotationTotals } from '@/lib/quotations/totals';
+import type { QuotationItemToSave } from '@/lib/quotations/crud';
 import { CatalogItemPicker } from './catalog-item-picker';
 
-let nextId = 0;
-const newId = () => `new-${++nextId}`;
+// A real UUID, not a placeholder string — see Task 5's revision note.
+// Client-generated v4 UUIDs are safe to use directly as primary keys;
+// the DB accepts an explicit id on insert instead of using its own
+// gen_random_uuid() default.
+const newId = () => crypto.randomUUID();
 
 export function QuotationItemTree({
   quotationId,
@@ -2248,9 +2524,9 @@ export function QuotationItemTree({
 }: {
   quotationId: string;
   accountId: string;
-  initialItems: QuotationItemInput[];
+  initialItems: QuotationItemToSave[];
 }) {
-  const [items, setItems] = useState<QuotationItemInput[]>(initialItems);
+  const [items, setItems] = useState<QuotationItemToSave[]>(initialItems);
   const totals = useMemo(() => computeQuotationTotals(items), [items]);
 
   function addProduct() {
@@ -2261,7 +2537,7 @@ export function QuotationItemTree({
     setItems([...items, { id: newId(), itemType: 'line', parentItemId, kind, qty: 1, unitPrice: 0 }]);
   }
 
-  function updateItem(id: string, patch: Partial<QuotationItemInput>) {
+  function updateItem(id: string, patch: Partial<QuotationItemToSave>) {
     setItems(items.map((i) => (i.id === id ? { ...i, ...patch } : i)));
   }
 
@@ -2288,9 +2564,9 @@ export function QuotationItemTree({
                 });
                 const created = await res.json();
                 updateItem(product.id, { unitPrice: picked.unitPrice });
-                updateItem(product.id, { ...picked, productId: created.id } as Partial<QuotationItemInput>);
+                updateItem(product.id, { ...picked, productId: created.id } as Partial<QuotationItemToSave>);
               } else {
-                updateItem(product.id, picked as Partial<QuotationItemInput>);
+                updateItem(product.id, picked as Partial<QuotationItemToSave>);
               }
             }}
           />
@@ -2313,7 +2589,7 @@ export function QuotationItemTree({
             .map((child) => (
               <div key={child.id} style={{ marginInlineStart: '24px' }}>
                 <span>{child.kind}</span>
-                <CatalogItemPicker accountId={accountId} onPick={(picked) => updateItem(child.id, picked as Partial<QuotationItemInput>)} />
+                <CatalogItemPicker accountId={accountId} onPick={(picked) => updateItem(child.id, picked as Partial<QuotationItemToSave>)} />
                 <input
                   type="number"
                   value={child.qty ?? 1}
