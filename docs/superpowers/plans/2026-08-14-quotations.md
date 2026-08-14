@@ -1307,6 +1307,7 @@ git commit -m "feat(quotations): add catalog search and create-on-the-fly API"
 ### Task 8: Branded HTML builder (pure, testable — no Playwright)
 
 **Files:**
+- Create: `src/lib/quotations/templates/quotation.html` (vendored copy)
 - Create: `src/lib/quotations/build-html.ts`
 - Test: `src/lib/quotations/build-html.test.ts`
 
@@ -1314,12 +1315,42 @@ git commit -m "feat(quotations): add catalog search and create-on-the-fly API"
 - Consumes: `Quotation`, `QuotationItem` (Task 5); `amountInWordsBilingual` (Task 2).
 - Produces: `buildQuotationHtml(quotation: Quotation, items: QuotationItem[]): string` — the filled HTML string. Kept separate from the Playwright screenshot call (Task 9) specifically so the data-substitution logic is unit-testable without spinning a browser.
 
-This reads the approved template at
-`04_Website/Company Essential/Stationery/quotation.html` and fills it —
-the same file already built, reviewed, and approved; this task does not
-redesign it.
+**Decided during pre-flight review, before this task started:** the
+original draft read the template via a relative path reaching across into
+the sibling `04_Website` repo (`../../04_Website/Company Essential/
+Stationery/quotation.html`). That only works if both repos happen to sit
+in sibling folders at exactly this depth on whatever machine runs it —
+true in local dev, not guaranteed on the VPS deploy. This task instead
+**vendors a copy** of the approved template into `wacrm` itself, so PDF
+generation is self-contained regardless of deployment layout. Tradeoff,
+stated plainly: if the source template in `04_Website` changes later,
+this copy needs a manual re-sync — the same tradeoff any vendored asset
+carries, and worth a one-line reminder in the copy's own header comment.
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Vendor the template**
+
+```bash
+mkdir -p src/lib/quotations/templates
+cp "/Volumes/Extreme SSD/Projects/Hitechub Qatar/04_Website/Company Essential/Stationery/quotation.html" \
+   src/lib/quotations/templates/quotation.html
+```
+
+(Absolute source path, deliberately — a relative path from inside a
+worktree under `wacrm/.worktrees/<name>/` is one directory-count mistake
+away from silently copying nothing or the wrong file. This command runs
+once, by hand, as part of this task; it is not application code, so it
+does not need to be portable.)
+
+Add a one-line comment at the top of the copied file (do not otherwise
+edit its content — it is the approved design, verbatim):
+
+```html
+<!-- Vendored from 04_Website/Company Essential/Stationery/quotation.html.
+     If the source template changes, re-copy it here — this file is not
+     read from the other repo at runtime. See plan Task 8. -->
+```
+
+- [ ] **Step 2: Write the failing tests**
 
 ```typescript
 import { describe, expect, it } from 'vitest';
@@ -1360,12 +1391,12 @@ describe('buildQuotationHtml', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [ ] **Step 3: Run to verify failure**
 
 Run: `npx vitest run src/lib/quotations/build-html.test.ts`
 Expected: FAIL — `Cannot find module './build-html'`.
 
-- [ ] **Step 3: Write the implementation**
+- [ ] **Step 4: Write the implementation**
 
 ```typescript
 // src/lib/quotations/build-html.ts
@@ -1374,9 +1405,8 @@ import path from 'node:path';
 import { amountInWordsBilingual } from './number-to-words';
 import type { Quotation, QuotationItem } from './types';
 
-const TEMPLATE_PATH = path.join(
-  process.cwd(), '..', '..', '04_Website', 'Company Essential', 'Stationery', 'quotation.html',
-);
+// Vendored, not read from the sibling repo — see Task 8's pre-flight note.
+const TEMPLATE_PATH = path.join(__dirname, 'templates', 'quotation.html');
 
 function itemRowHtml(item: QuotationItem): string {
   const size = item.sizeW && item.sizeH ? `${item.sizeW} × ${item.sizeH}` : '—';
@@ -1411,16 +1441,16 @@ export function buildQuotationHtml(quotation: Quotation, items: QuotationItem[])
 }
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [ ] **Step 5: Run to verify pass**
 
 Run: `npx vitest run src/lib/quotations/build-html.test.ts`
 Expected: PASS, 3 tests.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/lib/quotations/build-html.ts src/lib/quotations/build-html.test.ts
-git commit -m "feat(quotations): add branded HTML template filler"
+git add src/lib/quotations/templates/quotation.html src/lib/quotations/build-html.ts src/lib/quotations/build-html.test.ts
+git commit -m "feat(quotations): vendor branded template and add HTML filler"
 ```
 
 ---
