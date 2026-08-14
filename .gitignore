@@ -50,3 +50,4 @@ next-env.d.ts
 # local deployment compose file (references this server's specific
 # network/domain setup and secrets via env interpolation — not for the repo)
 /docker-compose.yml
+.worktrees/
