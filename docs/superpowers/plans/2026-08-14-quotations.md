@@ -1005,6 +1005,26 @@ export function mapQuotationItemRow(row: Record<string, any>): QuotationItem {
 
 - [ ] **Step 2: Write the atomic-save migration**
 
+**Revision note (2nd post-review fix):** the first version of this
+function gated on `auth.uid()`, but `saveQuotationItems` (Step 4 below)
+calls it exclusively via `supabaseAdmin()` — the service-role client —
+where `auth.uid()` is always `NULL`. That made the check unconditionally
+fail: every legitimate save would raise `42501 Unauthorized`, so the
+function that exists to fix Task 5's data-loss bug was itself unusable.
+Fixed per user decision to follow this codebase's own established
+convention for admin-client-only RPCs (`increment_automation_execution_count`,
+`007_automations_increment_counter.sql`): no `auth.uid()` check inside the
+function at all; instead `REVOKE` execute from `anon`/`authenticated` and
+`GRANT` only to `service_role`, so the function is reachable only through
+server code that has already authorized the caller (Task 6's API routes,
+which run under `ctx` and check account membership before calling this).
+This also fixes a second, related finding: the original version inserted
+the caller-supplied `p_account_id` verbatim without cross-checking it
+against the quotation's real account, which could silently write items
+tagged with the wrong tenant's `account_id`. The account id is now always
+read from the quotation row itself (`v_account_id`), never trusted from
+the argument.
+
 ```sql
 -- ============================================================
 -- 060_quotation_atomic_save.sql
@@ -1024,8 +1044,22 @@ export function mapQuotationItemRow(row: Record<string, any>): QuotationItem {
 -- child item's parent_item_id can reference a sibling item in the SAME
 -- batch by its real id before either row exists in the table yet.
 --
--- Authorization mirrors quotation_items_write (059) exactly: admin, or
--- the quotation's own assigned agent, and nobody else.
+-- Authorization: this function is reachable ONLY via the service-role
+-- client (supabaseAdmin(), see Step 4) -- never exposed to end-user
+-- sessions. It does not (and must not) check auth.uid(): under a
+-- service-role JWT auth.uid() is always NULL, so an auth.uid() check
+-- here would reject every legitimate call. Same pattern as every other
+-- admin-client-only RPC in this repo (see
+-- increment_automation_execution_count,
+-- 007_automations_increment_counter.sql): REVOKE from anon/authenticated,
+-- GRANT only to service_role. The real authorization check (admin, or
+-- the quotation's own assigned agent) happens one layer up, in the
+-- Next.js API route that calls this function (Task 6) -- mirroring
+-- quotation_items_write's (059) RLS policy there.
+--
+-- account_id is always derived from the quotation row itself
+-- (v_account_id), never taken from the p_account_id argument, so a
+-- caller cannot mis-tag inserted items with the wrong tenant.
 --
 -- Idempotent -- safe to run multiple times.
 -- ============================================================
@@ -1043,17 +1077,15 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_account_id uuid;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM quotations q
-    WHERE q.id = p_quotation_id
-      AND (
-        is_account_member(q.account_id, 'admin')
-        OR (is_account_member(q.account_id, 'agent')
-            AND q.assigned_to = (SELECT id FROM profiles WHERE profiles.user_id = auth.uid()))
-      )
-  ) THEN
-    RAISE EXCEPTION 'Unauthorized' USING ERRCODE = '42501';
+  SELECT q.account_id INTO v_account_id
+  FROM quotations q
+  WHERE q.id = p_quotation_id;
+
+  IF v_account_id IS NULL THEN
+    RAISE EXCEPTION 'Quotation not found' USING ERRCODE = 'P0002';
   END IF;
 
   DELETE FROM quotation_items WHERE quotation_id = p_quotation_id;
@@ -1066,7 +1098,7 @@ BEGIN
   SELECT
     (elem->>'id')::uuid,
     p_quotation_id,
-    p_account_id,
+    v_account_id,
     NULLIF(elem->>'parent_item_id', '')::uuid,
     NULLIF(elem->>'product_id', '')::uuid,
     (elem->>'position')::integer,
@@ -1091,17 +1123,29 @@ END;
 $$;
 
 ALTER FUNCTION save_quotation_items(uuid, uuid, jsonb, numeric, numeric, numeric) OWNER TO postgres;
-GRANT EXECUTE ON FUNCTION save_quotation_items(uuid, uuid, jsonb, numeric, numeric, numeric) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION save_quotation_items(uuid, uuid, jsonb, numeric, numeric, numeric) FROM PUBLIC;
+REVOKE ALL ON FUNCTION save_quotation_items(uuid, uuid, jsonb, numeric, numeric, numeric) FROM anon;
+REVOKE ALL ON FUNCTION save_quotation_items(uuid, uuid, jsonb, numeric, numeric, numeric) FROM authenticated;
+GRANT EXECUTE ON FUNCTION save_quotation_items(uuid, uuid, jsonb, numeric, numeric, numeric) TO service_role;
 ```
 
 Apply and verify per this repo's actual process (hand-run in the Supabase
-SQL editor — see Task 1). Verification: call `save_quotation_items` with
-a real `quotation_id` you're NOT the assigned agent for (and aren't
-admin) — expect `42501 Unauthorized`. Then call it with a valid
-quotation and a small items array, and confirm `select * from
+SQL editor — see Task 1). Verification: call `save_quotation_items` as
+the `service_role` (the SQL editor's default connection) with a real
+`quotation_id` and a small items array, and confirm `select * from
 quotation_items where quotation_id = '<id>'` shows the rows with
 `description`/`size_w`/`size_h` actually populated — the exact fields
-the original version silently dropped.
+the original version silently dropped. Then confirm that connecting as
+`authenticated`/`anon` and calling the function at all is rejected by
+Postgres itself (permission denied for function save_quotation_items) —
+proving the endpoint isn't reachable from a user session, only from
+server code. `p_account_id` is accepted for interface stability but no
+longer trusted for anything: the actual insert always uses the
+quotation's own real `account_id` (`v_account_id`), so a caller passing a
+mismatched value doesn't corrupt data — it's simply ignored in favor of
+the real value. (Task 6's route is still what decides who may call this
+function for which quotation at all, via its own `ctx.supabase`
+visibility check before reaching this function.)
 
 - [ ] **Step 3: Write the failing tests**
 
@@ -1347,6 +1391,28 @@ client-side `Quotation`/`QuotationItem` types are camelCase. `POST` below
 is already correct because `createQuotation` maps internally; `GET` and
 `PATCH` do their own raw `.select()` calls and must map explicitly.
 
+**Note (2nd post-review fix — authorization):** the version of this task
+below is the corrected one. An earlier draft had no authentication or
+authorization at all — every handler called `supabaseAdmin()` (the
+service-role client, which bypasses RLS entirely) directly, trusting
+`accountId` from the request body/query string. That would let any
+unauthenticated caller read or write any account's quotations. Fixed to
+match this repo's own established route pattern, used verbatim by
+`src/app/api/pipelines/deals/[id]/move/route.ts`: every handler opens with
+`requireRole('agent')`, which returns `ctx.supabase` (the SSR client,
+RLS-scoped to the caller) and `ctx.accountId` (the caller's real account,
+never trusted from the request). `GET`/`PATCH`'s direct table reads now go
+through `ctx.supabase`, so `quotations_select`/`quotations_update` RLS
+(059) does the per-row authorization automatically — a caller who isn't
+an account member or the assigned agent gets a 404 (RLS returns zero
+rows, not a permission error, mirroring `deals/move`'s own "not found"
+handling for out-of-scope resources). `saveQuotationItems`/`createQuotation`
+(Task 5) still go through the admin client internally (unchanged — that's
+what `save_quotation_items()`'s own account-id derivation now guards), but
+only after the route's own `ctx.supabase` existence check has already
+proven the caller can see this quotation, so the admin-client call is
+never reached for someone without RLS visibility.
+
 Follows the existing route-handler pattern in
 `src/app/api/pipelines/deals/[id]/move/route.ts` (Next.js App Router route
 handlers, one file per resource).
@@ -1354,7 +1420,14 @@ handlers, one file per resource).
 - [ ] **Step 1: Write the failing test**
 
 ```typescript
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+
+const h = vi.hoisted(() => ({ requireRole: vi.fn() }));
+vi.mock('@/lib/auth/account', () => ({
+  requireRole: h.requireRole,
+  toErrorResponse: (err: unknown) =>
+    new Response(JSON.stringify({ error: String(err) }), { status: 401 }),
+}));
 
 vi.mock('@/lib/quotations/crud', () => ({
   createQuotation: vi.fn().mockResolvedValue({ id: 'q-1', reference: 'HT-26-PIV-001', status: 'draft' }),
@@ -1362,14 +1435,23 @@ vi.mock('@/lib/quotations/crud', () => ({
 
 import { POST } from './route';
 
+beforeEach(() => {
+  vi.clearAllMocks();
+  h.requireRole.mockResolvedValue({ accountId: 'acc-1', userId: 'u-1', role: 'agent' });
+});
+
 describe('POST /api/quotations', () => {
-  it('creates a quotation and returns it', async () => {
+  it('creates a quotation using the caller\'s own account, ignoring any accountId in the body', async () => {
+    const { createQuotation } = await import('@/lib/quotations/crud');
     const req = new Request('http://test/api/quotations', {
       method: 'POST',
-      body: JSON.stringify({ accountId: 'acc-1', productCode: 'PIV', currency: 'QAR' }),
+      body: JSON.stringify({ accountId: 'someone-elses-account', productCode: 'PIV', currency: 'QAR' }),
     });
     const res = await POST(req);
     expect(res.status).toBe(201);
+    expect(createQuotation).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: 'acc-1', productCode: 'PIV' }),
+    );
     const body = await res.json();
     expect(body.reference).toBe('HT-26-PIV-001');
   });
@@ -1377,10 +1459,20 @@ describe('POST /api/quotations', () => {
   it('rejects a request with no productCode', async () => {
     const req = new Request('http://test/api/quotations', {
       method: 'POST',
-      body: JSON.stringify({ accountId: 'acc-1', currency: 'QAR' }),
+      body: JSON.stringify({ currency: 'QAR' }),
     });
     const res = await POST(req);
     expect(res.status).toBe(400);
+  });
+
+  it('rejects an unauthenticated request', async () => {
+    h.requireRole.mockRejectedValueOnce(new Error('unauthorized'));
+    const req = new Request('http://test/api/quotations', {
+      method: 'POST',
+      body: JSON.stringify({ productCode: 'PIV', currency: 'QAR' }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(401);
   });
 });
 ```
@@ -1395,22 +1487,32 @@ Expected: FAIL — `Cannot find module './route'`.
 ```typescript
 // src/app/api/quotations/route.ts
 import { NextResponse } from 'next/server';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { createQuotation } from '@/lib/quotations/crud';
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  if (!body.productCode) {
-    return NextResponse.json({ error: 'productCode is required' }, { status: 400 });
+  try {
+    const ctx = await requireRole('agent');
+    const body = await request.json();
+    if (!body.productCode) {
+      return NextResponse.json({ error: 'productCode is required' }, { status: 400 });
+    }
+    // accountId always comes from the authenticated caller's own
+    // membership, never from the request body — the body is untrusted
+    // input, and trusting an accountId there would let any agent create
+    // quotations under a different tenant's account.
+    const quotation = await createQuotation({ ...body, accountId: ctx.accountId });
+    return NextResponse.json(quotation, { status: 201 });
+  } catch (err) {
+    return toErrorResponse(err);
   }
-  const quotation = await createQuotation(body);
-  return NextResponse.json(quotation, { status: 201 });
 }
 ```
 
 ```typescript
 // src/app/api/quotations/[id]/route.ts
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/quotations/admin-client';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { saveQuotationItems } from '@/lib/quotations/crud';
 import { mapQuotationRow, mapQuotationItemRow } from '@/lib/quotations/types';
 
@@ -1426,38 +1528,73 @@ function mapQuotationWithItems(row: any) {
 }
 
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
-  const { data, error } = await supabaseAdmin()
-    .from('quotations')
-    .select('*, quotation_items(*)')
-    .eq('id', params.id)
-    .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 404 });
-  return NextResponse.json(mapQuotationWithItems(data));
+  try {
+    const ctx = await requireRole('agent');
+    // ctx.supabase is RLS-scoped to the caller — quotations_select (059)
+    // already restricts rows to account members / the assigned agent, so
+    // a caller without visibility gets zero rows here, not an error. That
+    // is deliberately reported as 404, not 403: it doesn't leak whether
+    // the id exists at all outside the caller's own scope.
+    const { data, error } = await ctx.supabase
+      .from('quotations')
+      .select('*, quotation_items(*)')
+      .eq('id', params.id)
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (!data) return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
+    return NextResponse.json(mapQuotationWithItems(data));
+  } catch (err) {
+    return toErrorResponse(err);
+  }
 }
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
-  const body = await request.json();
-  const admin = supabaseAdmin();
+  try {
+    const ctx = await requireRole('agent');
 
-  if (body.items) {
-    await saveQuotationItems(params.id, body.accountId, body.items, body.orderDiscount);
+    // Visibility/authorization check BEFORE any write: same RLS-backed
+    // reasoning as GET above. save_quotation_items() (Task 5) runs via
+    // the service-role client and no longer checks the caller's role
+    // itself (see Task 5's revision note) — this is the one place that
+    // check now happens, so it must run first.
+    const { data: existing, error: existingErr } = await ctx.supabase
+      .from('quotations')
+      .select('id')
+      .eq('id', params.id)
+      .maybeSingle();
+    if (existingErr) return NextResponse.json({ error: existingErr.message }, { status: 400 });
+    if (!existing) return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
+
+    const body = await request.json();
+
+    if (body.items) {
+      await saveQuotationItems(params.id, ctx.accountId, body.items, body.orderDiscount);
+    }
+
+    if (body.fields) {
+      // Goes through ctx.supabase (not the admin client) so
+      // quotations_update RLS still gates which fields an agent
+      // (vs. admin) may touch on a quotation they don't own.
+      const { error } = await ctx.supabase.from('quotations').update(body.fields).eq('id', params.id);
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    const { data } = await ctx.supabase
+      .from('quotations')
+      .select('*, quotation_items(*)')
+      .eq('id', params.id)
+      .single();
+    return NextResponse.json(mapQuotationWithItems(data));
+  } catch (err) {
+    return toErrorResponse(err);
   }
-
-  const { fields } = body;
-  if (fields) {
-    const { error } = await admin.from('quotations').update(fields).eq('id', params.id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  }
-
-  const { data } = await admin.from('quotations').select('*, quotation_items(*)').eq('id', params.id).single();
-  return NextResponse.json(mapQuotationWithItems(data));
 }
 ```
 
 - [ ] **Step 4: Run to verify pass**
 
 Run: `npx vitest run src/app/api/quotations/route.test.ts`
-Expected: PASS, 2 tests.
+Expected: PASS, 3 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -1477,10 +1614,17 @@ git commit -m "feat(quotations): add quotation create/read/update API routes"
 **Interfaces:**
 - Produces: `GET /api/catalog-items?q=<search>` (autocomplete, `ILIKE` search per Global Constraints), `POST /api/catalog-items` (the "save to catalog" action from the item editor).
 
+**Note (2nd post-review fix — authorization):** the version below is
+corrected, same reasoning as Task 6: no `supabaseAdmin()`, no trusting
+`accountId` from the query string/body. `catalog_items_select`/
+`catalog_items_insert` RLS (059) already scope by `is_account_member`, so
+`requireRole('agent')` + `ctx.supabase` is sufficient here — no admin
+client needed at all for this task.
+
 - [ ] **Step 1: Write the failing tests**
 
 ```typescript
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 function chain(finalResult: unknown) {
   const builder: Record<string, unknown> = {};
@@ -1492,35 +1636,56 @@ function chain(finalResult: unknown) {
   return builder;
 }
 
-const from = vi.fn();
-vi.mock('@/lib/quotations/admin-client', () => ({
-  supabaseAdmin: () => ({ from }),
+const h = vi.hoisted(() => ({ requireRole: vi.fn() }));
+vi.mock('@/lib/auth/account', () => ({
+  requireRole: h.requireRole,
+  toErrorResponse: (err: unknown) =>
+    new Response(JSON.stringify({ error: String(err) }), { status: 401 }),
 }));
 
 import { GET, POST } from './route';
 
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
 describe('GET /api/catalog-items', () => {
-  it('searches by name using ILIKE', async () => {
+  it('searches by name using ILIKE, scoped to the caller\'s own account', async () => {
     const searchChain = chain({ data: [{ id: 'c-1', name: 'Electronic Lock' }], error: null });
-    from.mockReturnValueOnce(searchChain);
-    const req = new Request('http://test/api/catalog-items?q=lock&accountId=acc-1');
+    const supabase = { from: vi.fn().mockReturnValue(searchChain) };
+    h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase });
+
+    const req = new Request('http://test/api/catalog-items?q=lock');
     const res = await GET(req);
+    expect(searchChain.eq).toHaveBeenCalledWith('account_id', 'acc-1');
     expect(searchChain.ilike).toHaveBeenCalledWith('name', '%lock%');
     expect((await res.json())[0].name).toBe('Electronic Lock');
   });
 });
 
 describe('POST /api/catalog-items', () => {
-  it('creates a new catalog entry', async () => {
+  it('creates a new catalog entry under the caller\'s own account', async () => {
     const insertChain = chain({ data: { id: 'c-2', name: 'Custom Handle' }, error: null });
-    from.mockReturnValueOnce(insertChain);
+    const supabase = { from: vi.fn().mockReturnValue(insertChain) };
+    h.requireRole.mockResolvedValue({ accountId: 'acc-1', userId: 'u-1', supabase });
+
     const req = new Request('http://test/api/catalog-items', {
       method: 'POST',
-      body: JSON.stringify({ accountId: 'acc-1', name: 'Custom Handle', category: 'accessory' }),
+      body: JSON.stringify({ accountId: 'someone-elses-account', name: 'Custom Handle', category: 'accessory' }),
     });
     const res = await POST(req);
     expect(res.status).toBe(201);
     expect((await res.json()).name).toBe('Custom Handle');
+  });
+
+  it('rejects an unauthenticated request', async () => {
+    h.requireRole.mockRejectedValueOnce(new Error('unauthorized'));
+    const req = new Request('http://test/api/catalog-items', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Custom Handle' }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(401);
   });
 });
 ```
@@ -1535,50 +1700,63 @@ Expected: FAIL — `Cannot find module './route'`.
 ```typescript
 // src/app/api/catalog-items/route.ts
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/quotations/admin-client';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
 
 export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const q = url.searchParams.get('q') ?? '';
-  const accountId = url.searchParams.get('accountId');
+  try {
+    const ctx = await requireRole('agent');
+    const url = new URL(request.url);
+    const q = url.searchParams.get('q') ?? '';
 
-  let query = supabaseAdmin().from('catalog_items').select('*').eq('account_id', accountId).eq('status', 'active');
-  if (q) query = query.ilike('name', `%${q}%`);
+    let query = ctx.supabase
+      .from('catalog_items')
+      .select('*')
+      .eq('account_id', ctx.accountId)
+      .eq('status', 'active');
+    if (q) query = query.ilike('name', `%${q}%`);
 
-  const { data, error } = await query.limit(20);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json(data);
+    const { data, error } = await query.limit(20);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json(data);
+  } catch (err) {
+    return toErrorResponse(err);
+  }
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  if (!body.name || !body.accountId) {
-    return NextResponse.json({ error: 'name and accountId are required' }, { status: 400 });
+  try {
+    const ctx = await requireRole('agent');
+    const body = await request.json();
+    if (!body.name) {
+      return NextResponse.json({ error: 'name is required' }, { status: 400 });
+    }
+    const { data, error } = await ctx.supabase
+      .from('catalog_items')
+      .insert({
+        account_id: ctx.accountId,
+        created_by: ctx.userId,
+        category: body.category ?? 'product',
+        name: body.name,
+        name_ar: body.nameAr ?? null,
+        description: body.description ?? null,
+        description_ar: body.descriptionAr ?? null,
+        sku: body.sku ?? null,
+        default_unit_price: body.defaultUnitPrice ?? null,
+      })
+      .select()
+      .single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json(data, { status: 201 });
+  } catch (err) {
+    return toErrorResponse(err);
   }
-  const { data, error } = await supabaseAdmin()
-    .from('catalog_items')
-    .insert({
-      account_id: body.accountId,
-      created_by: body.createdBy ?? null,
-      category: body.category ?? 'product',
-      name: body.name,
-      name_ar: body.nameAr ?? null,
-      description: body.description ?? null,
-      description_ar: body.descriptionAr ?? null,
-      sku: body.sku ?? null,
-      default_unit_price: body.defaultUnitPrice ?? null,
-    })
-    .select()
-    .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json(data, { status: 201 });
 }
 ```
 
 - [ ] **Step 4: Run to verify pass**
 
 Run: `npx vitest run src/app/api/catalog-items/route.test.ts`
-Expected: PASS, 2 tests.
+Expected: PASS, 3 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -1957,44 +2135,68 @@ app/(dashboard)/inbox/page.tsx`) plus the PDF's public URL. The UI (Task
 the inbox's own existing composer — unmodified by this feature, and the
 same control they already use for every other attachment today.
 
+**Note (2nd post-review fix — authorization):** the version below is
+corrected, same reasoning as Task 6: both routes now open with
+`requireRole('agent')` and read/write the quotation through `ctx.supabase`
+(RLS-gated, 404 if the caller can't see it) instead of `supabaseAdmin()`
+with a trusted id. `resolveConversationByPhone` is called with
+`ctx.supabase` too — that matches how it's already called everywhere else
+in this codebase (`src/app/api/v1/messages/route.ts`), not the admin
+client. `generateQuotationPdf` (Task 9) may still do its own storage
+upload internally however it needs to — that's unrelated to this route's
+own authorization, which is only about who may trigger it for which
+quotation.
+
 - [ ] **Step 1: Write the failing test for send**
 
 ```typescript
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 const resolveConversationByPhone = vi.fn().mockResolvedValue({ id: 'conv-1', accountId: 'acc-1' });
 vi.mock('@/lib/whatsapp/resolve-conversation', () => ({ resolveConversationByPhone }));
 
-const from = vi.fn();
-vi.mock('@/lib/quotations/admin-client', () => ({
-  supabaseAdmin: () => ({ from }),
+const h = vi.hoisted(() => ({ requireRole: vi.fn() }));
+vi.mock('@/lib/auth/account', () => ({
+  requireRole: h.requireRole,
+  toErrorResponse: (err: unknown) =>
+    new Response(JSON.stringify({ error: String(err) }), { status: 401 }),
 }));
 
 import { POST } from './route';
 
-describe('POST /api/quotations/[id]/send', () => {
-  it('resolves the conversation and returns an inbox deep link, without sending anything itself', async () => {
-    from.mockReturnValueOnce({
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+function fakeSupabase(row: unknown) {
+  return {
+    from: () => ({
       select: () => ({
         eq: () => ({
-          single: () =>
-            Promise.resolve({
-              data: {
-                id: 'q-1', account_id: 'acc-1', reference: 'HT-26-RSD-015',
-                client_name: 'Ahmed', client_phone: '+97455509200', pdf_storage_path: 'q-1/rev-0.pdf',
-              },
-              error: null,
-            }),
+          maybeSingle: () => Promise.resolve({ data: row, error: null }),
         }),
       }),
+    }),
+    storage: {
+      from: () => ({ getPublicUrl: (path: string) => ({ data: { publicUrl: `https://cdn.test/${path}` } }) }),
+    },
+  };
+}
+
+describe('POST /api/quotations/[id]/send', () => {
+  it('resolves the conversation and returns an inbox deep link, without sending anything itself', async () => {
+    const supabase = fakeSupabase({
+      id: 'q-1', account_id: 'acc-1', reference: 'HT-26-RSD-015',
+      client_name: 'Ahmed', client_phone: '+97455509200', pdf_storage_path: 'q-1/rev-0.pdf',
     });
+    h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase });
 
     const req = new Request('http://test', { method: 'POST' });
     const res = await POST(req, { params: { id: 'q-1' } });
     const body = await res.json();
 
     expect(resolveConversationByPhone).toHaveBeenCalledWith(
-      expect.anything(), 'acc-1', '+97455509200', 'Ahmed',
+      supabase, 'acc-1', '+97455509200', 'Ahmed',
     );
     expect(body.inboxUrl).toBe('/inbox?c=conv-1');
     expect(body.pdfUrl).toContain('q-1/rev-0.pdf');
@@ -2002,16 +2204,19 @@ describe('POST /api/quotations/[id]/send', () => {
   });
 
   it('returns 400 if no PDF has been generated yet', async () => {
-    from.mockReturnValueOnce({
-      select: () => ({
-        eq: () => ({
-          single: () => Promise.resolve({ data: { id: 'q-1', pdf_storage_path: null }, error: null }),
-        }),
-      }),
-    });
+    const supabase = fakeSupabase({ id: 'q-1', pdf_storage_path: null });
+    h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase });
     const req = new Request('http://test', { method: 'POST' });
     const res = await POST(req, { params: { id: 'q-1' } });
     expect(res.status).toBe(400);
+  });
+
+  it('returns 404 if the quotation is not visible to the caller', async () => {
+    const supabase = fakeSupabase(null);
+    h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase });
+    const req = new Request('http://test', { method: 'POST' });
+    const res = await POST(req, { params: { id: 'q-1' } });
+    expect(res.status).toBe(404);
   });
 });
 ```
@@ -2026,26 +2231,31 @@ Expected: FAIL — `Cannot find module './route'`.
 ```typescript
 // src/app/api/quotations/[id]/generate-pdf/route.ts
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/quotations/admin-client';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { generateQuotationPdf } from '@/lib/quotations/pdf';
 
 export async function POST(_request: Request, { params }: { params: { id: string } }) {
-  const admin = supabaseAdmin();
-  const { data: quotation, error } = await admin
-    .from('quotations')
-    .select('*, quotation_items(*)')
-    .eq('id', params.id)
-    .single();
-  if (error || !quotation) return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
+  try {
+    const ctx = await requireRole('agent');
+    const { data: quotation, error } = await ctx.supabase
+      .from('quotations')
+      .select('*, quotation_items(*)')
+      .eq('id', params.id)
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (!quotation) return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
 
-  const revision = quotation.status === 'sent' ? quotation.revision + 1 : quotation.revision;
-  const { storagePath, publicUrl } = await generateQuotationPdf(
-    { ...quotation, revision },
-    quotation.quotation_items,
-  );
+    const revision = quotation.status === 'sent' ? quotation.revision + 1 : quotation.revision;
+    const { storagePath, publicUrl } = await generateQuotationPdf(
+      { ...quotation, revision },
+      quotation.quotation_items,
+    );
 
-  await admin.from('quotations').update({ pdf_storage_path: storagePath, revision }).eq('id', params.id);
-  return NextResponse.json({ storagePath, publicUrl, revision });
+    await ctx.supabase.from('quotations').update({ pdf_storage_path: storagePath, revision }).eq('id', params.id);
+    return NextResponse.json({ storagePath, publicUrl, revision });
+  } catch (err) {
+    return toErrorResponse(err);
+  }
 }
 ```
 
@@ -2057,39 +2267,44 @@ export async function POST(_request: Request, { params }: { params: { id: string
 // should be attached; a human always does the actual sending, in the
 // existing inbox UI, untouched by this route.
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/quotations/admin-client';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { resolveConversationByPhone } from '@/lib/whatsapp/resolve-conversation';
 
 export async function POST(_request: Request, { params }: { params: { id: string } }) {
-  const admin = supabaseAdmin();
-  const { data: quotation, error } = await admin
-    .from('quotations')
-    .select('*')
-    .eq('id', params.id)
-    .single();
-  if (error || !quotation) return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
-  if (!quotation.pdf_storage_path) {
-    return NextResponse.json({ error: 'Generate the PDF before sending' }, { status: 400 });
+  try {
+    const ctx = await requireRole('agent');
+    const { data: quotation, error } = await ctx.supabase
+      .from('quotations')
+      .select('*')
+      .eq('id', params.id)
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (!quotation) return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
+    if (!quotation.pdf_storage_path) {
+      return NextResponse.json({ error: 'Generate the PDF before sending' }, { status: 400 });
+    }
+
+    const conversation = await resolveConversationByPhone(
+      ctx.supabase, quotation.account_id, quotation.client_phone, quotation.client_name,
+    );
+
+    const { data: pdfUrlData } = ctx.supabase.storage.from('quotation-pdfs').getPublicUrl(quotation.pdf_storage_path);
+
+    return NextResponse.json({
+      conversationId: conversation.id,
+      inboxUrl: `/inbox?c=${conversation.id}`,
+      pdfUrl: pdfUrlData.publicUrl,
+    });
+  } catch (err) {
+    return toErrorResponse(err);
   }
-
-  const conversation = await resolveConversationByPhone(
-    admin, quotation.account_id, quotation.client_phone, quotation.client_name,
-  );
-
-  const { data: pdfUrlData } = admin.storage.from('quotation-pdfs').getPublicUrl(quotation.pdf_storage_path);
-
-  return NextResponse.json({
-    conversationId: conversation.id,
-    inboxUrl: `/inbox?c=${conversation.id}`,
-    pdfUrl: pdfUrlData.publicUrl,
-  });
 }
 ```
 
 - [ ] **Step 4: Run to verify pass**
 
 Run: `npx vitest run src/app/api/quotations/[id]/send/route.test.ts`
-Expected: PASS, 2 tests.
+Expected: PASS, 3 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -2110,24 +2325,39 @@ git commit -m "feat(quotations): add generate-PDF route and send-handoff route (
 **Interfaces:**
 - Consumes: `GET /api/quotations` (extend Task 6 to support listing — add to that route's `GET` handler as part of this task since it wasn't in the original scope: filter by `status`/search).
 
+**Note (2nd post-review fix — authorization):** same fix as Task 6/7/10/15
+— this `GET` handler is added to the same file Task 6 already secured
+with `requireRole('agent')`; it must use `ctx.supabase`/`ctx.accountId`,
+not `supabaseAdmin()` with a query-string `accountId`, or it would reopen
+the exact gap Task 6 just closed for the other three handlers in that
+file. `quotations_select` RLS (059) does the actual account/role scoping.
+
 - [ ] **Step 1: Extend the quotations GET route to list**
 
 ```typescript
-// Add to src/app/api/quotations/route.ts, alongside the existing POST:
-import { supabaseAdmin } from '@/lib/quotations/admin-client';
+// Add to src/app/api/quotations/route.ts, alongside the existing POST
+// (both now share the same requireRole('agent') + ctx.supabase pattern):
 import { mapQuotationRow } from '@/lib/quotations/types';
 
 export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const accountId = url.searchParams.get('accountId');
-  const status = url.searchParams.get('status');
+  try {
+    const ctx = await requireRole('agent');
+    const url = new URL(request.url);
+    const status = url.searchParams.get('status');
 
-  let query = supabaseAdmin().from('quotations').select('*').eq('account_id', accountId).order('created_at', { ascending: false });
-  if (status) query = query.eq('status', status);
+    let query = ctx.supabase
+      .from('quotations')
+      .select('*')
+      .eq('account_id', ctx.accountId)
+      .order('created_at', { ascending: false });
+    if (status) query = query.eq('status', status);
 
-  const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json((data ?? []).map(mapQuotationRow));
+    const { data, error } = await query;
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json((data ?? []).map(mapQuotationRow));
+  } catch (err) {
+    return toErrorResponse(err);
+  }
 }
 ```
 
@@ -2141,18 +2371,20 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { Quotation } from '@/lib/quotations/types';
 
-export function QuotationList({ accountId }: { accountId: string }) {
+// No accountId prop — the API route derives it from the caller's own
+// session (requireRole), same reasoning as quotation-product-codes.tsx.
+export function QuotationList() {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [status, setStatus] = useState<string>('');
   const [creating, setCreating] = useState(false);
   const [productCode, setProductCode] = useState('GEN');
 
   useEffect(() => {
-    const params = new URLSearchParams({ accountId, ...(status ? { status } : {}) });
+    const params = new URLSearchParams(status ? { status } : {});
     fetch(`/api/quotations?${params}`)
       .then((res) => res.json())
       .then(setQuotations);
-  }, [accountId, status]);
+  }, [status]);
 
   // Standalone creation — no deal or contact required, per spec Goals:
   // "a quotation can exist standalone... optionally linked... later."
@@ -2162,7 +2394,7 @@ export function QuotationList({ accountId }: { accountId: string }) {
     setCreating(true);
     const res = await fetch('/api/quotations', {
       method: 'POST',
-      body: JSON.stringify({ accountId, productCode, currency: 'QAR' }),
+      body: JSON.stringify({ productCode, currency: 'QAR' }),
     });
     const created = await res.json();
     window.location.href = `/quotations/${created.id}`;
@@ -2216,14 +2448,12 @@ export function QuotationList({ accountId }: { accountId: string }) {
 ```tsx
 // src/app/(dashboard)/quotations/page.tsx
 import { QuotationList } from '@/components/quotations/quotation-list';
-import { getCurrentAccountId } from '@/lib/account'; // existing helper, matches other dashboard pages
 
-export default async function QuotationsPage() {
-  const accountId = await getCurrentAccountId();
+export default function QuotationsPage() {
   return (
     <div>
       <h1>Quotations</h1>
-      <QuotationList accountId={accountId} />
+      <QuotationList />
     </div>
   );
 }
@@ -2765,12 +2995,25 @@ git commit -m "feat(quotations): add per-deal Quotations section to the deal car
 - Test: `src/app/api/quotation-product-codes/route.test.ts`
 
 **Interfaces:**
-- Produces: `GET /api/quotation-product-codes`, `POST /api/quotation-product-codes` (admin-only, enforced by the `quotation_product_codes_write` RLS policy from Task 1 — the route itself does not need its own role check, it inherits the DB's).
+- Produces: `GET /api/quotation-product-codes`, `POST /api/quotation-product-codes` (admin-only, enforced by the `quotation_product_codes_write` RLS policy from Task 1).
+
+**Note (2nd post-review fix — authorization):** the original draft's own
+comment claimed the route "inherits the DB's" role check "without needing
+its own" — true only if the route actually queries through a client RLS
+applies to. The draft used `supabaseAdmin()` (service role), which
+bypasses RLS entirely by design, so the claim was false: anyone could
+call `POST` regardless of role. Fixed to route through `ctx.supabase`
+(from `requireRole('agent')`, the floor needed to even read the list) so
+`quotation_product_codes_select`/`_write`'s `is_account_member` checks
+(migration 059) actually run — an agent can list codes but a non-admin's
+`POST` is rejected by the DB itself with a Postgres RLS error, which the
+route surfaces as a 400 with the DB's own message (consistent with how
+every other route here already forwards Postgres errors).
 
 - [ ] **Step 1: Write the failing test**
 
 ```typescript
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 function chain(finalResult: unknown) {
   const builder: Record<string, unknown> = {};
@@ -2781,24 +3024,34 @@ function chain(finalResult: unknown) {
   return builder;
 }
 
-const from = vi.fn();
-vi.mock('@/lib/quotations/admin-client', () => ({ supabaseAdmin: () => ({ from }) }));
+const h = vi.hoisted(() => ({ requireRole: vi.fn() }));
+vi.mock('@/lib/auth/account', () => ({
+  requireRole: h.requireRole,
+  toErrorResponse: (err: unknown) =>
+    new Response(JSON.stringify({ error: String(err) }), { status: 401 }),
+}));
 
 import { GET, POST } from './route';
 
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
 describe('quotation-product-codes route', () => {
-  it('lists codes for an account', async () => {
-    from.mockReturnValueOnce(chain({ data: [{ code: 'PIV', label: 'Pivot Door' }], error: null }));
-    const req = new Request('http://test?accountId=acc-1');
+  it('lists codes for the caller\'s own account', async () => {
+    const from = vi.fn().mockReturnValueOnce(chain({ data: [{ code: 'PIV', label: 'Pivot Door' }], error: null }));
+    h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase: { from } });
+    const req = new Request('http://test');
     const res = await GET(req);
     expect((await res.json())[0].code).toBe('PIV');
   });
 
-  it('creates a new code', async () => {
-    from.mockReturnValueOnce(chain({ error: null }));
+  it('creates a new code (RLS rejects non-admin callers with a DB error)', async () => {
+    const from = vi.fn().mockReturnValueOnce(chain({ error: null }));
+    h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase: { from } });
     const req = new Request('http://test', {
       method: 'POST',
-      body: JSON.stringify({ accountId: 'acc-1', code: 'PRG', label: 'Pergola' }),
+      body: JSON.stringify({ code: 'PRG', label: 'Pergola' }),
     });
     const res = await POST(req);
     expect(res.status).toBe(201);
@@ -2816,25 +3069,39 @@ Expected: FAIL — `Cannot find module './route'`.
 ```typescript
 // src/app/api/quotation-product-codes/route.ts
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/quotations/admin-client';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
 
-export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const accountId = url.searchParams.get('accountId');
-  const { data, error } = await supabaseAdmin().from('quotation_product_codes').select('*').eq('account_id', accountId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json(data);
+export async function GET(_request: Request) {
+  try {
+    const ctx = await requireRole('agent');
+    const { data, error } = await ctx.supabase
+      .from('quotation_product_codes')
+      .select('*')
+      .eq('account_id', ctx.accountId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json(data);
+  } catch (err) {
+    return toErrorResponse(err);
+  }
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const { error } = await supabaseAdmin().from('quotation_product_codes').insert({
-    account_id: body.accountId,
-    code: body.code,
-    label: body.label,
-  });
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ ok: true }, { status: 201 });
+  try {
+    const ctx = await requireRole('agent');
+    const body = await request.json();
+    // quotation_product_codes_write RLS (059) requires 'admin' — a
+    // non-admin agent's insert is rejected by Postgres itself here, not
+    // by application code.
+    const { error } = await ctx.supabase.from('quotation_product_codes').insert({
+      account_id: ctx.accountId,
+      code: body.code,
+      label: body.label,
+    });
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: true }, { status: 201 });
+  } catch (err) {
+    return toErrorResponse(err);
+  }
 }
 ```
 
@@ -2849,20 +3116,22 @@ interface ProductCode {
   label: string;
 }
 
-export function QuotationProductCodes({ accountId }: { accountId: string }) {
+// No accountId prop — the API route derives it from the caller's own
+// session (requireRole), same reasoning as every other quotations route.
+export function QuotationProductCodes() {
   const [codes, setCodes] = useState<ProductCode[]>([]);
   const [code, setCode] = useState('');
   const [label, setLabel] = useState('');
 
   function refresh() {
-    fetch(`/api/quotation-product-codes?accountId=${accountId}`).then((res) => res.json()).then(setCodes);
+    fetch('/api/quotation-product-codes').then((res) => res.json()).then(setCodes);
   }
-  useEffect(refresh, [accountId]);
+  useEffect(refresh, []);
 
   async function add() {
     await fetch('/api/quotation-product-codes', {
       method: 'POST',
-      body: JSON.stringify({ accountId, code, label }),
+      body: JSON.stringify({ code, label }),
     });
     setCode('');
     setLabel('');
