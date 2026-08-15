@@ -27,10 +27,44 @@ CREATE POLICY "Quotation PDFs are publicly readable"
 -- Path convention: quotation-pdfs/{quotation_id}/rev-{revision}.pdf
 -- Write access requires account membership at agent level or above,
 -- checked via the quotation the path's first segment names.
+--
+-- INSERT, UPDATE, and DELETE all carry the same predicate -- mirrors
+-- chat_media's (023) three-way "Members can upload/update/delete"
+-- split exactly. UPDATE matters in practice even though every write
+-- today goes through supabaseAdmin() (which bypasses RLS entirely):
+-- pdf.ts's bucket.upload(..., { upsert: true }) performs a storage
+-- UPDATE, not an INSERT, whenever a path is regenerated -- an
+-- INSERT-only policy would silently fail RLS the moment any future
+-- write path uses a non-admin client.
 DROP POLICY IF EXISTS "Account members can write quotation PDFs" ON storage.objects;
-CREATE POLICY "Account members can write quotation PDFs"
+DROP POLICY IF EXISTS "Account members can upload quotation PDFs" ON storage.objects;
+CREATE POLICY "Account members can upload quotation PDFs"
   ON storage.objects FOR INSERT
   WITH CHECK (
+    bucket_id = 'quotation-pdfs'
+    AND EXISTS (
+      SELECT 1 FROM quotations q
+      WHERE q.id::text = (storage.foldername(name))[1]
+        AND is_account_member(q.account_id, 'agent')
+    )
+  );
+
+DROP POLICY IF EXISTS "Account members can update quotation PDFs" ON storage.objects;
+CREATE POLICY "Account members can update quotation PDFs"
+  ON storage.objects FOR UPDATE
+  USING (
+    bucket_id = 'quotation-pdfs'
+    AND EXISTS (
+      SELECT 1 FROM quotations q
+      WHERE q.id::text = (storage.foldername(name))[1]
+        AND is_account_member(q.account_id, 'agent')
+    )
+  );
+
+DROP POLICY IF EXISTS "Account members can delete quotation PDFs" ON storage.objects;
+CREATE POLICY "Account members can delete quotation PDFs"
+  ON storage.objects FOR DELETE
+  USING (
     bucket_id = 'quotation-pdfs'
     AND EXISTS (
       SELECT 1 FROM quotations q
