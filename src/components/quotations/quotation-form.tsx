@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-interface QuotationFields {
+export interface QuotationFields {
   clientName: string;
   clientPhone: string;
   clientCompany: string;
@@ -32,20 +32,32 @@ function fieldsFromQuotation(quotation: Quotation): QuotationFields {
   };
 }
 
-// `valid_until` is a Postgres `date` column (migration 059) — PATCHing
-// it with '' rather than null 400s ("invalid input syntax for type
-// date"), which would make every save fail until a date was picked.
-// Every optional text field gets the same trim-to-null treatment for
-// consistency with the rest of the app (see contact-form.tsx).
-function toPatchPayload(fields: QuotationFields) {
+// PATCH /api/quotations/[id] forwards `body.fields` straight to
+// `ctx.supabase.from('quotations').update(body.fields)` with no key
+// transformation (see src/app/api/quotations/[id]/route.ts) — PostgREST
+// validates every key against the real columns before executing
+// anything, so this MUST use the DB's snake_case column names
+// (client_name, client_phone, client_company, location, project_name,
+// subject, valid_until — supabase/migrations/059_quotations.sql:163-181)
+// or the entire update 400s atomically (PGRST204, unknown column), not
+// just the mismatched fields. Same mapping already used by
+// createQuotation in src/lib/quotations/crud.ts. Locked in by
+// quotation-form.test.ts so this doesn't regress silently again.
+//
+// `valid_until` is a Postgres `date` column — PATCHing it with '' rather
+// than null 400s ("invalid input syntax for type date"), which would
+// make every save fail until a date was picked. Every optional text
+// field gets the same trim-to-null treatment for consistency with the
+// rest of the app (see contact-form.tsx).
+export function toPatchPayload(fields: QuotationFields) {
   return {
-    clientName: fields.clientName.trim() || null,
-    clientPhone: fields.clientPhone.trim() || null,
-    clientCompany: fields.clientCompany.trim() || null,
+    client_name: fields.clientName.trim() || null,
+    client_phone: fields.clientPhone.trim() || null,
+    client_company: fields.clientCompany.trim() || null,
     location: fields.location.trim() || null,
-    projectName: fields.projectName.trim() || null,
+    project_name: fields.projectName.trim() || null,
     subject: fields.subject.trim() || null,
-    validUntil: fields.validUntil || null,
+    valid_until: fields.validUntil || null,
   };
 }
 
