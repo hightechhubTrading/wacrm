@@ -50,6 +50,9 @@ describe('POST /api/catalog-items', () => {
     const res = await POST(req);
     expect(res.status).toBe(201);
     expect((await res.json()).name).toBe('Custom Handle');
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ account_id: 'acc-1' })
+    );
   });
 
   it('rejects an unauthenticated request', async () => {
