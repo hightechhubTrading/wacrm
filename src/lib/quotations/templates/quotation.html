@@ -1,0 +1,400 @@
+<!-- Vendored from "Hitechub Qatar/Company Essential/Stationery/quotation.html"
+     (sibling to 04_Website, not nested under it — the plan's original path
+     assumed 04_Website/Company Essential/Stationery, which does not exist;
+     see Task 8 report). If the source template changes, re-copy it here —
+     this file is not read from the other repo at runtime. See plan Task 8. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>High Tech Hub Trading — Quotation</title>
+
+<meta name="hz:slide-selector" content=".page">
+<meta name="hz:canvas-width" content="794">
+<meta name="hz:canvas-height" content="1123">
+
+<link rel="stylesheet" href="https://use.typekit.net/csc0dld.css">
+
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { display: flex; flex-direction: column; align-items: center; gap: 8mm; padding: 8mm; background: #E9ECEF; }
+
+:root {
+  --navy: #1C2B3A; --steel: #2C3E50; --gold: #E8B84B;
+  --concrete: #8A9BA8; --blue: #138DC6;
+  --hair: #DCE1E5; --wash: #F4F6F8;
+}
+
+/* English leads, Arabic supports. Logical properties throughout, so setting
+   the root to dir="rtl" mirrors the document with no other change. */
+.page {
+  position: relative; width: 210mm; height: 297mm;
+  background: #FFFFFF; overflow: hidden;
+  padding: 14mm 16mm 0;
+  font-family: "tajawal", sans-serif; color: var(--navy);
+  display: flex; flex-direction: column;
+}
+
+.mono { font-family: "space-mono", monospace; }
+.ltr  { direction: ltr; unicode-bidi: isolate; }
+.todo { background: #FFF3D6; color: #8A6400; padding: 0 1.4mm; }
+
+/* Arabic runs one step down in size and weight so the bilingual pairing reads
+   as one line of information rather than two competing ones. */
+.ar { display: block; font-size: 85%; color: var(--steel); font-weight: 400; }
+
+/* ── Letterhead ─────────────────────────────────────────── */
+.head { display: flex; align-items: center; justify-content: space-between; gap: 6mm; }
+.lockup { display: flex; align-items: center; gap: 4mm; }
+.mark { width: 15mm; height: 17.29mm; flex: none; color: var(--blue); display: block; }
+.nm-ar { font-family: "cairo", sans-serif; font-weight: 700; font-size: 13pt; line-height: 1.2; }
+.nm-en { font-family: "cairo", sans-serif; font-weight: 700; font-size: 8.5pt; letter-spacing: 0.08em; color: var(--steel); }
+.head-c { text-align: end; font-size: 7pt; color: var(--concrete); line-height: 1.75; }
+
+/* ── Section marker — the brand's signature motif, used consistently ── */
+h2 {
+  font-family: "cairo", sans-serif; font-weight: 700; font-size: 10.5pt;
+  border-inline-start: 1.6mm solid var(--gold); padding-inline-start: 3.5mm;
+  margin-block-end: 3mm; line-height: 1.25;
+}
+h2 .ar { font-size: 72%; margin-block-start: 0.4mm; }
+
+/* ── Document title + reference strip ───────────────────── */
+.doc { margin-block-start: 12mm; display: flex; align-items: flex-end; justify-content: space-between; }
+.doc-t { font-family: "cairo", sans-serif; font-weight: 900; font-size: 27pt; line-height: 1; letter-spacing: 0.02em; }
+.doc-t .ar { font-size: 34%; letter-spacing: 0; margin-block-start: 1.5mm; }
+
+.refs { display: flex; gap: 9mm; text-align: end; }
+.ref-k { font-size: 6.5pt; letter-spacing: 0.14em; color: var(--concrete); margin-block-end: 1.2mm; }
+.ref-v { font-family: "space-mono", monospace; font-size: 9.5pt; font-weight: 700; }
+/* Validity is a date, not a duration — a duration starts an argument about
+   when the clock started. */
+.ref-v.gold { color: #8A6400; background: #FFF3D6; padding: 0.6mm 1.6mm; }
+
+.rule { block-size: 1.4mm; background: var(--navy); margin-block: 5mm 7mm; }
+
+/* ── Party / project block — no boxes, alignment does the work ── */
+.parties { display: flex; gap: 10mm; margin-block-end: 8mm; }
+.pcol { flex: 1; }
+.pk { font-size: 6.5pt; letter-spacing: 0.14em; color: var(--concrete); margin-block-end: 1.6mm; }
+.prow { display: flex; gap: 3mm; font-size: 8.5pt; line-height: 1.95; }
+.prow dt { color: var(--steel); min-width: 26mm; }
+.prow dd { font-weight: 500; }
+
+.subject { font-size: 11pt; font-weight: 700; line-height: 1.4; margin-block-end: 6mm; }
+.subject .ar { font-size: 74%; font-weight: 400; margin-block-start: 1mm; }
+
+/* ── Items — horizontal separators only ─────────────────── */
+table { width: 100%; border-collapse: collapse; }
+.items { font-size: 8.5pt; }
+.items th {
+  font-size: 6.5pt; letter-spacing: 0.12em; color: var(--concrete);
+  font-weight: 500; text-align: start; padding: 0 2.5mm 2mm;
+  border-block-end: 0.5mm solid var(--navy);
+}
+.items th.n, .items td.n { text-align: end; }
+.items td { padding: 3mm 2.5mm; border-block-end: 0.25mm solid var(--hair); vertical-align: top; }
+.items .num { font-family: "space-mono", monospace; font-size: 8pt; }
+.items .code { font-family: "space-mono", monospace; font-size: 7.5pt; color: var(--concrete); }
+.items .it { font-weight: 500; }
+.items .spec { display: block; font-size: 7.5pt; color: var(--steel); line-height: 1.7; margin-block-start: 1.2mm; }
+/* The standard cited per line is the B2B differentiator — a contractor's
+   first fear is failing inspection, and this is where that fear is answered. */
+.items .std { display: inline-block; font-family: "space-mono", monospace; font-size: 6.8pt;
+              color: var(--steel); border: 0.25mm solid var(--hair); padding: 0.4mm 1.4mm; margin-block-start: 1.4mm; }
+.items .grp td { padding-block: 4mm 1.5mm; border: none; font-size: 7pt;
+                 letter-spacing: 0.12em; color: var(--concrete); }
+
+/* ── Total — isolated, findable across a desk ───────────── */
+.total { margin-block-start: 7mm; background: var(--navy); color: #FFFFFF;
+         padding: 6mm 7mm; display: flex; align-items: center; justify-content: space-between; gap: 8mm;
+         border-inline-start: 2.4mm solid var(--gold); }
+.total-k { font-size: 7pt; letter-spacing: 0.16em; color: #9FB0BE; margin-block-end: 2mm; }
+.total-w { font-size: 8.5pt; color: #C9D3DB; line-height: 1.5; max-width: 88mm; }
+.total-f { font-family: "space-mono", monospace; font-weight: 700; font-size: 22pt; color: var(--gold); line-height: 1; text-align: end; }
+.total-f small { display: block; font-family: "tajawal", sans-serif; font-size: 7.5pt; font-weight: 400; color: #9FB0BE; letter-spacing: 0.1em; margin-block-start: 1.8mm; }
+
+/* ── Scope in / out ─────────────────────────────────────── */
+.scope { display: flex; gap: 6mm; }
+.sbox { flex: 1; padding: 3mm 4.5mm; background: var(--wash); }
+.sbox.out { background: #FFFFFF; border: 0.25mm solid var(--hair); }
+.sbox h3 { font-size: 7pt; letter-spacing: 0.14em; margin-block-end: 2mm; color: var(--steel); }
+.sbox ul { list-style: none; font-size: 7.8pt; line-height: 1.75; }
+.sbox li::before { content: "—"; color: var(--gold); margin-inline-end: 2.5mm; }
+.sbox.out li::before { content: "×"; color: var(--concrete); }
+
+/* ── Payment schedule ───────────────────────────────────── */
+.pay { font-size: 8.5pt; }
+.pay th { font-size: 6.5pt; letter-spacing: 0.12em; color: var(--concrete); font-weight: 500;
+          text-align: start; padding: 0 2.5mm 2mm; border-block-end: 0.5mm solid var(--navy); }
+.pay th.n, .pay td.n { text-align: end; }
+.pay td { padding: 2.1mm 2.5mm; border-block-end: 0.25mm solid var(--hair); }
+.pay .pct { font-family: "space-mono", monospace; font-weight: 700; }
+
+/* ── Terms ──────────────────────────────────────────────── */
+.terms { font-size: 8.5pt; }
+.terms td { padding: 1.8mm 2.5mm; border-block-end: 0.25mm solid var(--hair); }
+.terms .k { color: var(--steel); width: 34%; }
+.terms .v { font-weight: 500; }
+
+.next { margin-block-start: 4mm; padding: 3mm 4.5mm; background: var(--wash);
+        border-inline-start: 1.4mm solid var(--gold); font-size: 8.5pt; line-height: 1.75; }
+
+/* ── Acceptance — the block that turns a quote into an order ── */
+.accept { margin-block-start: 5mm; border: 0.5mm solid var(--navy); padding: 4mm 5mm; }
+.accept p { font-size: 7.5pt; color: var(--steel); line-height: 1.65; margin-block-end: 4mm; }
+.sigs { display: flex; gap: 8mm; }
+.sig { flex: 1; }
+.sig-l { border-block-end: 0.3mm solid var(--navy); block-size: 10mm; }
+.sig-k { font-size: 6.5pt; letter-spacing: 0.12em; color: var(--concrete); margin-block-start: 2mm; }
+
+/* ── Footer ─────────────────────────────────────────────── */
+.foot { margin-block-start: auto; padding-block: 4mm 6mm; display: flex;
+        justify-content: space-between; align-items: flex-end; gap: 6mm;
+        border-block-start: 0.25mm solid var(--hair); }
+.foot-l { font-size: 6.8pt; color: var(--steel); line-height: 1.8; }
+.foot-p { font-family: "space-mono", monospace; font-size: 6.8pt; color: var(--concrete); }
+.foot-bar { position: absolute; inset-block-end: 0; inset-inline: 0; height: 3mm;
+            background: linear-gradient(to right, var(--navy) 0 60%, var(--gold) 60% 100%); }
+
+/* Continuation header — a detached page 2 has to identify itself. */
+.cont { display: flex; align-items: center; justify-content: space-between;
+        padding-block-end: 3mm; border-block-end: 1.4mm solid var(--navy); margin-block-end: 8mm; }
+.cont-r { font-family: "space-mono", monospace; font-size: 7.5pt; color: var(--steel); text-align: end; line-height: 1.7; }
+</style>
+</head>
+<body>
+
+<!-- ══════ Page 1 — the offer ══════════════════════════════ -->
+<div class="page" dir="ltr" data-canvas-width="794" data-canvas-height="1123">
+
+  <div class="head">
+    <div class="lockup">
+      <svg class="mark" viewBox="0 0 1082.97 1248.03" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="currentColor" d="M 198.66 451.98 L 305.13 390.08 L 304.89 554.64 L 411.48 554.72 L 411.53 295.96 L 517.3 219.38 L 517.37 1117.34 C 525.98 1133.67 546.63 1136.47 562.17 1126.84 L 954.56 901.75 C 965.77 895.65 975.1 887.98 976.79 874.85 L 976.61 374.78 C 974.91 366.37 972.48 360.47 965.55 355.44 L 732.14 219.54 L 732.62 100.81 L 1042.56 280.03 C 1066.82 291.72 1081.55 315.35 1082.97 342.41 L 1082.78 910.77 C 1080.81 933.09 1072.14 953.05 1053.66 965.44 L 583.2 1235.47 C 559.87 1250.98 530.1 1252.23 505.68 1238.63 L 441.92 1201.64 C 423.81 1190.9 413.78 1174.12 411.61 1152.79 L 411.03 661.04 L 304.81 661.01 L 305.17 803.1 L 198.63 864.84 Z"/><path fill="currentColor" d="M 565.76 946.27 L 565.99 139.37 C 566.16 128.64 562.51 120.49 553.95 115.83 C 545.71 110.04 536.62 111.14 527.33 116.05 L 116.76 355.99 C 109.41 362.19 106.19 370.48 106.2 380.31 L 106.24 866.84 C 104.51 880.83 110.82 892.42 123.11 898.85 L 351.49 1029.15 L 351.37 1150.04 L 40.15 971.48 C 14.28 958.55 0.32 934.24 0 905.21 L 0.55 340.44 C 2.16 314.38 15.72 293.87 38.36 281.86 L 507.88 9.09 C 528.97 -2.47 551.64 -3.21 573.12 7.99 L 639.14 46.58 C 662.28 58.96 672.1 81.79 672.14 107.92 L 672.19 508.17 L 841.59 409.94 L 884.9 504.34 L 672.04 628.14 L 672.14 850.7 L 850.94 747.68 L 900.31 840.08 L 636.76 991.93 C 620.42 1001.78 601.86 1001.16 587.41 989 C 573.28 979.46 565.06 964.54 565.76 946.27"/></svg>
+      <div>
+        <div class="nm-ar">هاي تك هاب تريدينغ</div>
+        <div class="nm-en">HIGH TECH HUB TRADING</div>
+      </div>
+    </div>
+    <div class="head-c">
+      Office 6, Building 33, Street 180, Zone 55, Al Azizia, Doha<br>
+      <span class="mono">+974 5064 0111</span> &nbsp;·&nbsp; <span class="mono">info@hightechub.com</span>
+    </div>
+  </div>
+
+  <div class="doc">
+    <div class="doc-t">QUOTATION<span class="ar">عرض سعر</span></div>
+    <div class="refs">
+      <div>
+        <div class="ref-k">REFERENCE</div>
+        <div class="ref-v todo">HT-__-___-___</div>
+      </div>
+      <div>
+        <div class="ref-k">DATE</div>
+        <div class="ref-v">__ / __ / ____</div>
+      </div>
+      <div>
+        <div class="ref-k">VALID UNTIL</div>
+        <div class="ref-v gold">__ / __ / ____</div>
+      </div>
+      <div>
+        <div class="ref-k">REV</div>
+        <div class="ref-v">00</div>
+      </div>
+    </div>
+  </div>
+  <div class="rule"></div>
+
+  <div class="parties">
+    <div class="pcol">
+      <div class="pk">PREPARED FOR · مقدَّم إلى</div>
+      <dl class="prow"><dt>Company</dt><dd>________________</dd></dl>
+      <dl class="prow"><dt>Attention</dt><dd>________________</dd></dl>
+      <dl class="prow"><dt>Contact</dt><dd class="mono ltr">________________</dd></dl>
+    </div>
+    <div class="pcol">
+      <div class="pk">PROJECT · المشروع</div>
+      <dl class="prow"><dt>Project</dt><dd>________________</dd></dl>
+      <dl class="prow"><dt>Location</dt><dd>________________</dd></dl>
+      <dl class="prow"><dt>Consultant</dt><dd>________________</dd></dl>
+    </div>
+  </div>
+
+  <h2>Scope of supply <span class="ar">نطاق التوريد</span></h2>
+
+  <div class="subject">
+    Supply and installation of ________________
+    <span class="ar">توريد وتركيب ________________</span>
+  </div>
+
+  <table class="items">
+    <thead>
+      <tr>
+        <th style="width:9%">ITEM</th>
+        <th style="width:41%">DESCRIPTION</th>
+        <th class="n" style="width:15%">SIZE W × H (m)</th>
+        <th class="n" style="width:8%">QTY</th>
+        <th class="n" style="width:13%">UNIT (QAR)</th>
+        <th class="n" style="width:14%">AMOUNT (QAR)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="grp"><td colspan="6">SECTION A — ________________</td></tr>
+      <tr>
+        <td class="code">D01</td>
+        <td>
+          <span class="it">________________</span>
+          <span class="spec">________________</span>
+<!-- .std is available (see CSS) for a line item that genuinely cites a
+               certificate or standard — e.g. a fire-rated steel door with a BS
+               number on file. Doors (D-prefix) generally don't carry one, so
+               it is not part of the default row. Never fill it with an
+               invented standard; leave the line without it instead. -->
+        </td>
+        <td class="n num">— × —</td>
+        <td class="n num">—</td>
+        <td class="n num">—</td>
+        <td class="n num">—</td>
+      </tr>
+      <tr>
+        <td class="code">D02</td>
+        <td><span class="it">________________</span><span class="spec">________________</span></td>
+        <td class="n num">— × —</td><td class="n num">—</td><td class="n num">—</td><td class="n num">—</td>
+      </tr>
+      <tr>
+        <td class="code">D03</td>
+        <td><span class="it">________________</span><span class="spec">________________</span></td>
+        <td class="n num">— × —</td><td class="n num">—</td><td class="n num">—</td><td class="n num">—</td>
+      </tr>
+      <tr>
+        <td class="code">D04</td>
+        <td><span class="it">________________</span><span class="spec">________________</span></td>
+        <td class="n num">— × —</td><td class="n num">—</td><td class="n num">—</td><td class="n num">—</td>
+      </tr>
+      <tr>
+        <td class="code">D05</td>
+        <td><span class="it">________________</span><span class="spec">________________</span></td>
+        <td class="n num">— × —</td><td class="n num">—</td><td class="n num">—</td><td class="n num">—</td>
+      </tr>
+      <tr>
+        <td class="code">D06</td>
+        <td><span class="it">________________</span><span class="spec">________________</span></td>
+        <td class="n num">— × —</td><td class="n num">—</td><td class="n num">—</td><td class="n num">—</td>
+      </tr>
+
+    </tbody>
+  </table>
+
+  <div class="total">
+    <div>
+      <div class="total-k">TOTAL · الإجمالي</div>
+      <div class="total-w">________________ Qatari Riyals only<span class="ar">فقط ________________ ريالاً قطرياً لا غير</span></div>
+    </div>
+    <div class="total-f">—<small>QAR</small></div>
+  </div>
+
+  <div class="foot">
+    <div class="foot-l">
+      High Tech Hub Trading &nbsp;·&nbsp; هاي تك هاب تريدينغ<br>
+      <span class="mono">P.O. Box 214058, Doha, Qatar &nbsp;·&nbsp; hightechub.com</span>
+    </div>
+    <div class="foot-p">PAGE 1 OF 2</div>
+  </div>
+  <div class="foot-bar"></div>
+</div>
+
+<!-- ══════ Page 2 — the commercials ════════════════════════ -->
+<div class="page" dir="ltr" data-canvas-width="794" data-canvas-height="1123">
+
+  <div class="cont">
+    <div class="lockup">
+      <svg class="mark" viewBox="0 0 1082.97 1248.03" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="currentColor" d="M 198.66 451.98 L 305.13 390.08 L 304.89 554.64 L 411.48 554.72 L 411.53 295.96 L 517.3 219.38 L 517.37 1117.34 C 525.98 1133.67 546.63 1136.47 562.17 1126.84 L 954.56 901.75 C 965.77 895.65 975.1 887.98 976.79 874.85 L 976.61 374.78 C 974.91 366.37 972.48 360.47 965.55 355.44 L 732.14 219.54 L 732.62 100.81 L 1042.56 280.03 C 1066.82 291.72 1081.55 315.35 1082.97 342.41 L 1082.78 910.77 C 1080.81 933.09 1072.14 953.05 1053.66 965.44 L 583.2 1235.47 C 559.87 1250.98 530.1 1252.23 505.68 1238.63 L 441.92 1201.64 C 423.81 1190.9 413.78 1174.12 411.61 1152.79 L 411.03 661.04 L 304.81 661.01 L 305.17 803.1 L 198.63 864.84 Z"/><path fill="currentColor" d="M 565.76 946.27 L 565.99 139.37 C 566.16 128.64 562.51 120.49 553.95 115.83 C 545.71 110.04 536.62 111.14 527.33 116.05 L 116.76 355.99 C 109.41 362.19 106.19 370.48 106.2 380.31 L 106.24 866.84 C 104.51 880.83 110.82 892.42 123.11 898.85 L 351.49 1029.15 L 351.37 1150.04 L 40.15 971.48 C 14.28 958.55 0.32 934.24 0 905.21 L 0.55 340.44 C 2.16 314.38 15.72 293.87 38.36 281.86 L 507.88 9.09 C 528.97 -2.47 551.64 -3.21 573.12 7.99 L 639.14 46.58 C 662.28 58.96 672.1 81.79 672.14 107.92 L 672.19 508.17 L 841.59 409.94 L 884.9 504.34 L 672.04 628.14 L 672.14 850.7 L 850.94 747.68 L 900.31 840.08 L 636.76 991.93 C 620.42 1001.78 601.86 1001.16 587.41 989 C 573.28 979.46 565.06 964.54 565.76 946.27"/></svg>
+      <div>
+        <div class="nm-ar">هاي تك هاب تريدينغ</div>
+        <div class="nm-en">HIGH TECH HUB TRADING</div>
+      </div>
+    </div>
+    <div class="cont-r">
+      QUOTATION <span class="todo">HT-__-___-___</span><br>
+      __ / __ / ____ &nbsp;·&nbsp; REV 00
+    </div>
+  </div>
+
+  <h2>Scope boundaries <span class="ar">حدود نطاق العمل</span></h2>
+  <div class="scope">
+    <div class="sbox">
+      <h3>INCLUDED · مشمول</h3>
+      <ul>
+        <li>Supply of materials · توريد المواد</li>
+        <li>Installation at site · التركيب في الموقع</li>
+        <li>Testing and commissioning · الاختبار والتشغيل</li>
+        <li>Manufacturer documentation · وثائق المصنّع</li>
+        <li>O&amp;M manual and user training · دليل التشغيل والتدريب</li>
+      </ul>
+    </div>
+    <div class="sbox out">
+      <h3>NOT INCLUDED · غير مشمول</h3>
+      <ul>
+        <li>Civil works · الأعمال المدنية</li>
+        <li>Related electrical works · الأعمال الكهربائية المرتبطة</li>
+        <li>Foundation works · أعمال الأساسات</li>
+        <li>Builder's work openings · فتحات الأعمال الإنشائية</li>
+        <li>________________</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 style="margin-block-start:6mm">Payment schedule <span class="ar">جدول الدفعات</span></h2>
+  <table class="pay">
+    <thead>
+      <tr><th style="width:26%">STAGE</th><th style="width:56%">TRIGGER</th><th class="n" style="width:18%">SHARE</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Advance · مقدَّم</td><td>On acceptance of this quotation · عند اعتماد العرض</td><td class="n pct todo">__ %</td></tr>
+      <tr><td>Pre-installation · قبل التركيب</td><td>On delivery to site · عند التوريد للموقع</td><td class="n pct todo">__ %</td></tr>
+      <tr><td>Completion · الإنجاز</td><td>On handover and commissioning · عند التسليم والتشغيل</td><td class="n pct todo">__ %</td></tr>
+    </tbody>
+  </table>
+
+  <h2 style="margin-block-start:6mm">Terms <span class="ar">الشروط</span></h2>
+  <table class="terms">
+    <tr><td class="k">Delivery · التسليم</td><td class="v"><span class="todo">__</span> days from approval of shop drawings</td></tr>
+    <tr><td class="k">Warranty · الضمان</td><td class="v">One year from handover · سنة واحدة من تاريخ التسليم</td></tr>
+    <tr><td class="k">Currency · العملة</td><td class="v">Qatari Riyals (QAR) · بالريال القطري</td></tr>
+    <tr><td class="k">Prices · الأسعار</td><td class="v">Fixed for the validity period stated overleaf</td></tr>
+  </table>
+
+  <div class="next">
+    <b>What happens next · الخطوة التالية</b><br>
+    On acceptance we issue shop drawings within <span class="todo">__</span> working days for your approval,
+    then proceed to procurement against the approved specification.
+    <span class="ar">عند الاعتماد نصدر المخططات التنفيذية خلال <span class="todo">__</span> أيام عمل لاعتمادكم، ثم نبدأ التوريد وفق المواصفات المعتمدة.</span>
+  </div>
+
+  <div class="accept">
+    <h2 style="margin-block-end:3mm">Acceptance <span class="ar">الاعتماد</span></h2>
+    <p>
+      Signing below confirms acceptance of the scope, specifications, payment schedule and terms
+      set out in this quotation, and constitutes an instruction to proceed.
+      <span class="ar">يُعد التوقيع أدناه اعتماداً لنطاق العمل والمواصفات وجدول الدفعات والشروط الواردة في هذا العرض، وتفويضاً بالبدء في التنفيذ.</span>
+    </p>
+    <div class="sigs">
+      <div class="sig"><div class="sig-l"></div><div class="sig-k">NAME · الاسم</div></div>
+      <div class="sig"><div class="sig-l"></div><div class="sig-k">SIGNATURE · التوقيع</div></div>
+      <div class="sig"><div class="sig-l"></div><div class="sig-k">DATE · التاريخ</div></div>
+      <div class="sig"><div class="sig-l"></div><div class="sig-k">STAMP · الختم</div></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div class="foot-l">
+      Prepared by ________________ &nbsp;·&nbsp; Sales Representative<br>
+      <span class="mono">+974 5064 0111 &nbsp;·&nbsp; +974 7057 0800 &nbsp;·&nbsp; info@hightechub.com</span>
+    </div>
+    <div class="foot-p">PAGE 2 OF 2</div>
+  </div>
+  <div class="foot-bar"></div>
+</div>
+
+</body>
+</html>
