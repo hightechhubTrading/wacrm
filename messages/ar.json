@@ -562,7 +562,8 @@
     "card": {
       "noContact": "لا توجد جهة اتصال",
       "won": "رابحة",
-      "lost": "خاسرة"
+      "lost": "خاسرة",
+      "quotations": "عروض الأسعار"
     },
     "form": {
       "editDeal": "تعديل الصفقة",
@@ -661,6 +662,12 @@
       "cancel": "إلغاء",
       "done": "تم",
       "missingFieldsBanner": "املأ الحقول المميزة لنقل هذه الصفقة إلى المرحلة التالية."
+    },
+    "quotationsDialog": {
+      "title": "عروض الأسعار",
+      "empty": "لا توجد عروض أسعار بعد",
+      "newQuotation": "عرض سعر جديد",
+      "creating": "جارٍ الإنشاء..."
     }
   },
   "Broadcasts": {

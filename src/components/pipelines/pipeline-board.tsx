@@ -28,6 +28,7 @@ interface PipelineBoardProps {
   onDealMoved: (dealId: string, newStageId: string) => void;
   onAddDeal: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
+  onOpenQuotations: (deal: Deal) => void;
 }
 
 export function PipelineBoard({
@@ -36,6 +37,7 @@ export function PipelineBoard({
   onDealMoved,
   onAddDeal,
   onEditDeal,
+  onOpenQuotations,
 }: PipelineBoardProps) {
   const { defaultCurrency } = useAuth();
   const [activeDealId, setActiveDealId] = useState<string | null>(null);
@@ -119,6 +121,7 @@ export function PipelineBoard({
               currency={defaultCurrency}
               onAddDeal={onAddDeal}
               onEditDeal={onEditDeal}
+              onOpenQuotations={onOpenQuotations}
             />
           );
         })}
@@ -138,6 +141,7 @@ export function PipelineBoard({
                 sortedStages.find((s) => s.id === activeDeal.stage_id) ?? null
               }
               onEdit={() => {}}
+              onOpenQuotations={() => {}}
               isOverlay
             />
           </div>
@@ -193,6 +197,7 @@ function StageColumn({
   currency,
   onAddDeal,
   onEditDeal,
+  onOpenQuotations,
 }: {
   stage: PipelineStage;
   deals: Deal[];
@@ -200,6 +205,7 @@ function StageColumn({
   currency: string;
   onAddDeal: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
+  onOpenQuotations: (deal: Deal) => void;
 }) {
   const t = useTranslations("Pipelines.board");
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
@@ -248,6 +254,7 @@ function StageColumn({
               deal={deal}
               stage={stage}
               onEdit={onEditDeal}
+              onOpenQuotations={onOpenQuotations}
             />
           ))
         )}
@@ -270,10 +277,12 @@ function DraggableDealCard({
   deal,
   stage,
   onEdit,
+  onOpenQuotations,
 }: {
   deal: Deal;
   stage: PipelineStage;
   onEdit: (deal: Deal) => void;
+  onOpenQuotations: (deal: Deal) => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: deal.id,
@@ -286,7 +295,12 @@ function DraggableDealCard({
       {...attributes}
       style={{ opacity: isDragging ? 0.3 : 1, touchAction: "none" }}
     >
-      <DealCard deal={deal} stage={stage} onEdit={onEdit} />
+      <DealCard
+        deal={deal}
+        stage={stage}
+        onEdit={onEdit}
+        onOpenQuotations={onOpenQuotations}
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { PipelineBoard } from "@/components/pipelines/pipeline-board";
 import { PipelineSettings } from "@/components/pipelines/pipeline-settings";
 import { DealForm } from "@/components/pipelines/deal-form";
 import { OrderInfoDialog } from "@/components/pipelines/order-info-dialog";
+import { QuotationsDialog } from "@/components/pipelines/quotations-dialog";
 import { PipelineAnalytics } from "@/components/pipelines/pipeline-analytics";
 import { Button } from "@/components/ui/button";
 import {
@@ -126,6 +127,11 @@ export default function PipelinesPage() {
     deal: Deal;
     missingFieldIds?: string[];
   } | null>(null);
+
+  // Quotations popup (Task 14) — same lifted open/close pattern as
+  // orderInfoState above: the deal-card entry point only ever calls
+  // back up to here, the dialog itself carries no open state of its own.
+  const [quotationsDeal, setQuotationsDeal] = useState<Deal | null>(null);
 
   // Guard against double-seeding (React StrictMode double-effect in dev).
   const seedAttempted = useRef(false);
@@ -348,6 +354,10 @@ export default function PipelinesPage() {
     setDealFormOpen(true);
   }, []);
 
+  const handleOpenQuotations = useCallback((deal: Deal) => {
+    setQuotationsDeal(deal);
+  }, []);
+
   async function handleCreatePipeline() {
     const name = newPipelineName.trim();
     if (!name) return;
@@ -520,6 +530,7 @@ export default function PipelinesPage() {
             onDealMoved={handleDealMoved}
             onAddDeal={handleAddDeal}
             onEditDeal={handleEditDeal}
+            onOpenQuotations={handleOpenQuotations}
           />
         </>
       )}
@@ -601,6 +612,18 @@ export default function PipelinesPage() {
           deal={orderInfoState.deal}
           missingFieldIds={orderInfoState.missingFieldIds}
           onSaved={refreshDeals}
+        />
+      )}
+
+      {/* Quotations popup — see handleOpenQuotations above */}
+      {quotationsDeal && (
+        <QuotationsDialog
+          open={!!quotationsDeal}
+          onOpenChange={(open) => {
+            if (!open) setQuotationsDeal(null);
+          }}
+          dealId={quotationsDeal.id}
+          contactId={quotationsDeal.contact_id}
         />
       )}
     </div>

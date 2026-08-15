@@ -155,6 +155,32 @@ describe('GET /api/quotations', () => {
     ).toBe(false);
   });
 
+  it('applies a dealId filter (deal-card entry point) when provided', async () => {
+    const { from, builder } = makeListSupabase({ data: [], error: null });
+    h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase: { from } });
+
+    const req = new Request('http://test/api/quotations?dealId=deal-1');
+    const res = await GET(req);
+
+    expect(res.status).toBe(200);
+    expect(builder.eq).toHaveBeenCalledWith('account_id', 'acc-1');
+    expect(builder.eq).toHaveBeenCalledWith('deal_id', 'deal-1');
+  });
+
+  it('omits the deal_id filter when no dealId is given', async () => {
+    const { from, builder } = makeListSupabase({ data: [], error: null });
+    h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase: { from } });
+
+    const req = new Request('http://test/api/quotations');
+    await GET(req);
+
+    // Only the account_id filter should have been applied on this
+    // builder -- 'deal_id' never appears among the .eq() calls.
+    expect(
+      builder.eq.mock.calls.some(([field]) => field === 'deal_id'),
+    ).toBe(false);
+  });
+
   it('returns 400 with the Supabase error message on query failure', async () => {
     const { from } = makeListSupabase({
       data: null,

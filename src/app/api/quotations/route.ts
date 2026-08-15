@@ -28,18 +28,24 @@ export async function POST(request: Request) {
 /**
  * GET /api/quotations
  *
- * List, optionally filtered by `status`. Same authorization shape as
- * POST above: accountId always comes from `ctx.accountId` (the caller's
- * own membership), never from the query string -- and the query runs
- * through `ctx.supabase`, not the service-role client, so
- * quotations_select RLS (059) is still the backstop even if this
- * filter were ever wrong.
+ * List, optionally filtered by `status` and/or `dealId`. Same
+ * authorization shape as POST above: accountId always comes from
+ * `ctx.accountId` (the caller's own membership), never from the query
+ * string -- and the query runs through `ctx.supabase`, not the
+ * service-role client, so quotations_select RLS (059) is still the
+ * backstop even if this filter were ever wrong.
+ *
+ * The `dealId` filter (Task 14, deal-card entry point) is additive to
+ * the account scoping above, not a replacement -- `.eq('account_id', ...)`
+ * always applies first, so a caller can never see another account's
+ * quotations no matter what `dealId` they pass.
  */
 export async function GET(request: Request) {
   try {
     const ctx = await requireRole('agent');
     const url = new URL(request.url);
     const status = url.searchParams.get('status');
+    const dealId = url.searchParams.get('dealId');
 
     let query = ctx.supabase
       .from('quotations')
@@ -47,6 +53,7 @@ export async function GET(request: Request) {
       .eq('account_id', ctx.accountId)
       .order('created_at', { ascending: false });
     if (status) query = query.eq('status', status);
+    if (dealId) query = query.eq('deal_id', dealId);
 
     const { data, error } = await query;
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });

@@ -562,7 +562,8 @@
     "card": {
       "noContact": "No contact",
       "won": "Won",
-      "lost": "Lost"
+      "lost": "Lost",
+      "quotations": "Quotations"
     },
     "form": {
       "editDeal": "Edit Deal",
@@ -661,6 +662,12 @@
       "cancel": "Cancel",
       "done": "Done",
       "missingFieldsBanner": "Fill in the highlighted fields to move this deal forward."
+    },
+    "quotationsDialog": {
+      "title": "Quotations",
+      "empty": "No quotations yet",
+      "newQuotation": "New Quotation",
+      "creating": "Creating..."
     }
   },
   "Broadcasts": {
