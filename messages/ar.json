@@ -1587,7 +1587,8 @@
       "deals": "الصفقات والعملة",
       "group-notifications": "إشعارات المجموعات",
       "members": "أعضاء الفريق",
-      "api": "مفاتيح API"
+      "api": "مفاتيح API",
+      "quotation-product-codes": "رموز منتجات عروض الأسعار"
     },
     "groups": {
       "account": "الحساب",

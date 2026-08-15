@@ -1,6 +1,7 @@
 import {
   Coins,
   FileText,
+  Hash,
   KeyRound,
   LayoutGrid,
   MessageSquare,
@@ -35,6 +36,7 @@ export const SETTINGS_SECTIONS = [
   'group-notifications',
   'members',
   'api',
+  'quotation-product-codes',
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
@@ -62,6 +64,12 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   'group-notifications': { id: 'group-notifications', label: 'Group notifications', icon: MessageSquare, group: 'workspace' },
   members: { id: 'members', label: 'Team members', icon: UsersRound, group: 'workspace' },
   api: { id: 'api', label: 'API keys', icon: KeyRound, group: 'workspace' },
+  'quotation-product-codes': {
+    id: 'quotation-product-codes',
+    label: 'Quotation product codes',
+    icon: Hash,
+    group: 'workspace',
+  },
 };
 
 export const RAIL_GROUPS: { label: string | null; group: SectionMeta['group'] }[] = [

@@ -19,6 +19,7 @@ import { DealsSettings } from '@/components/settings/deals-settings';
 import { WahaConfig } from '@/components/settings/waha-config';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
+import { QuotationProductCodes } from '@/components/settings/quotation-product-codes';
 import {
   resolveSection,
   type SettingsSection,
@@ -83,6 +84,7 @@ function SettingsPageInner() {
     'group-notifications': <WahaConfig />,
     members: <MembersTab />,
     api: <ApiKeysSettings />,
+    'quotation-product-codes': <QuotationProductCodes />,
   };
 
   return (

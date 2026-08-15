@@ -1597,7 +1597,8 @@
       "deals": "Deals & currency",
       "group-notifications": "Group notifications",
       "members": "Team members",
-      "api": "API keys"
+      "api": "API keys",
+      "quotation-product-codes": "Quotation product codes"
     },
     "groups": {
       "account": "Account",
