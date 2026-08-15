@@ -6,7 +6,9 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 
 import { QuotationForm } from '@/components/quotations/quotation-form';
 import { QuotationActions } from '@/components/quotations/quotation-actions';
-import type { Quotation, QuotationStatus } from '@/lib/quotations/types';
+import { QuotationItemTree, toItemToSave } from '@/components/quotations/quotation-item-tree';
+import type { OrderDiscount } from '@/lib/quotations/totals';
+import type { Quotation, QuotationItem, QuotationStatus } from '@/lib/quotations/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -15,6 +17,15 @@ import { Button } from '@/components/ui/button';
 // applied to the Task 6/9/10 API routes and to the sibling
 // automations/[id]/edit page (src/app/(dashboard)/automations/[id]/edit/page.tsx).
 type Params = { params: Promise<{ id: string }> };
+
+// GET/PATCH /api/quotations/[id] (Task 6) both respond via
+// mapQuotationWithItems, which always includes an `items` array on top of
+// the plain Quotation fields — the Quotation interface itself
+// (src/lib/quotations/types.ts) just doesn't declare that field, since
+// most callers (the list page, the party/project form) never need it.
+// This page is the one caller that does, so it extends locally rather
+// than widening the shared type for everyone.
+type QuotationWithItems = Quotation & { items: QuotationItem[] };
 
 const STATUS_VARIANT: Record<QuotationStatus, 'default' | 'secondary' | 'outline' | 'destructive'> = {
   draft: 'secondary',
@@ -27,7 +38,7 @@ const STATUS_VARIANT: Record<QuotationStatus, 'default' | 'secondary' | 'outline
 export default function QuotationDetailPage({ params }: Params) {
   const { id } = use(params);
   const router = useRouter();
-  const [quotation, setQuotation] = useState<Quotation | null>(null);
+  const [quotation, setQuotation] = useState<QuotationWithItems | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,6 +61,16 @@ export default function QuotationDetailPage({ params }: Params) {
     };
   }, [id]);
 
+  // QuotationForm/QuotationActions only ever change top-level quotation
+  // fields (party/project fields, pdfStoragePath/revision) — never items —
+  // so their PATCH/POST responses are typed narrower (plain Quotation) than
+  // this page's own state. Re-attach the items this page already has
+  // rather than widen those components' prop types for a field they never
+  // touch.
+  function mergeQuotationFields(updated: Quotation) {
+    setQuotation((prev) => (prev ? { ...prev, ...updated } : { ...updated, items: [] }));
+  }
+
   if (error) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3">
@@ -68,6 +89,11 @@ export default function QuotationDetailPage({ params }: Params) {
       </div>
     );
   }
+
+  const initialOrderDiscount: OrderDiscount | undefined =
+    quotation.discountType && quotation.discountValue
+      ? { discountType: quotation.discountType, discountValue: quotation.discountValue }
+      : undefined;
 
   return (
     <div className="space-y-6">
@@ -91,8 +117,14 @@ export default function QuotationDetailPage({ params }: Params) {
         </div>
       </div>
 
-      <QuotationForm quotation={quotation} onSaved={setQuotation} />
-      <QuotationActions quotation={quotation} onGenerated={setQuotation} />
+      <QuotationForm quotation={quotation} onSaved={mergeQuotationFields} />
+      <QuotationActions quotation={quotation} onGenerated={mergeQuotationFields} />
+      <QuotationItemTree
+        quotationId={quotation.id}
+        initialItems={quotation.items.map(toItemToSave)}
+        initialOrderDiscount={initialOrderDiscount}
+        onSaved={setQuotation}
+      />
     </div>
   );
 }
