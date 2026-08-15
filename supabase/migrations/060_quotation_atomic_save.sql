@@ -16,8 +16,23 @@
 -- child item's parent_item_id can reference a sibling item in the SAME
 -- batch by its real id before either row exists in the table yet.
 --
--- Authorization mirrors quotation_items_write (059) exactly: admin, or
--- the quotation's own assigned agent, and nobody else.
+-- This function is only ever called via supabaseAdmin() (the
+-- service-role client -- see src/lib/quotations/crud.ts), where
+-- auth.uid() is always NULL. An in-function auth.uid() check would
+-- therefore unconditionally fail every legitimate call. Authorization
+-- happens one layer up, in the Next.js API route that calls this
+-- function (Task 6), which uses the RLS-scoped request-context client
+-- to verify the caller can see the quotation before ever reaching this
+-- admin-client-only function. This mirrors the codebase's own
+-- established convention for every other admin-client-only RPC -- see
+-- increment_automation_execution_count in
+-- 007_automations_increment_counter.sql: no in-function auth check,
+-- REVOKE from anon/authenticated, GRANT to service_role only.
+--
+-- account_id is derived from the quotation row itself, not trusted
+-- verbatim from the caller-supplied p_account_id argument -- a wrong
+-- or malicious p_account_id must not be able to tag quotation_items
+-- rows with the wrong tenant.
 --
 -- Idempotent -- safe to run multiple times.
 -- ============================================================
@@ -35,17 +50,15 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_account_id uuid;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM quotations q
-    WHERE q.id = p_quotation_id
-      AND (
-        is_account_member(q.account_id, 'admin')
-        OR (is_account_member(q.account_id, 'agent')
-            AND q.assigned_to = (SELECT id FROM profiles WHERE profiles.user_id = auth.uid()))
-      )
-  ) THEN
-    RAISE EXCEPTION 'Unauthorized' USING ERRCODE = '42501';
+  SELECT q.account_id INTO v_account_id
+  FROM quotations q
+  WHERE q.id = p_quotation_id;
+
+  IF v_account_id IS NULL THEN
+    RAISE EXCEPTION 'Quotation not found' USING ERRCODE = 'P0002';
   END IF;
 
   DELETE FROM quotation_items WHERE quotation_id = p_quotation_id;
@@ -58,7 +71,7 @@ BEGIN
   SELECT
     (elem->>'id')::uuid,
     p_quotation_id,
-    p_account_id,
+    v_account_id,
     NULLIF(elem->>'parent_item_id', '')::uuid,
     NULLIF(elem->>'product_id', '')::uuid,
     (elem->>'position')::integer,
@@ -83,4 +96,11 @@ END;
 $$;
 
 ALTER FUNCTION save_quotation_items(uuid, uuid, jsonb, numeric, numeric, numeric) OWNER TO postgres;
-GRANT EXECUTE ON FUNCTION save_quotation_items(uuid, uuid, jsonb, numeric, numeric, numeric) TO authenticated, service_role;
+
+-- Only the service role needs to call this (crud.ts uses
+-- supabaseAdmin()). Explicitly lock anon / authenticated out --
+-- matches increment_automation_execution_count's convention exactly.
+REVOKE ALL ON FUNCTION save_quotation_items(uuid, uuid, jsonb, numeric, numeric, numeric) FROM PUBLIC;
+REVOKE ALL ON FUNCTION save_quotation_items(uuid, uuid, jsonb, numeric, numeric, numeric) FROM anon;
+REVOKE ALL ON FUNCTION save_quotation_items(uuid, uuid, jsonb, numeric, numeric, numeric) FROM authenticated;
+GRANT EXECUTE ON FUNCTION save_quotation_items(uuid, uuid, jsonb, numeric, numeric, numeric) TO service_role;
