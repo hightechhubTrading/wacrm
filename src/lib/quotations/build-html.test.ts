@@ -41,4 +41,49 @@ describe('buildQuotationHtml', () => {
     const html = buildQuotationHtml(quotation, items);
     expect(html).not.toContain('________________');
   });
+
+  it('inserts a "$"-containing value literally, without JS replace() pattern reinterpretation', () => {
+    // .replace()/.replaceAll() treat $1, $&, $`, $', $$ in a STRING
+    // replacement specially — even when the search side is a plain string,
+    // not a regex. A CRM free-text field containing a literal "$" followed
+    // by a digit or "&" is plausible, not adversarial, and must come out
+    // exactly as typed rather than have $& re-insert the whole (still
+    // unfilled) matched placeholder chunk, or $1 pull in a capture group.
+    const dollarQuotation: Quotation = {
+      ...quotation,
+      clientCompany: 'Acme $& Co',
+      projectName: 'Villa $1 Retrofit',
+    };
+    const dollarItems: QuotationItem[] = [
+      { ...items[0], description: 'Door $1 Signage' },
+    ];
+    const html = buildQuotationHtml(dollarQuotation, dollarItems);
+    // esc() HTML-escapes "&" to "&amp;" but must leave "$" untouched.
+    expect(html).toContain('Acme $&amp; Co');
+    expect(html).toContain('Villa $1 Retrofit');
+    expect(html).toContain('Door $1 Signage');
+    // The corruption reviewer reproduced: $& re-inserting the unfilled
+    // <dt>Company</dt><dd>________________</dd> placeholder chunk, which
+    // would show up as a stray "________________" surviving in the output.
+    expect(html).not.toContain('________________');
+    expect(html).toContain('<dt>Company</dt><dd>Acme $&amp; Co</dd>');
+  });
+
+  it('clears payment-schedule percentages and lead-time placeholders, without leaving raw text or the "todo" flagging class', () => {
+    // These have no corresponding field on Quotation/QuotationItem (a
+    // disclosed schema gap — see task-8-report.md), and don't use the
+    // 16-underscore pattern the previous test checks, so they need their
+    // own assertions.
+    const html = buildQuotationHtml(quotation, items);
+    expect(html).not.toContain('__ %');
+    expect(html).not.toContain('<span class="todo">__</span>');
+  });
+
+  it('strips the "todo" flagging class from every placeholder it fills or clears', () => {
+    const html = buildQuotationHtml(quotation, items);
+    // No element anywhere in the output should still carry a "todo" class
+    // — not the (now-filled) reference fields, not the (now-cleared)
+    // payment percentages or lead-time figures.
+    expect(html).not.toMatch(/class="[^"]*\btodo\b[^"]*"/);
+  });
 });

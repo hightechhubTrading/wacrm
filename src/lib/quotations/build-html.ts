@@ -12,6 +12,20 @@
 // against this file before trusting a green test run: the fixture used by
 // build-html.test.ts only exercises one item and mostly-null party fields,
 // so it will not by itself catch every possible placeholder regression.
+//
+// A second hazard, independent of the first: wherever a replacement is
+// passed to .replace()/.replaceAll() as a STRING (not a function), JS
+// treats `$1`, `$&`, `` $` ``, `$'`, `$$` in that string as special
+// substitution patterns — even when the search side is a plain string, not
+// a regex. Free-text CRM fields (company names, project names, item
+// descriptions) can contain a literal "$" followed by a digit or "&" with
+// no adversarial intent, and it would get silently reinterpreted instead
+// of inserted verbatim (`$&` in particular re-inserts the entire matched,
+// still-unfilled placeholder — i.e. it reintroduces the exact "leftover
+// placeholder" bug the tests below exist to catch). Every replacement
+// below that inserts variable content therefore uses a replacer FUNCTION,
+// whose return value is never re-scanned for `$`-patterns. Plain strings
+// are only used where the replacement is 100% static (no interpolation).
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { amountInWordsBilingual } from './number-to-words';
@@ -52,10 +66,11 @@ function itemRowHtml(item: QuotationItem): string {
 // Anchors a <dt>label</dt><dd>...</dd> pair and fills the dd's placeholder
 // text. A bare `.replace('________________', value)` would only ever hit
 // the FIRST of the ~19 identical placeholder runs in the template — this
-// keeps each field aimed at its own row.
+// keeps each field aimed at its own row. Uses a replacer function (see
+// file header) so a "$"-containing value can never be reinterpreted.
 function fillPartyField(html: string, label: string, value: string | null): string {
   const re = new RegExp(`(<dt>${label}</dt><dd(?:[^>]*)>)________________(</dd>)`);
-  return html.replace(re, `$1${esc(value ?? '')}$2`);
+  return html.replace(re, (_match, open: string, close: string) => `${open}${esc(value ?? '')}${close}`);
 }
 
 export function buildQuotationHtml(quotation: Quotation, items: QuotationItem[]): string {
@@ -63,26 +78,33 @@ export function buildQuotationHtml(quotation: Quotation, items: QuotationItem[])
   const words = amountInWordsBilingual(quotation.total);
   const revision = String(quotation.revision).padStart(2, '0');
 
-  // Reference — appears TWICE (page 1 header, page 2 continuation header).
+  // Reference — appears TWICE (page 1 header, page 2 continuation header),
+  // each wrapped in a "todo" (amber, "unresolved") flagging class that
+  // must not survive once real data fills the slot. Strip the class first
+  // (both are static, non-interpolated replacements) — the reference text
+  // itself is filled a few lines down, once, via replaceAll.
+  html = html.replace('class="ref-v todo"', 'class="ref-v"');
+  html = html.replace('<span class="todo">HT-__-___-___</span>', '<span>HT-__-___-___</span>');
   // A single non-global .replace() here would silently leave page 2's copy
-  // as the literal placeholder — replaceAll is required.
-  html = html.replaceAll('HT-__-___-___', quotation.reference);
+  // as the literal placeholder — replaceAll is required. Function form:
+  // quotation.reference is free text and could in principle contain "$".
+  html = html.replaceAll('HT-__-___-___', () => quotation.reference);
 
   // Revision — "00" alone is far too generic to blind-replace, so it's
   // anchored to its label on page 1, and to the literal "REV 00" run in
   // page 2's continuation header (the only place that exact pair occurs).
   html = html.replace(
     /(<div class="ref-k">REV<\/div>\s*<div class="ref-v">)00(<\/div>)/,
-    `$1${revision}$2`
+    (_match, open: string, close: string) => `${open}${revision}${close}`
   );
-  html = html.replace(/REV 00/, `REV ${revision}`);
+  html = html.replace(/REV 00/, () => `REV ${revision}`);
 
   // Valid-until date — data exists on Quotation, fill it.
   const validUntil = formatDateDMY(quotation.validUntil);
   if (validUntil) {
     html = html.replace(
       /(<div class="ref-k">VALID UNTIL<\/div>\s*<div class="ref-v gold">)__ \/ __ \/ ____(<\/div>)/,
-      `$1${validUntil}$2`
+      (_match, open: string, close: string) => `${open}${validUntil}${close}`
     );
   }
   // NOTE: the template's "DATE" field (issue date) is intentionally left
@@ -103,7 +125,7 @@ export function buildQuotationHtml(quotation: Quotation, items: QuotationItem[])
   // sibling project's CLAUDE.md, and good practice regardless).
   html = html.replace(
     'Supply and installation of ________________',
-    `Supply and installation of ${esc(quotation.subject ?? '')}`
+    () => `Supply and installation of ${esc(quotation.subject ?? '')}`
   );
   html = html.replace('توريد وتركيب ________________', 'توريد وتركيب');
 
@@ -113,11 +135,12 @@ export function buildQuotationHtml(quotation: Quotation, items: QuotationItem[])
   // which would have left D02–D06 and the section header as literal
   // placeholders in every real quotation — replace the whole <tbody>
   // instead, scoped to the items table specifically (the payment-schedule
-  // table on page 2 has its own <tbody> and must not be touched).
+  // table on page 2 has its own <tbody> and must not be touched). Item
+  // descriptions are free text and could contain "$" — replacer function.
   const rows = items.map(itemRowHtml).join('');
   html = html.replace(
     /(<table class="items">[\s\S]*?<tbody>)[\s\S]*?(<\/tbody>)/,
-    `$1${rows}\n    $2`
+    (_match, open: string, close: string) => `${open}${rows}\n    ${close}`
   );
 
   // Total in words. The template wraps its own placeholder in a fixed
@@ -125,17 +148,29 @@ export function buildQuotationHtml(quotation: Quotation, items: QuotationItem[])
   // amountInWordsBilingual already returns that full shell, so the whole
   // fixed phrase is replaced wholesale rather than just the inner
   // placeholder — otherwise the wrapper words would double up.
-  html = html.replace(/________________ Qatari Riyals only/, esc(words.en));
-  html = html.replace(/فقط ________________ ريالاً قطرياً لا غير/, esc(words.ar));
+  html = html.replace(/________________ Qatari Riyals only/, () => esc(words.en));
+  html = html.replace(/فقط ________________ ريالاً قطرياً لا غير/, () => esc(words.ar));
   html = html.replace(
     /(<div class="total-f">)—(<small>QAR<\/small><\/div>)/,
-    `$1${quotation.total.toLocaleString()}$2`
+    (_match, open: string, close: string) => `${open}${quotation.total.toLocaleString()}${close}`
   );
 
   // Decorative placeholders with no corresponding data field on Quotation
-  // — dropped rather than filled with invented text.
+  // — dropped rather than filled with invented text (all static, no
+  // interpolation, so plain-string replace is fine here).
   html = html.replace('<li>________________</li>', '');
   html = html.replace('Prepared by ________________', 'Prepared by');
+
+  // Payment-schedule share percentages (3 identical rows: advance,
+  // pre-installation, completion) and the delivery/shop-drawing lead-time
+  // figures (Terms row + "What happens next", English and Arabic) have no
+  // corresponding field on Quotation/QuotationItem either. Same treatment:
+  // cleared, not fabricated, and — because these carry the "todo" amber
+  // flagging class — the class is stripped too, so the cleared cell ships
+  // with neither the raw placeholder text nor the "still needs input"
+  // styling. Static replacements throughout; no user data involved.
+  html = html.replace(/class="n pct todo">__ %</g, 'class="n pct"><');
+  html = html.replaceAll('<span class="todo">__</span>', '<span></span>');
 
   return html;
 }
