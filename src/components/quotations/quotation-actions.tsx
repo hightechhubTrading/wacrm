@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { FileText, Loader2, Send } from 'lucide-react';
+import { ExternalLink, FileText, Loader2, Send } from 'lucide-react';
 
 import type { Quotation } from '@/lib/quotations/types';
-import { Button } from '@/components/ui/button';
+import { createClient } from '@/lib/supabase/client';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
 // The only caller of the Task 10 routes. "Send" never sends anything
@@ -22,6 +23,19 @@ export function QuotationActions({
   onGenerated: (q: Quotation) => void;
 }) {
   const [busy, setBusy] = useState<'pdf' | 'send' | null>(null);
+
+  // Derived, not fetched — the `quotation-pdfs` bucket is public (see
+  // migration 061) and getPublicUrl() is a pure string construction, no
+  // network call, so this stays correct across regenerate/reload without
+  // needing its own state. Covers BOTH "just generated" (onGenerated
+  // already updated quotation.pdfStoragePath, so this recomputes
+  // immediately) and "opened a quotation that already had a PDF" (no
+  // regenerate needed to see the link).
+  const pdfUrl = useMemo(() => {
+    if (!quotation.pdfStoragePath) return null;
+    return createClient().storage.from('quotation-pdfs').getPublicUrl(quotation.pdfStoragePath).data
+      .publicUrl;
+  }, [quotation.pdfStoragePath]);
 
   async function generatePdf() {
     setBusy('pdf');
@@ -97,6 +111,17 @@ export function QuotationActions({
             </>
           )}
         </Button>
+        {pdfUrl && (
+          <a
+            href={pdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonVariants({ variant: 'ghost' })}
+          >
+            <ExternalLink className="size-4" />
+            View PDF
+          </a>
+        )}
         {!quotation.pdfStoragePath && (
           <p className="text-xs text-muted-foreground">Generate the PDF before sending.</p>
         )}
