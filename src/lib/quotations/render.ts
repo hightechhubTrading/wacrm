@@ -9,7 +9,12 @@ export async function renderHtmlToPdf(html: string): Promise<Buffer> {
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle' });
+    // Fonts are self-hosted as embedded base64 data: URIs in the template
+    // (final-review fix wave 3) — there is no external network activity to
+    // wait for anymore, so 'networkidle' no longer serves a purpose and is
+    // a slower, less reliable wait condition than 'load' for a fully
+    // self-contained document.
+    await page.setContent(html, { waitUntil: 'load' });
     return await page.pdf({ format: 'A4', printBackground: true });
   } finally {
     await browser.close();

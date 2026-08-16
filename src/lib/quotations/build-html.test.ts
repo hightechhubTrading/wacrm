@@ -86,4 +86,32 @@ describe('buildQuotationHtml', () => {
     // payment percentages or lead-time figures.
     expect(html).not.toMatch(/class="[^"]*\btodo\b[^"]*"/);
   });
+
+  it('fills the issue-date field from quotation.createdAt, on both page 1 and the page 2 continuation header', () => {
+    // createdAt is a full ISO timestamp; the template shows a bare
+    // DD / MM / YYYY date with no time component. quotation.createdAt is
+    // '2026-03-01T10:00:00Z' (fixture above) -> '01 / 03 / 2026'.
+    const html = buildQuotationHtml(quotation, items);
+    expect(html).toContain(
+      '<div class="ref-k">DATE</div>\n        <div class="ref-v">01 / 03 / 2026</div>'
+    );
+    expect(html).toContain('01 / 03 / 2026 &nbsp;·&nbsp; REV 00');
+    // The old "no data to fill this from" gap is fully closed — no raw
+    // date placeholder should survive anywhere in the output.
+    expect(html).not.toContain('__ / __ / ____');
+  });
+
+  it('no longer references the external Typekit stylesheet — fonts are self-hosted', () => {
+    // Final-review fix wave 3: the template's only font source used to be
+    // a live network call to Adobe Typekit at render time, with no
+    // offline fallback. Fonts are now embedded directly in the template as
+    // base64 @font-face declarations, so PDF generation has zero external
+    // dependency. This locks in that the external reference is really gone
+    // — a regression here would silently reintroduce the offline/blocked-
+    // network PDF failure mode this fix closed.
+    const html = buildQuotationHtml(quotation, items);
+    expect(html).not.toContain('use.typekit.net');
+    expect(html).not.toContain('<link rel="stylesheet"');
+    expect(html).toContain('@font-face');
+  });
 });

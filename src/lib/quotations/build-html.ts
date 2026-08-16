@@ -107,9 +107,31 @@ export function buildQuotationHtml(quotation: Quotation, items: QuotationItem[])
       (_match, open: string, close: string) => `${open}${validUntil}${close}`
     );
   }
-  // NOTE: the template's "DATE" field (issue date) is intentionally left
-  // as "__ / __ / ____" — Quotation has no createdAt/issuedAt field to
-  // source it from. See task-8-report.md.
+  // Issue date — Quotation.createdAt (added in final-review fix wave 1
+  // specifically so this gap could close; previously there was no data to
+  // fill it with, see task-8-report.md). createdAt is a full ISO
+  // timestamp (e.g. "2026-03-01T10:00:00Z"); formatDateDMY expects a bare
+  // "YYYY-MM-DD" date, so the time component is dropped first. Formatted
+  // DD / MM / YYYY to match validUntil's existing display convention just
+  // above — this is a Qatari business document, so day-month-year reads
+  // naturally here (unlike a US month-day-year default).
+  const issueDate = formatDateDMY(quotation.createdAt.slice(0, 10));
+  if (issueDate) {
+    html = html.replace(
+      /(<div class="ref-k">DATE<\/div>\s*<div class="ref-v">)__ \/ __ \/ ____(<\/div>)/,
+      (_match, open: string, close: string) => `${open}${issueDate}${close}`
+    );
+    // Page 2's continuation header repeats the issue date next to REV, as
+    // plain inline text with no wrapping element to anchor on — anchored
+    // instead to the literal " · REV" that immediately follows it, so this
+    // can't accidentally match page 1's VALID UNTIL date (already consumed
+    // above, and structurally distinct — wrapped in its own gold-classed
+    // div) or REV's own "00"/revision text.
+    html = html.replace(
+      /__ \/ __ \/ ____( &nbsp;·&nbsp; REV)/,
+      (_match, suffix: string) => `${issueDate}${suffix}`
+    );
+  }
 
   // Party / project block.
   html = fillPartyField(html, 'Company', quotation.clientCompany);
