@@ -24,6 +24,7 @@ export interface Quotation {
   total: number;
   validUntil: string | null;
   pdfStoragePath: string | null;
+  createdAt: string;
 }
 
 export interface QuotationItem {
@@ -78,6 +79,7 @@ export function mapQuotationRow(row: Record<string, any>): Quotation {
     total: row.total,
     validUntil: row.valid_until,
     pdfStoragePath: row.pdf_storage_path,
+    createdAt: row.created_at,
   };
 }
 

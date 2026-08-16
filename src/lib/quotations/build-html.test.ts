@@ -7,7 +7,7 @@ const quotation: Quotation = {
   clientName: null, clientPhone: null, clientCompany: 'Al Sulaiti Villas', location: null,
   projectName: null, subject: 'Roll Up Shutter', currency: 'QAR', contactId: null, dealId: null,
   assignedTo: null, discountType: null, discountValue: null, subtotal: 3600, discountAmount: 0,
-  total: 3600, validUntil: '2026-03-07', pdfStoragePath: null,
+  total: 3600, validUntil: '2026-03-07', pdfStoragePath: null, createdAt: '2026-03-01T10:00:00Z',
 };
 const items: QuotationItem[] = [{
   id: 'i-1', quotationId: 'q-1', parentItemId: null, productId: null, position: 0, itemType: 'line',
