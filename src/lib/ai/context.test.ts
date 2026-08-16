@@ -58,7 +58,10 @@ describe('buildConversationContext', () => {
     expect(out).toEqual([])
   })
 
-  it('falls back to image_description for an undescribed-caption photo', async () => {
+  it('wraps a standalone image_description (uncaptioned photo) in an [Image: ...] marker', async () => {
+    // Unwrapped, this would read exactly like the customer's own words
+    // and derail reply-language matching -- see buildSystemPrompt's
+    // `[Image: ...]` guidance in defaults.ts.
     const out = await buildConversationContext(
       fakeDb([
         {
@@ -70,7 +73,7 @@ describe('buildConversationContext', () => {
       ]),
       'conv-1',
     )
-    expect(out).toEqual([{ role: 'user', content: 'a grey sofa' }])
+    expect(out).toEqual([{ role: 'user', content: '[Image: a grey sofa]' }])
   })
 
   it('combines a caption and an image description on the same message', async () => {

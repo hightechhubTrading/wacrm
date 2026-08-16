@@ -43,12 +43,19 @@ export async function buildConversationContext(
     // A captioned photo carries both a caption (content_text) and a
     // description (image_description) -- combine them so neither is
     // lost, rather than letting the caption shadow the description.
+    // The description is always wrapped in `[Image: ...]` -- including
+    // when it's the only text (an uncaptioned photo) -- so it's never
+    // indistinguishable from the customer's own words. It's always
+    // English (see vision.ts's DESCRIBE_PROMPT), and an unwrapped photo
+    // description used to read exactly like a customer message in
+    // English, which threw off the reply-language match on any photo
+    // sent without a caption in a non-English conversation.
     const caption = m.content_text?.trim()
     const description = m.image_description?.trim()
     const text =
       caption && description
         ? `${caption}\n[Image: ${description}]`
-        : (caption ?? m.transcript?.trim() ?? description)
+        : (caption ?? m.transcript?.trim() ?? (description ? `[Image: ${description}]` : description))
     if (!text) continue
     result.push({
       role: m.sender_type === 'customer' ? 'user' : 'assistant',
