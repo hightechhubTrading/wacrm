@@ -59,23 +59,30 @@ const AR_HUNDREDS = [
 ];
 
 function arChunk(num: number): string {
-  const parts: string[] = [];
+  const hundreds: string[] = [];
   if (num >= 100) {
-    parts.push(AR_HUNDREDS[Math.floor(num / 100)]);
+    hundreds.push(AR_HUNDREDS[Math.floor(num / 100)]);
     num %= 100;
   }
+
+  // Tens/ones (or the teen irregular) read smallest-unit-first, e.g.
+  // "ثلاثة وعشرون" = 23 -- built in reverse then joined.
+  const remainder: string[] = [];
   if (num >= 10 && num < 20) {
-    parts.push(AR_TEENS[num - 10]);
-    num = 0;
+    remainder.push(AR_TEENS[num - 10]);
   } else {
     if (num >= 20) {
-      parts.push(AR_TENS[Math.floor(num / 10)]);
-      num %= 10;
+      remainder.push(AR_TENS[Math.floor(num / 10)]);
     }
-    if (num > 0) parts.push(AR_ONES_M[num]);
+    if (num % 10 > 0) remainder.push(AR_ONES_M[num % 10]);
+    remainder.reverse();
   }
-  // Arabic reads smallest-unit-first: "ثلاثة وعشرون" = 23.
-  return parts.reverse().join(' و');
+
+  // Hundreds always leads when combined with a non-zero remainder --
+  // "ستمئة وخمسة وخمسون" (655), not the reverse. When only one of the
+  // two groups is present, this collapses to that group alone, same as
+  // before.
+  return [...hundreds, ...remainder].join(' و');
 }
 
 export function numberToWordsAR(n: number): string {
@@ -100,8 +107,18 @@ export function numberToWordsAR(n: number): string {
 }
 
 export function amountInWordsBilingual(qar: number): { ar: string; en: string } {
+  // numberToWordsEN/numberToWordsAR index fixed-size word arrays with
+  // the chunk's ones/tens/hundreds digit -- a non-integer `qar` (any
+  // percent discount applied to an odd subtotal produces one, e.g. 10%
+  // off 1055 -> 949.5) makes that lookup land on a non-integer index,
+  // returning `undefined`, which then lands verbatim on the generated
+  // PDF. Round to the nearest whole riyal before ever reaching either
+  // word-builder -- riyal-level precision is what a quotation total in
+  // words needs; nothing in this codebase carries dirham/fils
+  // granularity for the amount-in-words line.
+  const rounded = Math.round(qar);
   return {
-    ar: `فقط ${numberToWordsAR(qar)} ريال قطري لا غير`,
-    en: `${numberToWordsEN(qar)} Qatari Riyals only`,
+    ar: `فقط ${numberToWordsAR(rounded)} ريال قطري لا غير`,
+    en: `${numberToWordsEN(rounded)} Qatari Riyals only`,
   };
 }
