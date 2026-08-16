@@ -440,7 +440,9 @@ export function AiMediaLibraryCard({
                     disabled={saving}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Only referenced by the AI alongside the price range above, never on its own.
+                    Always read by the AI as extra detail about this product, with or without a
+                    price range set above. Any dollar figures in here still follow the same rule
+                    as the price range: only shared with the customer once a range is configured.
                   </p>
                 </div>
                 <div className="space-y-2">
