@@ -26,13 +26,15 @@
 // below that inserts variable content therefore uses a replacer FUNCTION,
 // whose return value is never re-scanned for `$`-patterns. Plain strings
 // are only used where the replacement is 100% static (no interpolation).
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { amountInWordsBilingual } from './number-to-words';
+import { QUOTATION_TEMPLATE_HTML } from './templates/quotation-html';
 import type { Quotation, QuotationItem } from './types';
 
 // Vendored, not read from the sibling repo — see Task 8's pre-flight note.
-const TEMPLATE_PATH = path.join(__dirname, 'templates', 'quotation.html');
+// Imported as a generated string constant (templates/quotation-html.ts),
+// not read from disk at request time — see that file's header for why
+// readFileSync(path.join(__dirname, ...)) broke under Next's bundled
+// server runtime despite passing every unit test and ad-hoc script check.
 
 function esc(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -74,7 +76,7 @@ function fillPartyField(html: string, label: string, value: string | null): stri
 }
 
 export function buildQuotationHtml(quotation: Quotation, items: QuotationItem[]): string {
-  let html = readFileSync(TEMPLATE_PATH, 'utf8');
+  let html = QUOTATION_TEMPLATE_HTML;
   const words = amountInWordsBilingual(quotation.total);
   const revision = String(quotation.revision).padStart(2, '0');
 
