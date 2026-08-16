@@ -216,6 +216,11 @@ table { width: 100%; border-collapse: collapse; }
          border-inline-start: 2.4mm solid var(--gold); }
 .total-k { font-size: 7pt; letter-spacing: 0.16em; color: #9FB0BE; margin-block-end: 2mm; }
 .total-w { font-size: 8.5pt; color: #C9D3DB; line-height: 1.5; max-width: 88mm; }
+/* .ar's default color (--steel, dark) is tuned for the white-background
+   sections elsewhere in this document — nested here inside the dark
+   navy .total band, it renders as dark text on a dark background,
+   nearly invisible. Match the English line's own light tone instead. */
+.total-w .ar { color: #C9D3DB; }
 .total-f { font-family: "space-mono", monospace; font-weight: 700; font-size: 22pt; color: var(--gold); line-height: 1; text-align: end; }
 .total-f small { display: block; font-family: "tajawal", sans-serif; font-size: 7.5pt; font-weight: 400; color: #9FB0BE; letter-spacing: 0.1em; margin-block-start: 1.8mm; }
 
