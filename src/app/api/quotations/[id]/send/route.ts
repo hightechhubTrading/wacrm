@@ -49,10 +49,17 @@ export async function POST(_request: Request, { params }: Params) {
       .from('quotation-pdfs')
       .getPublicUrl(quotation.pdf_storage_path);
 
+    // Same cache-busting as generateQuotationPdf (src/lib/quotations/pdf.ts)
+    // — storagePath is fixed per revision, so a stale cached copy from an
+    // earlier view could otherwise get attached and sent to a client.
+    // Timestamped at send-click time, not generation time, which is
+    // correct here: this route always wants whatever's live right now.
+    const pdfUrl = `${pdfUrlData.publicUrl}?v=${Date.now()}`;
+
     return NextResponse.json({
       conversationId: conversation.conversationId,
       inboxUrl: `/inbox?c=${conversation.conversationId}`,
-      pdfUrl: pdfUrlData.publicUrl,
+      pdfUrl,
     });
   } catch (err) {
     return toErrorResponse(err);

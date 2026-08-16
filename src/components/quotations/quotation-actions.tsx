@@ -23,19 +23,25 @@ export function QuotationActions({
   onGenerated: (q: Quotation) => void;
 }) {
   const [busy, setBusy] = useState<'pdf' | 'send' | null>(null);
+  // Set only right after a successful generate — the response's own
+  // publicUrl is server-cache-busted (see generateQuotationPdf) and is
+  // guaranteed fresh for THIS generation, unlike the derived url below.
+  const [freshPdfUrl, setFreshPdfUrl] = useState<string | null>(null);
 
-  // Derived, not fetched — the `quotation-pdfs` bucket is public (see
-  // migration 061) and getPublicUrl() is a pure string construction, no
-  // network call, so this stays correct across regenerate/reload without
-  // needing its own state. Covers BOTH "just generated" (onGenerated
-  // already updated quotation.pdfStoragePath, so this recomputes
-  // immediately) and "opened a quotation that already had a PDF" (no
-  // regenerate needed to see the link).
-  const pdfUrl = useMemo(() => {
+  // Fallback for "opened a quotation that already had a PDF" (no
+  // generate/regenerate needed in this session to see the link) — pure
+  // string construction via getPublicUrl(), no network call. NOT used
+  // right after a regenerate: storagePath is fixed per revision, so this
+  // derived value doesn't change between a stale and a fresh PDF at the
+  // same path, and would happily hand back a browser-cached url. Prefer
+  // freshPdfUrl whenever it's set.
+  const derivedPdfUrl = useMemo(() => {
     if (!quotation.pdfStoragePath) return null;
     return createClient().storage.from('quotation-pdfs').getPublicUrl(quotation.pdfStoragePath).data
       .publicUrl;
   }, [quotation.pdfStoragePath]);
+
+  const pdfUrl = freshPdfUrl ?? derivedPdfUrl;
 
   async function generatePdf() {
     setBusy('pdf');
@@ -46,8 +52,9 @@ export function QuotationActions({
         toast.error(body.error ?? `Failed to generate PDF (${res.status})`);
         return;
       }
-      const { storagePath, revision } = await res.json();
+      const { storagePath, revision, publicUrl } = await res.json();
       onGenerated({ ...quotation, pdfStoragePath: storagePath, revision });
+      setFreshPdfUrl(publicUrl);
       toast.success('PDF generated');
     } catch {
       toast.error('Failed to generate PDF — check your connection and try again.');

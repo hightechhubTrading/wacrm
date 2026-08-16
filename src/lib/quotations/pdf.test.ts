@@ -31,13 +31,17 @@ const quotation = { id: 'q-1', revision: 0 } as Quotation;
 const items: QuotationItem[] = [];
 
 describe('generateQuotationPdf', () => {
-  it('uploads to the quotation-scoped path and returns the public URL', async () => {
+  it('uploads to the quotation-scoped path with no caching and returns a cache-busted public URL', async () => {
     const result = await generateQuotationPdf(quotation, items);
     expect(upload).toHaveBeenCalledWith(
       'q-1/rev-0.pdf',
       expect.any(Buffer),
-      expect.objectContaining({ contentType: 'application/pdf' }),
+      expect.objectContaining({ contentType: 'application/pdf', cacheControl: '0' }),
     );
-    expect(result.publicUrl).toBe('https://x/quotation-pdfs/q-1/rev-0.pdf');
+    // storagePath is fixed per revision, so a regenerate re-uploads to the
+    // SAME url every time -- the query-string cache-buster is what forces
+    // a fresh fetch instead of the browser (or an intermediate proxy)
+    // reusing whatever it already has cached for that exact url.
+    expect(result.publicUrl).toMatch(/^https:\/\/x\/quotation-pdfs\/q-1\/rev-0\.pdf\?v=\d+$/);
   });
 });
