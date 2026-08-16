@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import type { Quotation } from "@/lib/quotations/types";
+import { pickDefaultProductCode, type ProductCode } from "@/lib/quotations/product-codes";
 import {
   Sheet,
   SheetContent,
@@ -10,6 +12,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { FileText, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -47,6 +56,18 @@ export function QuotationsDialog({
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
 
+  // Product codes are admin-managed (Task 15's Settings page, GET/POST
+  // /api/quotation-product-codes), not hardcoded -- a code added in
+  // Settings must be selectable here immediately, same reasoning as
+  // quotation-list.tsx's standalone-creation flow. A brand-new account
+  // can have zero codes seeded (059's seed step is applied per-account
+  // by the app, not yet wired up as of this wave), so creation is
+  // disabled with an explanatory message rather than defaulting to
+  // "GEN", which might not exist for this account.
+  const [productCodes, setProductCodes] = useState<ProductCode[]>([]);
+  const [loadingCodes, setLoadingCodes] = useState(true);
+  const [productCode, setProductCode] = useState("");
+
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -64,7 +85,28 @@ export function QuotationsDialog({
     };
   }, [open, dealId]);
 
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoadingCodes(true);
+    fetch("/api/quotation-product-codes")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: ProductCode[]) => {
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : [];
+        setProductCodes(list);
+        setProductCode((prev) => pickDefaultProductCode(list, prev));
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingCodes(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
   async function createNew() {
+    if (!productCode) return;
     setCreating(true);
     try {
       const res = await fetch("/api/quotations", {
@@ -72,12 +114,21 @@ export function QuotationsDialog({
         body: JSON.stringify({
           dealId,
           contactId: contactId ?? undefined,
-          productCode: "GEN",
+          productCode,
           currency: "QAR",
         }),
       });
+      if (!res.ok) {
+        // A rejected create must not navigate to /quotations/undefined
+        // -- surface the failure instead.
+        const body = await res.json().catch(() => ({}));
+        toast.error(body.error ?? `Failed to create quotation (${res.status})`);
+        return;
+      }
       const created = await res.json();
       window.location.href = `/quotations/${created.id}`;
+    } catch {
+      toast.error("Failed to create quotation — check your connection and try again.");
     } finally {
       setCreating(false);
     }
@@ -120,15 +171,45 @@ export function QuotationsDialog({
             ))}
           </div>
 
-          <div className="border-t border-border/50 bg-popover/80 p-4">
+          <div className="border-t border-border/50 bg-popover/80 p-4 space-y-2">
+            {productCodes.length > 1 && (
+              <Select
+                value={productCode}
+                onValueChange={(v) => v && setProductCode(v)}
+                disabled={loadingCodes || creating}
+              >
+                <SelectTrigger size="sm" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {productCodes.map((pc) => (
+                    <SelectItem key={pc.code} value={pc.code}>
+                      {pc.label} ({pc.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Button
               onClick={createNew}
-              disabled={creating}
+              disabled={creating || loadingCodes || !productCode}
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
             >
               <Plus className="mr-1 h-4 w-4" />
               {creating ? t("creating") : t("newQuotation")}
             </Button>
+            {!loadingCodes && productCodes.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No product codes configured yet — add one under{" "}
+                <Link
+                  href="/settings?tab=quotation-product-codes"
+                  className="text-primary hover:underline"
+                >
+                  Settings
+                </Link>{" "}
+                before creating a quotation.
+              </p>
+            )}
           </div>
         </div>
       </SheetContent>
