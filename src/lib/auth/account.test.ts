@@ -66,9 +66,8 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: () => createClient(),
 }));
 
-const { getCurrentAccount, UnauthorizedError, ForbiddenError } = await import(
-  "./account"
-);
+const { getCurrentAccount, UnauthorizedError, ForbiddenError, toErrorResponse } =
+  await import("./account");
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -172,5 +171,52 @@ describe("getCurrentAccount", () => {
     await expect(getCurrentAccount()).rejects.toThrow(
       "Profile is not linked to an account",
     );
+  });
+});
+
+describe("toErrorResponse", () => {
+  it("maps UnauthorizedError to its own status (401)", async () => {
+    const res = toErrorResponse(new UnauthorizedError("nope"));
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "nope" });
+  });
+
+  it("maps ForbiddenError to its own status (403)", async () => {
+    const res = toErrorResponse(new ForbiddenError("no way"));
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "no way" });
+  });
+
+  // Fix 6: any other error that carries its own valid HTTP status
+  // (e.g. SendMessageError from src/lib/whatsapp/send-message.ts) is
+  // honored, instead of every non-Unauthorized/Forbidden error
+  // collapsing to a generic 500 and discarding a genuinely useful
+  // validation message.
+  it("honors a plain Error's own .status instead of collapsing to 500", async () => {
+    class FakeStatusError extends Error {
+      status = 400;
+    }
+    const res = toErrorResponse(new FakeStatusError("bad phone number"));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "bad phone number" });
+  });
+
+  it("ignores a non-HTTP-range .status and falls back to 500", async () => {
+    class WeirdError extends Error {
+      status = 12345;
+    }
+    const res = toErrorResponse(new WeirdError("boom"));
+    expect(res.status).toBe(500);
+  });
+
+  it("collapses an uncategorized plain Error (no .status) to a generic 500", async () => {
+    const res = toErrorResponse(new Error("some internal detail"));
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Internal server error" });
+  });
+
+  it("collapses a non-Error thrown value to a generic 500", async () => {
+    const res = toErrorResponse("just a string");
+    expect(res.status).toBe(500);
   });
 });

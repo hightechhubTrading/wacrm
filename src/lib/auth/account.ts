@@ -70,6 +70,29 @@ export function toErrorResponse(err: unknown): NextResponse {
   if (err instanceof UnauthorizedError || err instanceof ForbiddenError) {
     return NextResponse.json({ error: err.message }, { status: err.status });
   }
+  // Any other error that carries its own HTTP status is honored the
+  // same way, instead of collapsing to a generic 500 — e.g.
+  // SendMessageError (src/lib/whatsapp/send-message.ts), thrown by
+  // resolveConversationByPhone for a deliberate validation failure
+  // (missing/malformed phone number, no WhatsApp config), has a real
+  // `.status` (400) and a message worth showing the caller. This is
+  // narrower than "any object with a status field" — it must also be a
+  // genuine Error, and the status must be a valid HTTP error code — so
+  // an unrelated object that happens to have a numeric `status`
+  // property for other reasons can't accidentally dictate the response
+  // code here.
+  if (
+    err instanceof Error &&
+    "status" in err &&
+    typeof (err as { status: unknown }).status === "number" &&
+    (err as { status: number }).status >= 400 &&
+    (err as { status: number }).status < 600
+  ) {
+    return NextResponse.json(
+      { error: err.message },
+      { status: (err as { status: number }).status },
+    );
+  }
   console.error("[toErrorResponse] uncategorized error:", err);
   return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 }
