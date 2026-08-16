@@ -4,11 +4,25 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
-import type { Quotation } from '@/lib/quotations/types';
+import type { Quotation, QuotationStatus } from '@/lib/quotations/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+// A status transition is a discrete, rep-initiated event ("mark this
+// sent", "mark this won") -- not routine field editing -- so it PATCHes
+// immediately on change rather than queueing into the same dirty/Save
+// flow as the text fields below. That also means it's never blocked by
+// (or blocks) an unrelated in-progress text edit.
+const STATUS_OPTIONS: { value: QuotationStatus; label: string }[] = [
+  { value: 'draft', label: 'Draft' },
+  { value: 'sent', label: 'Sent' },
+  { value: 'won', label: 'Won' },
+  { value: 'lost', label: 'Lost' },
+  { value: 'expired', label: 'Expired' },
+];
 
 export interface QuotationFields {
   clientName: string;
@@ -71,6 +85,7 @@ export function QuotationForm({
   const [fields, setFields] = useState<QuotationFields>(() => fieldsFromQuotation(quotation));
   const [savedFields, setSavedFields] = useState<QuotationFields>(() => fieldsFromQuotation(quotation));
   const [saving, setSaving] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const dirty = JSON.stringify(fields) !== JSON.stringify(savedFields);
 
@@ -101,9 +116,55 @@ export function QuotationForm({
     }
   }
 
+  // PATCH /api/quotations/[id]'s body.fields whitelist (wave 1) accepts
+  // `status` alongside the other quotations columns -- goes through the
+  // exact same PATCH endpoint as save() above, just with its own field
+  // and its own immediate trigger instead of the dirty/Save gate.
+  async function updateStatus(next: QuotationStatus) {
+    if (next === quotation.status || updatingStatus) return;
+    setUpdatingStatus(true);
+    try {
+      const res = await fetch(`/api/quotations/${quotation.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ fields: { status: next } }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        toast.error(body.error ?? `Failed to update status (${res.status})`);
+        return;
+      }
+      const updated = (await res.json()) as Quotation;
+      onSaved(updated);
+      toast.success(`Status updated to ${next}`);
+    } catch {
+      toast.error('Failed to update status — check your connection and try again.');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  }
+
   return (
     <Card>
       <CardContent className="space-y-6">
+        <div className="space-y-2 sm:w-48">
+          <Label htmlFor="qf-status">Status</Label>
+          <Select
+            value={quotation.status}
+            onValueChange={(v) => v && updateStatus(v as QuotationStatus)}
+          >
+            <SelectTrigger id="qf-status" className="w-full" disabled={updatingStatus}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="qf-client-name">Client name</Label>
