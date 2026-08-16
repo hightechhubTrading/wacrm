@@ -5,6 +5,41 @@ import { mapQuotationRow, mapQuotationItemRow } from '@/lib/quotations/types';
 
 type Params = { params: Promise<{ id: string }> };
 
+// Explicit allow-list for `body.fields` on PATCH. Without this, the
+// entire body.fields object was passed straight to
+// `.update(body.fields)`, letting a caller set subtotal/total/
+// discount_amount directly and bypass computeQuotationTotals entirely.
+// `status` is included so a quotation can move draft -> sent/won/lost/
+// expired at all (nothing else in the codebase currently writes it) --
+// wave 2 wires an actual UI control to it; this just makes the API
+// accept it as a legitimate field.
+//
+// Disallowed/unknown keys are silently dropped rather than rejected
+// with a 400 -- consistent with how saveQuotationItems already treats
+// extra fields on quotation_items (see 060's payload mapping, which
+// only reads the columns it knows about and ignores the rest).
+const PATCHABLE_QUOTATION_FIELDS = [
+  'client_name',
+  'client_phone',
+  'client_company',
+  'location',
+  'project_name',
+  'subject',
+  'valid_until',
+  'status',
+  'contact_id',
+  'deal_id',
+  'assigned_to',
+] as const;
+
+function pickPatchableFields(fields: Record<string, unknown>): Record<string, unknown> {
+  const picked: Record<string, unknown> = {};
+  for (const key of PATCHABLE_QUOTATION_FIELDS) {
+    if (key in fields) picked[key] = fields[key];
+  }
+  return picked;
+}
+
 // Shared by GET and PATCH — both return the same shape. Keeping the
 // nested-items mapping in one place means a future field added to
 // QuotationItem only needs mapQuotationItemRow updated, not every caller.
@@ -68,15 +103,30 @@ export async function PATCH(request: Request, { params }: Params) {
     const body = await request.json();
 
     if (body.items) {
-      await saveQuotationItems(id, ctx.accountId, body.items, body.orderDiscount);
+      // Caught locally (rather than left to bubble up to the outer
+      // toErrorResponse) so a save failure here gets the same honest
+      // 400-with-real-message treatment as the body.fields branch
+      // below, instead of collapsing to a generic 500 -- saveQuotationItems
+      // throws a plain Error (the RPC's Postgres message), which carries
+      // no `.status` for toErrorResponse's generic handling to key off.
+      try {
+        await saveQuotationItems(id, ctx.accountId, body.items, body.orderDiscount);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to save quotation items';
+        return NextResponse.json({ error: message }, { status: 400 });
+      }
     }
 
     if (body.fields) {
       // Goes through ctx.supabase (not the admin client) so
       // quotations_update RLS still gates which fields an agent
-      // (vs. admin) may touch on a quotation they don't own.
-      const { error } = await ctx.supabase.from('quotations').update(body.fields).eq('id', id);
-      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      // (vs. admin) may touch on a quotation they don't own. Filtered
+      // through PATCHABLE_QUOTATION_FIELDS first -- see comment above.
+      const patchable = pickPatchableFields(body.fields);
+      if (Object.keys(patchable).length > 0) {
+        const { error } = await ctx.supabase.from('quotations').update(patchable).eq('id', id);
+        if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      }
     }
 
     const { data } = await ctx.supabase

@@ -189,4 +189,84 @@ describe('PATCH /api/quotations/[id]', () => {
     expect(body.items).toHaveLength(1);
     expect(body.items[0]).toMatchObject({ id: 'item-1', itemCode: 'X1' });
   });
+
+  it('accepts status as a legitimate writable field', async () => {
+    const supabase = makeSupabase({
+      existingResult: { data: { id: 'q-1' }, error: null },
+      finalResult: { data: { ...rawQuotationRow, status: 'sent' }, error: null },
+      updateResult: { error: null },
+    });
+    h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase });
+
+    const req = new Request('http://test/api/quotations/q-1', {
+      method: 'PATCH',
+      body: JSON.stringify({ fields: { status: 'sent' } }),
+    });
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'q-1' }) });
+
+    expect(supabase.update).toHaveBeenCalledWith({ status: 'sent' });
+    expect(res.status).toBe(200);
+  });
+
+  it('drops fields outside the allow-list (e.g. subtotal/total/discount_amount) instead of writing them', async () => {
+    const supabase = makeSupabase({
+      existingResult: { data: { id: 'q-1' }, error: null },
+      finalResult: { data: rawQuotationRow, error: null },
+      updateResult: { error: null },
+    });
+    h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase });
+
+    const req = new Request('http://test/api/quotations/q-1', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        fields: {
+          client_name: 'Allowed',
+          subtotal: 999999,
+          total: 999999,
+          discount_amount: 999999,
+          revision: 42,
+        },
+      }),
+    });
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'q-1' }) });
+
+    expect(supabase.update).toHaveBeenCalledWith({ client_name: 'Allowed' });
+    expect(res.status).toBe(200);
+  });
+
+  it('skips the update call entirely when fields contains only disallowed keys', async () => {
+    const supabase = makeSupabase({
+      existingResult: { data: { id: 'q-1' }, error: null },
+      finalResult: { data: rawQuotationRow, error: null },
+    });
+    h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase });
+
+    const req = new Request('http://test/api/quotations/q-1', {
+      method: 'PATCH',
+      body: JSON.stringify({ fields: { total: 999999 } }),
+    });
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'q-1' }) });
+
+    expect(supabase.update).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+  });
+
+  it('returns 400 with the real error message when saveQuotationItems throws, instead of a generic 500', async () => {
+    const supabase = makeSupabase({
+      existingResult: { data: { id: 'q-1' }, error: null },
+    });
+    h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase });
+    h.saveQuotationItems.mockRejectedValueOnce(new Error('Quotation not found'));
+
+    const items = [{ id: 'item-1', itemType: 'line', qty: 1, unitPrice: 100 }];
+    const req = new Request('http://test/api/quotations/q-1', {
+      method: 'PATCH',
+      body: JSON.stringify({ items }),
+    });
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'q-1' }) });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body).toEqual({ error: 'Quotation not found' });
+  });
 });

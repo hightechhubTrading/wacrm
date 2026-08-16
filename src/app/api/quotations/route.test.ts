@@ -60,9 +60,28 @@ function makeListSupabase(result: { data: unknown; error: unknown }) {
   return { from, select, builder };
 }
 
+// Backs POST's `ctx.supabase.from('profiles').select('id').eq('user_id',
+// ...).single()` lookup used to default `assigned_to` to the caller's
+// own profile. `profileResult` defaults to a resolvable profile so
+// existing tests that don't care about this lookup keep working.
+function makeCreateSupabase(profileResult?: { data: unknown; error: unknown }) {
+  const single = vi.fn(() =>
+    Promise.resolve(profileResult ?? { data: { id: 'profile-1' }, error: null }),
+  );
+  const eq = vi.fn(() => ({ single }));
+  const select = vi.fn(() => ({ eq }));
+  const from = vi.fn(() => ({ select }));
+  return { from, select, eq, single };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
-  h.requireRole.mockResolvedValue({ accountId: 'acc-1', userId: 'u-1', role: 'agent' });
+  h.requireRole.mockResolvedValue({
+    accountId: 'acc-1',
+    userId: 'u-1',
+    role: 'agent',
+    supabase: makeCreateSupabase(),
+  });
 });
 
 describe('POST /api/quotations', () => {
@@ -79,6 +98,54 @@ describe('POST /api/quotations', () => {
     );
     const body = await res.json();
     expect(body.reference).toBe('HT-26-PIV-001');
+  });
+
+  it("defaults assignedTo and createdBy to the caller's own identity when the body omits them", async () => {
+    const { createQuotation } = await import('@/lib/quotations/crud');
+    const req = new Request('http://test/api/quotations', {
+      method: 'POST',
+      body: JSON.stringify({ productCode: 'PIV', currency: 'QAR' }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+    expect(createQuotation).toHaveBeenCalledWith(
+      expect.objectContaining({ assignedTo: 'profile-1', createdBy: 'u-1' }),
+    );
+  });
+
+  it('honors an explicit assignedTo in the body instead of defaulting to the caller', async () => {
+    const { createQuotation } = await import('@/lib/quotations/crud');
+    const req = new Request('http://test/api/quotations', {
+      method: 'POST',
+      body: JSON.stringify({ productCode: 'PIV', currency: 'QAR', assignedTo: 'someone-elses-profile' }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+    expect(createQuotation).toHaveBeenCalledWith(
+      expect.objectContaining({ assignedTo: 'someone-elses-profile', createdBy: 'u-1' }),
+    );
+  });
+
+  it('drops fields outside the create allow-list (e.g. total, subtotal) before calling createQuotation', async () => {
+    const { createQuotation } = await import('@/lib/quotations/crud');
+    const req = new Request('http://test/api/quotations', {
+      method: 'POST',
+      body: JSON.stringify({
+        productCode: 'PIV',
+        currency: 'QAR',
+        total: 999999,
+        subtotal: 999999,
+        discountAmount: 999999,
+        status: 'won',
+      }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+    const [callArgs] = (createQuotation as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(callArgs).not.toHaveProperty('total');
+    expect(callArgs).not.toHaveProperty('subtotal');
+    expect(callArgs).not.toHaveProperty('discountAmount');
+    expect(callArgs).not.toHaveProperty('status');
   });
 
   it('rejects a request with no productCode', async () => {
