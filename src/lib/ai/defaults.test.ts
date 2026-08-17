@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isolatePhoneNumbers } from './defaults'
+import { isolatePhoneNumbers, containsPriceQuestion } from './defaults'
 
 describe('isolatePhoneNumbers', () => {
   it('wraps a phone number embedded in Arabic (RTL) text in LRI/PDI isolate marks', () => {
@@ -24,5 +24,35 @@ describe('isolatePhoneNumbers', () => {
     expect(result).toBe(
       'اتصل ب ⁦+974 3383 1669⁩ أو ⁦+974 5555 4444⁩',
     )
+  })
+})
+
+describe('containsPriceQuestion', () => {
+  it('matches an explicit Arabic price question', () => {
+    expect(containsPriceQuestion('كم سعر الباب؟')).toBe(true)
+    expect(containsPriceQuestion('وبخصوص التكلفة؟')).toBe(true)
+  })
+
+  it('matches the "بكام" / "يعمل كام" price idioms', () => {
+    expect(containsPriceQuestion('العرض اربعة متر يعمل كام')).toBe(true)
+    expect(containsPriceQuestion('الباب ده بكام؟')).toBe(true)
+  })
+
+  it('matches an explicit English price question', () => {
+    expect(containsPriceQuestion('how much does it cost?')).toBe(true)
+    expect(containsPriceQuestion('can I get a quote?')).toBe(true)
+  })
+
+  it('does NOT match a bare quantity question that happens to use "كام/كم"', () => {
+    // The exact false-positive this was designed to avoid: "كام متر"
+    // (how many meters) is a size question, not a price question, and
+    // shows up constantly in the same conversations this backstop runs
+    // against.
+    expect(containsPriceQuestion('العرض كام متر؟')).toBe(false)
+    expect(containsPriceQuestion('كم يوم يحتاج التركيب؟')).toBe(false)
+  })
+
+  it('does not match ordinary text with no price-related word at all', () => {
+    expect(containsPriceQuestion('مرحبًا، شاهدت إعلان أبواب الشتر')).toBe(false)
   })
 })

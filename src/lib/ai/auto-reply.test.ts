@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { AiConfig } from './types'
 
 // Shared, hoisted mock state so the module mocks can close over it.
@@ -24,6 +24,7 @@ const h = vi.hoisted(() => ({
     existingAiNote: null as Record<string, unknown> | null,
     noteInserts: [] as Record<string, unknown>[],
     noteUpdates: [] as Record<string, unknown>[],
+    latestCustomerMessage: null as { message_id: string } | null,
   },
 }))
 
@@ -121,6 +122,20 @@ vi.mock('./admin-client', () => ({
           }),
         }
       }
+      if (table === 'messages') {
+        // .select('message_id').eq(...).eq(...).order(...).limit(...).maybeSingle()
+        // -> the reply-debounce staleness check.
+        const chain = {
+          select: () => chain,
+          eq: () => chain,
+          order: () => chain,
+          limit: () => ({
+            maybeSingle: () =>
+              Promise.resolve({ data: h.state.latestCustomerMessage, error: null }),
+          }),
+        }
+        return chain
+      }
       // conversations
       return {
         select: () => ({
@@ -200,6 +215,7 @@ beforeEach(() => {
   h.state.existingAiNote = null
   h.state.noteInserts = []
   h.state.noteUpdates = []
+  h.state.latestCustomerMessage = null
   h.loadAiConfig.mockResolvedValue(aiConfig())
   h.buildConversationContext.mockResolvedValue([{ role: 'user', content: 'hi' }])
   h.retrieveKnowledge.mockResolvedValue([])
@@ -331,6 +347,51 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
     await dispatchInboundToAiReply(ARGS)
     expect(h.generateReply).not.toHaveBeenCalled()
     expect(h.engineSendText).not.toHaveBeenCalled()
+  })
+})
+
+describe('dispatchInboundToAiReply — reply debounce', () => {
+  const originalDebounceMs = process.env.AI_REPLY_DEBOUNCE_MS
+
+  beforeEach(() => {
+    // A few ms, not the real 8s default -- just enough to exercise the
+    // actual setTimeout + DB re-check path without slowing the suite.
+    process.env.AI_REPLY_DEBOUNCE_MS = '5'
+  })
+
+  afterEach(() => {
+    if (originalDebounceMs === undefined) delete process.env.AI_REPLY_DEBOUNCE_MS
+    else process.env.AI_REPLY_DEBOUNCE_MS = originalDebounceMs
+  })
+
+  it('replies immediately, with no wait, when triggerMessageId is omitted', async () => {
+    // e.g. every other test in this file, exercising the pipeline
+    // directly -- must keep working exactly as before debouncing existed.
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.engineSendText).toHaveBeenCalled()
+  })
+
+  it('sends when it is still the latest customer message after the debounce window', async () => {
+    h.state.latestCustomerMessage = { message_id: 'wamid.999' }
+    await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'wamid.999' })
+    expect(h.generateReply).toHaveBeenCalled()
+    expect(h.engineSendText).toHaveBeenCalled()
+  })
+
+  it('stands down silently, before any LLM call, when a newer customer message landed during the wait', async () => {
+    h.state.latestCustomerMessage = { message_id: 'wamid.NEWER' }
+    await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'wamid.999' })
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+  })
+
+  it('replies immediately without waiting when the debounce window is configured to 0', async () => {
+    process.env.AI_REPLY_DEBOUNCE_MS = '0'
+    // Even a "someone else replied" DB state must not matter when
+    // debouncing is off -- the staleness check itself is skipped.
+    h.state.latestCustomerMessage = { message_id: 'wamid.SOMETHING-ELSE' }
+    await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'wamid.999' })
+    expect(h.engineSendText).toHaveBeenCalled()
   })
 })
 
@@ -529,6 +590,46 @@ describe('dispatchInboundToAiReply — language correction', () => {
     )
   })
 
+  it('still corrects an English reply after an uncaptioned photo, even though the photo caption itself reads as English', async () => {
+    // Regression test for the recurring bug: the customer has been
+    // writing Arabic the whole conversation, then sends an uncaptioned
+    // photo. Its auto-caption ("[Image: ...]") is always English (see
+    // vision.ts), and used to fool this exact correction check into
+    // thinking an English reply already matched the "customer's"
+    // script -- because latestUserMessage(messages) returned the bare
+    // caption, not the customer's real Arabic words. See query.ts's
+    // latestCustomerAuthoredMessage.
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: 'مرحبًا، أريد باب أوتوماتيكي' },
+      { role: 'assistant', content: 'أكيد، ممكن ترسل صورة؟' },
+      { role: 'user', content: '[Image: A grey wall-mounted intercom box.]' },
+    ])
+    h.generateReply
+      .mockResolvedValueOnce({
+        text: 'Could you clarify what you mean by the image, or write out what is needed?',
+        handoff: false,
+      })
+      .mockResolvedValueOnce({
+        text: 'ممكن توضح المقصود من الصورة، أو تكتب اللي محتاجه؟',
+        handoff: false,
+        usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+      })
+
+    await dispatchInboundToAiReply(ARGS)
+
+    // Two calls means the correction pass actually fired -- before the
+    // fix it would have seen "English reply" vs. "English caption" as a
+    // script match and skipped correction entirely.
+    expect(h.generateReply).toHaveBeenCalledTimes(2)
+    const correctionCall = h.generateReply.mock.calls[1][0]
+    expect(correctionCall.systemPrompt).toContain('Arabic')
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: 'ممكن توضح المقصود من الصورة، أو تكتب اللي محتاجه؟',
+      }),
+    )
+  })
+
   it('does not call generateReply a second time when the reply already matches the customer script', async () => {
     h.buildConversationContext.mockResolvedValue([
       { role: 'user', content: 'We have a gate 6x3 m' },
@@ -664,6 +765,94 @@ describe('dispatchInboundToAiReply — unverified price backstop', () => {
     expect(h.state.rpcCalls).toHaveLength(1)
     expect(h.engineSendText).toHaveBeenCalledWith(
       expect.objectContaining({ text: 'ممكن ترسل المقاسات التقريبية أو صورة للمكان؟' }),
+    )
+  })
+})
+
+describe('dispatchInboundToAiReply — repeated price ask backstop', () => {
+  it('hands off when the customer asked about price 2+ times and this reply still offers nothing', async () => {
+    h.state.conv = { ...h.state.conv, ai_reply_count: 2 }
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: 'كم سعر الباب؟' },
+      { role: 'assistant', content: 'يعتمد على النوع والمقاس، ممكن ترسل التفاصيل؟' },
+      { role: 'user', content: 'طيب سعره كام بالظبط؟' },
+    ])
+    h.generateReply.mockResolvedValue({
+      text: 'السعر يعتمد على النوع والمقاس، ما أقدر أأكد رقم نهائي الآن.',
+      handoff: false,
+      mediaId: null,
+      productTagId: null,
+    })
+    h.state.admins = [{ user_id: 'admin-1' }]
+
+    await dispatchInboundToAiReply(ARGS)
+
+    expect(h.state.rpcCalls).toHaveLength(0) // never claimed a reply slot -- no send attempted
+    expect(h.engineSendText).toHaveBeenCalledTimes(1)
+    // Arabic closing message -- the customer's own messages here are
+    // Arabic, unlike the other backstop tests above which default to
+    // the beforeEach's English "hi" and so get the English closing text.
+    expect(h.engineSendText.mock.calls[0][0]).toMatchObject({
+      text: expect.stringContaining('سيتواصل معك'),
+    })
+    expect(h.state.updatePayload).toMatchObject({ ai_autoreply_disabled: true })
+  })
+
+  it('does NOT hand off on the very first reply, even with two price questions already in the burst', async () => {
+    // ai_reply_count is 0 (default) -- the bot hasn't had a turn to
+    // answer yet, so forcing a handoff before it even asks a
+    // clarifying question would be premature.
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: 'كم سعر الباب؟' },
+      { role: 'user', content: 'يعني بكام تقريبا؟' },
+    ])
+    h.generateReply.mockResolvedValue({
+      text: 'يعتمد على النوع والمقاس، ممكن ترسل التفاصيل؟',
+      handoff: false,
+      mediaId: null,
+      productTagId: null,
+    })
+
+    await dispatchInboundToAiReply(ARGS)
+
+    expect(h.state.rpcCalls).toHaveLength(1)
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'يعتمد على النوع والمقاس، ممكن ترسل التفاصيل؟' }),
+    )
+  })
+
+  it('does NOT hand off when a legitimately backed price is actually offered', async () => {
+    h.state.conv = { ...h.state.conv, ai_reply_count: 2 }
+    h.state.products = [
+      {
+        id: 'prod-1',
+        name: 'Roller shutter',
+        description: 'Automatic roller shutter',
+        tag_id: null,
+        price_min: 350,
+        price_max: 380,
+        price_unit: 'per_meter',
+        price_notes: null,
+        ai_product_media: [],
+      },
+    ]
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: 'كم سعر الباب؟' },
+      { role: 'assistant', content: 'ممكن ترسل التفاصيل؟' },
+      { role: 'user', content: 'طيب سعره كام؟' },
+    ])
+    h.generateReply.mockResolvedValue({
+      text: 'السعر التقديري للمتر يبدأ من 350 إلى 380 ريال.',
+      handoff: false,
+      mediaId: null,
+      productTagId: 'prod-1',
+    })
+
+    await dispatchInboundToAiReply(ARGS)
+
+    expect(h.state.rpcCalls).toHaveLength(1)
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'السعر التقديري للمتر يبدأ من 350 إلى 380 ريال.' }),
     )
   })
 })

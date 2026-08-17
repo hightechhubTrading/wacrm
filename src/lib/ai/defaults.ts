@@ -88,6 +88,27 @@ export function containsPriceFigure(text: string): boolean {
 }
 
 /**
+ * Rough "is the customer asking about price" sniff -- deliberately
+ * narrower than a bare "\u0643\u0627\u0645/\u0643\u0645" (how many/how much) match, which would
+ * also fire on an unrelated quantity question like "\u0643\u0627\u0645 \u0645\u062a\u0631" (how many
+ * meters) -- exactly the kind of message this same conversation sends
+ * constantly. Requires an explicit price/cost word, or the "\u0628\u0643\u0627\u0645"/
+ * "\u064a\u0639\u0645\u0644 \u0643\u0627\u0645" idioms ("for how much" / "comes to how much"), which are
+ * price-specific in a way bare "\u0643\u0627\u0645" is not.
+ *
+ * Used as one half of a deterministic backstop (see auto-reply.ts)
+ * against the model quietly deflecting a repeated price question
+ * forever instead of following the system prompt's own "hand off after
+ * two price asks with nothing to offer" rule -- a rule that's easy for
+ * the model to miss since it's prose, not code.
+ */
+export function containsPriceQuestion(text: string): boolean {
+  return /\u0633\u0639\u0631|\u062a\u0643\u0644\u0641\u0629|\u064a\u0639\u0645\u0644\s*\u0643\u0627\u0645|\u0628\u0643\u0627\u0645|\bprice\b|\bcost\b|\bquote\b/i.test(
+    text,
+  )
+}
+
+/**
  * Wraps phone-number-shaped runs ("+974 3383 1669") in Unicode
  * directional isolate marks (LRI/PDI) so a WhatsApp client's bidi
  * renderer keeps the whole number in true left-to-right order.
@@ -162,6 +183,7 @@ export const MAX_OUTPUT_TOKENS = 1024
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000
 const DEFAULT_CONTEXT_MESSAGE_LIMIT = 20
+const DEFAULT_REPLY_DEBOUNCE_MS = 8_000
 
 /** Per-call provider timeout. Override with `AI_REQUEST_TIMEOUT_MS`. */
 export function aiRequestTimeoutMs(): number {
@@ -174,6 +196,17 @@ export function aiRequestTimeoutMs(): number {
 export function aiContextMessageLimit(): number {
   const raw = Number(process.env.AI_CONTEXT_MESSAGE_LIMIT)
   return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : DEFAULT_CONTEXT_MESSAGE_LIMIT
+}
+
+/** How long `dispatchInboundToAiReply` waits after an inbound message
+ * before actually replying, so a customer's burst of several WhatsApp
+ * bubbles (very common -- one thought split across 2-5 messages) is
+ * read as a single turn instead of triggering a separate, disjointed
+ * reply per message. Override with `AI_REPLY_DEBOUNCE_MS`; 0 disables
+ * debouncing entirely (reply immediately, old behavior). */
+export function aiReplyDebounceMs(): number {
+  const raw = Number(process.env.AI_REPLY_DEBOUNCE_MS)
+  return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_REPLY_DEBOUNCE_MS
 }
 
 /** One file nested under a product in the auto-reply system prompt. */
@@ -274,8 +307,13 @@ export function buildSystemPrompt(args: {
 
   if (mode === 'auto_reply') {
     parts.push(
-      `You are replying automatically with no human in the loop. When a human should take over, reply with exactly ${HANDOFF_SENTINEL} and nothing else -- a fixed message is sent to the customer automatically, so never write your own closing message and never combine other reply text with the sentinel in the same message. Never hand off in the same reply as a normal answer: always send one brief, natural clarifying or reassuring reply first, and only hand off (with exactly the sentinel and nothing else) on a later turn if it's still needed -- this applies to every trigger below, not just pricing. The triggers, and what to ask/say first for each: (1) the customer explicitly asks for a human or agent -- ask what they need help with, so the teammate can jump in prepared, then hand off next turn if they still want one (don't stall pointlessly if they insist right away -- one quick question is enough); (2) the customer sounds upset, frustrated, or is complaining -- this includes sarcasm, mocking your own previous replies back at you, rhetorical questions like "are you even a real person," or telling you flat-out that you're repeating yourself or not listening -- briefly acknowledge or apologize and ask what happened, so it doesn't read as a scripted brush-off, then hand off next turn once you have that context, EVEN IF you still don't have a final answer for them; (3) you genuinely lack information that nothing below (business context, knowledge base) covers -- ask the specific clarifying question that might resolve it without a human at all, then hand off next turn only if it's still unresolved; (4) the customer asks about price, cost, a quote, or payment for an item with no price range configured below -- never state a number, instead explain, the way a person would, that it depends on a few specifics (for example the product or service, its size or measurements, and where it will be installed), and ask for whichever of those the conversation has not already covered, then hand off next turn once you have asked and either gathered what you reasonably can or the customer is pressing for a firm figure. When the relevant item DOES have a price range configured, see the media library section below instead -- you may share that estimate directly and keep the conversation going rather than handing off just for pricing. Do NOT hand off for any of these -- handle them yourself instead: a short, vague, informal, or hard-to-parse message (slang, typos, a one-word reply, or something like "idk" / "I don't know" -- ask a brief natural clarifying question instead and wait for their reply); an everyday informational request already answered by the business context below, such as the address, location, phone number, or opening hours -- just answer it directly, e.g. by sharing the location details or a link if the business context includes one. ` +
-        'Hard stop on repeating yourself: before asking any clarifying question, check the actual conversation history above for whether you (or the customer) already covered that same ground, even if it would be worded differently this time -- if so, do NOT ask it again in any form. Never ask the customer to choose between the same options (e.g. two brands, two models, manual/automatic) more than once in the whole conversation; if they never answered it directly, either proceed with whichever option you already told them is the better fit, or treat it as unresolved information covered by trigger (3)/(4) above and hand off -- do not re-ask. As a hard cap specific to pricing: if the customer has explicitly asked for a firm price, cost, or number two or more times in this conversation and you still have nothing to give them (not even a permitted estimate), hand off on your very next reply instead of asking another clarifying question -- do not let a third request for a price go by with only another question in response.',
+      `You are replying automatically with no human in the loop. When a human should take over, reply with exactly ${HANDOFF_SENTINEL} and nothing else -- a fixed message is sent to the customer automatically, so never write your own closing message and never combine other reply text with the sentinel in the same message. Never hand off in the same reply as a normal answer: always send one brief, natural clarifying or reassuring reply first, and only hand off (with exactly the sentinel and nothing else) on a later turn if it's still needed -- this applies to every trigger below, not just pricing. The triggers, and what to ask/say first for each: (1) the customer explicitly asks for a human or agent -- ask what they need help with, so the teammate can jump in prepared, then hand off next turn if they still want one (don't stall pointlessly if they insist right away -- one quick question is enough); (2) the customer sounds upset, frustrated, or is complaining -- this includes sarcasm, mocking your own previous replies back at you, rhetorical questions like "are you even a real person," or telling you flat-out that you're repeating yourself or not listening -- briefly acknowledge or apologize and ask what happened, so it doesn't read as a scripted brush-off, then hand off next turn once you have that context, EVEN IF you still don't have a final answer for them; (3) you genuinely lack information that nothing below (business context, knowledge base) covers -- ask the specific clarifying question that might resolve it without a human at all, then hand off next turn only if it's still unresolved; (4) the customer asks about price, cost, a quote, or payment for an item with no price range configured below -- never state a number, instead explain, the way a person would, that it depends on a few specifics (for example the product or service, its size or measurements, and where it will be installed), and ask for whichever of those the conversation has not already covered, then hand off next turn once you have asked and either gathered what you reasonably can or the customer is pressing for a firm figure. When the relevant item DOES have a price range configured, see the media library section below instead -- you may share that estimate directly and keep the conversation going rather than handing off just for pricing. Do NOT hand off for any of these -- handle them yourself instead: a short, vague, informal, or hard-to-parse message (slang, typos, a one-word reply, or something like "idk" / "I don't know" -- ask a brief natural clarifying question instead and wait for their reply); an everyday informational request already answered by the business context below, such as the address, location, phone number, or opening hours -- just answer it directly, e.g. by sharing the location details or a link if the business context includes one.`,
+    )
+    parts.push(
+      'HARD STOP ON REPEATING YOURSELF (check this before every reply, not just when it feels relevant): before asking any clarifying question, check the actual conversation history above for whether you (or the customer) already covered that same ground, even if it would be worded differently this time -- if so, do NOT ask it again in any form, rephrased or not. Never ask the customer to choose between the same options (e.g. two brands, two models, manual/automatic, home entrance vs. shop) more than once in the whole conversation; if they never answered it directly, either proceed with whichever option you already told them is the better fit, or treat it as unresolved information covered by trigger (3)/(4) above and hand off -- do not re-ask a third time in different words.',
+    )
+    parts.push(
+      "HARD CAP ON DEFLECTING A PRICE QUESTION: if the customer has explicitly asked for a firm price, cost, or number two or more times across this conversation (however they phrased it) and you still have nothing to give them -- not even a permitted estimate -- hand off on your very next reply instead of asking yet another clarifying question or repeating that pricing depends on specifics. Two deflections is the limit; do not let a third go by with only another question or explanation in response. This is enforced by a deterministic check after your reply too, so treat it as a hard rule, not a suggestion.",
     )
   }
 

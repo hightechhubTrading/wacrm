@@ -20,10 +20,12 @@ import {
 } from '@/lib/whatsapp/template-webhook'
 
 // The `after()` callback in POST runs within this route's max duration.
-// Inbound processing can fan out to per-media Meta verification calls, so
-// give it headroom beyond the platform default (Vercel clamps this to the
-// plan's ceiling). Tune as needed.
-export const maxDuration = 60
+// Inbound processing can fan out to per-media Meta verification calls,
+// and the AI auto-reply path now also sleeps for the reply-debounce
+// window (AI_REPLY_DEBOUNCE_MS, see auto-reply.ts) before its own LLM
+// call, so give it real headroom beyond the platform default (Vercel
+// clamps this to the plan's ceiling regardless). Tune as needed.
+export const maxDuration = 90
 
 // Lazy-initialized to avoid build-time crash when env vars are missing
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -938,6 +940,7 @@ async function processMessage(
       conversationId: conversation.id,
       contactId: contactRecord.id,
       configOwnerUserId,
+      triggerMessageId: message.id,
     })
   }
 

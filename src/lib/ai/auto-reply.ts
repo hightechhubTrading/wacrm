@@ -10,13 +10,15 @@ import {
   isArabicText,
   detectScript,
   containsPriceFigure,
+  containsPriceQuestion,
   isolatePhoneNumbers,
+  aiReplyDebounceMs,
   HANDOFF_CLOSING_MESSAGE_EN,
   HANDOFF_CLOSING_MESSAGE_AR,
 } from './defaults'
 import { buildHandoffSummary, notifyAiHandoff } from './handoff'
 import { logAiUsage } from './usage'
-import { latestUserMessage } from './query'
+import { latestUserMessage, latestCustomerAuthoredMessage } from './query'
 import { engineSendText, engineSendMedia } from '@/lib/flows/meta-send'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { addContactTagAndDispatch } from '@/lib/contacts/tag-events'
@@ -134,8 +136,12 @@ async function performHandoff(args: {
   // human-authored line -- never the model's own text, so a handoff
   // can never go out silently or with a message the model forgot to
   // write -- picked by the customer's own language. Best-effort; a
-  // send failure here must not block the handoff.
-  const closingMessage = isArabicText(latestUserMessage(messages))
+  // send failure here must not block the handoff. Uses
+  // latestCustomerAuthoredMessage, not latestUserMessage -- a handoff
+  // triggered right after an uncaptioned photo must not read the
+  // photo's always-English auto-caption as the customer having
+  // switched languages.
+  const closingMessage = isArabicText(latestCustomerAuthoredMessage(messages))
     ? HANDOFF_CLOSING_MESSAGE_AR
     : HANDOFF_CLOSING_MESSAGE_EN
   try {
@@ -266,6 +272,16 @@ interface DispatchArgs {
   /** The account's WhatsApp config owner, used for the outbound send's
    * audit columns (mirrors how the flow runner passes it through). */
   configOwnerUserId: string
+  /** The just-arrived inbound message's WhatsApp id (`messages.message_id`).
+   * Drives the debounce staleness check below -- omit only when calling
+   * this function outside the webhook's per-message flow (e.g. tests
+   * exercising the rest of the pipeline directly), which skips debouncing
+   * entirely and replies immediately, matching the pre-debounce behavior. */
+  triggerMessageId?: string
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 /**
@@ -290,7 +306,7 @@ interface DispatchArgs {
 export async function dispatchInboundToAiReply(
   args: DispatchArgs,
 ): Promise<void> {
-  const { accountId, conversationId, contactId, configOwnerUserId } = args
+  const { accountId, conversationId, contactId, configOwnerUserId, triggerMessageId } = args
 
   // Hoisted above the try so the catch block (key-error recording)
   // can still see them -- variables declared inside `try` aren't
@@ -384,6 +400,36 @@ export async function dispatchInboundToAiReply(
         })
       }
       return
+    }
+
+    // Debounce: a customer very commonly splits one thought across
+    // several WhatsApp bubbles sent seconds apart (a burst). Without
+    // this, each message in the burst triggered its own full reply --
+    // disjointed, repetitive ("noted, X" three times over), and wasteful
+    // of LLM spend since only the atomic slot claim below decides which
+    // one actually sends. Instead: wait briefly, then check whether a
+    // newer customer message has landed in the meantime. If so, bail out
+    // silently -- that later message's own invocation will run this same
+    // check, find itself still the latest, and reply on behalf of the
+    // whole burst (buildConversationContext always reads the full
+    // current thread, not just the triggering message). Net effect: only
+    // the last message of a burst ever reaches the LLM call.
+    // Skipped when triggerMessageId is absent (see DispatchArgs) or the
+    // debounce window is configured to 0.
+    const debounceMs = aiReplyDebounceMs()
+    if (triggerMessageId && debounceMs > 0) {
+      await sleep(debounceMs)
+      const { data: latestCustomerMessage } = await db
+        .from('messages')
+        .select('message_id')
+        .eq('conversation_id', conversationId)
+        .eq('sender_type', 'customer')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (latestCustomerMessage && latestCustomerMessage.message_id !== triggerMessageId) {
+        return // a newer message arrived during the wait -- it owns the reply
+      }
     }
 
     const messages = await buildConversationContext(db, conversationId)
@@ -576,7 +622,31 @@ export async function dispatchInboundToAiReply(
       )
     }
 
-    if (handoff || !text || quotesUnverifiedPrice) {
+    // Deterministic backstop for the system prompt's own "hand off after
+    // two price asks with nothing to offer" rule (see defaults.ts) --
+    // prose the model doesn't reliably follow once a conversation
+    // meanders. If the customer has asked about price 2+ times across
+    // the thread, the bot has already had at least one turn to answer,
+    // and this reply still isn't offering any figure (backed or not)
+    // and isn't handing off, force the handoff instead of deflecting
+    // yet again -- exactly the "stuck on repeat" pattern a long
+    // back-and-forth over price falls into.
+    const priceQuestionCount = messages.filter(
+      (m) => m.role === 'user' && containsPriceQuestion(m.content),
+    ).length
+    const staleOnRepeatedPriceAsk =
+      !handoff &&
+      !!text &&
+      !containsPriceFigure(text) &&
+      priceQuestionCount >= 2 &&
+      (conv.ai_reply_count ?? 0) >= 1
+    if (staleOnRepeatedPriceAsk) {
+      console.warn(
+        '[ai auto-reply] customer asked about price 2+ times with nothing offered -- forcing handoff instead of deflecting again.',
+      )
+    }
+
+    if (handoff || !text || quotesUnverifiedPrice || staleOnRepeatedPriceAsk) {
       await performHandoff({
         db,
         accountId,
@@ -598,7 +668,14 @@ export async function dispatchInboundToAiReply(
         accountId,
         conversationId,
         config,
-        customerMessage: latestUserMessage(messages),
+        // latestCustomerAuthoredMessage, not latestUserMessage: the
+        // latest 'user' turn can be a bare `[Image: ...]` auto-caption
+        // (uncaptioned photo), which is always English regardless of
+        // the conversation's actual language. Using it here would let
+        // an English reply sail through unchecked -- its script simply
+        // matches the caption's -- exactly the bug this check exists to
+        // catch. See query.ts for the full reasoning.
+        customerMessage: latestCustomerAuthoredMessage(messages),
         replyText: text,
       }),
     )
