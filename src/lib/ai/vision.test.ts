@@ -127,6 +127,37 @@ describe('analyzeImage', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it('always instructs the model to output only the description, nothing else', async () => {
+    // Regression guard: this instruction was dropped once when the
+    // context-aware second-sentence clause was added, and the vision
+    // model started echoing its own instructions back (e.g. a bare
+    // "**Second sentence condition:** If") instead of describing the
+    // photo -- garbage that then poisoned the reply-generation context.
+    // Must hold with AND without a conversationContext.
+    const fetchMock = vi.fn(async (_url: string, opts: { body: string }) => {
+      const body = JSON.parse(opts.body)
+      const promptText = body.messages[0].content[0].text
+      expect(promptText).toContain('Output only the description')
+      return okResponse('A grey sofa.')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await analyzeImage({
+      provider: 'openai',
+      apiKey: 'sk-x',
+      imageBuffer: Buffer.from('fake-image'),
+      mimeType: 'image/jpeg',
+      conversationContext: 'Customer: how much for the automatic option?',
+    })
+    await analyzeImage({
+      provider: 'openai',
+      apiKey: 'sk-x',
+      imageBuffer: Buffer.from('fake-image'),
+      mimeType: 'image/jpeg',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it('omits the context clause entirely when no conversation context is given', async () => {
     const fetchMock = vi.fn(async (_url: string, opts: { body: string }) => {
       const body = JSON.parse(opts.body)

@@ -24,7 +24,8 @@ const GEMINI_VISION_MODEL = 'gemini-3.5-flash'
 
 const DESCRIBE_PROMPT_BASE =
   'Describe what is shown in this photo in one short, factual sentence, for a customer-service context at a business that sells and installs doors, gates, shutters, and related hardware (motors/power units, remotes, control boxes, rails, tracks). ' +
-  'When a specific component like that is visible, name it rather than only describing the overall door/shutter (e.g. "A roller shutter motor/power unit mounted above the door, with an attached control box." rather than just "A closed beige metal roller."). Do not guess brand names or prices.'
+  'When a specific component like that is visible, name it rather than only describing the overall door/shutter (e.g. "A roller shutter motor/power unit mounted above the door, with an attached control box." rather than just "A closed beige metal roller."). Do not guess brand names or prices. ' +
+  'Output only the description sentence(s) themselves, nothing else -- no preamble, no restating these instructions, no labels or headers.'
 
 /**
  * Appended only when recent conversation text is available -- steers the
@@ -92,7 +93,7 @@ export async function analyzeImage(args: {
             ],
           },
         ],
-        max_tokens: 128,
+        max_tokens: 200,
       }),
       signal: AbortSignal.timeout(timeoutMs),
     })
