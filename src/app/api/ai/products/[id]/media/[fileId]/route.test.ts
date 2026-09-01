@@ -66,4 +66,40 @@ describe('PATCH /api/ai/products/[id]/media/[fileId]', () => {
     const res = await PATCH(req, { params: Promise.resolve({ id: 'p-1', fileId: 'f-1' }) })
     expect(res.status).toBe(200)
   })
+
+  it('updates label and ai_description together', async () => {
+    const updateSpy = vi.fn().mockReturnValue({
+      eq: () => ({
+        eq: () => ({
+          eq: () => ({
+            select: () => ({
+              maybeSingle: () => Promise.resolve({ data: { id: 'f-1' }, error: null }),
+            }),
+          }),
+        }),
+      }),
+    })
+    const supabase = { from: () => ({ update: updateSpy }) }
+    h.requireRole.mockResolvedValue({ supabase, accountId: 'acc-1' })
+    const req = new Request('http://x', {
+      method: 'PATCH',
+      body: JSON.stringify({ label: 'side view', ai_description: 'A black roller shutter, closed.' }),
+    })
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'p-1', fileId: 'f-1' }) })
+    expect(res.status).toBe(200)
+    expect(updateSpy).toHaveBeenCalledWith({
+      label: 'side view',
+      ai_description: 'A black roller shutter, closed.',
+    })
+  })
+
+  it('rejects a non-string, non-null ai_description', async () => {
+    h.requireRole.mockResolvedValue({ supabase: {}, accountId: 'acc-1' })
+    const req = new Request('http://x', {
+      method: 'PATCH',
+      body: JSON.stringify({ label: 'x', ai_description: 42 }),
+    })
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'p-1', fileId: 'f-1' }) })
+    expect(res.status).toBe(400)
+  })
 })

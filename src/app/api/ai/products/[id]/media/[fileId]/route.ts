@@ -5,8 +5,9 @@ type Params = { params: Promise<{ id: string; fileId: string }> }
 
 /**
  * PATCH /api/ai/products/[id]/media/[fileId] (admin+) -- edit a
- * file's label only. Everything else about a file (its storage
- * object, MIME type, kind) is immutable -- delete and re-add instead.
+ * file's label and/or ai_description. Everything else about a file
+ * (its storage object, MIME type, kind) is immutable -- delete and
+ * re-add instead.
  */
 export async function PATCH(request: Request, { params }: Params) {
   try {
@@ -18,9 +19,23 @@ export async function PATCH(request: Request, { params }: Params) {
     }
     const label = typeof body.label === 'string' && body.label.trim() ? body.label.trim() : null
 
+    const updatePayload: { label: string | null; ai_description?: string | null } = { label }
+    if (Object.prototype.hasOwnProperty.call(body, 'ai_description')) {
+      if (typeof body.ai_description !== 'string' && body.ai_description !== null) {
+        return NextResponse.json(
+          { error: "'ai_description' must be a string or null" },
+          { status: 400 },
+        )
+      }
+      updatePayload.ai_description =
+        typeof body.ai_description === 'string' && body.ai_description.trim()
+          ? body.ai_description.trim()
+          : null
+    }
+
     const { data: updated, error } = await supabase
       .from('ai_product_media')
-      .update({ label })
+      .update(updatePayload)
       .eq('account_id', accountId)
       .eq('id', fileId)
       .eq('product_id', id)
