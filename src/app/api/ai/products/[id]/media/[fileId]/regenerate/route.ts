@@ -29,7 +29,11 @@ export async function POST(_request: Request, { params }: Params) {
       .eq('id', fileId)
       .eq('product_id', productId)
       .maybeSingle()
-    if (error || !file) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (error) {
+      console.error('[ai/products/[id]/media/[fileId]/regenerate POST] error:', error)
+      return NextResponse.json({ error: 'Failed to load file' }, { status: 500 })
+    }
+    if (!file) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (file.media_kind !== 'image') {
       return NextResponse.json({ error: 'Only images can be captioned' }, { status: 400 })
     }

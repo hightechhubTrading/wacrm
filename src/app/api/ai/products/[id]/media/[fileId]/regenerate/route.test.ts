@@ -50,6 +50,26 @@ describe('POST /api/ai/products/[id]/media/[fileId]/regenerate', () => {
     expect(res.status).toBe(404)
   })
 
+  it('500s when the database query fails', async () => {
+    const supabase = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({ data: null, error: new Error('database connection failed') }),
+              }),
+            }),
+          }),
+        }),
+      }),
+    }
+    h.requireRole.mockResolvedValue({ supabase, accountId: 'acc-1', userId: 'u-1' })
+    const res = await POST(new Request('http://x', { method: 'POST' }), paramsFor('p-1', 'f-1'))
+    expect(res.status).toBe(500)
+  })
+
   it('400s for a document (nothing to caption)', async () => {
     const supabase = {
       from: () => ({
