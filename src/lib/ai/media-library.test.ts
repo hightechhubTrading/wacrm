@@ -1,6 +1,14 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { listProductsForPrompt, getProductMediaItem } from './media-library'
+import { listProductsForPrompt, getProductMediaItem, captionProductMediaFile } from './media-library'
+
+const h = vi.hoisted(() => ({
+  loadImageAnalysisKey: vi.fn(),
+  analyzeImage: vi.fn(),
+}))
+
+vi.mock('./config', () => ({ loadImageAnalysisKey: h.loadImageAnalysisKey }))
+vi.mock('./vision', () => ({ analyzeImage: h.analyzeImage }))
 
 function fakeListDb(opts: { rows?: unknown[] | null; error?: unknown }): SupabaseClient {
   const chain = {
@@ -21,6 +29,31 @@ function fakeSingleDb(opts: { row?: unknown | null; error?: unknown }): Supabase
     maybeSingle: () => Promise.resolve({ data: opts.row ?? null, error: opts.error ?? null }),
   }
   return chain as unknown as SupabaseClient
+}
+
+function fakeCaptionDb(opts: {
+  downloadError?: unknown
+  updateError?: unknown
+}): SupabaseClient {
+  const blob = new Blob([new Uint8Array([1, 2, 3])])
+  const db = {
+    storage: {
+      from: () => ({
+        download: () =>
+          Promise.resolve(
+            opts.downloadError ? { data: null, error: opts.downloadError } : { data: blob, error: null },
+          ),
+      }),
+    },
+    from: () => ({
+      update: () => ({
+        eq: () => ({
+          eq: () => Promise.resolve({ error: opts.updateError ?? null }),
+        }),
+      }),
+    }),
+  }
+  return db as unknown as SupabaseClient
 }
 
 describe('listProductsForPrompt', () => {
@@ -117,5 +150,73 @@ describe('getProductMediaItem', () => {
   it('returns null when the id does not exist', async () => {
     const db = fakeSingleDb({ row: null })
     expect(await getProductMediaItem(db, 'acc-1', 'missing')).toBeNull()
+  })
+})
+
+describe('captionProductMediaFile', () => {
+  it('returns null for a document (never sent to vision)', async () => {
+    const db = fakeCaptionDb({})
+    const result = await captionProductMediaFile(db, 'acc-1', {
+      id: 'f-1',
+      storagePath: 'account-acc-1/f-1.pdf',
+      mimeType: 'application/pdf',
+      mediaKind: 'document',
+    })
+    expect(result).toBeNull()
+    expect(h.loadImageAnalysisKey).not.toHaveBeenCalled()
+  })
+
+  it('returns null when vision is not configured', async () => {
+    h.loadImageAnalysisKey.mockResolvedValue({ provider: null, key: null, corrupt: false })
+    const db = fakeCaptionDb({})
+    const result = await captionProductMediaFile(db, 'acc-1', {
+      id: 'f-1',
+      storagePath: 'account-acc-1/f-1.jpg',
+      mimeType: 'image/jpeg',
+      mediaKind: 'image',
+    })
+    expect(result).toBeNull()
+    expect(h.analyzeImage).not.toHaveBeenCalled()
+  })
+
+  it('captions and saves the description on success', async () => {
+    h.loadImageAnalysisKey.mockResolvedValue({ provider: 'openai', key: 'sk-test', corrupt: false })
+    h.analyzeImage.mockResolvedValue('A black roller shutter, closed.')
+    const db = fakeCaptionDb({})
+    const result = await captionProductMediaFile(db, 'acc-1', {
+      id: 'f-1',
+      storagePath: 'account-acc-1/f-1.jpg',
+      mimeType: 'image/jpeg',
+      mediaKind: 'image',
+    })
+    expect(result).toBe('A black roller shutter, closed.')
+    expect(h.analyzeImage).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'openai', apiKey: 'sk-test', mimeType: 'image/jpeg' }),
+    )
+  })
+
+  it('returns null (never throws) when the download fails', async () => {
+    h.loadImageAnalysisKey.mockResolvedValue({ provider: 'openai', key: 'sk-test', corrupt: false })
+    const db = fakeCaptionDb({ downloadError: new Error('not found') })
+    const result = await captionProductMediaFile(db, 'acc-1', {
+      id: 'f-1',
+      storagePath: 'account-acc-1/f-1.jpg',
+      mimeType: 'image/jpeg',
+      mediaKind: 'image',
+    })
+    expect(result).toBeNull()
+  })
+
+  it('returns null (never throws) when analyzeImage rejects', async () => {
+    h.loadImageAnalysisKey.mockResolvedValue({ provider: 'openai', key: 'sk-test', corrupt: false })
+    h.analyzeImage.mockRejectedValue(new Error('provider timeout'))
+    const db = fakeCaptionDb({})
+    const result = await captionProductMediaFile(db, 'acc-1', {
+      id: 'f-1',
+      storagePath: 'account-acc-1/f-1.jpg',
+      mimeType: 'image/jpeg',
+      mediaKind: 'image',
+    })
+    expect(result).toBeNull()
   })
 })

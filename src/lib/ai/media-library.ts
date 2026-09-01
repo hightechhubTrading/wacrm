@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { loadImageAnalysisKey } from './config'
+import { analyzeImage } from './vision'
 
 // ============================================================
 // Product catalog: lets the autonomous auto-reply bot naturally
@@ -135,6 +137,54 @@ export async function getProductMediaItem(
     }
   } catch (err) {
     console.error('[ai product catalog] getProductMediaItem failed:', err)
+    return null
+  }
+}
+
+/**
+ * Best-effort: generates an AI description for one product image and
+ * saves it to `ai_product_media.ai_description`. Returns the
+ * description on success, or null when nothing was generated --
+ * not an image, vision not configured for the account, or a
+ * download/provider/network failure. Never throws -- callers (file
+ * registration, the regenerate endpoint) decide what null means for
+ * their own response.
+ */
+export async function captionProductMediaFile(
+  db: SupabaseClient,
+  accountId: string,
+  file: { id: string; storagePath: string; mimeType: string; mediaKind: 'image' | 'document' },
+): Promise<string | null> {
+  if (file.mediaKind !== 'image') return null
+  try {
+    const { provider, key } = await loadImageAnalysisKey(db, accountId)
+    if (!provider || !key) return null
+
+    const { data: blob, error: downloadError } = await db.storage
+      .from('ai-media')
+      .download(file.storagePath)
+    if (downloadError || !blob) return null
+
+    const imageBuffer = Buffer.from(await blob.arrayBuffer())
+    const description = await analyzeImage({
+      provider,
+      apiKey: key,
+      imageBuffer,
+      mimeType: file.mimeType,
+    })
+
+    const { error: updateError } = await db
+      .from('ai_product_media')
+      .update({ ai_description: description })
+      .eq('account_id', accountId)
+      .eq('id', file.id)
+    if (updateError) {
+      console.error('[ai product catalog] captionProductMediaFile update failed:', updateError)
+      return null
+    }
+    return description
+  } catch (err) {
+    console.error('[ai product catalog] captionProductMediaFile failed:', err)
     return null
   }
 }
