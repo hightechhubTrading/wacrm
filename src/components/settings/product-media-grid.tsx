@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { FileText, Loader2, Upload } from 'lucide-react';
+import { AlertCircle, FileText, Loader2, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   uploadAccountMedia,
@@ -42,8 +42,9 @@ export function ProductMediaGrid({
 
   const uploadOne = async (localId: string, file: File) => {
     const mediaKind = file.type.startsWith('image/') ? 'image' : 'document';
+    let path: string | undefined;
     try {
-      const { path } = await uploadAccountMedia('ai-media', file);
+      ({ path } = await uploadAccountMedia('ai-media', file));
       setStatus(localId, 'describing');
       const res = await fetch(`/api/ai/products/${productId}/media`, {
         method: 'POST',
@@ -66,6 +67,9 @@ export function ProductMediaGrid({
       setPending((p) => p.filter((f) => f.localId !== localId));
     } catch {
       toast.error(`Failed to upload ${file.name}.`);
+      if (path) {
+        await deleteAccountMedia('ai-media', path).catch(() => {});
+      }
       setStatus(localId, 'error');
     }
   };
@@ -183,10 +187,26 @@ export function ProductMediaGrid({
         {pending.map((p) => (
           <div
             key={p.localId}
-            className="flex flex-col overflow-hidden rounded-md border border-dashed border-border"
+            className={cn(
+              'flex flex-col overflow-hidden rounded-md border border-dashed',
+              p.status === 'error'
+                ? 'border-destructive bg-destructive/5'
+                : 'border-border',
+            )}
           >
-            <span className="flex aspect-square flex-col items-center justify-center gap-1.5 bg-muted/30 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
+            <span
+              className={cn(
+                'flex aspect-square flex-col items-center justify-center gap-1.5',
+                p.status === 'error'
+                  ? 'bg-destructive/10 text-destructive'
+                  : 'bg-muted/30 text-muted-foreground',
+              )}
+            >
+              {p.status === 'error' ? (
+                <AlertCircle className="h-5 w-5" />
+              ) : (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              )}
               <span className="text-[10px]">
                 {p.status === 'uploading'
                   ? 'Uploading…'
@@ -195,7 +215,14 @@ export function ProductMediaGrid({
                     : 'Failed'}
               </span>
             </span>
-            <span className="truncate px-2 py-1.5 text-xs text-muted-foreground">{p.name}</span>
+            <span
+              className={cn(
+                'truncate px-2 py-1.5 text-xs',
+                p.status === 'error' ? 'text-destructive' : 'text-muted-foreground',
+              )}
+            >
+              {p.name}
+            </span>
           </div>
         ))}
       </div>
