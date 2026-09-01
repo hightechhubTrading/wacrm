@@ -21,6 +21,7 @@ export interface ProductMediaFilePromptItem {
   id: string
   label: string | null
   mediaKind: 'image' | 'document'
+  aiDescription: string | null
 }
 
 export interface ProductPromptItem {
@@ -71,7 +72,7 @@ export async function listProductsForPrompt(
     const { data, error } = await db
       .from('ai_products')
       .select(
-        'id, name, description, tag_id, price_min, price_max, price_unit, price_notes, ai_product_media(id, label, media_kind)',
+        'id, name, description, tag_id, price_min, price_max, price_unit, price_notes, ai_product_media(id, label, media_kind, ai_description)',
       )
       .eq('account_id', accountId)
     if (error || !data) return []
@@ -86,12 +87,13 @@ export async function listProductsForPrompt(
       priceNotes: (row.price_notes as string | null) ?? null,
       files: (
         (row.ai_product_media as
-          | { id: string; label: string | null; media_kind: 'image' | 'document' }[]
+          | { id: string; label: string | null; media_kind: 'image' | 'document'; ai_description: string | null }[]
           | null) ?? []
       ).map((f) => ({
         id: f.id,
         label: f.label,
         mediaKind: f.media_kind,
+        aiDescription: f.ai_description,
       })),
     }))
   } catch (err) {

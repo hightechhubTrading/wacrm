@@ -37,8 +37,8 @@ describe('listProductsForPrompt', () => {
           price_unit: 'per_meter',
           price_notes: 'Motor add-on +$50-80',
           ai_product_media: [
-            { id: 'f-1', label: 'front view', media_kind: 'image' },
-            { id: 'f-2', label: null, media_kind: 'document' },
+            { id: 'f-1', label: 'front view', media_kind: 'image', ai_description: 'A black roller shutter, closed.' },
+            { id: 'f-2', label: null, media_kind: 'document', ai_description: null },
           ],
         },
       ],
@@ -55,8 +55,8 @@ describe('listProductsForPrompt', () => {
         priceUnit: 'per_meter',
         priceNotes: 'Motor add-on +$50-80',
         files: [
-          { id: 'f-1', label: 'front view', mediaKind: 'image' },
-          { id: 'f-2', label: null, mediaKind: 'document' },
+          { id: 'f-1', label: 'front view', mediaKind: 'image', aiDescription: 'A black roller shutter, closed.' },
+          { id: 'f-2', label: null, mediaKind: 'document', aiDescription: null },
         ],
       },
     ])
