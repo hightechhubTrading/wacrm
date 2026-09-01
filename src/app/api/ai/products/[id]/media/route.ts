@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
+import { captionProductMediaFile } from '@/lib/ai/media-library'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -59,7 +60,15 @@ export async function POST(request: Request, { params }: Params) {
       console.error('[ai/products/[id]/media POST] insert error:', error)
       return NextResponse.json({ error: 'Failed to save file' }, { status: 500 })
     }
-    return NextResponse.json({ success: true, id: item.id })
+
+    const aiDescription = await captionProductMediaFile(supabase, accountId, {
+      id: item.id,
+      storagePath,
+      mimeType,
+      mediaKind,
+    })
+
+    return NextResponse.json({ success: true, id: item.id, ai_description: aiDescription })
   } catch (err) {
     return toErrorResponse(err)
   }
