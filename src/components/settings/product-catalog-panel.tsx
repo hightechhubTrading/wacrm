@@ -151,6 +151,10 @@ export function ProductCatalogPanel() {
             <p className="text-sm text-muted-foreground">
               Select a product on the left, or add a new one.
             </p>
+          ) : selection !== 'new' && selected === null ? (
+            <p className="text-sm text-muted-foreground">
+              Couldn't load this product — select it again from the list on the left.
+            </p>
           ) : (
             <div className="space-y-4">
               <ProductCatalogForm
