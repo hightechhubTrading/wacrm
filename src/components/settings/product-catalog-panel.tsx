@@ -153,7 +153,7 @@ export function ProductCatalogPanel() {
             </p>
           ) : selection !== 'new' && selected === null ? (
             <p className="text-sm text-muted-foreground">
-              Couldn't load this product — select it again from the list on the left.
+              Couldn&apos;t load this product — select it again from the list on the left.
             </p>
           ) : (
             <div className="space-y-4">
