@@ -16,7 +16,7 @@ type Params = { params: Promise<{ id: string }> }
 export async function POST(request: Request, { params }: Params) {
   try {
     const { supabase, accountId, userId } = await requireRole('admin')
-    const limit = checkRateLimit(`ai-products-media:${userId}`, RATE_LIMITS.adminAction)
+    const limit = checkRateLimit(`ai-products-media:${userId}`, RATE_LIMITS.bulkMediaUpload)
     if (!limit.success) return rateLimitResponse(limit)
 
     const { id: productId } = await params

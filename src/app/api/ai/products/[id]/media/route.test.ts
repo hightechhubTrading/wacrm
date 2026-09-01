@@ -13,7 +13,7 @@ vi.mock('@/lib/auth/account', () => ({
 vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: h.checkRateLimit,
   rateLimitResponse: () => new Response(JSON.stringify({ error: 'rate limited' }), { status: 429 }),
-  RATE_LIMITS: { adminAction: {} },
+  RATE_LIMITS: { bulkMediaUpload: {} },
 }))
 vi.mock('@/lib/ai/media-library', () => ({
   captionProductMediaFile: h.captionProductMediaFile,

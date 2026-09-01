@@ -174,6 +174,13 @@ export const RATE_LIMITS = {
    *  team's draws on the shared BYO key, same reasoning as
    *  aiDraftAccount. */
   aiTranslateAccount: { limit: 60, windowMs: 60_000 },
+  /** Product-catalog media file registration, per user. The batch-upload
+   *  grid fires several of these concurrently per dropped file (each one
+   *  gated on a real, already-uploaded Storage object, so it isn't a
+   *  spammable no-cost action), and a single large drop can legitimately
+   *  need dozens of calls in one window. 120/min matches `publicApi`'s
+   *  generosity so a big batch doesn't get 429'd partway through. */
+  bulkMediaUpload: { limit: 120, windowMs: 60_000 },
 } as const;
 
 /** Test-only helper. Clears the in-memory state so unit tests don't

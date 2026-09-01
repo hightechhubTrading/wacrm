@@ -29,9 +29,10 @@ export function ProductCatalogPanel() {
   const [loading, setLoading] = useState(true);
   const [selection, setSelection] = useState<Selection>(null);
   const loadedAccountIdRef = useRef<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
   const fetchItems = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoadedRef.current) setLoading(true);
     try {
       const res = await fetch('/api/ai/products');
       const data = await res.json();
@@ -41,6 +42,7 @@ export function ProductCatalogPanel() {
       toast.error('Failed to load product catalog.');
     } finally {
       setLoading(false);
+      hasLoadedRef.current = true;
     }
   }, []);
 
