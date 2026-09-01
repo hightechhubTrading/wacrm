@@ -16,6 +16,7 @@ import { TemplateManager } from '@/components/settings/template-manager';
 import { QuickRepliesManager } from '@/components/settings/quick-replies-manager';
 import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel';
 import { DealsSettings } from '@/components/settings/deals-settings';
+import { ProductCatalogPanel } from '@/components/settings/product-catalog-panel';
 import { WahaConfig } from '@/components/settings/waha-config';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
@@ -81,6 +82,7 @@ function SettingsPageInner() {
     'quick-replies': <QuickRepliesManager />,
     fields: <FieldsAndTagsPanel />,
     deals: <DealsSettings />,
+    products: <ProductCatalogPanel />,
     'group-notifications': <WahaConfig />,
     members: <MembersTab />,
     api: <ApiKeysSettings />,
