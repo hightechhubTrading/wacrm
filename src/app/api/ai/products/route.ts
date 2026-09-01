@@ -20,7 +20,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from('ai_products')
       .select(
-        'id, name, description, tag_label, price_min, price_max, price_unit, price_notes, updated_at, ai_product_media(id, label, media_kind, mime_type, storage_path)',
+        'id, name, description, tag_label, price_min, price_max, price_unit, price_notes, updated_at, ai_product_media(id, label, media_kind, mime_type, storage_path, ai_description)',
       )
       .eq('account_id', accountId)
       .order('updated_at', { ascending: false })

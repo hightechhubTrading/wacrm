@@ -80,6 +80,18 @@ describe('GET /api/ai/products', () => {
     expect(body.items).toHaveLength(1)
     expect(body.items[0].files).toHaveLength(1)
   })
+
+  it('requests ai_description in the select clause', async () => {
+    const selectSpy = vi.fn().mockReturnValue({
+      eq: () => ({ order: () => Promise.resolve({ data: [], error: null }) }),
+    })
+    h.getCurrentAccount.mockResolvedValue({
+      supabase: { from: () => ({ select: selectSpy }) },
+      accountId: 'acc-1',
+    })
+    await GET()
+    expect(selectSpy).toHaveBeenCalledWith(expect.stringContaining('ai_description'))
+  })
 })
 
 describe('POST /api/ai/products', () => {
