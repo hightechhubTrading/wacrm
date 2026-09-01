@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isolatePhoneNumbers, containsPriceQuestion } from './defaults'
+import { isolatePhoneNumbers, containsPriceQuestion, buildSystemPrompt } from './defaults'
 
 describe('isolatePhoneNumbers', () => {
   it('wraps a phone number embedded in Arabic (RTL) text in LRI/PDI isolate marks', () => {
@@ -54,5 +54,49 @@ describe('containsPriceQuestion', () => {
 
   it('does not match ordinary text with no price-related word at all', () => {
     expect(containsPriceQuestion('مرحبًا، شاهدت إعلان أبواب الشتر')).toBe(false)
+  })
+})
+
+describe('buildSystemPrompt — product catalog file lines', () => {
+  it('appends the AI description after the label/kind when present', () => {
+    const prompt = buildSystemPrompt({
+      userPrompt: null,
+      mode: 'auto_reply',
+      media: [
+        {
+          id: 'p-1',
+          name: 'Rollup Shutter door',
+          description: 'Aluminum rollup shutters',
+          files: [
+            {
+              id: 'f-1',
+              label: 'front view',
+              mediaKind: 'image',
+              aiDescription: 'A black roller shutter, closed, motor visible at top.',
+            },
+          ],
+        },
+      ],
+    })
+    expect(prompt).toContain(
+      '  - [f-1] front view (image): A black roller shutter, closed, motor visible at top.',
+    )
+  })
+
+  it('omits the trailing colon when there is no description', () => {
+    const prompt = buildSystemPrompt({
+      userPrompt: null,
+      mode: 'auto_reply',
+      media: [
+        {
+          id: 'p-1',
+          name: 'Rollup Shutter door',
+          description: 'Aluminum rollup shutters',
+          files: [{ id: 'f-1', label: null, mediaKind: 'document', aiDescription: null }],
+        },
+      ],
+    })
+    expect(prompt).toContain('  - [f-1] (document)')
+    expect(prompt).not.toContain('(document):')
   })
 })

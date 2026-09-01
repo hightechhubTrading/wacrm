@@ -214,6 +214,7 @@ export interface MediaPromptFileItem {
   id: string
   label: string | null
   mediaKind: 'image' | 'document'
+  aiDescription: string | null
 }
 
 /** One product (with its files) as fed into the auto-reply system
@@ -393,7 +394,10 @@ export function buildSystemPrompt(args: {
                 : ''
             const notes = m.priceNotes ? ` (options: ${m.priceNotes})` : ''
             const fileLines = m.files
-              .map((f) => `  - [${f.id}] ${f.label ? f.label + ' ' : ''}(${f.mediaKind})`)
+              .map(
+                (f) =>
+                  `  - [${f.id}] ${f.label ? f.label + ' ' : ''}(${f.mediaKind})${f.aiDescription ? ': ' + f.aiDescription : ''}`,
+              )
               .join('\n')
             const header = `[${m.id}] ${m.name}${pricing} -- ${m.description}${notes}`
             return fileLines ? `${header}\n${fileLines}` : header
