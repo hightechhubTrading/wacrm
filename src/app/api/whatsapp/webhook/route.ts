@@ -601,6 +601,29 @@ async function processMessage(
   if (!convResult) return
   const conversation = convResult.conversation
 
+  // Idempotency guard against Meta's webhook retries. If our ack to Meta
+  // is slow (see the "process AFTER the response" comment in POST above),
+  // Meta redelivers the same event with the same message.id -- and
+  // message_id carries no DB uniqueness constraint (migration 009: Meta
+  // ids aren't unique across phone numbers, so none was added). Without
+  // this check a retry would insert a second `messages` row and rerun
+  // flows/automations/the AI auto-reply for the same customer message,
+  // producing duplicate near-identical replies. Reactions are excluded --
+  // they're already deduped by the upsert in handleReaction (onConflict
+  // message_id,actor_type,actor_id).
+  if (message.type !== 'reaction') {
+    const { data: existingMessage } = await supabaseAdmin()
+      .from('messages')
+      .select('id')
+      .eq('conversation_id', conversation.id)
+      .eq('message_id', message.id)
+      .maybeSingle()
+    if (existingMessage) {
+      console.warn('[webhook] duplicate message_id for conversation, skipping reprocess:', message.id)
+      return
+    }
+  }
+
   // Emit conversation.created as soon as the thread is opened — BEFORE
   // the reaction short-circuit below — so a conversation first opened by
   // a reaction still fires the event, and a subscriber always sees the
