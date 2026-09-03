@@ -38,6 +38,26 @@ async function throwMetaError(response: Response, fallback: string): Promise<nev
   throw new Error(message)
 }
 
+/**
+ * Render an error for logging/display, appending the underlying cause
+ * when present. A raw `fetch()` failure (DNS lookup failed, connection
+ * refused, TLS handshake failed, timeout — i.e. we never got an HTTP
+ * response from Meta at all) surfaces as a bare `TypeError: fetch failed`
+ * with the actually useful detail tucked into `err.cause` by Node's
+ * undici, which every caller here was previously dropping on the floor —
+ * making a DNS outage indistinguishable from a firewall block or an
+ * expired cert from the log line alone.
+ */
+export function describeFetchError(err: unknown): string {
+  if (err instanceof Error) {
+    const cause = (err as Error & { cause?: unknown }).cause
+    const causeStr =
+      cause instanceof Error ? cause.message : cause != null ? String(cause) : null
+    return causeStr ? `${err.message} (cause: ${causeStr})` : err.message
+  }
+  return String(err)
+}
+
 // ============================================================
 // Phone number / account
 // ============================================================

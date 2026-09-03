@@ -5,6 +5,7 @@ import {
   registerPhoneNumber,
   subscribeWabaToApp,
   verifyPhoneNumber,
+  describeFetchError,
 } from '@/lib/whatsapp/meta-api'
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption'
 
@@ -137,7 +138,7 @@ export async function GET() {
       })
       return NextResponse.json({ connected: true, phone_info: phoneInfo })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown Meta API error'
+      const message = describeFetchError(err)
       console.error('[whatsapp/config GET] Meta API verification failed:', message)
       return NextResponse.json(
         {
@@ -243,7 +244,7 @@ export async function POST(request: Request) {
         accessToken: access_token,
       })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown Meta API error'
+      const message = describeFetchError(err)
       console.error('Meta API verification failed during save:', message)
       return NextResponse.json(
         { error: `Meta API error: ${message}` },
@@ -318,8 +319,7 @@ export async function POST(request: Request) {
           })
           registeredAt = new Date().toISOString()
         } catch (err) {
-          registrationError =
-            err instanceof Error ? err.message : 'Unknown Meta API error'
+          registrationError = describeFetchError(err)
           console.error('Phone number /register failed:', registrationError)
           // We deliberately fall through and still save the row so the
           // user can retry without re-entering everything. The UI

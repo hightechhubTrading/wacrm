@@ -31,6 +31,7 @@ import {
   sendMediaMessage,
   sendInteractiveButtons,
   sendInteractiveList,
+  describeFetchError,
   type MediaKind,
 } from '@/lib/whatsapp/meta-api';
 import {
@@ -637,8 +638,7 @@ export async function sendMessageToConversation(
 
     if (lastError) throw lastError;
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : 'Unknown Meta API error';
+    const message = describeFetchError(err);
     console.error('[send-message] Meta send failed for all variants:', message);
     throw new SendMessageError('meta_error', `Meta API error: ${message}`, 502);
   }
