@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { isolatePhoneNumbers, containsPriceQuestion, buildSystemPrompt } from './defaults'
+import {
+  isolatePhoneNumbers,
+  containsPriceQuestion,
+  buildSystemPrompt,
+  languageScript,
+} from './defaults'
 
 describe('isolatePhoneNumbers', () => {
   it('wraps a phone number embedded in Arabic (RTL) text in LRI/PDI isolate marks', () => {
@@ -54,6 +59,68 @@ describe('containsPriceQuestion', () => {
 
   it('does not match ordinary text with no price-related word at all', () => {
     expect(containsPriceQuestion('مرحبًا، شاهدت إعلان أبواب الشتر')).toBe(false)
+  })
+
+  it('matches the phrasings real customers used that used to slip past the cap', () => {
+    // All from 30 days of production traffic (2026-08/09).
+    expect(containsPriceQuestion('بكم تسوون الباب الأوتوماتيكي')).toBe(true)
+    expect(containsPriceQuestion('إذا باب استرالي ٣.٥ في ٣ بكم')).toBe(true)
+    expect(containsPriceQuestion('طيب عطني اسعارهم حاليا')).toBe(true)
+    expect(containsPriceQuestion('الأسعار تبتدي من كم')).toBe(true)
+    expect(containsPriceQuestion('وكم يكلف')).toBe(true)
+    expect(containsPriceQuestion('كم المتر')).toBe(true)
+    expect(containsPriceQuestion('1 sutter how much??')).toBe(true)
+    expect(containsPriceQuestion('Can you give me quotation')).toBe(true)
+  })
+
+  it('does NOT read the courtesy "بكم" (with/to you) as a price ask', () => {
+    expect(containsPriceQuestion('مستقبلا نتصل بكم ان شاء الله')).toBe(false)
+    expect(containsPriceQuestion('أهلا بكم')).toBe(false)
+  })
+
+  it('does NOT match "how many"', () => {
+    expect(containsPriceQuestion('How many designs you have')).toBe(false)
+  })
+})
+
+describe('languageScript', () => {
+  it('ignores measurements, units and product acronyms', () => {
+    expect(languageScript('200 cm × 110cm')).toBe('mixed')
+    expect(languageScript('3.5 m')).toBe('mixed')
+    expect(languageScript('نعم، عندنا أبواب UPVC بمقاس 200×110')).toBe('arabic')
+  })
+
+  it('ignores URLs and emails so an Arabic reply carrying a link is still Arabic', () => {
+    // Real reply to an English-writing customer (2026-09-20) that the old
+    // check skipped as "mixed" because of the URL and email.
+    expect(
+      languageScript('أكيد، هذا موقعنا الرسمي: https://www.hightechub.com والإيميل: info@hightechub.com'),
+    ).toBe('arabic')
+  })
+
+  it('reads real English as latin', () => {
+    expect(languageScript('i want door for bathrooms and windows for villa')).toBe('latin')
+  })
+
+  it('ignores bracketed transcript markers', () => {
+    expect(languageScript('[Image: A beige roller shutter.]')).toBe('mixed')
+  })
+})
+
+describe('buildSystemPrompt — working hours', () => {
+  it('includes the configured hours so the model never has to guess them', () => {
+    const prompt = buildSystemPrompt({
+      userPrompt: null,
+      mode: 'auto_reply',
+      businessHours: 'Sunday 09:00-17:00; Friday closed',
+      timezone: 'UTC+3',
+    })
+    expect(prompt).toContain('(UTC+3): Sunday 09:00-17:00; Friday closed')
+  })
+
+  it('says nothing about hours when none are configured', () => {
+    const prompt = buildSystemPrompt({ userPrompt: null, mode: 'auto_reply' })
+    expect(prompt).not.toContain('working hours')
   })
 })
 

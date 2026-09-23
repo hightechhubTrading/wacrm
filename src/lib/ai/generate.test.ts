@@ -278,3 +278,28 @@ describe('generateReply — Anthropic', () => {
                  expect(body.messages).toHaveLength(1)
            })
 })
+
+describe('parseGeneration — leftover markers never reach the customer', () => {
+  it('strips every media marker when the model emits two, keeping the first id', () => {
+    // Real reply (2026-09-22): the model tried to attach one photo per
+    // garage-door type; the second marker used to go out as raw text.
+    const out = parseGeneration(
+      'هذه صور النوعين: الرول الأسترالي: [[SEND_MEDIA:aaa-1]] الأمريكي: [[SEND_MEDIA:bbb-2]]',
+    )
+    expect(out.mediaId).toBe('aaa-1')
+    expect(out.text).not.toContain('[[')
+  })
+
+  it('strips an empty product-tag marker instead of sending it verbatim', () => {
+    // Real reply (2026-09-12) ended with a literal "[[TAG_PRODUCT:]]".
+    const out = parseGeneration('إذا تحب، أرسل لي نوع المطلوب: نافذة أو باب؟ [[TAG_PRODUCT:]]')
+    expect(out.productTagId).toBeNull()
+    expect(out.text).toBe('إذا تحب، أرسل لي نوع المطلوب: نافذة أو باب؟')
+  })
+
+  it('takes the first non-empty id when an empty marker comes first', () => {
+    const out = parseGeneration('Here you go [[TAG_PRODUCT:]] [[TAG_PRODUCT:p-9]]')
+    expect(out.productTagId).toBe('p-9')
+    expect(out.text).toBe('Here you go')
+  })
+})

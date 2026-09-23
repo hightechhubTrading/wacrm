@@ -176,3 +176,73 @@ describe('analyzeImage', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('analyzeImage — thinking-model token budget', () => {
+  it('caps Gemini reasoning and leaves real headroom for the caption', async () => {
+    // With max_tokens 200 and default reasoning, Gemini spent 192 tokens
+    // thinking and returned "Two beige roller shutters" (finish_reason
+    // "length") -- 76 of 77 real captions over 30 days were fragments.
+    const fetchMock = vi.fn(async (_url: string, opts: { body: string }) => {
+      const body = JSON.parse(opts.body)
+      expect(body.reasoning_effort).toBe('low')
+      expect(body.max_tokens).toBeGreaterThanOrEqual(1024)
+      return okResponse('Two closed beige roller shutters on a striped wall.')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    await analyzeImage({
+      provider: 'gemini',
+      apiKey: 'g-key',
+      imageBuffer: Buffer.from('fake-image'),
+      mimeType: 'image/jpeg',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not send reasoning_effort to OpenAI', async () => {
+    const fetchMock = vi.fn(async (_url: string, opts: { body: string }) => {
+      expect(JSON.parse(opts.body).reasoning_effort).toBeUndefined()
+      return okResponse('A grey sofa.')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    await analyzeImage({
+      provider: 'openai',
+      apiKey: 'sk-x',
+      imageBuffer: Buffer.from('fake-image'),
+      mimeType: 'image/jpeg',
+    })
+  })
+
+  function truncatedResponse(text: string): Response {
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ choices: [{ message: { content: text }, finish_reason: 'length' }] }),
+    } as unknown as Response
+  }
+
+  it('keeps a length-truncated caption only up to its last complete sentence', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => truncatedResponse('A beige roller shutter door. A motor box is mounted ab')),
+    )
+    const text = await analyzeImage({
+      provider: 'gemini',
+      apiKey: 'g-key',
+      imageBuffer: Buffer.from('fake-image'),
+      mimeType: 'image/jpeg',
+    })
+    expect(text).toBe('A beige roller shutter door.')
+  })
+
+  it('rejects a length-truncated fragment with no complete sentence rather than storing it', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => truncatedResponse('A white UP')))
+    await expect(
+      analyzeImage({
+        provider: 'gemini',
+        apiKey: 'g-key',
+        imageBuffer: Buffer.from('fake-image'),
+        mimeType: 'image/jpeg',
+      }),
+    ).rejects.toBeInstanceOf(AiError)
+  })
+})

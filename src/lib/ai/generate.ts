@@ -72,6 +72,31 @@ export async function generateReply(args: GenerateArgs): Promise<GenerateResult>
 }
 
 /**
+ * Removes every closed `open...close` marker from `text` and returns the
+ * first non-empty id among them. An unclosed marker is left as plain
+ * text rather than guessed at.
+ */
+function extractMarkers(
+  text: string,
+  open: string,
+  close: string,
+): { text: string; id: string | null } {
+  let id: string | null = null
+  let searchFrom = 0
+  for (;;) {
+    const openIdx = text.indexOf(open, searchFrom)
+    if (openIdx === -1) break
+    const closeIdx = text.indexOf(close, openIdx + open.length)
+    if (closeIdx === -1) break
+    const inner = text.slice(openIdx + open.length, closeIdx).trim()
+    if (inner && id === null) id = inner
+    text = text.slice(0, openIdx) + text.slice(closeIdx + close.length)
+    searchFrom = openIdx
+  }
+  return { text, id }
+}
+
+/**
  * Split the raw model output into `{ text, handoff, mediaId, productTagId, usage }`.
  * The handoff sentinel can appear alone or trailing a partial reply;
  * either way we treat the turn as a handoff and strip the marker from
@@ -89,43 +114,18 @@ export function parseGeneration(
   const handoff = raw.includes(HANDOFF_SENTINEL)
   let text = raw.split(HANDOFF_SENTINEL).join('')
 
-  let mediaId: string | null = null
-  const openIdx = text.indexOf(MEDIA_SENTINEL_OPEN)
-  if (openIdx !== -1) {
-    const closeIdx = text.indexOf(
-      MEDIA_SENTINEL_CLOSE,
-      openIdx + MEDIA_SENTINEL_OPEN.length,
-    )
-    if (closeIdx !== -1) {
-      const id = text
-        .slice(openIdx + MEDIA_SENTINEL_OPEN.length, closeIdx)
-        .trim()
-      if (id) {
-        mediaId = id
-        text = text.slice(0, openIdx) + text.slice(closeIdx + MEDIA_SENTINEL_CLOSE.length)
-      }
-    }
-  }
+  // Every media / product-tag marker is stripped from the text, not
+  // just the first -- the model sometimes emits two media markers
+  // ("Australian: [..] American: [..]") or an empty `[[TAG_PRODUCT:]]`,
+  // and anything left behind went out to the customer verbatim. The
+  // first non-empty id of each kind wins (at most one file is attached).
+  const media = extractMarkers(text, MEDIA_SENTINEL_OPEN, MEDIA_SENTINEL_CLOSE)
+  text = media.text
+  const mediaId = media.id
 
-  let productTagId: string | null = null
-  const tagOpenIdx = text.indexOf(PRODUCT_TAG_SENTINEL_OPEN)
-  if (tagOpenIdx !== -1) {
-    const tagCloseIdx = text.indexOf(
-      PRODUCT_TAG_SENTINEL_CLOSE,
-      tagOpenIdx + PRODUCT_TAG_SENTINEL_OPEN.length,
-    )
-    if (tagCloseIdx !== -1) {
-      const id = text
-        .slice(tagOpenIdx + PRODUCT_TAG_SENTINEL_OPEN.length, tagCloseIdx)
-        .trim()
-      if (id) {
-        productTagId = id
-        text =
-          text.slice(0, tagOpenIdx) +
-          text.slice(tagCloseIdx + PRODUCT_TAG_SENTINEL_CLOSE.length)
-      }
-    }
-  }
+  const tag = extractMarkers(text, PRODUCT_TAG_SENTINEL_OPEN, PRODUCT_TAG_SENTINEL_CLOSE)
+  text = tag.text
+  const productTagId = tag.id
 
   const fields: { name: string; value: string }[] = []
   let fieldSearchFrom = 0

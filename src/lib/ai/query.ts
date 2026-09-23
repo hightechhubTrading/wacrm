@@ -1,4 +1,5 @@
 import type { ChatMessage } from './types'
+import { languageScript } from './defaults'
 
 /**
  * The text to retrieve knowledge against: the most recent customer
@@ -45,4 +46,23 @@ export function latestCustomerAuthoredMessage(messages: ChatMessage[]): string {
     if (authored) return authored
   }
   return latestUserMessage(messages)
+}
+
+/**
+ * The language the customer is writing in, judged from their most
+ * recent message that actually carries a language signal (see
+ * `languageScript`) -- skipping turns that are only measurements, a
+ * link, a phone number, a shared location, or a photo. An Arabic
+ * customer who replies "3.5 m" or "200 cm × 110cm" is still an Arabic
+ * customer; judging from that message alone flipped real conversations
+ * into English mid-thread. 'mixed' only when no customer turn in the
+ * window carries a signal at all.
+ */
+export function customerLanguageScript(messages: ChatMessage[]): 'arabic' | 'latin' | 'mixed' {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role !== 'user') continue
+    const script = languageScript(messages[i].content)
+    if (script !== 'mixed') return script
+  }
+  return 'mixed'
 }

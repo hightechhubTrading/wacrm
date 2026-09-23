@@ -43,8 +43,10 @@ function buildContextClause(conversationContext: string): string {
   )
 }
 
+const VISION_MAX_TOKENS = 1024
+
 interface VisionChatResponse {
-  choices?: { message?: { content?: string } }[]
+  choices?: { message?: { content?: string }; finish_reason?: string }[]
 }
 
 /**
@@ -93,7 +95,14 @@ export async function analyzeImage(args: {
             ],
           },
         ],
-        max_tokens: 200,
+        // gemini-3.5-flash is a thinking model, and on this endpoint its
+        // hidden reasoning counts against max_tokens: the old 200-token
+        // cap left ~4 tokens for the actual caption, so 76 of 77 real
+        // customer photos over 30 days were stored as fragments like
+        // "A white UP" (or leaked bits of this prompt). Keep reasoning
+        // low and leave real headroom for the sentence itself.
+        max_tokens: VISION_MAX_TOKENS,
+        ...(provider === 'gemini' ? { reasoning_effort: 'low' } : {}),
       }),
       signal: AbortSignal.timeout(timeoutMs),
     })
@@ -106,7 +115,15 @@ export async function analyzeImage(args: {
   }
 
   const data = (await res.json().catch(() => null)) as VisionChatResponse | null
-  const text = data?.choices?.[0]?.message?.content
+  const choice = data?.choices?.[0]
+  let text = choice?.message?.content
+  // A caption cut off by the token cap is kept only up to its last
+  // complete sentence -- a dangling fragment reads to the reply model
+  // as if the customer's photo showed something it doesn't.
+  if (typeof text === 'string' && choice?.finish_reason === 'length') {
+    const lastStop = Math.max(text.lastIndexOf('.'), text.lastIndexOf('!'))
+    text = lastStop > 0 ? text.slice(0, lastStop + 1) : ''
+  }
   if (!text || typeof text !== 'string' || !text.trim()) {
     throw new AiError(`${providerLabel} returned an empty response.`, {
       code: 'empty_response',

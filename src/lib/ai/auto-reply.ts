@@ -8,7 +8,7 @@ import { generateReply } from './generate'
 import {
   buildSystemPrompt,
   isArabicText,
-  detectScript,
+  languageScript,
   containsPriceFigure,
   containsPriceQuestion,
   isolatePhoneNumbers,
@@ -18,7 +18,7 @@ import {
 } from './defaults'
 import { buildHandoffSummary, notifyAiHandoff } from './handoff'
 import { logAiUsage } from './usage'
-import { latestUserMessage, latestCustomerAuthoredMessage } from './query'
+import { latestUserMessage, latestCustomerAuthoredMessage, customerLanguageScript } from './query'
 import { engineSendText, engineSendMedia } from '@/lib/flows/meta-send'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { addContactTagAndDispatch } from '@/lib/contacts/tag-events'
@@ -32,7 +32,7 @@ import {
 import { AiError } from './types'
 import type { AiConfig, ChatMessage } from './types'
 import { recordKeyError, clearKeyError, notifyAdminsOfKeyError } from './key-health'
-import { isWithinBusinessHours, type BusinessHours } from './business-hours'
+import { isWithinBusinessHours, formatBusinessHours, type BusinessHours } from './business-hours'
 import { notifyUrgentLead } from './lead-priority'
 
 /** How long a cached after-hours context summary stays fresh before
@@ -141,7 +141,12 @@ async function performHandoff(args: {
   // triggered right after an uncaptioned photo must not read the
   // photo's always-English auto-caption as the customer having
   // switched languages.
-  const closingMessage = isArabicText(latestCustomerAuthoredMessage(messages))
+  const customerScript = customerLanguageScript(messages)
+  const closingMessage = (
+    customerScript === 'mixed'
+      ? isArabicText(latestCustomerAuthoredMessage(messages))
+      : customerScript === 'arabic'
+  )
     ? HANDOFF_CLOSING_MESSAGE_AR
     : HANDOFF_CLOSING_MESSAGE_EN
   try {
@@ -207,9 +212,10 @@ async function performHandoff(args: {
  * runs one corrective translation call before the reply ever reaches
  * the customer.
  *
- * Only acts when both the customer's message and the reply are
- * unambiguously one script or the other (see `detectScript`) -- mixed
- * content is common and legitimate in this account's bilingual
+ * Only acts when both the customer's language and the reply are
+ * clearly one script or the other (see `languageScript`, which ignores
+ * URLs, numbers, units and product acronyms like "UPVC") -- genuinely
+ * mixed content is common and legitimate in this account's bilingual
  * material, so it's left alone rather than risk a false correction.
  * Never throws; any failure here falls back to the original text
  * rather than blocking the send.
@@ -219,12 +225,11 @@ async function correctReplyLanguageIfNeeded(args: {
   accountId: string
   conversationId: string
   config: AiConfig
-  customerMessage: string
+  customerScript: 'arabic' | 'latin' | 'mixed'
   replyText: string
 }): Promise<string> {
-  const { db, accountId, conversationId, config, customerMessage, replyText } = args
-  const customerScript = detectScript(customerMessage)
-  const replyScript = detectScript(replyText)
+  const { db, accountId, conversationId, config, customerScript, replyText } = args
+  const replyScript = languageScript(replyText)
   if (
     customerScript === 'mixed' ||
     replyScript === 'mixed' ||
@@ -251,7 +256,7 @@ async function correctReplyLanguageIfNeeded(args: {
       model: config.model,
       usage,
     })
-    if (translated.trim() && detectScript(translated) === customerScript) {
+    if (translated.trim() && languageScript(translated) === customerScript) {
       return translated.trim()
     }
     console.warn(
@@ -282,6 +287,25 @@ interface DispatchArgs {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** True when the conversation's latest customer message is no longer
+ * the one that triggered this invocation -- i.e. a later bubble in the
+ * same burst has landed and its own invocation owns the reply. */
+async function newerCustomerMessageArrived(
+  db: SupabaseClient,
+  conversationId: string,
+  triggerMessageId: string | undefined,
+): Promise<boolean> {
+  const { data: latestCustomerMessage } = await db
+    .from('messages')
+    .select('message_id')
+    .eq('conversation_id', conversationId)
+    .eq('sender_type', 'customer')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return !!latestCustomerMessage && latestCustomerMessage.message_id !== triggerMessageId
 }
 
 /**
@@ -434,17 +458,10 @@ export async function dispatchInboundToAiReply(
     // Skipped when triggerMessageId is absent (see DispatchArgs) or the
     // debounce window is configured to 0.
     const debounceMs = aiReplyDebounceMs()
-    if (triggerMessageId && debounceMs > 0) {
+    const debounceActive = !!triggerMessageId && debounceMs > 0
+    if (debounceActive) {
       await sleep(debounceMs)
-      const { data: latestCustomerMessage } = await db
-        .from('messages')
-        .select('message_id')
-        .eq('conversation_id', conversationId)
-        .eq('sender_type', 'customer')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (latestCustomerMessage && latestCustomerMessage.message_id !== triggerMessageId) {
+      if (await newerCustomerMessageArrived(db, conversationId, triggerMessageId)) {
         return // a newer message arrived during the wait -- it owns the reply
       }
     }
@@ -561,6 +578,8 @@ export async function dispatchInboundToAiReply(
       contextSummary: isAfterHoursTakeover ? contextSummary : null,
       socialLinks,
       assignedAgentPhone,
+      businessHours: formatBusinessHours(businessHours),
+      timezone: account?.timezone ?? null,
     })
 
     const { text, handoff, mediaId, productTagId, fields, priority, priorityReason, usage } =
@@ -569,6 +588,18 @@ export async function dispatchInboundToAiReply(
         systemPrompt,
         messages,
       })
+
+    // Second debounce check, after generation. The first check only
+    // covers the fixed wait; the summary + knowledge + LLM calls above
+    // routinely take several more seconds, and a burst bubble landing
+    // in that window used to get its own full reply on top of this one
+    // (~10% of all AI replies over 30 days of real traffic went out
+    // back-to-back, median 10s apart, often re-asking the same thing).
+    // The newer message's own invocation sees the whole thread, so
+    // dropping this reply loses nothing.
+    if (debounceActive && (await newerCustomerMessageArrived(db, conversationId, triggerMessageId))) {
+      return
+    }
 
     // The call just succeeded -- if the key was previously flagged as
     // broken, clear it. Best-effort: never let this block the reply.
@@ -685,14 +716,11 @@ export async function dispatchInboundToAiReply(
         accountId,
         conversationId,
         config,
-        // latestCustomerAuthoredMessage, not latestUserMessage: the
-        // latest 'user' turn can be a bare `[Image: ...]` auto-caption
-        // (uncaptioned photo), which is always English regardless of
-        // the conversation's actual language. Using it here would let
-        // an English reply sail through unchecked -- its script simply
-        // matches the caption's -- exactly the bug this check exists to
-        // catch. See query.ts for the full reasoning.
-        customerMessage: latestCustomerAuthoredMessage(messages),
+        // Judged from the customer's latest turn that actually carries
+        // a language signal -- never a bare `[Image: ...]` auto-caption
+        // (always English) or a measurements/link-only message like
+        // "200 cm × 110cm". See customerLanguageScript in query.ts.
+        customerScript: customerLanguageScript(messages),
         replyText: text,
       }),
     )

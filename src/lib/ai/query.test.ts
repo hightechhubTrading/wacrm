@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { latestUserMessage, latestCustomerAuthoredMessage } from './query'
+import { latestUserMessage, latestCustomerAuthoredMessage, customerLanguageScript } from './query'
 
 describe('latestUserMessage', () => {
   it('returns the most recent user turn', () => {
@@ -64,5 +64,34 @@ describe('latestCustomerAuthoredMessage', () => {
     expect(
       latestCustomerAuthoredMessage([{ role: 'assistant', content: 'only assistant' }]),
     ).toBe('only assistant')
+  })
+})
+
+describe('customerLanguageScript', () => {
+  it('skips a measurements-only turn and uses the last real words', () => {
+    // Real thread (2026-09-21): an Arabic customer typed "200 cm × 110cm"
+    // and the conversation flipped to English.
+    expect(
+      customerLanguageScript([
+        { role: 'user', content: 'لباب المنزل خارجي' },
+        { role: 'assistant', content: 'تمام' },
+        { role: 'user', content: '200 cm × 110cm' },
+      ]),
+    ).toBe('arabic')
+  })
+
+  it('skips a shared location, a phone number, and a bare photo caption', () => {
+    expect(
+      customerLanguageScript([
+        { role: 'user', content: 'I need a garage shutter' },
+        { role: 'user', content: '[Location shared: https://www.google.com/maps?q=25.3,51.4]' },
+        { role: 'user', content: '55808147' },
+        { role: 'user', content: '[Image: A beige roller shutter.]' },
+      ]),
+    ).toBe('latin')
+  })
+
+  it("is 'mixed' when no customer turn carries a language signal", () => {
+    expect(customerLanguageScript([{ role: 'user', content: '3.5 m' }])).toBe('mixed')
   })
 })

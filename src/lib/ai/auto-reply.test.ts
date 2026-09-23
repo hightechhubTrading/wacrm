@@ -392,6 +392,22 @@ describe('dispatchInboundToAiReply — reply debounce', () => {
     expect(h.engineSendText).not.toHaveBeenCalled()
   })
 
+  it('drops its reply when a newer burst message lands while the reply is being generated', async () => {
+    // The first check passes (still the latest after the wait), but the
+    // customer's next bubble arrives during the LLM call. Before the
+    // second check, both invocations replied -- 73 back-to-back AI
+    // replies in 30 days of real traffic, median 10s apart.
+    h.state.latestCustomerMessage = { message_id: 'wamid.999' }
+    h.generateReply.mockImplementation(async () => {
+      h.state.latestCustomerMessage = { message_id: 'wamid.NEWER' }
+      return { text: 'مدخل كراج، تمام. رول أسترالي أو باب أمريكي؟', handoff: false }
+    })
+    await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'wamid.999' })
+    expect(h.generateReply).toHaveBeenCalled()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.state.rpcCalls).toEqual([])
+  })
+
   it('replies immediately without waiting when the debounce window is configured to 0', async () => {
     process.env.AI_REPLY_DEBOUNCE_MS = '0'
     // Even a "someone else replied" DB state must not matter when
@@ -687,6 +703,55 @@ describe('dispatchInboundToAiReply — language correction', () => {
     expect(h.engineSendText).toHaveBeenCalledWith(
       expect.objectContaining({
         text: 'ممكن توضح المقصود من الصورة، أو تكتب اللي محتاجه؟',
+      }),
+    )
+  })
+
+  it("keeps an Arabic customer in Arabic when their latest message is only measurements", async () => {
+    // Real thread (2026-09-21): "200 cm × 110cm" was read as English, so
+    // an Arabic conversation got an English reply.
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: 'لباب المنزل خارجي' },
+      { role: 'assistant', content: 'لباب البيت الخارجي، تمام. هل تفضّل باب محوري أو فولاذي أو ألمنيوم؟' },
+      { role: 'user', content: '200 cm × 110cm' },
+    ])
+    h.generateReply
+      .mockResolvedValueOnce({
+        text: '200×110 cm, okay. Would you like it to be a pivot door, a steel door, or aluminum?',
+        handoff: false,
+      })
+      .mockResolvedValueOnce({
+        text: '200×110 سم، تمام. تفضّله باب محوري أو فولاذي أو ألمنيوم؟',
+        handoff: false,
+      })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).toHaveBeenCalledTimes(2)
+    expect(h.generateReply.mock.calls[1][0].systemPrompt).toContain('Arabic')
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({ text: '200×110 سم، تمام. تفضّله باب محوري أو فولاذي أو ألمنيوم؟' }),
+    )
+  })
+
+  it('corrects an Arabic reply to an English customer even when it contains "UPVC"', async () => {
+    // Real thread (2026-09-05): the old check saw "UPVC" in the Arabic
+    // reply, called it "mixed", and let it through untranslated.
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: 'i want door for bathrooms and windows for villa' },
+    ])
+    h.generateReply
+      .mockResolvedValueOnce({
+        text: 'أكيد، نقدر نساعدك في الاثنين. هل تفضّل أبواب الحمّامات ألمنيوم أو UPVC؟',
+        handoff: false,
+      })
+      .mockResolvedValueOnce({
+        text: 'Sure, we can help with both. Do you prefer aluminium or UPVC bathroom doors?',
+        handoff: false,
+      })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).toHaveBeenCalledTimes(2)
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: 'Sure, we can help with both. Do you prefer aluminium or UPVC bathroom doors?',
       }),
     )
   })

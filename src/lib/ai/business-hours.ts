@@ -26,6 +26,52 @@ function minutesSinceMidnight(hhmm: string): number | null {
 }
 
 /**
+ * Accepts the offset spellings people actually type into the free-text
+ * timezone field ("UTC+3", "GMT+03:00", "+3") in addition to IANA names.
+ * Intl rejects "UTC+3" outright -- and since an invalid zone fails
+ * open below, the live account's "UTC+3" silently made every hour
+ * count as business hours: after-hours takeover could never engage,
+ * and pause-during-business-hours would have paused the AI 24/7.
+ * Whole-hour offsets map to the universally supported Etc/GMT zones
+ * (whose sign is inverted by POSIX convention); anything else passes
+ * through unchanged.
+ */
+export function normalizeTimezone(timezone: string): string {
+  const match = /^(?:UTC|GMT)?\s*([+-])\s*(\d{1,2})(?::?(\d{2}))?$/i.exec(timezone.trim())
+  if (!match) return timezone
+  const [, sign, hours, minutes] = match
+  if (!minutes || minutes === '00') {
+    return `Etc/GMT${sign === '+' ? '-' : '+'}${Number(hours)}`
+  }
+  return `${sign}${hours.padStart(2, '0')}:${minutes}`
+}
+
+const WEEKDAY_LABELS: Record<Weekday, string> = {
+  sun: 'Sunday',
+  mon: 'Monday',
+  tue: 'Tuesday',
+  wed: 'Wednesday',
+  thu: 'Thursday',
+  fri: 'Friday',
+  sat: 'Saturday',
+}
+
+/**
+ * Human-readable weekly schedule for the AI's system prompt, e.g.
+ * "Sunday 09:00-17:00; ...; Friday closed". Null when hours aren't
+ * configured. Days missing from the config are omitted rather than
+ * guessed at.
+ */
+export function formatBusinessHours(businessHours: BusinessHours | null): string | null {
+  if (!businessHours || Object.keys(businessHours).length === 0) return null
+  const days = WEEKDAYS.filter((d) => businessHours[d] !== undefined).map((d) => {
+    const range = businessHours[d]
+    return range ? `${WEEKDAY_LABELS[d]} ${range[0]}-${range[1]}` : `${WEEKDAY_LABELS[d]} closed`
+  })
+  return days.length > 0 ? days.join('; ') : null
+}
+
+/**
  * True when `now` falls within the account's configured business
  * hours, evaluated in `timezone` (an IANA zone name). `businessHours`
  * being null/empty means "unconfigured" — treated as always open, so
@@ -41,7 +87,7 @@ export function isWithinBusinessHours(
   let parts: Intl.DateTimeFormatPart[]
   try {
     parts = new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
+      timeZone: normalizeTimezone(timezone),
       weekday: 'short',
       hour: '2-digit',
       minute: '2-digit',

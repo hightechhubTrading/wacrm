@@ -115,3 +115,92 @@ describe('buildConversationContext', () => {
     expect(out).toEqual([{ role: 'user', content: 'real' }])
   })
 })
+
+describe('buildConversationContext — non-text messages', () => {
+  it('shows a shared location so the model stops asking for it', async () => {
+    // Real thread (2026-09-10): the customer shared their location twice
+    // and was asked for "the area or location" three more times.
+    const out = await buildConversationContext(
+      fakeDb([
+        {
+          sender_type: 'customer',
+          content_type: 'location',
+          content_text: 'https://www.google.com/maps?q=25.33,51.39',
+        },
+      ]),
+      'conv-1',
+    )
+    expect(out).toEqual([
+      { role: 'user', content: '[Location shared: https://www.google.com/maps?q=25.33,51.39]' },
+    ])
+  })
+
+  it('marks files and videos instead of dropping them', async () => {
+    const out = await buildConversationContext(
+      fakeDb([
+        { sender_type: 'customer', content_type: 'video', content_text: null },
+        { sender_type: 'customer', content_type: 'document', content_text: 'Binder1.pdf' },
+      ]),
+      'conv-1',
+    )
+    expect(out).toEqual([
+      { role: 'user', content: '[File sent: Binder1.pdf]' },
+      { role: 'user', content: '[Video sent]' },
+    ])
+  })
+
+  it("records the business's own outbound photo so the model knows it already went out", async () => {
+    const out = await buildConversationContext(
+      fakeDb([{ sender_type: 'bot', content_type: 'image', content_text: null }]),
+      'conv-1',
+    )
+    expect(out).toEqual([{ role: 'assistant', content: '[Photo sent]' }])
+  })
+
+  it('keeps an undescribed customer photo visible instead of dropping it', async () => {
+    const out = await buildConversationContext(
+      fakeDb([
+        { sender_type: 'customer', content_type: 'image', content_text: null, image_description: null },
+      ]),
+      'conv-1',
+    )
+    expect(out).toEqual([{ role: 'user', content: '[Image: no description available]' }])
+  })
+
+  it('drops the "unsupported" placeholder once photos follow it (a WhatsApp album)', async () => {
+    // Real thread (2026-09-10): the model kept asking the customer to
+    // resend photos it had already received and described -- they gave
+    // up on a 5-door order ("Forget it").
+    const out = await buildConversationContext(
+      fakeDb([
+        {
+          sender_type: 'customer',
+          content_type: 'image',
+          content_text: null,
+          image_description: 'The exterior of a new shop.',
+        },
+        {
+          sender_type: 'customer',
+          content_type: 'text',
+          content_text: '[Unsupported message type: unsupported]',
+        },
+      ]),
+      'conv-1',
+    )
+    expect(out).toEqual([{ role: 'user', content: '[Image: The exterior of a new shop.]' }])
+  })
+
+  it('keeps the "unsupported" placeholder when nothing follows it', async () => {
+    const out = await buildConversationContext(
+      fakeDb([
+        {
+          sender_type: 'customer',
+          content_type: 'text',
+          content_text: '[Unsupported message type: unsupported]',
+        },
+      ]),
+      'conv-1',
+    )
+    expect(out).toEqual([{ role: 'user', content: '[Unsupported message type: unsupported]' }])
+  })
+})
