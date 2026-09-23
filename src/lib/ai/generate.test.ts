@@ -17,6 +17,7 @@ function config(overrides: Partial<AiConfig> = {}): AiConfig {
           lastKeyErrorAt: null,
           transcribeVoiceMessages: false,
           afterHoursTakeoverEnabled: false,
+          pauseDuringBusinessHours: false,
           imageAnalysisProvider: null,
           imageAnalysisApiKey: null,
           imageAnalysisEnabled: false,

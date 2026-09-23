@@ -355,6 +355,23 @@ export async function dispatchInboundToAiReply(
       .maybeSingle()
     const socialLinks = (account?.social_links as Record<string, string> | null) ?? null
 
+    // Pause during business hours: the mirror image of after-hours
+    // takeover below -- staff are presumably handling chats themselves
+    // while the business is open, so AI stands down entirely (assigned
+    // or not) until they're off. Only fires when hours are actually
+    // configured -- isWithinBusinessHours() treats "unconfigured" as
+    // always open, which would otherwise mean "always paused" here.
+    const businessHours = (account?.business_hours as BusinessHours | null) ?? null
+    const hoursConfigured = !!businessHours && Object.keys(businessHours).length > 0
+    if (
+      config.pauseDuringBusinessHours &&
+      account &&
+      hoursConfigured &&
+      isWithinBusinessHours(businessHours, account.timezone)
+    ) {
+      return
+    }
+
     // After-hours takeover: outside the account's configured business
     // hours, AI keeps replying even though a human is assigned -- they
     // presumably aren't available either, and the point is the customer
@@ -364,7 +381,7 @@ export async function dispatchInboundToAiReply(
       conv.assigned_agent_id &&
       config.afterHoursTakeoverEnabled &&
       account &&
-      !isWithinBusinessHours(account.business_hours as BusinessHours | null, account.timezone)
+      !isWithinBusinessHours(businessHours, account.timezone)
     ) {
       isAfterHoursTakeover = true
     }

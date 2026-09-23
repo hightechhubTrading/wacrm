@@ -95,6 +95,7 @@ export function AiConfig() {
   const [lastKeyErrorAt, setLastKeyErrorAt] = useState<string | null>(null);
   const [transcribeVoiceMessages, setTranscribeVoiceMessages] = useState(false);
   const [afterHoursTakeoverEnabled, setAfterHoursTakeoverEnabled] = useState(false);
+  const [pauseDuringBusinessHours, setPauseDuringBusinessHours] = useState(false);
 
   // Guard keyed on the account (not a bare boolean) so an in-place
   // account switch — ownership transfer, multi-account membership —
@@ -132,6 +133,7 @@ export function AiConfig() {
         setLastKeyErrorAt(data.last_key_error_at ?? null);
         setTranscribeVoiceMessages(Boolean(data.transcribe_voice_messages));
         setAfterHoursTakeoverEnabled(Boolean(data.after_hours_takeover_enabled));
+        setPauseDuringBusinessHours(Boolean(data.pause_during_business_hours));
         setImageAnalysisProvider(data.image_analysis_provider === 'gemini' ? 'gemini' : 'openai');
         setHasStoredImageAnalysisKey(Boolean(data.has_image_analysis_key));
         setImageAnalysisKey(data.has_image_analysis_key ? MASKED_KEY : '');
@@ -185,6 +187,7 @@ export function AiConfig() {
     handoff_agent_id: handoffAgentId || null,
     transcribe_voice_messages: transcribeVoiceMessages,
     after_hours_takeover_enabled: afterHoursTakeoverEnabled,
+    pause_during_business_hours: pauseDuringBusinessHours,
     image_analysis_provider: imageAnalysisProvider,
     image_analysis_api_key: imageAnalysisKeyPayload(),
     image_analysis_enabled: imageAnalysisEnabled,
@@ -590,6 +593,22 @@ export function AiConfig() {
               <Switch
                 checked={afterHoursTakeoverEnabled}
                 onCheckedChange={setAfterHoursTakeoverEnabled}
+                disabled={disabled || !autoReplyEnabled}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-4 rounded-md border border-border p-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {t('pauseDuringBusinessHours')}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t('pauseDuringBusinessHoursDesc')}
+                </p>
+              </div>
+              <Switch
+                checked={pauseDuringBusinessHours}
+                onCheckedChange={setPauseDuringBusinessHours}
                 disabled={disabled || !autoReplyEnabled}
               />
             </div>

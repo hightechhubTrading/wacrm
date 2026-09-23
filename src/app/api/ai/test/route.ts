@@ -83,6 +83,7 @@ export async function POST(request: Request) {
         lastKeyErrorAt: null,
         transcribeVoiceMessages: false,
         afterHoursTakeoverEnabled: false,
+        pauseDuringBusinessHours: false,
         imageAnalysisProvider: null,
         imageAnalysisApiKey: null,
         imageAnalysisEnabled: false,

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { __resetRateLimitForTests } from '@/lib/rate-limit'
 import type { AiConfig } from './types'
 
 // Shared, hoisted mock state so the module mocks can close over it.
@@ -182,6 +183,7 @@ function aiConfig(overrides: Partial<AiConfig> = {}): AiConfig {
     lastKeyErrorAt: null,
     transcribeVoiceMessages: false,
     afterHoursTakeoverEnabled: false,
+    pauseDuringBusinessHours: false,
     imageAnalysisProvider: null,
     imageAnalysisApiKey: null,
     imageAnalysisEnabled: false,
@@ -190,6 +192,11 @@ function aiConfig(overrides: Partial<AiConfig> = {}): AiConfig {
 }
 
 beforeEach(() => {
+  // The real (unmocked) in-memory rate limiter is keyed per-account with
+  // a real-time window -- without resetting it, tests accumulate hits
+  // against the same 'acct-1' key and an unrelated later test can start
+  // failing once enough earlier tests reach the account throttle check.
+  __resetRateLimitForTests()
   h.state.conv = {
     assigned_agent_id: null,
     ai_autoreply_disabled: false,
@@ -486,6 +493,60 @@ describe('dispatchInboundToAiReply — after-hours takeover', () => {
       ai_autoreply_disabled: true,
     }
     h.state.account = { business_hours: CLOSED_HOURS, timezone: 'UTC' }
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).not.toHaveBeenCalled()
+  })
+})
+
+describe('dispatchInboundToAiReply — pause during business hours', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('is silent for an unassigned conversation when paused and within business hours', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-27T12:00:00Z')) // Monday, noon UTC
+    h.loadAiConfig.mockResolvedValue(aiConfig({ pauseDuringBusinessHours: true }))
+    h.state.account = { business_hours: { mon: ['09:00', '18:00'] }, timezone: 'UTC' }
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).not.toHaveBeenCalled()
+  })
+
+  it('replies normally once outside business hours', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-27T20:00:00Z')) // Monday, 8pm UTC -- after close
+    h.loadAiConfig.mockResolvedValue(aiConfig({ pauseDuringBusinessHours: true }))
+    h.state.account = { business_hours: { mon: ['09:00', '18:00'] }, timezone: 'UTC' }
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).toHaveBeenCalled()
+  })
+
+  it('has no effect when business hours are unconfigured, even mid-day (fails open)', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-27T12:00:00Z'))
+    h.loadAiConfig.mockResolvedValue(aiConfig({ pauseDuringBusinessHours: true }))
+    h.state.account = { business_hours: null, timezone: 'UTC' }
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).toHaveBeenCalled()
+  })
+
+  it('does not pause anything when the toggle is off', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-27T12:00:00Z'))
+    h.loadAiConfig.mockResolvedValue(aiConfig({ pauseDuringBusinessHours: false }))
+    h.state.account = { business_hours: { mon: ['09:00', '18:00'] }, timezone: 'UTC' }
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).toHaveBeenCalled()
+  })
+
+  it('also silences an after-hours-takeover-assigned conversation while still within business hours', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-27T12:00:00Z'))
+    h.loadAiConfig.mockResolvedValue(
+      aiConfig({ pauseDuringBusinessHours: true, afterHoursTakeoverEnabled: true }),
+    )
+    h.state.conv = { ...h.state.conv, assigned_agent_id: 'human-1' }
+    h.state.account = { business_hours: { mon: ['09:00', '18:00'] }, timezone: 'UTC' }
     await dispatchInboundToAiReply(ARGS)
     expect(h.generateReply).not.toHaveBeenCalled()
   })

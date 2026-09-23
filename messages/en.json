@@ -1792,9 +1792,11 @@
       "analyzeImagesNeedsKey": "Requires an image analysis key (above).",
       "afterHoursTakeover": "After-hours AI takeover",
       "afterHoursTakeoverDesc": "Outside business hours (set below), AI keeps replying even if a human agent is assigned — they're presumably offline too. A prior explicit handoff is still respected.",
+      "pauseDuringBusinessHours": "Pause AI during business hours",
+      "pauseDuringBusinessHoursDesc": "While the business is open (set below), AI stays silent for every conversation and leaves replies to staff. Has no effect until business hours are set.",
       "businessHours": {
         "title": "Business hours",
-        "description": "Used by after-hours AI takeover above. Leave every day off to mean \"always available\" (no restriction).",
+        "description": "Used by after-hours AI takeover and pause-during-business-hours above. Leave every day off to mean \"always available\" (no restriction).",
         "timezone": "Timezone",
         "timezoneHint": "An IANA zone name, e.g. Asia/Qatar. Hours below are evaluated in this timezone.",
         "day": {

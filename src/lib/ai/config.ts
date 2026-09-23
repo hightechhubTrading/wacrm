@@ -16,13 +16,14 @@ interface AiConfigRow {
   last_key_error_at: string | null
   transcribe_voice_messages: boolean
   after_hours_takeover_enabled: boolean
+  pause_during_business_hours: boolean
   image_analysis_provider: 'openai' | 'gemini' | null
   image_analysis_api_key: string | null
   image_analysis_enabled: boolean
 }
 
 const CONFIG_COLUMNS =
-  'provider, model, api_key, system_prompt, is_active, auto_reply_enabled, auto_reply_max_per_conversation, handoff_agent_id, embeddings_api_key, last_key_error, last_key_error_at, transcribe_voice_messages, after_hours_takeover_enabled, image_analysis_provider, image_analysis_api_key, image_analysis_enabled'
+  'provider, model, api_key, system_prompt, is_active, auto_reply_enabled, auto_reply_max_per_conversation, handoff_agent_id, embeddings_api_key, last_key_error, last_key_error_at, transcribe_voice_messages, after_hours_takeover_enabled, pause_during_business_hours, image_analysis_provider, image_analysis_api_key, image_analysis_enabled'
 
 /**
  * Load and decrypt the account's AI config for *use* (draft or
@@ -105,6 +106,7 @@ export async function loadAiConfig(
     lastKeyErrorAt: row.last_key_error_at,
     transcribeVoiceMessages: row.transcribe_voice_messages,
     afterHoursTakeoverEnabled: row.after_hours_takeover_enabled,
+    pauseDuringBusinessHours: row.pause_during_business_hours,
     imageAnalysisProvider: row.image_analysis_provider,
     imageAnalysisApiKey,
     imageAnalysisEnabled: row.image_analysis_enabled,

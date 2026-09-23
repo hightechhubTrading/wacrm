@@ -30,7 +30,7 @@ export async function GET() {
       // `api_key` is selected only to derive `has_key` — it is stripped
       // out below and never returned to the client.
       .select(
-        'provider, model, system_prompt, is_active, auto_reply_enabled, auto_reply_max_per_conversation, handoff_agent_id, api_key, embeddings_api_key, last_key_error, last_key_error_at, transcribe_voice_messages, after_hours_takeover_enabled, image_analysis_provider, image_analysis_api_key, image_analysis_enabled',
+        'provider, model, system_prompt, is_active, auto_reply_enabled, auto_reply_max_per_conversation, handoff_agent_id, api_key, embeddings_api_key, last_key_error, last_key_error_at, transcribe_voice_messages, after_hours_takeover_enabled, pause_during_business_hours, image_analysis_provider, image_analysis_api_key, image_analysis_enabled',
       )
       .eq('account_id', accountId)
       .maybeSingle()
@@ -98,6 +98,7 @@ export async function POST(request: Request) {
     const autoReplyEnabled = body.auto_reply_enabled === true
     const transcribeVoiceMessages = body.transcribe_voice_messages === true
     const afterHoursTakeoverEnabled = body.after_hours_takeover_enabled === true
+    const pauseDuringBusinessHours = body.pause_during_business_hours === true
 
     let maxPer = Number(body.auto_reply_max_per_conversation)
     if (!Number.isFinite(maxPer)) maxPer = 3
@@ -200,6 +201,7 @@ export async function POST(request: Request) {
           lastKeyErrorAt: null,
           transcribeVoiceMessages: false,
           afterHoursTakeoverEnabled: false,
+          pauseDuringBusinessHours: false,
           imageAnalysisProvider: null,
           imageAnalysisApiKey: null,
           imageAnalysisEnabled: false,
@@ -243,6 +245,7 @@ export async function POST(request: Request) {
       auto_reply_max_per_conversation: maxPer,
       transcribe_voice_messages: transcribeVoiceMessages,
       after_hours_takeover_enabled: afterHoursTakeoverEnabled,
+      pause_during_business_hours: pauseDuringBusinessHours,
     }
     // Only touch the handoff target when the form actually sent the field,
     // so a partial save (e.g. flipping a toggle) doesn't wipe it.

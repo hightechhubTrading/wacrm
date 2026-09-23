@@ -44,6 +44,14 @@ export interface AiConfig {
    * presumably offline too) — see src/lib/ai/business-hours.ts. Still
    * respects a prior explicit handoff. */
   afterHoursTakeoverEnabled: boolean
+  /** When true, auto-reply stays silent for every conversation
+   * (assigned or not) while the account is within its configured
+   * business hours — staff are presumably handling chats themselves.
+   * No effect when business hours aren't configured (fails open, same
+   * as isWithinBusinessHours()'s "unconfigured means always open"
+   * convention — otherwise flipping this on without setting hours
+   * would silently kill all AI replies). */
+  pauseDuringBusinessHours: boolean
   /** Separate, optional credential for describing inbound photos
    * (migration 054) — mirrors `embeddingsApiKey`'s independence from
    * the main provider. Only 'openai'/'gemini' are offered (no
