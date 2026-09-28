@@ -39,7 +39,8 @@
     "defaultAvatar": "الصورة الرمزية",
     "menuProfile": "الملف الشخصي",
     "menuSettings": "الإعدادات",
-    "menuSignOut": "تسجيل الخروج"
+    "menuSignOut": "تسجيل الخروج",
+    "adConversions": "تحويلات الإعلانات"
   },
   "Header": {
     "dashboard": "لوحة التحكم",
@@ -1879,5 +1880,29 @@
       "reindexTooltip": "إعادة تضمين جميع المستندات (مثلاً بعد إضافة مفتاح تضمينات)",
       "loading": "جارٍ التحميل…"
     }
+  },
+  "AdConversions": {
+    "title": "تحويلات الإعلانات",
+    "subtitle": "جودة العملاء لكل إعلان نقر إلى واتساب، حسب تاريخ النقر.",
+    "from": "من",
+    "to": "إلى",
+    "exportCsv": "تصدير CSV",
+    "adColumn": "معرّف الإعلان / العنوان",
+    "conversations": "المحادثات",
+    "qualified": "مؤهَّل",
+    "siteVisit": "زيارة موقع",
+    "won": "تم الفوز",
+    "wonValue": "قيمة الفوز (ر.ق)",
+    "qualifiedRate": "نسبة التأهيل",
+    "empty": "لا توجد محادثات من إعلانات في هذه الفترة.",
+    "failedTitle": "إرسالات فاشلة",
+    "failedEmpty": "لا توجد إرسالات فاشلة.",
+    "stage": "المرحلة",
+    "attempts": "المحاولات",
+    "lastError": "آخر خطأ",
+    "lastAttempt": "آخر محاولة",
+    "openConversation": "فتح",
+    "loadFailed": "تعذّر تحميل التقرير",
+    "adminOnly": "هذا التقرير متاح للمسؤولين فقط."
   }
 }

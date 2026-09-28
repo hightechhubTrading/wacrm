@@ -39,7 +39,8 @@
     "defaultAvatar": "Avatar",
     "menuProfile": "Profile",
     "menuSettings": "Settings",
-    "menuSignOut": "Sign out"
+    "menuSignOut": "Sign out",
+    "adConversions": "Ad conversions"
   },
   "Header": {
     "dashboard": "Dashboard",
@@ -1891,5 +1892,29 @@
       "reindexTooltip": "Re-embed all documents (e.g. after adding an embeddings key)",
       "loading": "Loading…"
     }
+  },
+  "AdConversions": {
+    "title": "Ad conversions",
+    "subtitle": "Lead quality per Click-to-WhatsApp ad, by ad click date.",
+    "from": "From",
+    "to": "To",
+    "exportCsv": "Export CSV",
+    "adColumn": "Ad ID / headline",
+    "conversations": "Conversations",
+    "qualified": "Qualified",
+    "siteVisit": "Site visit",
+    "won": "Won",
+    "wonValue": "Won value (QAR)",
+    "qualifiedRate": "Qualified rate",
+    "empty": "No ad-sourced conversations in this range.",
+    "failedTitle": "Failed sends",
+    "failedEmpty": "No failed sends.",
+    "stage": "Stage",
+    "attempts": "Attempts",
+    "lastError": "Last error",
+    "lastAttempt": "Last attempt",
+    "openConversation": "Open",
+    "loadFailed": "Couldn't load the report",
+    "adminOnly": "Only admins can view this report."
   }
 }
