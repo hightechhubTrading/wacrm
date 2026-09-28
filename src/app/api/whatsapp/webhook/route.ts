@@ -7,6 +7,7 @@ import { isOptOutKeyword, isOptInKeyword, recordOptOutState } from '@/lib/whatsa
 import { loadAiConfig } from '@/lib/ai/config'
 import { transcribeAudio } from '@/lib/ai/transcribe'
 import { findOrCreateContact, findOrCreateConversation } from '@/lib/contacts/find-or-create'
+import { recordCtwaAttribution, type WhatsAppReferral } from '@/lib/conversions/attribution'
 import { analyzeImage } from '@/lib/ai/vision'
 import { buildConversationContext } from '@/lib/ai/context'
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature'
@@ -66,6 +67,13 @@ interface WhatsAppMessage {
   }
   /** Present when the customer swipe-replies to one of our messages. */
   context?: { id: string }
+  /**
+   * Present when the customer arrived by tapping a Click-to-WhatsApp ad
+   * (normally only on the first message after the click). Carries the
+   * `ctwa_clid` we report conversions against -- see
+   * src/lib/conversions/attribution.ts.
+   */
+  referral?: WhatsAppReferral
 }
 
 interface WhatsAppWebhookEntry {
@@ -622,6 +630,21 @@ async function processMessage(
       console.warn('[webhook] duplicate message_id for conversation, skipping reprocess:', message.id)
       return
     }
+  }
+
+  // Capture the CTWA ad click (if any) before anything else can bail
+  // out -- the referral only arrives on this one message and can't be
+  // recovered later. Runs after the duplicate guard so a Meta retry
+  // doesn't even attempt a second insert. Never throws.
+  if (message.referral) {
+    await recordCtwaAttribution(supabaseAdmin(), {
+      accountId,
+      conversationId: conversation.id,
+      contactWaId: message.from,
+      messageId: message.id,
+      timestamp: message.timestamp,
+      referral: message.referral,
+    })
   }
 
   // Emit conversation.created as soon as the thread is opened — BEFORE
