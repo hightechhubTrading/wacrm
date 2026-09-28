@@ -150,7 +150,8 @@
       "noMessagesYet": "لا توجد رسائل بعد",
       "unknown": "غير معروف",
       "aiPriorityUrgent": "صنّف AI هذه المحادثة كعاجلة",
-      "aiPriorityHigh": "صنّف AI هذه المحادثة كعالية الأولوية"
+      "aiPriorityHigh": "صنّف AI هذه المحادثة كعالية الأولوية",
+      "fromAdBadge": "من إعلان"
     },
     "messageThread": {
       "backToConversations": "العودة إلى المحادثات",
@@ -291,7 +292,26 @@
       "toastTagAddFailed": "فشلت إضافة الوسم",
       "toastTagRemoveFailed": "فشلت إزالة الوسم",
       "toastTagCreateFailed": "فشل إنشاء الوسم",
-      "optedOutBadge": "ألغى الاشتراك"
+      "optedOutBadge": "ألغى الاشتراك",
+      "leadStage": "مرحلة العميل",
+      "fromAd": "من إعلان: {name}",
+      "notFromAd": "ليست من إعلان — تُتتبَّع داخلياً فقط",
+      "stageQualified": "مؤهَّل",
+      "stageSiteVisit": "زيارة موقع / إرسال عرض سعر",
+      "stageWon": "تم الفوز",
+      "stageConfirmTitle": "تعيين كـ {stage}؟",
+      "stageConfirmBody": "سيتم إبلاغ Meta بذلك لهذا الإعلان، ولا يُرسل إلا مرة واحدة.",
+      "stageConfirmBodyOrganic": "يُسجَّل هذا في التطبيق فقط (هذه المحادثة لم تأتِ من إعلان).",
+      "wonValueLabel": "قيمة الصفقة (ر.ق)",
+      "wonValueInvalid": "أدخل قيمة أكبر من 0",
+      "stageConfirm": "تأكيد",
+      "stageCancel": "إلغاء",
+      "stageUndo": "تراجع",
+      "stageUndoTitle": "إزالة وسم {stage}؟",
+      "stageUndoBody": "يزيل هذا الوسم هنا فقط. إذا كانت Meta قد استلمت الحدث بالفعل فلن يتم سحبه.",
+      "toastStageSaved": "تم حفظ الوسم",
+      "toastStageFailed": "تعذّر حفظ الوسم",
+      "toastStageUndone": "تمت إزالة الوسم"
     },
     "aiBanner": {
       "pausedTitle": "مساعد AI متوقف هنا",

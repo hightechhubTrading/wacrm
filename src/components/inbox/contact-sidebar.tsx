@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { CustomFieldGroupFields } from "@/components/custom-fields/custom-field-group-fields";
 import { cn } from "@/lib/utils";
-import type { Contact, Deal, ContactNote, Tag } from "@/types";
+import type { Contact, Conversation, Deal, ContactNote, Tag } from "@/types";
+import { ConversionStages } from "@/components/inbox/conversion-stages";
 import {
   Phone,
   Mail,
@@ -40,9 +41,11 @@ interface ContactSidebarProps {
    *  in the app, so this piggybacks on the inbox's existing
    *  message-event handling instead of adding a first one. */
   refreshToken?: number;
+  /** Active conversation -- drives the CTWA lead-stage chips. */
+  conversation?: Conversation | null;
 }
 
-export function ContactSidebar({ contact, refreshToken }: ContactSidebarProps) {
+export function ContactSidebar({ contact, conversation, refreshToken }: ContactSidebarProps) {
   const tSidebar = useTranslations("Inbox.sidebar");
   const tThread = useTranslations("Inbox.messageThread");
 
@@ -269,6 +272,13 @@ export function ContactSidebar({ contact, refreshToken }: ContactSidebarProps) {
 
           {/* Divider */}
           <div className="my-4 border-t border-border" />
+
+          {conversation && (
+            <>
+              <ConversionStages conversation={conversation} refreshToken={refreshToken} />
+              <div className="my-4 border-t border-border" />
+            </>
+          )}
 
           {/* Active Deals */}
           <div>

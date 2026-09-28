@@ -276,6 +276,14 @@ export interface Conversation {
   updated_at: string;
   contact?: Contact;
   /**
+   * Latest Click-to-WhatsApp ad this conversation came from (migration
+   * 065), denormalized by the webhook. Null for organic chats. The ad
+   * click id itself is never exposed to the client.
+   */
+  ad_source_id?: string | null;
+  ad_headline?: string | null;
+  ad_clicked_at?: string | null;
+  /**
    * AI auto-reply state for this thread (migration 029 + 033):
    *  - `ai_autoreply_disabled` — the bot is paused here (a human took
    *    over, or the model handed off). Sticky until re-enabled.

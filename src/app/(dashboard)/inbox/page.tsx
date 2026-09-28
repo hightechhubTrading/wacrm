@@ -646,6 +646,7 @@ function InboxPageInner() {
           <div className="hidden lg:block">
             <ContactSidebar
               contact={activeContact}
+              conversation={activeConversation}
               refreshToken={dealsRefreshToken}
             />
           </div>

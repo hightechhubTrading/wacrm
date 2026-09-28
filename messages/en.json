@@ -150,7 +150,8 @@
       "noMessagesYet": "No messages yet",
       "unknown": "Unknown",
       "aiPriorityUrgent": "AI flagged this conversation as urgent",
-      "aiPriorityHigh": "AI flagged this conversation as high priority"
+      "aiPriorityHigh": "AI flagged this conversation as high priority",
+      "fromAdBadge": "From ad"
     },
     "messageThread": {
       "backToConversations": "Back to conversations",
@@ -291,7 +292,26 @@
       "toastTagAddFailed": "Failed to add tag",
       "toastTagRemoveFailed": "Failed to remove tag",
       "toastTagCreateFailed": "Failed to create tag",
-      "optedOutBadge": "Opted out"
+      "optedOutBadge": "Opted out",
+      "leadStage": "Lead stage",
+      "fromAd": "From ad: {name}",
+      "notFromAd": "Not from an ad — tracked internally only",
+      "stageQualified": "Qualified",
+      "stageSiteVisit": "Site visit / Quote sent",
+      "stageWon": "Won",
+      "stageConfirmTitle": "Mark as {stage}?",
+      "stageConfirmBody": "This is reported to Meta for this ad and can only be sent once.",
+      "stageConfirmBodyOrganic": "This is recorded in the app only (this chat didn't come from an ad).",
+      "wonValueLabel": "Deal value (QAR)",
+      "wonValueInvalid": "Enter a value greater than 0",
+      "stageConfirm": "Confirm",
+      "stageCancel": "Cancel",
+      "stageUndo": "Undo",
+      "stageUndoTitle": "Remove the {stage} tag?",
+      "stageUndoBody": "This removes the tag here only. If Meta already received the event, it will not be retracted.",
+      "toastStageSaved": "Tag saved",
+      "toastStageFailed": "Couldn't save the tag",
+      "toastStageUndone": "Tag removed"
     },
     "aiBanner": {
       "pausedTitle": "AI assistant is paused here",

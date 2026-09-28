@@ -9,7 +9,7 @@ import {
 } from "@/lib/inbox/conversations";
 import { cn } from "@/lib/utils";
 import type { Conversation, ConversationStatus, Tag, Profile } from "@/types";
-import { Search, ChevronDown, X, Flame, ArrowUpCircle } from "lucide-react";
+import { Search, ChevronDown, X, Flame, ArrowUpCircle, Megaphone } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
@@ -608,6 +608,15 @@ function ConversationItem({
             <span className="truncate text-sm font-medium text-foreground">
               {displayName}
             </span>
+            {conversation.ad_clicked_at && (
+              <span
+                title={conversation.ad_headline || conversation.ad_source_id || t("fromAdBadge")}
+                aria-label={t("fromAdBadge")}
+                className="inline-flex shrink-0 items-center text-primary"
+              >
+                <Megaphone className="h-3 w-3" />
+              </span>
+            )}
             {conversation.ai_priority === "urgent" && (
               <span title={t("aiPriorityUrgent")}>
                 <Flame className="h-3.5 w-3.5 shrink-0 text-destructive" />
