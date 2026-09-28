@@ -5,13 +5,16 @@ const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
   kick: vi.fn(),
   after: vi.fn(),
+  adminDeals: null as unknown as { from: (table: string) => unknown },
 }))
 
 vi.mock('@/lib/auth/account', () => ({
   requireRole: mocks.requireRole,
   toErrorResponse: vi.fn(() => Response.json({ error: 'auth failed' }, { status: 403 })),
 }))
-vi.mock('@/lib/automations/admin-client', () => ({ supabaseAdmin: () => ({ rpc: mocks.rpc }) }))
+vi.mock('@/lib/automations/admin-client', () => ({
+  supabaseAdmin: () => ({ rpc: mocks.rpc, from: (table: string) => mocks.adminDeals.from(table) }),
+}))
 vi.mock('@/lib/conversions/poller', () => ({ kickConversionSender: mocks.kick }))
 vi.mock('next/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('next/server')>()),
@@ -56,10 +59,19 @@ function req(body: unknown) {
   })
 }
 
+// `scoped` is the caller's RLS client (conversation visibility);
+// `admin` is the service-role client the route uses for the deal.
 let scoped: ReturnType<typeof scopedClient>
+let admin: ReturnType<typeof scopedClient>
+
+function useAdmin(opts: ScopedOpts) {
+  admin = scopedClient(opts)
+  mocks.adminDeals = admin.client
+}
 
 beforeEach(() => {
   scoped = scopedClient()
+  useAdmin({})
   mocks.requireRole.mockResolvedValue({ supabase: scoped.client, userId: 'user-1', accountId: 'acct-1', role: 'agent' })
   mocks.rpc.mockResolvedValue({ error: null })
 })
@@ -107,14 +119,14 @@ describe('POST /api/conversions', () => {
   it.each([undefined, 0, -5, 'abc', ''])('rejects Won with value %p', async (value) => {
     const res = await POST(req({ conversation_id: 'conv-1', stage: 'won', value }))
     expect(res.status).toBe(400)
-    expect(scoped.dealUpdates).toHaveLength(0)
+    expect(admin.dealUpdates).toHaveLength(0)
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
 
   it('marks the linked deal won in QAR and enqueues Purchase', async () => {
     const res = await POST(req({ conversation_id: 'conv-1', stage: 'won', value: 45000 }))
     expect(res.status).toBe(200)
-    expect(scoped.dealUpdates).toEqual([{ value: 45000, currency: 'QAR', status: 'won' }])
+    expect(admin.dealUpdates).toEqual([{ value: 45000, currency: 'QAR', status: 'won' }])
     expect(mocks.rpc).toHaveBeenCalledWith('enqueue_conversion', expect.objectContaining({
       p_stage: 'won', p_value: 45000, p_currency: 'QAR', p_deal_id: 'deal-1',
     }))
@@ -123,29 +135,37 @@ describe('POST /api/conversions', () => {
   it('accepts a numeric string value', async () => {
     const res = await POST(req({ conversation_id: 'conv-1', stage: 'won', value: '1200.50' }))
     expect(res.status).toBe(200)
-    expect(scoped.dealUpdates).toEqual([{ value: 1200.5, currency: 'QAR', status: 'won' }])
+    expect(admin.dealUpdates).toEqual([{ value: 1200.5, currency: 'QAR', status: 'won' }])
   })
 
   it('won on an already-won deal still returns ok and enqueues idempotently', async () => {
-    scoped = scopedClient({ deal: { id: 'deal-1', status: 'won' } })
-    mocks.requireRole.mockResolvedValue({ supabase: scoped.client, userId: 'user-1' })
+    useAdmin({ deal: { id: 'deal-1', status: 'won' } })
     const res = await POST(req({ conversation_id: 'conv-1', stage: 'won', value: 100 }))
     expect(res.status).toBe(200)
     expect(mocks.rpc).toHaveBeenCalledTimes(1)
   })
 
   it('409s when no deal is linked', async () => {
-    scoped = scopedClient({ deal: null })
-    mocks.requireRole.mockResolvedValue({ supabase: scoped.client, userId: 'user-1' })
+    useAdmin({ deal: null })
     const res = await POST(req({ conversation_id: 'conv-1', stage: 'won', value: 100 }))
     expect(res.status).toBe(409)
   })
 
-  it('404s when RLS blocks the deal update (0 rows)', async () => {
-    scoped = scopedClient({ updatedRows: [] })
+  it('lets an agent mark Won when they can see the conversation but not its (unassigned) lead deal', async () => {
+    // Migration 041 auto-creates the lead deal with no assigned_to, so an
+    // agent's RLS client can't see it -- the common case for ad leads.
+    scoped = scopedClient({ deal: null })
     mocks.requireRole.mockResolvedValue({ supabase: scoped.client, userId: 'user-1' })
     const res = await POST(req({ conversation_id: 'conv-1', stage: 'won', value: 100 }))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(200)
+    expect(admin.dealUpdates).toEqual([{ value: 100, currency: 'QAR', status: 'won' }])
+    expect(mocks.rpc).toHaveBeenCalledWith('enqueue_conversion', expect.objectContaining({ p_deal_id: 'deal-1' }))
+  })
+
+  it('500s when the deal update fails', async () => {
+    useAdmin({ updatedRows: [] })
+    const res = await POST(req({ conversation_id: 'conv-1', stage: 'won', value: 100 }))
+    expect(res.status).toBe(500)
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
 

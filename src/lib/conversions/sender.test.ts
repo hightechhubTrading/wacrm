@@ -23,8 +23,9 @@ function row(over: Partial<ConversionEventRow> = {}): ConversionEventRow {
   }
 }
 
-function makeDb(rows: ConversionEventRow[], clid: string | null = 'CLID') {
+function makeDb(rows: ConversionEventRow[], clid: string | null = 'CLID', failUpdates = 0) {
   const updates: { id: unknown; patch: Record<string, unknown> }[] = []
+  let failuresLeft = failUpdates
   const rpc = vi.fn().mockResolvedValue({ data: rows, error: null })
   const db = {
     rpc,
@@ -41,6 +42,10 @@ function makeDb(rows: ConversionEventRow[], clid: string | null = 'CLID') {
         update: (patch: Record<string, unknown>) => ({
           eq: (_col: string, id: unknown) => {
             updates.push({ id, patch })
+            if (failuresLeft > 0) {
+              failuresLeft--
+              return Promise.resolve({ error: { message: 'transient' } })
+            }
             return Promise.resolve({ error: null })
           },
         }),
@@ -115,5 +120,13 @@ describe('runConversionSender', () => {
     const fetchImpl = vi.fn().mockRejectedValue(new Error('fetch failed'))
     await expect(runConversionSender({ db, fetchImpl, env, now: () => NOW })).resolves.toEqual({ sent: 0, failed: 1 })
     expect(updates[0].patch.last_error).toBe('fetch failed')
+  })
+
+  it('retries the sent write so a transient DB error cannot cause a resend to Meta', async () => {
+    const { db, updates } = makeDb([row()], 'CLID', 2)
+    const fetchImpl = vi.fn().mockResolvedValue(ok())
+    await expect(runConversionSender({ db, fetchImpl, env, now: () => NOW, retryDelayMs: 0 })).resolves.toEqual({ sent: 1, failed: 0 })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(updates.map((u) => u.patch.status)).toEqual(['sent', 'sent', 'sent'])
   })
 })

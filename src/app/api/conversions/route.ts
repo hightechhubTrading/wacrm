@@ -19,6 +19,11 @@ import { isConversionStage } from '@/lib/conversions/stages'
  * the deals trigger enqueues Purchase too, and the explicit enqueue here
  * is idempotent (event_id is unique), so an already-won deal still ends
  * up tagged exactly once.
+ *
+ * The deal is read/written with the service role, keyed by the
+ * conversation the caller was just shown to be allowed to see: the lead
+ * deal auto-created by migration 041 has no assigned_to, so an agent's
+ * RLS client usually can't see it even on their own conversation.
  */
 export async function POST(request: Request) {
   try {
@@ -52,7 +57,7 @@ export async function POST(request: Request) {
 
     let dealId: string | null = null
     if (stage === 'won') {
-      const { data: deal } = await ctx.supabase
+      const { data: deal } = await supabaseAdmin()
         .from('deals')
         .select('id, status')
         .eq('conversation_id', conversationId)
@@ -65,16 +70,13 @@ export async function POST(request: Request) {
           { status: 409 },
         )
       }
-      const { data: updated, error: updateError } = await ctx.supabase
+      const { data: updated, error: updateError } = await supabaseAdmin()
         .from('deals')
         .update({ value, currency: 'QAR', status: 'won' })
         .eq('id', deal.id)
         .select('id')
-      if (updateError) {
+      if (updateError || !updated || updated.length === 0) {
         return NextResponse.json({ error: 'Could not update the deal' }, { status: 500 })
-      }
-      if (!updated || updated.length === 0) {
-        return NextResponse.json({ error: 'Deal not found' }, { status: 404 })
       }
       dealId = deal.id
     }

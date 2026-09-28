@@ -9,6 +9,20 @@ import {
 } from '@/lib/conversions/report'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+const PAGE_SIZE = 1000
+
+/** PostgREST caps a read at max_rows (1000); page until a short page. */
+async function fetchAllPages<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: unknown }>,
+): Promise<T[]> {
+  const rows: T[] = []
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1)
+    if (error) throw error
+    rows.push(...((data ?? []) as T[]))
+    if (!data || data.length < PAGE_SIZE) return rows
+  }
+}
 
 /**
  * GET /api/conversions/report?from=YYYY-MM-DD&to=YYYY-MM-DD (admin+)
@@ -33,25 +47,28 @@ export async function GET(request: Request) {
     const toIso = toParam ? `${toParam}T23:59:59.999Z` : new Date().toISOString()
 
     const db = supabaseAdmin()
-    const { data: attrs, error: attrError } = await db
-      .from('ctwa_attributions')
-      .select('conversation_id, ad_id, headline, clicked_at')
-      .eq('account_id', ctx.accountId)
-      .gte('clicked_at', fromIso)
-      .lte('clicked_at', toIso)
-    if (attrError) throw attrError
+    const attrs = await fetchAllPages<AttributionForReport>((from, to) =>
+      db
+        .from('ctwa_attributions')
+        .select('conversation_id, ad_id, headline, clicked_at')
+        .eq('account_id', ctx.accountId)
+        .gte('clicked_at', fromIso)
+        .lte('clicked_at', toIso)
+        .order('id')
+        .range(from, to),
+    )
 
-    const conversationIds = [...new Set((attrs ?? []).map((a) => a.conversation_id as string))]
-    let events: EventForReport[] = []
-    if (conversationIds.length > 0) {
-      const { data, error } = await db
+    // Account-wide rather than `.in(conversation_ids)`: hundreds of UUIDs
+    // would overflow the GET URL. Tagged events are few (one per stage per
+    // conversation), and buildAdReport drops those outside the range.
+    const events = await fetchAllPages<EventForReport>((from, to) =>
+      db
         .from('conversion_events')
         .select('conversation_id, stage, value, undone_at')
         .eq('account_id', ctx.accountId)
-        .in('conversation_id', conversationIds)
-      if (error) throw error
-      events = (data ?? []) as EventForReport[]
-    }
+        .order('id')
+        .range(from, to),
+    )
 
     const { data: failed, error: failedError } = await db
       .from('conversion_events')
@@ -63,7 +80,7 @@ export async function GET(request: Request) {
     if (failedError) throw failedError
 
     return NextResponse.json({
-      rows: buildAdReport((attrs ?? []) as AttributionForReport[], events),
+      rows: buildAdReport(attrs, events),
       failed: (failed ?? []) as FailedSend[],
     })
   } catch (err) {

@@ -17,7 +17,11 @@ interface SenderDeps {
   env?: Record<string, string | undefined>
   limit?: number
   now?: () => number
+  /** Pause between retries of the post-send status write. */
+  retryDelayMs?: number
 }
+
+const SENT_WRITE_ATTEMPTS = 3
 
 /**
  * Outbox sender: claim due `conversion_events` rows (atomic, SKIP
@@ -45,10 +49,20 @@ export async function runConversionSender(deps: SenderDeps = {}): Promise<{ sent
     const result = await sendOne(db, row, cfg, fetchImpl)
     if (result.ok) {
       sent++
-      await db
-        .from('conversion_events')
-        .update({ status: 'sent', sent_at: new Date(now()).toISOString(), meta_response: result.response, last_error: null })
-        .eq('id', row.id)
+      // Meta already has this event and doesn't dedupe, so losing this
+      // write would let the row be reclaimed and sent twice once its
+      // lease expires. Retry it; delivery is still at-least-once if the
+      // DB stays down, so make that loud.
+      const patch = { status: 'sent', sent_at: new Date(now()).toISOString(), meta_response: result.response, last_error: null }
+      let writeError: { message: string } | null = null
+      for (let attempt = 1; attempt <= SENT_WRITE_ATTEMPTS; attempt++) {
+        ;({ error: writeError } = await db.from('conversion_events').update(patch).eq('id', row.id))
+        if (!writeError) break
+        if (attempt < SENT_WRITE_ATTEMPTS) await new Promise((r) => setTimeout(r, deps.retryDelayMs ?? 500))
+      }
+      if (writeError) {
+        console.error('[capi] event', row.id, 'was delivered to Meta but could not be marked sent — it may be resent:', writeError.message)
+      }
     } else {
       failed++
       console.warn('[capi] send failed for event', row.id, 'attempt', row.attempts, result.error)
