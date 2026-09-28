@@ -625,7 +625,8 @@
       "toastMarkedLost": "Marked as lost",
       "toastReopened": "Deal reopened",
       "toastFailedDelete": "Failed to delete deal",
-      "toastDeleted": "Deal deleted"
+      "toastDeleted": "Deal deleted",
+      "wonNeedsValue": "Enter the deal value (greater than 0) before marking it won."
     },
     "settings": {
       "managePipeline": "Manage Pipeline",

@@ -222,10 +222,18 @@ export function DealForm({
 
   async function handleStatusChange(status: DealStatus) {
     if (!deal) return;
+    // Marking won reports a Purchase to Meta for ad-sourced chats
+    // (migration 065 trigger), so it needs a real value. Save the value
+    // typed in the form together with the status change.
+    const wonValue = parseFloat(value);
+    if (status === "won" && !(wonValue > 0)) {
+      toast.error(t("wonNeedsValue"));
+      return;
+    }
     setStatusAction(status);
     const { error } = await supabase
       .from("deals")
-      .update({ status })
+      .update(status === "won" ? { status, value: wonValue } : { status })
       .eq("id", deal.id);
     setStatusAction(null);
     if (error) {

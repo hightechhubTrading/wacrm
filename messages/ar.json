@@ -625,7 +625,8 @@
       "toastMarkedLost": "تم التحديد كخاسرة",
       "toastReopened": "تمت إعادة فتح الصفقة",
       "toastFailedDelete": "فشل حذف الصفقة",
-      "toastDeleted": "تم حذف الصفقة"
+      "toastDeleted": "تم حذف الصفقة",
+      "wonNeedsValue": "أدخل قيمة الصفقة (أكبر من 0) قبل تعيينها كفائزة."
     },
     "settings": {
       "managePipeline": "إدارة مسار المبيعات",
