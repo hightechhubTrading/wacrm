@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { SettingsPanelHead } from './settings-panel-head';
+import { CallingSettings } from '@/components/calling/calling-settings';
 import {
   Accordion,
   AccordionItem,
@@ -396,6 +397,7 @@ export function WhatsAppConfig() {
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
       {/* Main config form */}
       <div className="space-y-6">
+        <CallingSettings />
         {/* Corrupted-token reset banner */}
         {showResetBanner && (
           <Alert className="bg-amber-950/40 border-amber-600/40">

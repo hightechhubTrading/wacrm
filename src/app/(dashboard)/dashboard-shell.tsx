@@ -12,6 +12,7 @@ import '../design-system.css';
 import '../inbox-workspace.css';
 import { useTheme } from '@/hooks/use-theme';
 import { LocaleSync } from '@/components/locale-sync';
+import { CallingProvider } from '@/components/calling/calling-provider';
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
 // itself can stay a server component and export metadata (noindex) —
@@ -86,7 +87,9 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <DashboardShellInner>{children}</DashboardShellInner>
+      <CallingProvider>
+        <DashboardShellInner>{children}</DashboardShellInner>
+      </CallingProvider>
     </AuthProvider>
   );
 }

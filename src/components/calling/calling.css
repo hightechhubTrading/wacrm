@@ -1,0 +1,32 @@
+.crm-call-panel {
+  position: fixed;
+  inset-inline-end: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 70;
+  width: min(23rem, calc(100vw - 2rem));
+  padding: 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow: 0 12px 48px #0002;
+}
+.crm-call-avatar {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--primary) 12%, var(--card));
+  color: var(--primary);
+}
+.crm-call-panel button {
+  min-height: 2.5rem;
+}
+@media (max-width: 640px) {
+  .crm-call-panel {
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    inset-inline-end: 1rem;
+  }
+}
