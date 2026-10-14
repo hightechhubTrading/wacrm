@@ -449,7 +449,7 @@ export function CallingProvider({ children }: { children: ReactNode }) {
       <audio ref={audioRef} autoPlay className="hidden" />
       {canSendMessages && shown && (
         <aside className="crm-call-panel" aria-label={t('title')}>
-          <div className="flex items-start gap-3">
+          <div className="crm-call-identity flex min-w-0 items-start gap-3">
             <div className="crm-call-avatar">
               <Phone className="size-5" />
             </div>
@@ -482,7 +482,7 @@ export function CallingProvider({ children }: { children: ReactNode }) {
               </Link>
             )}
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
+          <div className="crm-call-controls flex flex-wrap items-center gap-2">
             {current ? (
               <>
                 <Button
