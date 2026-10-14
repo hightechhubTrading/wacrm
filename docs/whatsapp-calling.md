@@ -190,3 +190,30 @@ ringing, Answer, audio in both directions, mute, hangup and history. Real Meta
 media negotiation and the actual staff/customer networks remain unverified
 until this test. TURN relay configuration is still optional and may be needed
 if those networks cannot establish direct audio.
+
+### Notification placement refinement, 2026-10-15
+
+The user reported calling is working and requested a better notification location;
+sound remains unverified. The panel now appears as a compact horizontal bar at
+the top center below the desktop header. On phones it stacks into two rows.
+Browser checks passed centered placement, visible controls and composer clearance
+at 1440, 1280, 390 and 320 pixels, including RTL. Only the panel CSS and two
+layout classes changed; calling/signaling logic and account settings were unchanged.
+
+This layout is deployed from commit `e07aad9be6ac5184c3732b6f36d600b6b5f7c5a9`,
+image `wacrm-calling:e07aad9be6ac`, build ID `oZj9oD-1bbGbKnZ5O-9qd`. The VPS
+rebuild ran low on RAM during type checking and was stopped; responsiveness
+recovered. The successful production build was completed locally with the live
+public build variables, then packaged into the unchanged Linux runtime image.
+Dependency/lockfile/public assets were unchanged. Final internal/public HTTP,
+signed webhook, runtime Meta/flag and public stylesheet checks passed, and VPS
+memory returned to normal. No customer calls were placed during verification.
+
+The current Compose build uses the prepared artifact context to avoid compiling
+on the VPS again. Deployment metadata is in
+`/docker/wacrm/calling.placement-state.json`; rollback is the previous calling
+image, retained as `wacrm-rollback:before-call-placement-20261014t234318z`, with
+Compose backup at
+`/docker/wacrm/backups/calling-placement-20261014T234318Z/docker-compose.yml`.
+Temporary deployment SSH access was removed. Refresh the CRM to load the new
+notification layout. Actual two-way audio remains pending the user's device test.
