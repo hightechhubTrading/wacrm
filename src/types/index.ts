@@ -46,18 +46,6 @@ export interface Profile {
    */
   account_role?: AccountRole;
   /**
-   * The WAHA (WhatsApp HTTP API) session name — i.e. which logged-in
-   * WhatsApp number — this member's assigned deals send stage-enter
-   * group notifications from (migration 045). Null/unset means their
-   * assigned deals' notifications are skipped entirely rather than
-   * falling back to the account's shared `waha_config.session_name`.
-   * Set via `set_member_waha_channel` (migration 053, which replaced
-   * the original `set_member_waha_session` RPC when the agent's own
-   * `phone` joined this field as a settable pair) — admin+ only, but
-   * self-settable, unlike account_role.
-   */
-  waha_session_name?: string | null;
-  /**
    * Agent's own WhatsApp/call number, offered to a customer who asks
    * to talk by phone (migration 052). Null/unset means the AI never
    * invents a number for this agent.
@@ -93,12 +81,9 @@ export interface AccountMember {
   avatar_url: string | null;
   role: AccountRole;
   joined_at: string;
-  /** Same admin+-only visibility tier as `email` — see `waha_session_name`
-   *  on `Profile` for what this drives (migration 045). */
-  waha_session_name: string | null;
-  /** The agent's own number (`profiles.phone`, migration 052) — needed
-   *  alongside `waha_session_name` to route a conversation through this
-   *  agent's WAHA channel (migration 053). Same visibility tier. */
+  /** The agent's own number (`profiles.phone`, migration 052), shared
+   *  by the AI with customers who ask to talk by phone. Same admin+-only
+   *  visibility tier as `email`. */
   phone: string | null;
 }
 
@@ -356,10 +341,6 @@ export interface Message {
   status: MessageStatus;
   created_at: string;
   reply_to_message_id?: string;
-  /** Which line this message went out/came in on (migration 053).
-   *  Defaults to 'meta'; 'waha' when routed through an assigned
-   *  agent's own connected WhatsApp number. */
-  channel: 'meta' | 'waha';
   /**
    * Only set when `content_type === 'interactive'` — the stable id of
    * the button or list row the customer tapped. The Flows engine uses
@@ -483,10 +464,6 @@ export interface PipelineStage {
   name: string;
   position: number;
   color: string;
-  /** When true, a deal entering this stage fires a WAHA group
-   *  notification (see `waha_config` / `stage_exit_requirements`,
-   *  migration 043). Generic — not tied to any specific stage name. */
-  notify_group_on_enter?: boolean;
   /** @deprecated Migration 044. Superseded by `stage_required_groups`
    *  (migration 046) — the app no longer reads or writes this column.
    *  Left in the DB/type only because the column itself wasn't
@@ -511,25 +488,6 @@ export interface StageExitRequirement {
   stage_id: string;
   custom_field_id: string;
   created_at: string;
-}
-
-/**
- * Account-scoped connection settings for a self-hosted WAHA (WhatsApp
- * HTTP API) instance, used only to post structured messages into an
- * internal WhatsApp GROUP — something Meta's Cloud API cannot do at
- * all. One row per account (migration 043); `api_key` is
- * AES-256-GCM-encrypted at rest and never returned to the client.
- */
-export interface WahaConfig {
-  id: string;
-  account_id: string;
-  created_by?: string;
-  base_url?: string;
-  session_name: string;
-  group_chat_id?: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
 }
 
 export type DealStatus = 'open' | 'won' | 'lost';

@@ -32,9 +32,9 @@ export const HANDOFF_SENTINEL = '[[HANDOFF]]'
  * to send based on the customer's own language.
  */
 export const HANDOFF_CLOSING_MESSAGE_EN =
-  'Thanks for the details! One of our team members will follow up with you shortly to help with this.'
+  'Thanks for the details. Your request needs a team member to review.'
 export const HANDOFF_CLOSING_MESSAGE_AR =
-  'شكرًا لهذه المعلومات! سيتواصل معك أحد أعضاء فريقنا قريبًا للمتابعة.'
+  'شكرًا للمعلومات. طلبك يحتاج مراجعة أحد أعضاء الفريق.'
 
 /** Rough Arabic-script sniff used to pick which closing message to send. */
 export function isArabicText(text: string): boolean {

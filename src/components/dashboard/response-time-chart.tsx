@@ -33,6 +33,7 @@ export function ResponseTimeChart({
   thresholdMinutes = 5,
 }: ResponseTimeChartProps) {
   const t = useTranslations('Dashboard.responseTimeChart')
+  const errorText = useTranslations('Dashboard.page')
   const hasData = data?.buckets.some((b) => b.avgMinutes != null) ?? false
 
   // Map buckets → Tremor rows. Null `avgMinutes` (no samples)
@@ -81,8 +82,10 @@ export function ResponseTimeChart({
       </header>
 
       <div className="p-5">
-        {loading || !data ? (
+        {loading ? (
           <Skeleton className="h-[260px] w-full" />
+        ) : !data ? (
+          <p role="status" className="text-sm text-muted-foreground py-8">{errorText('unavailable')}</p>
         ) : !hasData ? (
           <EmptyState
             icon={Clock}

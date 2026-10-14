@@ -2,17 +2,13 @@
 // src/lib/http/base-url.ts
 //
 // Resolve the absolute base URL this deployment is reachable at, for
-// the handful of endpoints that have to hand a user a link they'll
-// paste somewhere else (account invite links, an agent's WAHA webhook
-// URL). Those links are one-time reveals — a relative or wrong-host
-// URL is unrecoverable for the user, so guessing badly is worse than
-// most config bugs.
+// endpoints that have to hand a user a link they'll paste somewhere
+// else (account invite links). Those links are one-time reveals — a
+// relative or wrong-host URL is unrecoverable for the user, so
+// guessing badly is worse than most config bugs.
 //
 // Extracted verbatim from `/api/account/invitations/route.ts`, which
-// grew this resolution chain first; the members PATCH route needs
-// exactly the same thing for the WAHA webhook URL it mints, and a
-// naive `process.env.NEXT_PUBLIC_SITE_URL ?? ""` there produced a
-// *relative* webhook URL on any deploy that hadn't set the env var.
+// grew this resolution chain first.
 //
 // Resolution order, first match wins:
 //

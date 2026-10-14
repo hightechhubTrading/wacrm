@@ -1,7 +1,9 @@
 "use client";
+import { PageIdentity } from '@/components/workspace/page-identity';
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import type { Notification } from "@/types";
@@ -22,6 +24,8 @@ const TYPE_ICON: Record<Notification["type"], typeof Bell> = {
 
 export default function NotificationsPage() {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations("Workspace");
   const { accountId } = useAuth();
   const [notifications, setNotifications] = useState<Notification[] | null>(
     null,
@@ -165,14 +169,14 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="crm-page crm-notifications-page space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
+        <PageIdentity icon={Bell}>
+          <h1 className="text-2xl font-bold text-foreground">{t('notifications')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Conversations other teammates assign to you show up here.
+            {t('notificationsHint')}
           </p>
-        </div>
+        </PageIdentity>
         <Button
           variant="outline"
           size="sm"
@@ -184,7 +188,7 @@ export default function NotificationsPage() {
           ) : (
             <CheckCheck className="h-4 w-4" />
           )}
-          Mark all as read
+          {t('markAllRead')}
         </Button>
       </div>
 
@@ -194,25 +198,28 @@ export default function NotificationsPage() {
             <Bell className="h-6 w-6 text-primary" />
           </div>
           <p className="mt-3 text-sm font-medium text-foreground">
-            No notifications yet
+            {t('emptyNotifications')}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            You&apos;ll see an alert here when someone assigns you a
-            conversation.
+            {t('emptyNotificationsHint')}
           </p>
         </div>
       ) : (
         <ul className="space-y-2">
-          {notifications.map((n) => {
+          {notifications.map((n, index) => {
             const Icon = TYPE_ICON[n.type] ?? Bell;
             const isUnread = !n.read_at;
             return (
-              <li key={n.id}>
+              <Fragment key={n.id}>
+                {(index === 0 || new Date(notifications[index - 1].created_at).toDateString() !== new Date(n.created_at).toDateString()) && (
+                  <li className="crm-notification-day"><time dateTime={n.created_at}>{new Intl.DateTimeFormat(locale, { month: 'long', day: 'numeric', weekday: 'long' }).format(new Date(n.created_at))}</time></li>
+                )}
+              <li>
                 <button
                   type="button"
                   onClick={() => handleClick(n)}
                   className={cn(
-                    "flex w-full items-start gap-3 rounded-xl border p-4 text-left transition-colors",
+                    "flex w-full items-start gap-3 rounded-xl border p-4 text-start transition-colors",
                     isUnread
                       ? "border-primary/30 bg-primary/5 hover:border-primary/50"
                       : "border-border bg-card hover:border-border/70",
@@ -262,6 +269,7 @@ export default function NotificationsPage() {
                   </div>
                 </button>
               </li>
+              </Fragment>
             );
           })}
         </ul>

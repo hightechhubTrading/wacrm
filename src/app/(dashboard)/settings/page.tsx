@@ -1,4 +1,6 @@
 'use client';
+import { Settings2 } from 'lucide-react';
+import { PageIdentity } from '@/components/workspace/page-identity';
 
 import { Suspense, useMemo, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -17,7 +19,6 @@ import { QuickRepliesManager } from '@/components/settings/quick-replies-manager
 import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel';
 import { DealsSettings } from '@/components/settings/deals-settings';
 import { ProductCatalogPanel } from '@/components/settings/product-catalog-panel';
-import { WahaConfig } from '@/components/settings/waha-config';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import { QuotationProductCodes } from '@/components/settings/quotation-product-codes';
@@ -83,22 +84,21 @@ function SettingsPageInner() {
     fields: <FieldsAndTagsPanel />,
     deals: <DealsSettings />,
     products: <ProductCatalogPanel />,
-    'group-notifications': <WahaConfig />,
     members: <MembersTab />,
     api: <ApiKeysSettings />,
     'quotation-product-codes': <QuotationProductCodes />,
   };
 
   return (
-    <div>
-      <div>
+    <div className="crm-page crm-settings-page">
+      <PageIdentity icon={Settings2}>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
           {t('pageTitle')}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {t('pageDesc')}
         </p>
-      </div>
+      </PageIdentity>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[236px_minmax(0,1fr)] lg:items-start">
         <SettingsRail active={section} onSelect={go} hints={hints} />

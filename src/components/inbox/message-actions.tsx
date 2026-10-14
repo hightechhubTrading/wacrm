@@ -1,28 +1,35 @@
-"use client";
+'use client';
 
-import { useState, type ReactNode } from "react";
-import { CornerUpLeft, Copy, Languages, Loader2, SmilePlus } from "lucide-react";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { useState, type ReactNode } from 'react';
+import {
+  CornerUpLeft,
+  Copy,
+  Languages,
+  Loader2,
+  SmilePlus,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import type { Message } from "@/types";
-import { useLocale, useTranslations } from "next-intl";
+} from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import type { Message } from '@/types';
+import { useLocale, useTranslations } from 'next-intl';
 
 // WhatsApp's own quick-reaction bar starts with these six. Picking the same
 // set keeps the affordance familiar without pulling in a 300KB emoji library.
-const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 interface MessageActionsProps {
   message: Message;
   onReply: () => void;
   onReact: (emoji: string) => void;
   children: ReactNode;
+  continuation?: boolean;
 }
 
 /**
@@ -35,14 +42,15 @@ export function MessageActions({
   onReply,
   onReact,
   children,
+  continuation = false,
 }: MessageActionsProps) {
-  const t = useTranslations("Inbox.actions");
+  const t = useTranslations('Inbox.actions');
   const locale = useLocale();
 
   // No per-agent locale exists — default the target language to
   // whichever of the app's two shipped UI locales ISN'T the current
   // one, and let the agent override it in the popover.
-  const defaultTargetLanguage = locale === "ar" ? "English" : "Arabic";
+  const defaultTargetLanguage = locale === 'ar' ? 'English' : 'Arabic';
 
   // Touch devices have no hover. Long-press fires `contextmenu`; we capture
   // it, suppress the native menu, and pin the toolbar open until the user
@@ -55,7 +63,7 @@ export function MessageActions({
   const [translation, setTranslation] = useState<string | null>(null);
 
   const isAgent =
-    message.sender_type === "agent" || message.sender_type === "bot";
+    message.sender_type === 'agent' || message.sender_type === 'bot';
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -63,16 +71,16 @@ export function MessageActions({
   };
 
   const handleCopy = async () => {
-    const text = message.content_text ?? "";
+    const text = message.content_text ?? '';
     if (!text) {
-      toast.error(t("nothingToCopy"));
+      toast.error(t('nothingToCopy'));
       return;
     }
     try {
       await navigator.clipboard.writeText(text);
-      toast.success(t("copied"));
+      toast.success(t('copied'));
     } catch {
-      toast.error(t("copyFailed"));
+      toast.error(t('copyFailed'));
     }
     setTouchOpen(false);
   };
@@ -89,26 +97,26 @@ export function MessageActions({
   };
 
   const handleTranslate = async () => {
-    const text = message.content_text ?? message.transcript ?? "";
+    const text = message.content_text ?? message.transcript ?? '';
     if (!text.trim()) {
-      toast.error(t("nothingToCopy"));
+      toast.error(t('nothingToCopy'));
       return;
     }
     setTranslating(true);
     try {
-      const res = await fetch("/api/ai/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/ai/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, target_language: targetLanguage }),
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? t("translateFailed"));
+        toast.error(data.error ?? t('translateFailed'));
         return;
       }
       setTranslation(data.translation);
     } catch {
-      toast.error(t("translateFailed"));
+      toast.error(t('translateFailed'));
     } finally {
       setTranslating(false);
     }
@@ -119,9 +127,15 @@ export function MessageActions({
   // in the row no longer reveals the toolbar.
   return (
     <div
+      // Message sides represent sender identity and must not mirror with
+      // the interface language. Content keeps its own text direction.
+      dir="ltr"
+      id={`message-${message.id}`}
+      tabIndex={-1}
+      data-continuation={continuation || undefined}
       className={cn(
-        "flex w-full",
-        isAgent ? "justify-end" : "justify-start",
+        'crm-message-row flex w-full',
+        isAgent ? 'justify-end' : 'justify-start'
       )}
       onContextMenu={handleContextMenu}
       onBlur={() => setTouchOpen(false)}
@@ -131,97 +145,99 @@ export function MessageActions({
        *  an unbroken URL) push past the cap and shove the row past
        *  100%, which used to bleed across into the contact-sidebar
        *  area. See issue #165. */}
-      <div className="group/actions relative min-w-0 max-w-[75%]">
+      <div className="crm-message-content group/actions relative max-w-[75%] min-w-0">
         {children}
         {translation && (
-          <div className="mt-1 rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm">
-            <p className="mb-1 text-xs font-medium text-muted-foreground">
-              {t("translatedTo", { language: targetLanguage })}
+          <div className="border-border bg-muted/50 mt-1 rounded-lg border px-3 py-2 text-sm">
+            <p className="text-muted-foreground mb-1 text-xs font-medium">
+              {t('translatedTo', { language: targetLanguage })}
             </p>
-            <p className="whitespace-pre-wrap break-words">{translation}</p>
+            <p dir="auto" className="break-words whitespace-pre-wrap">
+              {translation}
+            </p>
           </div>
         )}
-      <div
-        data-touch-open={touchOpen || pickerOpen ? "true" : undefined}
-        className={cn(
-          "absolute -top-3 z-10 flex h-7 items-center gap-0.5 rounded-full border border-border bg-popover/95 px-1 shadow-md backdrop-blur-sm transition-opacity",
-          "opacity-0 group-hover/actions:opacity-100 group-focus-within/actions:opacity-100",
-          "data-[touch-open=true]:opacity-100",
-          isAgent ? "end-3" : "start-3",
-        )}
-      >
-        <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-          <PopoverTrigger
-            className="flex h-5 w-5 items-center justify-center rounded-full text-popover-foreground hover:bg-muted hover:text-foreground"
-            aria-label={t("react")}
-          >
-            <SmilePlus className="h-3.5 w-3.5" />
-          </PopoverTrigger>
-          <PopoverContent
-            className="flex w-auto flex-row gap-1 p-1.5"
-            sideOffset={6}
-          >
-            {QUICK_EMOJIS.map((e) => (
-              <button
-                key={e}
-                type="button"
-                onClick={() => handlePickEmoji(e)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-lg leading-none transition-transform hover:scale-125 hover:bg-muted"
-                aria-label={t("reactWith", { emoji: e })}
-              >
-                {e}
-              </button>
-            ))}
-          </PopoverContent>
-        </Popover>
-        <button
-          type="button"
-          onClick={handleReply}
-          className="flex h-5 w-5 items-center justify-center rounded-full text-popover-foreground hover:bg-muted hover:text-foreground"
-          aria-label={t("reply")}
+        <div
+          data-touch-open={touchOpen || pickerOpen ? 'true' : undefined}
+          className={cn(
+            'border-border bg-popover/95 absolute -top-3 z-10 flex h-7 items-center gap-0.5 rounded-full border px-1 shadow-md backdrop-blur-sm transition-opacity',
+            'opacity-0 group-focus-within/actions:opacity-100 group-hover/actions:opacity-100',
+            'data-[touch-open=true]:opacity-100',
+            isAgent ? 'end-3' : 'start-3'
+          )}
         >
-          <CornerUpLeft className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="flex h-5 w-5 items-center justify-center rounded-full text-popover-foreground hover:bg-muted hover:text-foreground"
-          aria-label={t("copyText")}
-        >
-          <Copy className="h-3.5 w-3.5" />
-        </button>
-        <Popover open={translateOpen} onOpenChange={setTranslateOpen}>
-          <PopoverTrigger
-            className="flex h-5 w-5 items-center justify-center rounded-full text-popover-foreground hover:bg-muted hover:text-foreground"
-            aria-label={t("translate")}
-          >
-            <Languages className="h-3.5 w-3.5" />
-          </PopoverTrigger>
-          <PopoverContent className="w-56 space-y-2 p-2" sideOffset={6}>
-            <Input
-              value={targetLanguage}
-              onChange={(e) => setTargetLanguage(e.target.value)}
-              placeholder={t("targetLanguagePlaceholder")}
-              className="h-8 text-sm"
-            />
-            <Button
-              size="sm"
-              className="w-full"
-              disabled={translating || !targetLanguage.trim()}
-              onClick={async () => {
-                await handleTranslate();
-                setTranslateOpen(false);
-              }}
+          <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+            <PopoverTrigger
+              className="text-popover-foreground hover:bg-muted hover:text-foreground flex h-5 w-5 items-center justify-center rounded-full"
+              aria-label={t('react')}
             >
-              {translating ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                t("translate")
-              )}
-            </Button>
-          </PopoverContent>
-        </Popover>
-      </div>
+              <SmilePlus className="h-3.5 w-3.5" />
+            </PopoverTrigger>
+            <PopoverContent
+              className="flex w-auto flex-row gap-1 p-1.5"
+              sideOffset={6}
+            >
+              {QUICK_EMOJIS.map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  onClick={() => handlePickEmoji(e)}
+                  className="hover:bg-muted flex h-8 w-8 items-center justify-center rounded-full text-lg leading-none transition-transform hover:scale-125"
+                  aria-label={t('reactWith', { emoji: e })}
+                >
+                  {e}
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
+          <button
+            type="button"
+            onClick={handleReply}
+            className="text-popover-foreground hover:bg-muted hover:text-foreground flex h-5 w-5 items-center justify-center rounded-full"
+            aria-label={t('reply')}
+          >
+            <CornerUpLeft className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="text-popover-foreground hover:bg-muted hover:text-foreground flex h-5 w-5 items-center justify-center rounded-full"
+            aria-label={t('copyText')}
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </button>
+          <Popover open={translateOpen} onOpenChange={setTranslateOpen}>
+            <PopoverTrigger
+              className="text-popover-foreground hover:bg-muted hover:text-foreground flex h-5 w-5 items-center justify-center rounded-full"
+              aria-label={t('translate')}
+            >
+              <Languages className="h-3.5 w-3.5" />
+            </PopoverTrigger>
+            <PopoverContent className="w-56 space-y-2 p-2" sideOffset={6}>
+              <Input
+                value={targetLanguage}
+                onChange={(e) => setTargetLanguage(e.target.value)}
+                placeholder={t('targetLanguagePlaceholder')}
+                className="h-8 text-sm"
+              />
+              <Button
+                size="sm"
+                className="w-full"
+                disabled={translating || !targetLanguage.trim()}
+                onClick={async () => {
+                  await handleTranslate();
+                  setTranslateOpen(false);
+                }}
+              >
+                {translating ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  t('translate')
+                )}
+              </Button>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
     </div>
   );

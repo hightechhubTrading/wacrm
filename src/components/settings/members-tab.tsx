@@ -84,13 +84,8 @@ interface Member {
   avatar_url: string | null;
   role: AccountRole;
   joined_at: string;
-  /** Which WAHA (WhatsApp HTTP API) session — i.e. which logged-in
-   *  WhatsApp number — this member's assigned deals send stage-enter
-   *  group notifications from (migration 045). */
-  waha_session_name: string | null;
-  /** The agent's own number (migration 052) — needed alongside
-   *  `waha_session_name` to route a conversation through this agent's
-   *  WAHA channel (migration 053). Same admin+-only visibility tier. */
+  /** The agent's own number (migration 052), shared by the AI with
+   *  customers who ask to talk by phone. Admin+-only visibility tier. */
   phone: string | null;
 }
 
@@ -237,82 +232,10 @@ export function MembersTab() {
     }
   }
 
-  // Unlike role, WAHA session is shown/editable for EVERY row —
-  // including self and the owner. Assigning a WhatsApp number isn't a
-  // privilege boundary the way role is (that's why the role Select
-  // hides those rows), and an admin/owner who is also a working sales
-  // agent needs to be able to set their own.
-  async function handleWahaSessionChange(member: Member, rawValue: string) {
-    const trimmed = rawValue.trim();
-    const nextValue = trimmed || null;
-    if ((member.waha_session_name ?? null) === nextValue) return;
-
-    const previousValue = member.waha_session_name;
-    setPendingMemberAction(member.user_id);
-    setMembers((prev) =>
-      prev.map((m) =>
-        m.user_id === member.user_id
-          ? { ...m, waha_session_name: nextValue }
-          : m,
-      ),
-    );
-    try {
-      const res = await fetch(`/api/account/members/${member.user_id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ waha_session_name: nextValue }),
-      });
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setMembers((prev) =>
-          prev.map((m) =>
-            m.user_id === member.user_id
-              ? { ...m, waha_session_name: previousValue }
-              : m,
-          ),
-        );
-        toast.error(payload.error || t('wahaSessionUpdateFailed'));
-        return;
-      }
-      toast.success(
-        t('wahaSessionUpdatedToast', { name: member.full_name || t('unnamed') }),
-      );
-      // The server mints the webhook secret the FIRST time a session
-      // name lands on a member's row, so in the normal registration
-      // order (session name first, phone second) this handler — not the
-      // phone one — is the only place the URL is ever returned. It's a
-      // one-time reveal: if we drop it here the admin can never see it
-      // again without clearing and re-connecting the session. Same toast
-      // treatment as handleWahaPhoneChange below, which catches the
-      // reverse field order.
-      if (payload.webhook_url) {
-        toast.success(t('wahaWebhookUrlReady'), {
-          description: payload.webhook_url,
-          duration: 15000,
-        });
-      }
-    } catch (err) {
-      setMembers((prev) =>
-        prev.map((m) =>
-          m.user_id === member.user_id
-            ? { ...m, waha_session_name: previousValue }
-            : m,
-        ),
-      );
-      console.error('[MembersTab] WAHA session change error:', err);
-      toast.error('Could not reach the server');
-    } finally {
-      setPendingMemberAction(null);
-    }
-  }
-
-  // Same pattern as handleWahaSessionChange above, including the
-  // one-time toast surfacing the webhook URL when the PATCH response
-  // includes one (i.e. this call was the first to connect a session for
-  // this member and the server just minted a webhook secret). Both
-  // handlers must check, because either field can be the one that first
-  // completes the pair and triggers the mint.
-  async function handleWahaPhoneChange(member: Member, rawValue: string) {
+  // Unlike role, phone is shown/editable for EVERY row — including self
+  // and the owner. It isn't a privilege boundary the way role is, and an
+  // admin/owner who is also a working sales agent needs to set their own.
+  async function handlePhoneChange(member: Member, rawValue: string) {
     const trimmed = rawValue.trim();
     const nextValue = trimmed || null;
     if ((member.phone ?? null) === nextValue) return;
@@ -337,14 +260,8 @@ export function MembersTab() {
             m.user_id === member.user_id ? { ...m, phone: previousValue } : m,
           ),
         );
-        toast.error(payload.error || t('wahaPhoneUpdateFailed'));
+        toast.error(payload.error || t('phoneUpdateFailed'));
         return;
-      }
-      if (payload.webhook_url) {
-        toast.success(t('wahaWebhookUrlReady'), {
-          description: payload.webhook_url,
-          duration: 15000,
-        });
       }
     } catch (err) {
       setMembers((prev) =>
@@ -541,35 +458,16 @@ export function MembersTab() {
                       inline. Items align to the start on mobile so the
                       role dropdown lines up under the avatar. */}
                   <div className="flex items-center gap-2 sm:gap-3">
-                    {/* WAHA session — shown/editable for every row,
-                        including self and the owner (unlike role,
-                        this isn't a privilege boundary). */}
-                    {canManageMembers && (
-                      <Input
-                        key={member.waha_session_name ?? ''}
-                        defaultValue={member.waha_session_name ?? ''}
-                        placeholder={t('wahaSessionPlaceholder')}
-                        disabled={isBusy}
-                        onBlur={(e) =>
-                          handleWahaSessionChange(member, e.target.value)
-                        }
-                        className="w-28 bg-muted border-border text-foreground text-xs"
-                      />
-                    )}
-
-                    {/* Agent's own WhatsApp number — paired with the
-                        session name above so the webhook route can
-                        route an inbound conversation to this agent's
-                        channel (migration 053). Same visibility gate
-                        as the session-name input. */}
+                    {/* Agent's own phone number — shown/editable for
+                        every row, including self and the owner. */}
                     {canManageMembers && (
                       <Input
                         key={member.phone ?? ''}
                         defaultValue={member.phone ?? ''}
-                        placeholder={t('wahaPhonePlaceholder')}
+                        placeholder={t('phonePlaceholder')}
                         disabled={isBusy}
                         onBlur={(e) =>
-                          handleWahaPhoneChange(member, e.target.value)
+                          handlePhoneChange(member, e.target.value)
                         }
                         className="w-32 bg-muted border-border text-foreground text-xs"
                       />

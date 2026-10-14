@@ -15,6 +15,7 @@ interface AddContactTagAndDispatchInput {
   contactId: string;
   tagId: string;
   context?: AutomationContext;
+  aiGenerated?: boolean;
 }
 
 export interface AddContactTagResult {
@@ -30,11 +31,18 @@ export interface AddContactTagResult {
 export async function addContactTagAndDispatch(
   input: AddContactTagAndDispatchInput
 ): Promise<AddContactTagResult> {
-  const added = await addContactTagIfAbsent(input.db, {
-    accountId: input.accountId,
-    contactId: input.contactId,
-    tagId: input.tagId,
-  });
+  let added: boolean;
+  if (input.aiGenerated) {
+    const result = await input.db.rpc('add_sales_ai_tag', {
+      p_account: input.accountId,
+      p_contact: input.contactId,
+      p_tag: input.tagId,
+    });
+    if (!result.error) added = result.data === true;
+    else if (result.error.code === 'PGRST202')
+      added = await addContactTagIfAbsent(input.db, input);
+    else throw new Error('Could not apply AI tag preference');
+  } else added = await addContactTagIfAbsent(input.db, input);
 
   if (!added) return { added: false, dispatched: false, reason: 'duplicate' };
 

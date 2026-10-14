@@ -100,7 +100,10 @@ export async function PATCH(request: Request, { params }: Params) {
     if (existingErr) return NextResponse.json({ error: existingErr.message }, { status: 400 });
     if (!existing) return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
 
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
+    if (!body) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
 
     if (body.items) {
       // Caught locally (rather than left to bubble up to the outer

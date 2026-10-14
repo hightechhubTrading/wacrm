@@ -1,8 +1,7 @@
 // Pins the resolution chain that was extracted out of
-// /api/account/invitations/route.ts so both that route and the members
-// PATCH route (WAHA webhook URL) share it. Every branch here must keep
-// returning an ABSOLUTE origin — both callers embed a one-time-reveal
-// secret in the URL, so a relative/blank base is unrecoverable.
+// /api/account/invitations/route.ts. Every branch here must keep
+// returning an ABSOLUTE origin — the invite link embeds a one-time-reveal
+// token in the URL, so a relative/blank base is unrecoverable.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 

@@ -42,6 +42,7 @@ import { useTranslations } from 'next-intl'
 
 export function ActivityFeed({ items, loading }: ActivityFeedProps) {
   const t = useTranslations('Dashboard.activityFeed')
+  const errorText = useTranslations('Dashboard.page')
   // Start at 5 — a quick scan of the most recent events without
   // dominating vertical real estate. User expands explicitly via the
   // footer control when they want deeper history.
@@ -68,13 +69,15 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
         </Link>
       </header>
 
-      {loading || !items ? (
+      {loading ? (
         <div className="space-y-2 p-5">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-10 w-full" />
           ))}
         </div>
-      ) : items.length === 0 ? (
+      ) : !items ? (
+          <p role="status" className="text-sm text-muted-foreground py-8">{errorText('unavailable')}</p>
+        ) : items.length === 0 ? (
         <div className="p-5">
           <EmptyState
             icon={Inbox}
@@ -85,13 +88,10 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
       ) : (
         <>
           <ul className="divide-y divide-border">
-            {visible.map((it, i) => {
+            {visible.map((it) => {
               const theme = KIND_THEME[it.kind]
               const Icon = theme.icon
-              // Alternating row background for scanability. bg-muted/40
-              // keeps the stripe visible in both light and dark modes
-              // (bg-card/40 vanishes against a white card surface in light).
-              const stripe = i % 2 === 0 ? 'bg-transparent' : 'bg-muted/40'
+              const stripe = 'bg-transparent'
               const row = (
                 <div className="flex items-center gap-3 px-5 py-2.5">
                   <span

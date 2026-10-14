@@ -52,3 +52,11 @@ next-env.d.ts
 /docker-compose.yml
 .worktrees/
 supabase/.temp/
+
+# throwaway repro/debug scripts (e.g. repro-login.mjs.tmp.mjs)
+*.tmp.mjs
+*.tmp.ts
+*.tmp.js
+
+# Also ignore a local build-cache symlink when the project drive is full.
+/.next

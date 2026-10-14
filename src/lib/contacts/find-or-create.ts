@@ -1,15 +1,11 @@
 // src/lib/contacts/find-or-create.ts
 //
-// Find-or-create for contacts and conversations, shared by every
-// inbound-message path (the Meta webhook, and the WAHA webhook added
-// in a later task) so a contact/conversation created by one channel
-// is indistinguishable from one created by another — this is what
-// keeps a contact's Meta and WAHA messages in a single unified
-// thread instead of forking a conversation per channel.
+// Find-or-create for contacts and conversations used by the inbound
+// Meta webhook.
 //
-// Extracted from src/app/api/whatsapp/webhook/route.ts (issue: WAHA
-// per-agent conversation channels) — same logic, parameterized with
-// an explicit `db` client instead of a file-local supabaseAdmin().
+// Extracted from src/app/api/whatsapp/webhook/route.ts — same logic,
+// parameterized with an explicit `db` client instead of a file-local
+// supabaseAdmin().
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
@@ -87,20 +83,7 @@ export async function findOrCreateConversation(
   db: SupabaseClient,
   accountId: string,
   configOwnerUserId: string,
-  contactId: string,
-  /**
-   * Agent to own the conversation, applied ONLY when this call creates
-   * it. Used by the WAHA webhook so a customer who messages an agent's
-   * personal number lands in a conversation already routed back through
-   * that same number (otherwise the CRM's first reply goes out over the
-   * shared Meta number — a different number than the one the customer
-   * is actually talking to).
-   *
-   * Deliberately never applied to an existing conversation: that would
-   * be a retroactive handoff, which this feature explicitly forbids.
-   * The Meta webhook omits it and keeps today's unassigned behaviour.
-   */
-  assignedAgentIdOnCreate?: string | null,
+  contactId: string
 ): Promise<ConversationOutcome | null> {
   // Look for an existing conversation in this account, oldest-first.
   //
@@ -139,12 +122,6 @@ export async function findOrCreateConversation(
       account_id: accountId,
       user_id: configOwnerUserId,
       contact_id: contactId,
-      // Only present when the caller asked for it — omitted entirely
-      // otherwise so the column keeps its NULL default (unassigned),
-      // exactly as before.
-      ...(assignedAgentIdOnCreate
-        ? { assigned_agent_id: assignedAgentIdOnCreate }
-        : {}),
     })
     .select()
     .single();

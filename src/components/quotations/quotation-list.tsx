@@ -2,15 +2,31 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
+import { Button } from '@/components/ui/button';
+import { FileText, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Quotation } from '@/lib/quotations/types';
-import { pickDefaultProductCode, type ProductCode } from '@/lib/quotations/product-codes';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  pickDefaultProductCode,
+  type ProductCode,
+} from '@/lib/quotations/product-codes';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 // No accountId prop -- the API route derives it from the caller's own
 // session (requireRole), same reasoning as the rest of this feature
 // (see the auth comments on src/app/api/quotations/route.ts).
 export function QuotationList() {
+  const t = useTranslations('Workspace');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [revision, setRevision] = useState(0);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [status, setStatus] = useState<string>('');
   const [creating, setCreating] = useState(false);
@@ -29,11 +45,27 @@ export function QuotationList() {
   const [productCode, setProductCode] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(false);
     const params = new URLSearchParams(status ? { status } : {});
     fetch(`/api/quotations?${params}`)
-      .then((res) => res.json())
-      .then(setQuotations);
-  }, [status]);
+      .then(async (res) => {
+        if (!res.ok) throw new Error('load');
+        const rows = await res.json();
+        if (!Array.isArray(rows)) throw new Error('load');
+        if (!cancelled) setQuotations(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [status, revision]);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,6 +76,9 @@ export function QuotationList() {
         const list = Array.isArray(data) ? data : [];
         setProductCodes(list);
         setProductCode((prev) => pickDefaultProductCode(list, prev));
+      })
+      .catch(() => {
+        if (!cancelled) setProductCodes([]);
       })
       .finally(() => {
         if (!cancelled) setLoadingCodes(false);
@@ -76,14 +111,16 @@ export function QuotationList() {
       const created = await res.json();
       window.location.href = `/quotations/${created.id}`;
     } catch {
-      toast.error('Failed to create quotation — check your connection and try again.');
+      toast.error(
+        'Failed to create quotation — check your connection and try again.'
+      );
     } finally {
       setCreating(false);
     }
   }
 
   return (
-    <div className="space-y-4">
+    <div className="crm-quotation-list space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <Select
           value={productCode}
@@ -91,7 +128,9 @@ export function QuotationList() {
           disabled={loadingCodes || creating || productCodes.length === 0}
         >
           <SelectTrigger size="sm" className="w-48">
-            <SelectValue placeholder={loadingCodes ? 'Loading…' : 'No product codes'} />
+            <SelectValue
+              placeholder={loadingCodes ? t('loading') : t('noCodes')}
+            />
           </SelectTrigger>
           <SelectContent>
             {productCodes.map((pc) => (
@@ -101,61 +140,104 @@ export function QuotationList() {
             ))}
           </SelectContent>
         </Select>
-        <button
+        <Button
           type="button"
           onClick={createStandalone}
           disabled={creating || !productCode}
-          className="inline-flex h-8 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-8 items-center rounded-lg px-3 text-sm font-medium disabled:opacity-50"
         >
-          {creating ? 'Creating…' : '+ New Quotation'}
-        </button>
+          <Plus size={16} aria-hidden />
+          {creating ? t('creating') : t('newQuotation')}
+        </Button>
       </div>
       {!loadingCodes && productCodes.length === 0 && (
-        <p className="text-xs text-muted-foreground">
-          No product codes configured yet — add one under{' '}
-          <Link href="/settings?tab=quotation-product-codes" className="text-primary hover:underline">
-            Settings
-          </Link>{' '}
-          before creating a quotation.
+        <p className="text-muted-foreground text-xs">
+          <Link
+            href="/settings?tab=quotation-product-codes"
+            className="text-primary hover:underline"
+          >
+            {t('codesHint')}
+          </Link>
         </p>
       )}
       <select
+        aria-label={t('status')}
         value={status}
         onChange={(e) => setStatus(e.target.value)}
-        className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm text-foreground"
+        className="border-input text-foreground h-8 rounded-lg border bg-transparent px-2.5 text-sm"
       >
-        <option value="">All statuses</option>
-        <option value="draft">Draft</option>
-        <option value="sent">Sent</option>
-        <option value="won">Won</option>
-        <option value="lost">Lost</option>
+        <option value="">{t('allStatuses')}</option>
+        <option value="draft">{t('draft')}</option>
+        <option value="sent">{t('sent')}</option>
+        <option value="won">{t('won')}</option>
+        <option value="lost">{t('lost')}</option>
       </select>
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-border text-left text-muted-foreground">
-            <th className="py-2 pe-4 font-medium">Reference</th>
-            <th className="py-2 pe-4 font-medium">Client</th>
-            <th className="py-2 pe-4 font-medium">Status</th>
-            <th className="py-2 pe-4 font-medium">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {quotations.map((q) => (
-            <tr key={q.id} className="border-b border-border">
-              <td className="py-2 pe-4">
-                <Link href={`/quotations/${q.id}`} className="text-primary hover:underline">
-                  {q.reference}
-                </Link>
-              </td>
-              <td className="py-2 pe-4">{q.clientCompany ?? q.clientName ?? '—'}</td>
-              <td className="py-2 pe-4">{q.status}</td>
-              <td className="py-2 pe-4">
-                {q.total.toLocaleString()} {q.currency}
-              </td>
-            </tr>
+      {loading ? (
+        <div className="crm-table-skeleton" role="status">
+          <span className="sr-only">{t('loading')}</span>
+          {Array.from({ length: 4 }, (_, index) => (
+            <div key={index} aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </div>
           ))}
-        </tbody>
-      </table>
+        </div>
+      ) : loadError ? (
+        <div className="crm-list-state" role="status">
+          <p>{t('loadError')}</p>
+          <Button variant="outline" onClick={() => setRevision((r) => r + 1)}>
+            {t('retry')}
+          </Button>
+        </div>
+      ) : quotations.length === 0 ? (
+        <div className="crm-list-state">
+          <FileText size={30} aria-hidden />
+          <h2>{t('quotationEmpty')}</h2>
+          <p>{t('quotationEmptyHint')}</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-border text-muted-foreground border-b text-start">
+                <th className="py-2 pe-4 font-medium">{t('reference')}</th>
+                <th className="py-2 pe-4 font-medium">{t('client')}</th>
+                <th className="py-2 pe-4 font-medium">{t('status')}</th>
+                <th className="py-2 pe-4 font-medium">{t('total')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {quotations.map((q) => (
+                <tr key={q.id} className="border-border border-b">
+                  <td className="py-2 pe-4">
+                    <Link
+                      href={`/quotations/${q.id}`}
+                      className="text-primary hover:underline"
+                    >
+                      {q.reference}
+                    </Link>
+                  </td>
+                  <td className="py-2 pe-4">
+                    {q.clientCompany ?? q.clientName ?? '—'}
+                  </td>
+                  <td className="py-2 pe-4">
+                    <span
+                      className="crm-quotation-status"
+                      data-status={q.status}
+                    >
+                      {t(q.status)}
+                    </span>
+                  </td>
+                  <td className="py-2 pe-4">
+                    {q.total.toLocaleString()} {q.currency}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

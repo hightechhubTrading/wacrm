@@ -1,4 +1,5 @@
 'use client';
+import { PageIdentity } from '@/components/workspace/page-identity';
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -151,7 +152,7 @@ export default function BroadcastsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="crm-page crm-broadcasts-page space-y-6">
       {/* Top indeterminate progress bar: only visible while a broadcast
           is mid-send. Pure CSS animation so no extra deps. */}
       {anySending && (
@@ -181,12 +182,12 @@ export default function BroadcastsPage() {
       )}
 
       <div className="flex items-center justify-between">
-        <div>
+        <PageIdentity icon={Radio}>
           <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {t('subtitle')}
           </p>
-        </div>
+        </PageIdentity>
         <GatedButton
           canAct={canCreate}
           gateReason="create broadcasts"

@@ -41,8 +41,6 @@ import {
   Plus,
   GripVertical,
   AlertTriangle,
-  Bell,
-  BellOff,
   ListChecks,
   UserCheck,
   UserX,
@@ -222,7 +220,6 @@ export function PipelineSettings({
       name: s.name,
       color: s.color,
       position: i,
-      notify_group_on_enter: s.notify_group_on_enter ?? false,
       requires_contact_identity: s.requires_contact_identity ?? false,
     }));
 
@@ -382,14 +379,6 @@ export function PipelineSettings({
                             updated[index] = { ...updated[index], color: v };
                             setLocalStages(updated);
                           }}
-                          onNotifyChange={(v) => {
-                            const updated = [...localStages];
-                            updated[index] = {
-                              ...updated[index],
-                              notify_group_on_enter: v,
-                            };
-                            setLocalStages(updated);
-                          }}
                           onRequiresContactIdentityChange={(v) => {
                             const updated = [...localStages];
                             updated[index] = {
@@ -499,7 +488,6 @@ function SortableStageRow({
   stage,
   onNameChange,
   onColorChange,
-  onNotifyChange,
   onRequiresContactIdentityChange,
   onRemove,
   colors,
@@ -512,7 +500,6 @@ function SortableStageRow({
   stage: PipelineStage;
   onNameChange: (v: string) => void;
   onColorChange: (v: string) => void;
-  onNotifyChange: (v: boolean) => void;
   onRequiresContactIdentityChange: (v: boolean) => void;
   onRemove: () => void;
   colors: string[];
@@ -581,24 +568,6 @@ function SortableStageRow({
           </Button>
         </>
       )}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        onClick={() => onNotifyChange(!stage.notify_group_on_enter)}
-        title={t("notifyGroupOnEnter")}
-        className={
-          stage.notify_group_on_enter
-            ? "text-primary hover:text-primary"
-            : "text-muted-foreground hover:text-foreground"
-        }
-      >
-        {stage.notify_group_on_enter ? (
-          <Bell className="h-3.5 w-3.5" />
-        ) : (
-          <BellOff className="h-3.5 w-3.5" />
-        )}
-      </Button>
       <Button
         variant="ghost"
         size="icon-xs"

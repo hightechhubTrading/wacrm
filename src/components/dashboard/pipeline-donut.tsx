@@ -17,6 +17,7 @@ import { useTranslations } from 'next-intl'
 
 export function PipelineDonut({ data, loading, currency }: PipelineDonutProps) {
   const t = useTranslations('Dashboard.pipelineDonut')
+  const errorText = useTranslations('Dashboard.page')
   return (
     <section className="flex h-full flex-col rounded-xl border border-border bg-card">
       <header className="border-b border-border px-5 py-4">
@@ -27,8 +28,10 @@ export function PipelineDonut({ data, loading, currency }: PipelineDonutProps) {
       </header>
 
       <div className="flex flex-1 flex-col p-5">
-        {loading || !data ? (
+        {loading ? (
           <Skeleton className="h-56 w-full" />
+        ) : !data ? (
+          <p role="status" className="text-sm text-muted-foreground py-8">{errorText('unavailable')}</p>
         ) : data.stages.length === 0 ? (
           <EmptyState
             icon={GitBranch}

@@ -1,9 +1,10 @@
-"use client";
+'use client';
 
-import type { Deal, PipelineStage } from "@/types";
-import { Calendar, Check, FileText, X } from "lucide-react";
-import { formatCurrency } from "@/lib/currency";
-import { useTranslations } from "next-intl";
+import { GroupWorkButton } from '@/components/jobs/group-work';
+import type { Deal, PipelineStage } from '@/types';
+import { Calendar, Check, FileText, X } from 'lucide-react';
+import { formatCurrency } from '@/lib/currency';
+import { useLocale, useTranslations } from 'next-intl';
 
 interface DealCardProps {
   deal: Deal;
@@ -13,17 +14,17 @@ interface DealCardProps {
   isOverlay?: boolean;
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
+function formatDate(dateStr: string, locale: string) {
+  return new Date(dateStr).toLocaleDateString(locale, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   });
 }
 
 function initials(name?: string, fallback?: string) {
-  const source = (name || fallback || "?").trim();
-  if (!source) return "?";
+  const source = (name || fallback || '?').trim();
+  if (!source) return '?';
   return source.charAt(0).toUpperCase();
 }
 
@@ -34,8 +35,10 @@ export function DealCard({
   onOpenQuotations,
   isOverlay,
 }: DealCardProps) {
-  const t = useTranslations("Pipelines.card");
-  const contactLabel = deal.contact?.name || deal.contact?.phone || t("noContact");
+  const t = useTranslations('Pipelines.card');
+  const locale = useLocale();
+  const contactLabel =
+    deal.contact?.name || deal.contact?.phone || t('noContact');
   const assigneeLabel = deal.assignee?.full_name || null;
 
   return (
@@ -45,17 +48,17 @@ export function DealCard({
     // chrome (border/bg/shadow/hover) so the two triggers can sit as
     // siblings inside it instead.
     <div
-      className={`group relative w-full overflow-hidden rounded-xl border border-border/50 bg-muted/70 shadow-sm transition-all ${
+      className={`crm-deal-card group border-border/50 bg-muted/70 relative w-full overflow-hidden rounded-xl border shadow-sm transition-all ${
         isOverlay
-          ? "shadow-xl"
-          : "hover:-translate-y-0.5 hover:border-border hover:bg-muted hover:shadow-lg"
+          ? 'shadow-xl'
+          : 'hover:border-border hover:bg-muted hover:-translate-y-0.5 hover:shadow-lg'
       }`}
     >
       {/* 4px left accent bar using stage color */}
       <span
         aria-hidden
-        className="absolute left-0 top-0 h-full w-1 rounded-l-xl"
-        style={{ backgroundColor: stage?.color ?? "#94a3b8" }}
+        className="absolute start-0 top-0 h-full w-1 rounded-l-xl"
+        style={{ backgroundColor: stage?.color ?? '#94a3b8' }}
       />
 
       <button
@@ -67,22 +70,22 @@ export function DealCard({
           e.stopPropagation();
           onEdit(deal);
         }}
-        className="block w-full cursor-pointer pl-4 pr-3 pt-3 pb-2 text-left"
+        className="block w-full cursor-pointer ps-4 pe-3 pt-3 pb-2 text-start"
       >
         <div className="flex items-start justify-between gap-2">
-          <h4 className="flex-1 text-sm font-semibold leading-snug text-foreground break-words">
+          <h4 className="text-foreground flex-1 text-sm leading-snug font-semibold break-words">
             {deal.title}
           </h4>
-          {deal.status === "won" && (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+          {deal.status === 'won' && (
+            <span className="bg-primary/15 text-primary inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold">
               <Check className="h-3 w-3" />
-              {t("won")}
+              {t('won')}
             </span>
           )}
-          {deal.status === "lost" && (
+          {deal.status === 'lost' && (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-400">
               <X className="h-3 w-3" />
-              {t("lost")}
+              {t('lost')}
             </span>
           )}
         </div>
@@ -106,9 +109,11 @@ export function DealCard({
             {deal.contact.customValues.slice(0, 2).map((cv) => (
               <p
                 key={cv.field_name}
-                className="truncate text-[11px] text-muted-foreground"
+                className="text-muted-foreground truncate text-[11px]"
               >
-                <span className="font-medium text-foreground/80">{cv.field_name}:</span>{" "}
+                <span className="text-foreground/80 font-medium">
+                  {cv.field_name}:
+                </span>{' '}
                 {cv.value}
               </p>
             ))}
@@ -117,20 +122,22 @@ export function DealCard({
 
         {/* Contact row */}
         <div className="mt-2 flex items-center gap-2">
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-foreground">
+          <span className="bg-muted text-foreground flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold">
             {initials(deal.contact?.name, deal.contact?.phone)}
           </span>
-          <span className="truncate text-xs text-muted-foreground">{contactLabel}</span>
+          <span className="text-muted-foreground truncate text-xs">
+            {contactLabel}
+          </span>
         </div>
 
         <div className="mt-2 flex items-center justify-between">
-          <span className="text-sm font-bold text-primary">
+          <span className="crm-deal-value text-foreground text-xl font-semibold tabular-nums">
             {formatCurrency(deal.value, deal.currency)}
           </span>
           {deal.expected_close_date && (
-            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <span className="text-muted-foreground flex items-center gap-1 text-[11px]">
               <Calendar className="h-3 w-3" />
-              {formatDate(deal.expected_close_date)}
+              {formatDate(deal.expected_close_date, locale)}
             </span>
           )}
         </div>
@@ -139,13 +146,15 @@ export function DealCard({
           <div className="mt-2 flex items-center justify-end">
             <span
               title={assigneeLabel}
-              className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary"
+              className="bg-primary/15 text-primary flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold"
             >
               {initials(assigneeLabel)}
             </span>
           </div>
         )}
       </button>
+
+      {!isOverlay && <GroupWorkButton dealId={deal.id} />}
 
       {/* Quotations entry point (Task 14) -- sibling of the main card
           button, not nested inside it. Same isOverlay guard as onEdit
@@ -157,10 +166,10 @@ export function DealCard({
           e.stopPropagation();
           onOpenQuotations(deal);
         }}
-        className="flex w-full items-center gap-1.5 border-t border-border/50 px-4 py-2 text-[11px] font-medium text-muted-foreground transition-colors hover:text-primary"
+        className="border-border/50 text-muted-foreground hover:text-primary flex w-full items-center gap-1.5 border-t px-4 py-2 text-[11px] font-medium transition-colors"
       >
         <FileText className="h-3 w-3" />
-        {t("quotations")}
+        {t('quotations')}
       </button>
     </div>
   );

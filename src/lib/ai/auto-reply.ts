@@ -1,10 +1,16 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
-import { supabaseAdmin } from './admin-client'
-import { loadAiConfig } from './config'
-import { buildConversationContext } from './context'
-import { retrieveKnowledge } from './knowledge'
-import { listProductsForPrompt, getProductMediaItem } from './media-library'
-import { generateReply } from './generate'
+import {
+  ensureFollowup,
+  recordReplyEvent,
+  type FollowupKind,
+} from './followups';
+import { loadConversationMemory, memoryPrompt } from './memory';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from './admin-client';
+import { loadAiConfig } from './config';
+import { buildConversationContext } from './context';
+import { retrieveKnowledge } from './knowledge';
+import { listProductsForPrompt, getProductMediaItem } from './media-library';
+import { generateReply } from './generate';
 import {
   buildSystemPrompt,
   isArabicText,
@@ -15,30 +21,46 @@ import {
   aiReplyDebounceMs,
   HANDOFF_CLOSING_MESSAGE_EN,
   HANDOFF_CLOSING_MESSAGE_AR,
-} from './defaults'
-import { buildHandoffSummary, notifyAiHandoff } from './handoff'
-import { logAiUsage } from './usage'
-import { latestUserMessage, latestCustomerAuthoredMessage, customerLanguageScript } from './query'
-import { engineSendText, engineSendMedia } from '@/lib/flows/meta-send'
-import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
-import { addContactTagAndDispatch } from '@/lib/contacts/tag-events'
+} from './defaults';
+import { buildHandoffSummary, notifyAiHandoff } from './handoff';
+import { logAiUsage } from './usage';
+import {
+  latestUserMessage,
+  latestCustomerAuthoredMessage,
+  customerLanguageScript,
+} from './query';
+import { engineSendText, engineSendMedia } from '@/lib/flows/meta-send';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
+import { addContactTagAndDispatch } from '@/lib/contacts/tag-events';
 import {
   listAiCollectibleFields,
   applyCollectedFields,
   listCollectedFieldValues,
   resolveCurrentOpenDeal,
   listGroupFieldsForStage,
-} from './collect-fields'
-import { AiError } from './types'
-import type { AiConfig, ChatMessage } from './types'
-import { recordKeyError, clearKeyError, notifyAdminsOfKeyError } from './key-health'
-import { isWithinBusinessHours, formatBusinessHours, type BusinessHours } from './business-hours'
-import { notifyUrgentLead } from './lead-priority'
+  type CurrentDeal,
+} from './collect-fields';
+import { AiError } from './types';
+import type { AiConfig, ChatMessage } from './types';
+import {
+  recordKeyError,
+  clearKeyError,
+  notifyAdminsOfKeyError,
+} from './key-health';
+import {
+  isWithinBusinessHours,
+  formatBusinessHours,
+  type BusinessHours,
+} from './business-hours';
+import { notifyUrgentLead } from './lead-priority';
+import { assessSalesInput, verifySalesOutput } from './typesafe/sales';
+import { jevMode } from './typesafe/client';
+import { emotionalHandoffMessage } from './typesafe/emotion';
 
 /** How long a cached after-hours context summary stays fresh before
  * it's regenerated -- bounds the extra LLM call to at most once per
  * conversation per window, not once per reply. */
-const CONTEXT_SUMMARY_TTL_MS = 6 * 60 * 60 * 1000
+const CONTEXT_SUMMARY_TTL_MS = 6 * 60 * 60 * 1000;
 
 /**
  * Mirror the rolling AI conversation summary onto the contact's Notes
@@ -51,23 +73,26 @@ const CONTEXT_SUMMARY_TTL_MS = 6 * 60 * 60 * 1000
 async function upsertAiSummaryNote(
   db: SupabaseClient,
   args: {
-    accountId: string
-    contactId: string
-    conversationId: string
-    authorUserId: string
-    summary: string
-  },
+    accountId: string;
+    contactId: string;
+    conversationId: string;
+    authorUserId: string;
+    summary: string;
+  }
 ): Promise<void> {
-  const { accountId, contactId, conversationId, authorUserId, summary } = args
-  const noteText = `🤖 AI summary: ${summary}`
+  const { accountId, contactId, conversationId, authorUserId, summary } = args;
+  const noteText = `🤖 AI summary: ${summary}`;
   const { data: existing } = await db
     .from('contact_notes')
     .select('id')
     .eq('conversation_id', conversationId)
     .eq('is_ai_generated', true)
-    .maybeSingle()
+    .maybeSingle();
   if (existing) {
-    await db.from('contact_notes').update({ note_text: noteText }).eq('id', existing.id)
+    await db
+      .from('contact_notes')
+      .update({ note_text: noteText })
+      .eq('id', existing.id);
   } else {
     await db.from('contact_notes').insert({
       account_id: accountId,
@@ -76,7 +101,7 @@ async function upsertAiSummaryNote(
       user_id: authorUserId,
       note_text: noteText,
       is_ai_generated: true,
-    })
+    });
   }
 }
 
@@ -96,19 +121,24 @@ async function upsertAiSummaryNote(
  * step must not skip the rest.
  */
 async function performHandoff(args: {
-  db: SupabaseClient
-  accountId: string
-  conversationId: string
-  contactId: string
-  configOwnerUserId: string
-  messages: ChatMessage[]
-  replyCount: number
-  handoffAgentId: string | null
-  currentAssignedAgentId: string | null
+  db: SupabaseClient;
+  accountId: string;
+  conversationId: string;
+  contactId: string;
+  configOwnerUserId: string;
+  messages: ChatMessage[];
+  replyCount: number;
+  handoffAgentId: string | null;
+  currentAssignedAgentId: string | null;
   /** Lead details the model recorded in the same turn it decided to
    * hand off -- captured before the thread goes quiet. Omitted by the
    * reply-cap backstop, which has no fresh model output to draw from. */
-  fields?: { name: string; value: string }[]
+  fields?: { name: string; value: string }[];
+  expectedDeal?: CurrentDeal | null;
+  triggerMessageId?: string;
+  followupKind?: FollowupKind;
+  apologize?: boolean;
+  handoffReason?: string;
 }): Promise<void> {
   const {
     db,
@@ -121,16 +151,32 @@ async function performHandoff(args: {
     handoffAgentId,
     currentAssignedAgentId,
     fields,
-  } = args
+  } = args;
 
   if (fields && fields.length > 0) {
     try {
-      await applyCollectedFields({ db, accountId, contactId, fields })
+      await applyCollectedFields({
+        db,
+        accountId,
+        contactId,
+        fields,
+        ...('expectedDeal' in args ? { expectedDeal: args.expectedDeal } : {}),
+      });
     } catch (err) {
-      console.error('[ai auto-reply] field collection before handoff failed:', err)
+      console.error(
+        '[ai auto-reply] field collection before handoff failed:',
+        err
+      );
     }
   }
 
+  await ensureFollowup(db, {
+    accountId,
+    conversationId,
+    sourceMessageId: args.triggerMessageId,
+    kind: args.followupKind ?? 'handoff',
+    ownerId: currentAssignedAgentId ?? handoffAgentId,
+  });
   // Let the customer know a person is taking over instead of the
   // thread simply going quiet. This closing message is a fixed,
   // human-authored line -- never the model's own text, so a handoff
@@ -141,45 +187,77 @@ async function performHandoff(args: {
   // triggered right after an uncaptioned photo must not read the
   // photo's always-English auto-caption as the customer having
   // switched languages.
-  const customerScript = customerLanguageScript(messages)
-  const closingMessage = (
-    customerScript === 'mixed'
-      ? isArabicText(latestCustomerAuthoredMessage(messages))
-      : customerScript === 'arabic'
-  )
-    ? HANDOFF_CLOSING_MESSAGE_AR
-    : HANDOFF_CLOSING_MESSAGE_EN
-  try {
-    await engineSendText({
-      accountId,
-      userId: configOwnerUserId,
-      conversationId,
-      contactId,
-      text: closingMessage,
-      aiGenerated: true,
-    })
-  } catch (err) {
-    console.error('[ai auto-reply] handoff closing message failed:', err)
-  }
-
+  const customerScript = customerLanguageScript(messages);
+  const closingMessage = args.apologize
+    ? emotionalHandoffMessage(messages)
+    : (
+          customerScript === 'mixed'
+            ? isArabicText(latestCustomerAuthoredMessage(messages))
+            : customerScript === 'arabic'
+        )
+      ? HANDOFF_CLOSING_MESSAGE_AR
+      : HANDOFF_CLOSING_MESSAGE_EN;
   // Stop auto-replying on this thread and hand it to a human. We (a)
   // pause the bot here (sticky until re-enabled), (b) route the
   // conversation to the configured handoff agent -- null leaves it in
   // the shared queue -- and (c) leave a short internal note -- a real
   // recap of whatever lead details have been collected so far, not
   // just a tally -- so whoever picks it up has context.
-  const collectedFields = await listCollectedFieldValues(db, accountId, contactId)
-  const summary = buildHandoffSummary({ messages, replyCount, collectedFields })
+  const collectedFields = await listCollectedFieldValues(
+    db,
+    accountId,
+    contactId
+  );
+  const recap = buildHandoffSummary({
+    messages,
+    replyCount,
+    collectedFields,
+  });
+  const summary = args.handoffReason ? `${recap} ${args.handoffReason}` : recap;
   const update: Record<string, unknown> = {
     ai_autoreply_disabled: true,
     ai_handoff_summary: summary,
-  }
+  };
   // Only set the assignee when a target is configured AND the thread
   // isn't already owned -- never stomp an existing human assignment.
   if (handoffAgentId && !currentAssignedAgentId) {
-    update.assigned_agent_id = handoffAgentId
+    update.assigned_agent_id = handoffAgentId;
   }
-  await db.from('conversations').update(update).eq('id', conversationId)
+  const { error: handoffError } = await db
+    .from('conversations')
+    .update(update)
+    .eq('id', conversationId);
+  if (handoffError) {
+    await recordReplyEvent(db, {
+      accountId,
+      conversationId,
+      triggerMessageId: args.triggerMessageId,
+      outcome: 'failed',
+      reason: 'handoff_failed',
+    });
+  } else {
+    await recordReplyEvent(db, {
+      accountId,
+      conversationId,
+      triggerMessageId: args.triggerMessageId,
+      outcome: 'handoff',
+      reason:
+        args.followupKind === 'document_review' ? 'document_review' : 'handoff',
+    });
+
+    try {
+      await engineSendText({
+        accountId,
+        userId: configOwnerUserId,
+        conversationId,
+        contactId,
+        text: closingMessage,
+        aiGenerated: true,
+      });
+    } catch (err) {
+      console.error('[ai auto-reply] handoff closing message failed:', err);
+    }
+  }
 
   // Explicitly notify a human -- never rely solely on the generic
   // `on_conversation_assigned` trigger (it fires too when the update
@@ -193,11 +271,13 @@ async function performHandoff(args: {
       conversationId,
       contactId,
       assignedAgentId:
-        (update.assigned_agent_id as string | undefined) ?? currentAssignedAgentId ?? null,
+        (update.assigned_agent_id as string | undefined) ??
+        currentAssignedAgentId ??
+        null,
       summary,
-    })
+    });
   } catch (err) {
-    console.error('[ai auto-reply] handoff notification failed:', err)
+    console.error('[ai auto-reply] handoff notification failed:', err);
   }
 }
 
@@ -221,24 +301,25 @@ async function performHandoff(args: {
  * rather than blocking the send.
  */
 async function correctReplyLanguageIfNeeded(args: {
-  db: SupabaseClient
-  accountId: string
-  conversationId: string
-  config: AiConfig
-  customerScript: 'arabic' | 'latin' | 'mixed'
-  replyText: string
+  db: SupabaseClient;
+  accountId: string;
+  conversationId: string;
+  config: AiConfig;
+  customerScript: 'arabic' | 'latin' | 'mixed';
+  replyText: string;
 }): Promise<string> {
-  const { db, accountId, conversationId, config, customerScript, replyText } = args
-  const replyScript = languageScript(replyText)
+  const { db, accountId, conversationId, config, customerScript, replyText } =
+    args;
+  const replyScript = languageScript(replyText);
   if (
     customerScript === 'mixed' ||
     replyScript === 'mixed' ||
     customerScript === replyScript
   ) {
-    return replyText
+    return replyText;
   }
 
-  const targetLanguage = customerScript === 'arabic' ? 'Arabic' : 'English'
+  const targetLanguage = customerScript === 'arabic' ? 'Arabic' : 'English';
   try {
     const { text: translated, usage } = await generateReply({
       config,
@@ -247,7 +328,7 @@ async function correctReplyLanguageIfNeeded(args: {
         'Preserve the meaning, tone, and any numbers, product names, or URLs exactly -- do not add, remove, or answer anything new. ' +
         'Output ONLY the translated message text, nothing else.',
       messages: [{ role: 'user', content: replyText }],
-    })
+    });
     void logAiUsage(db, {
       accountId,
       conversationId,
@@ -255,38 +336,38 @@ async function correctReplyLanguageIfNeeded(args: {
       provider: config.provider,
       model: config.model,
       usage,
-    })
+    });
     if (translated.trim() && languageScript(translated) === customerScript) {
-      return translated.trim()
+      return translated.trim();
     }
     console.warn(
-      '[ai auto-reply] language correction did not land in the target script -- sending the original.',
-    )
-    return replyText
+      '[ai auto-reply] language correction did not land in the target script -- sending the original.'
+    );
+    return replyText;
   } catch (err) {
-    console.error('[ai auto-reply] language correction call failed:', err)
-    return replyText
+    console.error('[ai auto-reply] language correction call failed:', err);
+    return replyText;
   }
 }
 
 interface DispatchArgs {
   /** Tenancy key -- drives config, contact, and whatsapp_config lookups. */
-  accountId: string
-  conversationId: string
-  contactId: string
+  accountId: string;
+  conversationId: string;
+  contactId: string;
   /** The account's WhatsApp config owner, used for the outbound send's
    * audit columns (mirrors how the flow runner passes it through). */
-  configOwnerUserId: string
+  configOwnerUserId: string;
   /** The just-arrived inbound message's WhatsApp id (`messages.message_id`).
    * Drives the debounce staleness check below -- omit only when calling
    * this function outside the webhook's per-message flow (e.g. tests
    * exercising the rest of the pipeline directly), which skips debouncing
    * entirely and replies immediately, matching the pre-debounce behavior. */
-  triggerMessageId?: string
+  triggerMessageId?: string;
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** True when the conversation's latest customer message is no longer
@@ -295,7 +376,7 @@ function sleep(ms: number): Promise<void> {
 async function newerCustomerMessageArrived(
   db: SupabaseClient,
   conversationId: string,
-  triggerMessageId: string | undefined,
+  triggerMessageId: string | undefined
 ): Promise<boolean> {
   const { data: latestCustomerMessage } = await db
     .from('messages')
@@ -304,8 +385,11 @@ async function newerCustomerMessageArrived(
     .eq('sender_type', 'customer')
     .order('created_at', { ascending: false })
     .limit(1)
-    .maybeSingle()
-  return !!latestCustomerMessage && latestCustomerMessage.message_id !== triggerMessageId
+    .maybeSingle();
+  return (
+    !!latestCustomerMessage &&
+    latestCustomerMessage.message_id !== triggerMessageId
+  );
 }
 
 /**
@@ -328,19 +412,36 @@ async function newerCustomerMessageArrived(
  * window check is needed.
  */
 export async function dispatchInboundToAiReply(
-  args: DispatchArgs,
+  args: DispatchArgs
 ): Promise<void> {
-  const { accountId, conversationId, contactId, configOwnerUserId, triggerMessageId } = args
+  const {
+    accountId,
+    conversationId,
+    contactId,
+    configOwnerUserId,
+    triggerMessageId,
+  } = args;
 
   // Hoisted above the try so the catch block (key-error recording)
   // can still see them -- variables declared inside `try` aren't
   // visible in its `catch`.
-  const db = supabaseAdmin()
-  let config: AiConfig | null = null
+  const db = supabaseAdmin();
+  let config: AiConfig | null = null;
+  const event = (outcome: 'skipped' | 'sent' | 'failed', reason: string) =>
+    recordReplyEvent(db, {
+      accountId,
+      conversationId,
+      triggerMessageId,
+      outcome,
+      reason,
+    });
 
   try {
-    config = await loadAiConfig(db, accountId)
-    if (!config || !config.autoReplyEnabled) return
+    config = await loadAiConfig(db, accountId);
+    if (!config || !config.autoReplyEnabled) {
+      await event('skipped', 'ai_disabled');
+      return;
+    }
 
     // Deterministic, user-configured responders win over the LLM -- the
     // caller already excludes messages a Flow consumed. Message-level
@@ -356,17 +457,23 @@ export async function dispatchInboundToAiReply(
       .eq('account_id', accountId)
       .eq('is_active', true)
       .in('trigger_type', ['new_message_received', 'keyword_match'])
-      .limit(1)
-    if (autoResponders && autoResponders.length > 0) return
+      .limit(1);
+    if (autoResponders && autoResponders.length > 0) {
+      await event('skipped', 'automation_owned');
+      return;
+    }
 
     const { data: conv, error: convErr } = await db
       .from('conversations')
       .select(
-        'assigned_agent_id, ai_autoreply_disabled, ai_reply_count, ai_context_summary, ai_context_summary_at, ai_priority',
+        'assigned_agent_id, ai_autoreply_disabled, ai_reply_count, ai_context_summary, ai_context_summary_at, ai_priority'
       )
       .eq('id', conversationId)
-      .maybeSingle()
-    if (convErr || !conv) return
+      .maybeSingle();
+    if (convErr || !conv) {
+      await event('failed', 'conversation_unavailable');
+      return;
+    }
 
     // Account-level business knowledge -- social links (shared with the
     // customer when asked) and business hours (after-hours takeover
@@ -374,10 +481,11 @@ export async function dispatchInboundToAiReply(
     // an LLM call, so no reason to gate it behind afterHoursTakeoverEnabled.
     const { data: account } = await db
       .from('accounts')
-      .select('business_hours, timezone, social_links')
+      .select('business_hours, timezone, social_links, default_currency')
       .eq('id', accountId)
-      .maybeSingle()
-    const socialLinks = (account?.social_links as Record<string, string> | null) ?? null
+      .maybeSingle();
+    const socialLinks =
+      (account?.social_links as Record<string, string> | null) ?? null;
 
     // Pause during business hours: the mirror image of after-hours
     // takeover below -- staff are presumably handling chats themselves
@@ -385,32 +493,41 @@ export async function dispatchInboundToAiReply(
     // or not) until they're off. Only fires when hours are actually
     // configured -- isWithinBusinessHours() treats "unconfigured" as
     // always open, which would otherwise mean "always paused" here.
-    const businessHours = (account?.business_hours as BusinessHours | null) ?? null
-    const hoursConfigured = !!businessHours && Object.keys(businessHours).length > 0
+    const businessHours =
+      (account?.business_hours as BusinessHours | null) ?? null;
+    const hoursConfigured =
+      !!businessHours && Object.keys(businessHours).length > 0;
     if (
       config.pauseDuringBusinessHours &&
       account &&
       hoursConfigured &&
       isWithinBusinessHours(businessHours, account.timezone)
     ) {
-      return
+      await event('skipped', 'business_hours');
+      return;
     }
 
     // After-hours takeover: outside the account's configured business
     // hours, AI keeps replying even though a human is assigned -- they
     // presumably aren't available either, and the point is the customer
     // never waits until morning for a first response.
-    let isAfterHoursTakeover = false
+    let isAfterHoursTakeover = false;
     if (
       conv.assigned_agent_id &&
       config.afterHoursTakeoverEnabled &&
       account &&
       !isWithinBusinessHours(businessHours, account.timezone)
     ) {
-      isAfterHoursTakeover = true
+      isAfterHoursTakeover = true;
     }
-    if (conv.assigned_agent_id && !isAfterHoursTakeover) return // a human owns this thread
-    if (conv.ai_autoreply_disabled) return // handed off / turned off here — still respected even after hours
+    if (conv.assigned_agent_id && !isAfterHoursTakeover) {
+      await event('skipped', 'human_owned');
+      return;
+    } // a human owns this thread
+    if (conv.ai_autoreply_disabled) {
+      await event('skipped', 'thread_paused');
+      return;
+    } // handed off / turned off here — still respected even after hours
     // Cheap early-out; the authoritative cap check is the atomic claim
     // below (this read can race a concurrent inbound). 0 (or less) means
     // unlimited -- the cap is opt-in.
@@ -426,7 +543,7 @@ export async function dispatchInboundToAiReply(
       // behavior either way. This fires at most once -- the very next
       // inbound message hits `ai_autoreply_disabled` above and
       // returns before ever reaching this check again.
-      const capMessages = await buildConversationContext(db, conversationId)
+      const capMessages = await buildConversationContext(db, conversationId);
       if (capMessages.length > 0) {
         await performHandoff({
           db,
@@ -438,9 +555,10 @@ export async function dispatchInboundToAiReply(
           replyCount: conv.ai_reply_count ?? 0,
           handoffAgentId: config.handoffAgentId,
           currentAssignedAgentId: conv.assigned_agent_id,
-        })
+          triggerMessageId,
+        });
       }
-      return
+      return;
     }
 
     // Debounce: a customer very commonly splits one thought across
@@ -457,17 +575,131 @@ export async function dispatchInboundToAiReply(
     // the last message of a burst ever reaches the LLM call.
     // Skipped when triggerMessageId is absent (see DispatchArgs) or the
     // debounce window is configured to 0.
-    const debounceMs = aiReplyDebounceMs()
-    const debounceActive = !!triggerMessageId && debounceMs > 0
+    const debounceMs = aiReplyDebounceMs();
+    const debounceActive = !!triggerMessageId && debounceMs > 0;
     if (debounceActive) {
-      await sleep(debounceMs)
-      if (await newerCustomerMessageArrived(db, conversationId, triggerMessageId)) {
-        return // a newer message arrived during the wait -- it owns the reply
+      await sleep(debounceMs);
+      if (
+        await newerCustomerMessageArrived(db, conversationId, triggerMessageId)
+      ) {
+        await event('skipped', 'stale_trigger');
+        return; // a newer message arrived during the wait -- it owns the reply
       }
     }
 
-    const messages = await buildConversationContext(db, conversationId)
-    if (messages.length === 0) return
+    const messages = await buildConversationContext(db, conversationId);
+    if (messages.length === 0) {
+      await event('skipped', 'no_context');
+      return;
+    }
+
+    // Jev never overrides the deterministic ownership/consent gates. Recheck
+    // close to every effect because model calls can outlive a customer burst.
+    const jevContext = {
+      db,
+      accountId,
+      conversationId,
+      triggerMessageId,
+      workflow: 'auto_reply' as const,
+    };
+    const stillEligible = async () => {
+      if (jevMode() !== 'enforce') return true;
+      if (
+        triggerMessageId &&
+        (await newerCustomerMessageArrived(
+          db,
+          conversationId,
+          triggerMessageId
+        ))
+      )
+        return false;
+      const { data: fresh, error } = await db
+        .from('conversations')
+        .select('assigned_agent_id, ai_autoreply_disabled')
+        .eq('id', conversationId)
+        .eq('account_id', accountId)
+        .maybeSingle();
+      if (error || !fresh || fresh.ai_autoreply_disabled) return false;
+      // Even after hours, a new assignment means the old snapshot is stale.
+      return fresh.assigned_agent_id === conv.assigned_agent_id;
+    };
+
+    // Account-wide throttle on the shared BYO key. The per-conversation
+    // cap bounds one thread; this bounds a burst across many threads (a
+    // marketing blast landing 200 replies at once) so we never run the
+    // owner's key past the provider's rate limit. Over the limit -> skip
+    // the auto-reply; the inbound still sits in the inbox for a human.
+    const acctLimit = checkRateLimit(
+      `ai-autoreply:${accountId}`,
+      RATE_LIMITS.aiAutoReplyAccount
+    );
+    if (!acctLimit.success) {
+      console.warn(
+        `[ai auto-reply] account ${accountId} hit the per-account rate limit -- skipping this inbound.`
+      );
+      await event('skipped', 'rate_limited');
+      return;
+    }
+
+    const memory = await loadConversationMemory(
+      db,
+      accountId,
+      conversationId,
+      messages
+    );
+    const lastCustomer = [...messages].reverse().find((m) => m.role === 'user');
+    if (lastCustomer?.attachmentState === 'unavailable') {
+      if (!(await stillEligible())) {
+        await event('skipped', 'stale_trigger');
+        return;
+      }
+      await performHandoff({
+        db,
+        accountId,
+        conversationId,
+        contactId,
+        configOwnerUserId,
+        messages,
+        replyCount: conv.ai_reply_count ?? 0,
+        handoffAgentId: config.handoffAgentId,
+        currentAssignedAgentId: conv.assigned_agent_id,
+        triggerMessageId,
+        followupKind: 'document_review',
+      });
+      return;
+    }
+    const salesInput = await assessSalesInput(jevContext, messages, memory);
+    if (salesInput.handoff && (await stillEligible())) {
+      for (const kind of salesInput.followupKinds ?? [])
+        await ensureFollowup(db, {
+          accountId,
+          conversationId,
+          sourceMessageId: triggerMessageId,
+          kind,
+          ownerId: conv.assigned_agent_id ?? config.handoffAgentId,
+        });
+    }
+    if (salesInput.handoff) {
+      if (!(await stillEligible())) {
+        await event('skipped', 'stale_trigger');
+        return;
+      }
+      await performHandoff({
+        db,
+        accountId,
+        conversationId,
+        contactId,
+        configOwnerUserId,
+        messages,
+        replyCount: conv.ai_reply_count ?? 0,
+        handoffAgentId: config.handoffAgentId,
+        currentAssignedAgentId: conv.assigned_agent_id,
+        triggerMessageId,
+        apologize: salesInput.apologize,
+        handoffReason: salesInput.handoffReason,
+      });
+      return;
+    }
 
     // Rolling conversation summary: regenerated at most once per TTL
     // window (never on every reply), for every conversation -- not
@@ -478,10 +710,10 @@ export async function dispatchInboundToAiReply(
     // Notes list so a human agent always has an up-to-date recap
     // without having to scroll the whole thread -- not just the
     // "AI handled this after hours" case (message-thread.tsx).
-    let contextSummary: string | null = conv.ai_context_summary ?? null
+    let contextSummary: string | null = conv.ai_context_summary ?? null;
     const summaryAge = conv.ai_context_summary_at
       ? Date.now() - new Date(conv.ai_context_summary_at).getTime()
-      : Infinity
+      : Infinity;
     if (summaryAge > CONTEXT_SUMMARY_TTL_MS) {
       try {
         const { text: summaryText } = await generateReply({
@@ -489,43 +721,30 @@ export async function dispatchInboundToAiReply(
           systemPrompt:
             "Summarize this WhatsApp conversation in 2-3 short sentences for a teammate catching up: what the customer wants, what's been resolved, what's still outstanding. Output only the summary, no preamble.",
           messages,
-        })
+        });
         if (summaryText.trim()) {
-          contextSummary = summaryText.trim()
+          contextSummary = summaryText.trim();
           await db
             .from('conversations')
             .update({
               ai_context_summary: contextSummary,
               ai_context_summary_at: new Date().toISOString(),
             })
-            .eq('id', conversationId)
+            .eq('id', conversationId);
           await upsertAiSummaryNote(db, {
             accountId,
             contactId,
             conversationId,
             authorUserId: configOwnerUserId,
             summary: contextSummary,
-          })
+          });
         }
       } catch (err) {
-        console.error('[ai auto-reply] context summary generation failed:', err)
+        console.error(
+          '[ai auto-reply] context summary generation failed:',
+          err
+        );
       }
-    }
-
-    // Account-wide throttle on the shared BYO key. The per-conversation
-    // cap bounds one thread; this bounds a burst across many threads (a
-    // marketing blast landing 200 replies at once) so we never run the
-    // owner's key past the provider's rate limit. Over the limit -> skip
-    // the auto-reply; the inbound still sits in the inbox for a human.
-    const acctLimit = checkRateLimit(
-      `ai-autoreply:${accountId}`,
-      RATE_LIMITS.aiAutoReplyAccount,
-    )
-    if (!acctLimit.success) {
-      console.warn(
-        `[ai auto-reply] account ${accountId} hit the per-account rate limit -- skipping this inbound.`,
-      )
-      return
     }
 
     // Ground the reply in the account's knowledge base (best-effort).
@@ -533,14 +752,14 @@ export async function dispatchInboundToAiReply(
       db,
       accountId,
       config,
-      latestUserMessage(messages),
-    )
+      latestUserMessage(messages)
+    );
 
     // Media library -- lets the model attach a product photo/catalog by
     // id, and/or flag a product as the topic via a tag (best-effort;
     // empty when the account hasn't set one up, in which case
     // buildSystemPrompt omits the whole capability).
-    const media = await listProductsForPrompt(db, accountId)
+    const media = await listProductsForPrompt(db, accountId);
 
     // AI-collectible fields -- lets the model save lead details (product
     // interest, measurements, budget, timeline, etc.) onto the contact as
@@ -549,45 +768,47 @@ export async function dispatchInboundToAiReply(
     // capability). Group fields are added on top, but only when the
     // contact's current open deal has actually reached a stage with an
     // active custom field group linked -- never for a brand-new lead.
-    const contactCollectFields = await listAiCollectibleFields(db, accountId)
-    const currentDeal = await resolveCurrentOpenDeal(db, accountId, contactId)
+    const contactCollectFields = await listAiCollectibleFields(db, accountId);
+    const currentDeal = await resolveCurrentOpenDeal(db, accountId, contactId);
     const groupCollectFields = currentDeal
       ? await listGroupFieldsForStage(db, currentDeal.stage_id)
-      : []
-    const collectFields = [...contactCollectFields, ...groupCollectFields]
+      : [];
+    const collectFields = [...contactCollectFields, ...groupCollectFields];
 
     // Assigned agent's phone -- so the model can share a real callable
     // number when the customer asks to talk by phone, instead of
     // inventing one or just deflecting (migration 052).
-    let assignedAgentPhone: string | null = null
+    let assignedAgentPhone: string | null = null;
     if (conv.assigned_agent_id) {
       const { data: agentProfile } = await db
         .from('profiles')
         .select('phone')
         .eq('user_id', conv.assigned_agent_id)
-        .maybeSingle()
-      assignedAgentPhone = (agentProfile?.phone as string | null) ?? null
+        .maybeSingle();
+      assignedAgentPhone = (agentProfile?.phone as string | null) ?? null;
     }
 
-    const systemPrompt = buildSystemPrompt({
+    const baseSystemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'auto_reply',
       knowledge,
       media,
       collectFields,
-      contextSummary: isAfterHoursTakeover ? contextSummary : null,
+      contextSummary: null, // Generated summaries are not verified source facts; use memory below.
       socialLinks,
       assignedAgentPhone,
       businessHours: formatBusinessHours(businessHours),
       timezone: account?.timezone ?? null,
-    })
+    });
 
-    const { text, handoff, mediaId, productTagId, fields, priority, priorityReason, usage } =
-      await generateReply({
-        config,
-        systemPrompt,
-        messages,
-      })
+    const groundedSystemPrompt = `${baseSystemPrompt}\n\n${memoryPrompt(memory)}`;
+    const systemPrompt = salesInput.guidance
+      ? `${groundedSystemPrompt}\n\nSales communication guidance:\n${salesInput.guidance}`
+      : groundedSystemPrompt;
+
+    const generated = await generateReply({ config, systemPrompt, messages });
+    const { priority, priorityReason, usage } = generated;
+    let { text, handoff, mediaId, productTagId, fields } = generated;
 
     // Second debounce check, after generation. The first check only
     // covers the fixed wait; the summary + knowledge + LLM calls above
@@ -597,16 +818,20 @@ export async function dispatchInboundToAiReply(
     // back-to-back, median 10s apart, often re-asking the same thing).
     // The newer message's own invocation sees the whole thread, so
     // dropping this reply loses nothing.
-    if (debounceActive && (await newerCustomerMessageArrived(db, conversationId, triggerMessageId))) {
-      return
+    if (
+      debounceActive &&
+      (await newerCustomerMessageArrived(db, conversationId, triggerMessageId))
+    ) {
+      await event('skipped', 'stale_trigger');
+      return;
     }
 
     // The call just succeeded -- if the key was previously flagged as
     // broken, clear it. Best-effort: never let this block the reply.
     if (config.lastKeyError) {
       clearKeyError(db, accountId).catch((err) =>
-        console.error('[ai auto-reply] failed to clear key error:', err),
-      )
+        console.error('[ai auto-reply] failed to clear key error:', err)
+      );
     }
 
     // Record token spend on the account's BYO key. Fire-and-forget so it
@@ -621,7 +846,55 @@ export async function dispatchInboundToAiReply(
       provider: config.provider,
       model: config.model,
       usage,
-    })
+    });
+
+    if (text && !handoff) {
+      text = isolatePhoneNumbers(
+        await correctReplyLanguageIfNeeded({
+          db,
+          accountId,
+          conversationId,
+          config,
+          customerScript: customerLanguageScript(messages),
+          replyText: text,
+        })
+      );
+    }
+    const verified = await verifySalesOutput(
+      jevContext,
+      {
+        messages,
+        knowledge,
+        products: media,
+        collectFields,
+        businessContext: config.systemPrompt,
+        businessHours: formatBusinessHours(businessHours),
+        socialLinks,
+        agentPhone: assignedAgentPhone,
+        currency: account?.default_currency ?? null,
+        memory,
+        emotion: salesInput.emotion,
+      },
+      {
+        text,
+        handoff,
+        mediaId,
+        productTagId,
+        fields,
+        priority,
+        priorityReason,
+        usage,
+      }
+    );
+    text = verified.text;
+    handoff = verified.handoff;
+    mediaId = verified.mediaId;
+    productTagId = verified.productTagId;
+    fields = verified.fields;
+    if (!(await stillEligible())) {
+      await event('skipped', 'stale_trigger');
+      return;
+    }
 
     // Always persist the priority assessment (even 'low'/'normal') so
     // the conversation list shows a complete, honest signal rather than
@@ -629,12 +902,13 @@ export async function dispatchInboundToAiReply(
     // reply. Notify only on a genuine transition INTO urgent, not on
     // every subsequent urgent-flagged reply in the same thread.
     if (priority) {
-      const becameUrgent = priority === 'urgent' && conv.ai_priority !== 'urgent'
+      const becameUrgent =
+        priority === 'urgent' && conv.ai_priority !== 'urgent';
       try {
         await db
           .from('conversations')
           .update({ ai_priority: priority, ai_priority_reason: priorityReason })
-          .eq('id', conversationId)
+          .eq('id', conversationId);
         if (becameUrgent) {
           notifyUrgentLead(db, {
             accountId,
@@ -642,10 +916,12 @@ export async function dispatchInboundToAiReply(
             contactId,
             assignedAgentId: conv.assigned_agent_id ?? null,
             reason: priorityReason,
-          }).catch((err) => console.error('[ai auto-reply] urgent notification failed:', err))
+          }).catch((err) =>
+            console.error('[ai auto-reply] urgent notification failed:', err)
+          );
         }
       } catch (err) {
-        console.error('[ai auto-reply] priority update failed:', err)
+        console.error('[ai auto-reply] priority update failed:', err);
       }
     }
 
@@ -662,12 +938,15 @@ export async function dispatchInboundToAiReply(
       containsPriceFigure(text) &&
       !(
         productTagId &&
-        media.some((m) => m.id === productTagId && m.priceMin != null && m.priceMax != null)
-      )
+        media.some(
+          (m) =>
+            m.id === productTagId && m.priceMin != null && m.priceMax != null
+        )
+      );
     if (quotesUnverifiedPrice) {
       console.warn(
-        '[ai auto-reply] reply quoted a price without a matching tagged product -- forcing handoff instead of sending it.',
-      )
+        '[ai auto-reply] reply quoted a price without a matching tagged product -- forcing handoff instead of sending it.'
+      );
     }
 
     // Deterministic backstop for the system prompt's own "hand off after
@@ -680,18 +959,19 @@ export async function dispatchInboundToAiReply(
     // yet again -- exactly the "stuck on repeat" pattern a long
     // back-and-forth over price falls into.
     const priceQuestionCount = messages.filter(
-      (m) => m.role === 'user' && containsPriceQuestion(m.content),
-    ).length
+      (m) => m.role === 'user' && containsPriceQuestion(m.content)
+    ).length;
     const staleOnRepeatedPriceAsk =
+      !salesInput.suppressSales &&
       !handoff &&
       !!text &&
       !containsPriceFigure(text) &&
       priceQuestionCount >= 2 &&
-      (conv.ai_reply_count ?? 0) >= 1
+      (conv.ai_reply_count ?? 0) >= 1;
     if (staleOnRepeatedPriceAsk) {
       console.warn(
-        '[ai auto-reply] customer asked about price 2+ times with nothing offered -- forcing handoff instead of deflecting again.',
-      )
+        '[ai auto-reply] customer asked about price 2+ times with nothing offered -- forcing handoff instead of deflecting again.'
+      );
     }
 
     if (handoff || !text || quotesUnverifiedPrice || staleOnRepeatedPriceAsk) {
@@ -705,25 +985,13 @@ export async function dispatchInboundToAiReply(
         replyCount: conv.ai_reply_count ?? 0,
         handoffAgentId: config.handoffAgentId,
         currentAssignedAgentId: conv.assigned_agent_id,
+        triggerMessageId,
+        followupKind: salesInput.followupKind,
         fields,
-      })
-      return
+        ...(jevMode() === 'enforce' ? { expectedDeal: currentDeal } : {}),
+      });
+      return;
     }
-
-    const outboundText = isolatePhoneNumbers(
-      await correctReplyLanguageIfNeeded({
-        db,
-        accountId,
-        conversationId,
-        config,
-        // Judged from the customer's latest turn that actually carries
-        // a language signal -- never a bare `[Image: ...]` auto-caption
-        // (always English) or a measurements/link-only message like
-        // "200 cm × 110cm". See customerLanguageScript in query.ts.
-        customerScript: customerLanguageScript(messages),
-        replyText: text,
-      }),
-    )
 
     // Atomically claim a reply slot: the cap check + increment happen in
     // one UPDATE, so concurrent inbounds can never overshoot the cap. If
@@ -735,26 +1003,42 @@ export async function dispatchInboundToAiReply(
       {
         conversation_id: conversationId,
         max_replies: config.autoReplyMaxPerConversation,
-      },
-    )
+      }
+    );
     if (claimErr) {
       // A real error here (vs. losing the cap race) is almost always a
       // deploy issue -- e.g. `claim_ai_reply_slot` not EXECUTE-able by the
       // service role, or the migration not applied. Log it loudly: a
       // silent return makes "auto-reply never fires" undiagnosable.
-      console.error('[ai auto-reply] claim_ai_reply_slot failed:', claimErr)
-      return
+      console.error('[ai auto-reply] claim_ai_reply_slot failed:', claimErr);
+      await event('failed', 'slot_unavailable');
+      return;
     }
-    if (claimed !== true) return // lost the per-conversation cap race
+    if (claimed !== true) {
+      await event('skipped', 'reply_cap');
+      return;
+    } // lost the per-conversation cap race
 
+    for (const kind of salesInput.followupKinds ??
+      (salesInput.followupKind ? [salesInput.followupKind] : [])) {
+      await ensureFollowup(db, {
+        accountId,
+        conversationId,
+        sourceMessageId: triggerMessageId,
+        kind,
+        ownerId: conv.assigned_agent_id ?? config.handoffAgentId,
+      });
+    }
     await engineSendText({
       accountId,
       userId: configOwnerUserId,
       conversationId,
       contactId,
-      text: outboundText,
+      text,
       aiGenerated: true,
-    })
+    });
+
+    await event('sent', 'sent');
 
     // Best-effort media attach: the text reply already landed, so a
     // failure here must not surface as a dispatch failure -- it's logged
@@ -763,11 +1047,11 @@ export async function dispatchInboundToAiReply(
     // null for a deleted-mid-conversation or hallucinated id).
     if (mediaId) {
       try {
-        const item = await getProductMediaItem(db, accountId, mediaId)
+        const item = await getProductMediaItem(db, accountId, mediaId);
         if (item) {
           const {
             data: { publicUrl },
-          } = db.storage.from('ai-media').getPublicUrl(item.storagePath)
+          } = db.storage.from('ai-media').getPublicUrl(item.storagePath);
           await engineSendMedia({
             accountId,
             userId: configOwnerUserId,
@@ -775,15 +1059,18 @@ export async function dispatchInboundToAiReply(
             contactId,
             kind: item.mediaKind,
             link: publicUrl,
-            filename: item.mediaKind === 'document' ? (item.label || item.productName) : undefined,
-          })
+            filename:
+              item.mediaKind === 'document'
+                ? item.label || item.productName
+                : undefined,
+          });
         } else {
           console.warn(
-            `[ai auto-reply] model chose file id "${mediaId}" but it no longer exists for account ${accountId}.`,
-          )
+            `[ai auto-reply] model chose file id "${mediaId}" but it no longer exists for account ${accountId}.`
+          );
         }
       } catch (err) {
-        console.error('[ai auto-reply] media send failed:', err)
+        console.error('[ai auto-reply] media send failed:', err);
       }
     }
 
@@ -793,21 +1080,22 @@ export async function dispatchInboundToAiReply(
     // to the contact. Never blocks or fails the reply/attach above.
     if (productTagId) {
       try {
-        const taggedProduct = media.find((m) => m.id === productTagId)
+        const taggedProduct = media.find((m) => m.id === productTagId);
         if (taggedProduct?.tagId) {
           await addContactTagAndDispatch({
             db,
             accountId,
             contactId,
             tagId: taggedProduct.tagId,
-          })
+            aiGenerated: true,
+          });
         } else {
           console.warn(
-            `[ai auto-reply] model flagged product id "${productTagId}" but it has no linked tag or no longer exists for account ${accountId}.`,
-          )
+            `[ai auto-reply] model flagged product id "${productTagId}" but it has no linked tag or no longer exists for account ${accountId}.`
+          );
         }
       } catch (err) {
-        console.error('[ai auto-reply] product tag failed:', err)
+        console.error('[ai auto-reply] product tag failed:', err);
       }
     }
 
@@ -816,23 +1104,37 @@ export async function dispatchInboundToAiReply(
     // onto the contact and mirror a summary onto the linked deal.
     if (fields && fields.length > 0) {
       try {
-        await applyCollectedFields({ db, accountId, contactId, fields })
+        await applyCollectedFields({
+          db,
+          accountId,
+          contactId,
+          fields,
+          ...(jevMode() === 'enforce' ? { expectedDeal: currentDeal } : {}),
+        });
       } catch (err) {
-        console.error('[ai auto-reply] field collection failed:', err)
+        console.error('[ai auto-reply] field collection failed:', err);
       }
     }
   } catch (err) {
+    await event('failed', 'generation_failed');
+    await ensureFollowup(db, {
+      accountId,
+      conversationId,
+      sourceMessageId: triggerMessageId,
+      kind: 'handoff',
+      ownerId: null,
+    });
     if (err instanceof AiError && err.code === 'invalid_key') {
-      const isFreshFailure = !config?.lastKeyError
+      const isFreshFailure = !config?.lastKeyError;
       try {
-        await recordKeyError(db, accountId, err.message)
+        await recordKeyError(db, accountId, err.message);
         if (isFreshFailure) {
-          await notifyAdminsOfKeyError(db, accountId, err.message)
+          await notifyAdminsOfKeyError(db, accountId, err.message);
         }
       } catch (recordErr) {
-        console.error('[ai auto-reply] failed to record key error:', recordErr)
+        console.error('[ai auto-reply] failed to record key error:', recordErr);
       }
     }
-    console.error('[ai auto-reply] dispatch failed:', err)
+    console.error('[ai auto-reply] dispatch failed:', err);
   }
 }

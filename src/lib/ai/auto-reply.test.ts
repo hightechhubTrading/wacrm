@@ -1,9 +1,14 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { __resetRateLimitForTests } from '@/lib/rate-limit'
-import type { AiConfig } from './types'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { __resetRateLimitForTests } from '@/lib/rate-limit';
+import type { AiConfig } from './types';
 
 // Shared, hoisted mock state so the module mocks can close over it.
 const h = vi.hoisted(() => ({
+  recordEvent: vi.fn(),
+  ensureFollowup: vi.fn(),
+  salesInput: vi.fn(),
+  salesOutput: vi.fn(),
+  applyCollectedFields: vi.fn(),
   loadAiConfig: vi.fn(),
   buildConversationContext: vi.fn(),
   retrieveKnowledge: vi.fn(),
@@ -27,14 +32,31 @@ const h = vi.hoisted(() => ({
     noteUpdates: [] as Record<string, unknown>[],
     latestCustomerMessage: null as { message_id: string } | null,
   },
-}))
+}));
 
-vi.mock('./config', () => ({ loadAiConfig: h.loadAiConfig }))
-vi.mock('./context', () => ({ buildConversationContext: h.buildConversationContext }))
-vi.mock('./knowledge', () => ({ retrieveKnowledge: h.retrieveKnowledge }))
-vi.mock('./generate', () => ({ generateReply: h.generateReply }))
-vi.mock('@/lib/flows/meta-send', () => ({ engineSendText: h.engineSendText }))
-vi.mock('@/lib/contacts/tag-events', () => ({ addContactTagAndDispatch: h.addContactTagAndDispatch }))
+vi.mock('./followups', async (original) => ({
+  ...(await original<typeof import('./followups')>()),
+  recordReplyEvent: h.recordEvent,
+  ensureFollowup: h.ensureFollowup,
+}));
+vi.mock('./typesafe/sales', () => ({
+  assessSalesInput: h.salesInput,
+  verifySalesOutput: h.salesOutput,
+}));
+vi.mock('./collect-fields', async (original) => ({
+  ...(await original<typeof import('./collect-fields')>()),
+  applyCollectedFields: h.applyCollectedFields,
+}));
+vi.mock('./config', () => ({ loadAiConfig: h.loadAiConfig }));
+vi.mock('./context', () => ({
+  buildConversationContext: h.buildConversationContext,
+}));
+vi.mock('./knowledge', () => ({ retrieveKnowledge: h.retrieveKnowledge }));
+vi.mock('./generate', () => ({ generateReply: h.generateReply }));
+vi.mock('@/lib/flows/meta-send', () => ({ engineSendText: h.engineSendText }));
+vi.mock('@/lib/contacts/tag-events', () => ({
+  addContactTagAndDispatch: h.addContactTagAndDispatch,
+}));
 vi.mock('./admin-client', () => ({
   supabaseAdmin: () => ({
     from: (table: string) => {
@@ -46,8 +68,8 @@ vi.mock('./admin-client', () => ({
           in: () => chain,
           limit: () =>
             Promise.resolve({ data: h.state.autoResponders, error: null }),
-        }
-        return chain
+        };
+        return chain;
       }
       if (table === 'accounts') {
         // .select('business_hours, timezone').eq('id', accountId).maybeSingle()
@@ -58,7 +80,7 @@ vi.mock('./admin-client', () => ({
                 Promise.resolve({ data: h.state.account, error: null }),
             }),
           }),
-        }
+        };
       }
       if (table === 'profiles') {
         // Two shapes used: .select('user_id').eq(...).in('account_role', [...])
@@ -70,16 +92,16 @@ vi.mock('./admin-client', () => ({
           in: () => Promise.resolve({ data: h.state.admins, error: null }),
           maybeSingle: () =>
             Promise.resolve({ data: h.state.agentProfile, error: null }),
-        }
-        return chain
+        };
+        return chain;
       }
       if (table === 'notifications') {
         return {
           insert: (rows: Record<string, unknown>[]) => {
-            h.state.notificationInserts.push(...rows)
-            return Promise.resolve({ data: null, error: null })
+            h.state.notificationInserts.push(...rows);
+            return Promise.resolve({ data: null, error: null });
           },
-        }
+        };
       }
       if (table === 'contact_notes') {
         // .select('id').eq('conversation_id', ...).eq('is_ai_generated', true).maybeSingle()
@@ -90,15 +112,15 @@ vi.mock('./admin-client', () => ({
           maybeSingle: () =>
             Promise.resolve({ data: h.state.existingAiNote, error: null }),
           insert: (row: Record<string, unknown>) => {
-            h.state.noteInserts.push(row)
-            return Promise.resolve({ data: null, error: null })
+            h.state.noteInserts.push(row);
+            return Promise.resolve({ data: null, error: null });
           },
           update: (payload: Record<string, unknown>) => {
-            h.state.noteUpdates.push(payload)
-            return { eq: () => Promise.resolve({ data: null, error: null }) }
+            h.state.noteUpdates.push(payload);
+            return { eq: () => Promise.resolve({ data: null, error: null }) };
           },
-        }
-        return chain
+        };
+        return chain;
       }
       if (table === 'custom_fields') {
         // .select('id, field_name').eq('account_id', accountId)
@@ -113,7 +135,7 @@ vi.mock('./admin-client', () => ({
               }),
             }),
           }),
-        }
+        };
       }
       if (table === 'ai_products') {
         // .select(...).eq('account_id', accountId) -> listProductsForPrompt
@@ -121,7 +143,7 @@ vi.mock('./admin-client', () => ({
           select: () => ({
             eq: () => Promise.resolve({ data: h.state.products, error: null }),
           }),
-        }
+        };
       }
       if (table === 'messages') {
         // .select('message_id').eq(...).eq(...).order(...).limit(...).maybeSingle()
@@ -132,41 +154,44 @@ vi.mock('./admin-client', () => ({
           order: () => chain,
           limit: () => ({
             maybeSingle: () =>
-              Promise.resolve({ data: h.state.latestCustomerMessage, error: null }),
+              Promise.resolve({
+                data: h.state.latestCustomerMessage,
+                error: null,
+              }),
           }),
-        }
-        return chain
+        };
+        return chain;
       }
       // conversations
+      const conversationQuery = {
+        eq: () => conversationQuery,
+        maybeSingle: () => Promise.resolve({ data: h.state.conv, error: null }),
+      };
       return {
-        select: () => ({
-          eq: () => ({
-            maybeSingle: () =>
-              Promise.resolve({ data: h.state.conv, error: null }),
-          }),
-        }),
+        select: () => conversationQuery,
         update: (payload: Record<string, unknown>) => {
-          h.state.updatePayload = payload
-          h.state.conversationUpdates.push(payload)
-          return { eq: () => Promise.resolve({ error: null }) }
+          h.state.updatePayload = payload;
+          h.state.conversationUpdates.push(payload);
+          return { eq: () => Promise.resolve({ error: null }) };
         },
-      }
+      };
     },
     rpc: (name: string, args: unknown) => {
-      h.state.rpcCalls.push({ name, args })
-      return Promise.resolve({ data: h.state.claim, error: null })
+      h.state.rpcCalls.push({ name, args });
+      return Promise.resolve({ data: h.state.claim, error: null });
     },
   }),
-}))
+}));
 
-import { dispatchInboundToAiReply } from './auto-reply'
+import { dispatchInboundToAiReply } from './auto-reply';
+afterEach(() => vi.unstubAllEnvs());
 
 const ARGS = {
   accountId: 'acct-1',
   conversationId: 'conv-1',
   contactId: 'contact-1',
   configOwnerUserId: 'user-1',
-}
+};
 
 function aiConfig(overrides: Partial<AiConfig> = {}): AiConfig {
   return {
@@ -188,7 +213,7 @@ function aiConfig(overrides: Partial<AiConfig> = {}): AiConfig {
     imageAnalysisApiKey: null,
     imageAnalysisEnabled: false,
     ...overrides,
-  }
+  };
 }
 
 beforeEach(() => {
@@ -196,7 +221,16 @@ beforeEach(() => {
   // a real-time window -- without resetting it, tests accumulate hits
   // against the same 'acct-1' key and an unrelated later test can start
   // failing once enough earlier tests reach the account throttle check.
-  __resetRateLimitForTests()
+  __resetRateLimitForTests();
+  vi.stubEnv('TYPESAFE_MODE', 'off');
+  h.salesInput.mockResolvedValue({ mode: 'off', handoff: false, guidance: '' });
+  h.salesOutput.mockImplementation(
+    async (_ctx, _evidence, proposal) => proposal
+  );
+  h.recordEvent.mockReset();
+  h.ensureFollowup.mockReset();
+  h.ensureFollowup.mockResolvedValue('task-1');
+  h.applyCollectedFields.mockResolvedValue(undefined);
   h.state.conv = {
     assigned_agent_id: null,
     ai_autoreply_disabled: false,
@@ -208,41 +242,43 @@ beforeEach(() => {
     // summary" describe block below).
     ai_context_summary_at: new Date().toISOString(),
     ai_priority: null,
-  }
-  h.state.account = null
-  h.state.admins = []
-  h.state.agentProfile = null
-  h.state.autoResponders = []
-  h.state.products = []
-  h.state.claim = true
-  h.state.updatePayload = null
-  h.state.conversationUpdates = []
-  h.state.notificationInserts = []
-  h.state.rpcCalls = []
-  h.state.existingAiNote = null
-  h.state.noteInserts = []
-  h.state.noteUpdates = []
-  h.state.latestCustomerMessage = null
-  h.loadAiConfig.mockResolvedValue(aiConfig())
-  h.buildConversationContext.mockResolvedValue([{ role: 'user', content: 'hi' }])
-  h.retrieveKnowledge.mockResolvedValue([])
-  h.generateReply.mockResolvedValue({ text: 'Hello!', handoff: false })
-  h.engineSendText.mockResolvedValue({ whatsapp_message_id: 'm1' })
-})
+  };
+  h.state.account = null;
+  h.state.admins = [];
+  h.state.agentProfile = null;
+  h.state.autoResponders = [];
+  h.state.products = [];
+  h.state.claim = true;
+  h.state.updatePayload = null;
+  h.state.conversationUpdates = [];
+  h.state.notificationInserts = [];
+  h.state.rpcCalls = [];
+  h.state.existingAiNote = null;
+  h.state.noteInserts = [];
+  h.state.noteUpdates = [];
+  h.state.latestCustomerMessage = null;
+  h.loadAiConfig.mockResolvedValue(aiConfig());
+  h.buildConversationContext.mockResolvedValue([
+    { role: 'user', content: 'hi' },
+  ]);
+  h.retrieveKnowledge.mockResolvedValue([]);
+  h.generateReply.mockResolvedValue({ text: 'Hello!', handoff: false });
+  h.engineSendText.mockResolvedValue({ whatsapp_message_id: 'm1' });
+});
 
 describe('dispatchInboundToAiReply — eligibility gates', () => {
   it('claims a slot and sends on the happy path', async () => {
-    await dispatchInboundToAiReply(ARGS)
+    await dispatchInboundToAiReply(ARGS);
     expect(h.state.rpcCalls).toEqual([
       {
         name: 'claim_ai_reply_slot',
         args: { conversation_id: 'conv-1', max_replies: 3 },
       },
-    ])
+    ]);
     expect(h.engineSendText).toHaveBeenCalledWith(
-      expect.objectContaining({ conversationId: 'conv-1', text: 'Hello!' }),
-    )
-  })
+      expect.objectContaining({ conversationId: 'conv-1', text: 'Hello!' })
+    );
+  });
 
   it('applies a product tag when the model flags a product with zero attachable files, without attaching anything', async () => {
     h.state.products = [
@@ -257,316 +293,367 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
         price_notes: null,
         ai_product_media: [],
       },
-    ]
+    ];
     h.generateReply.mockResolvedValue({
       text: 'Sure, let me get you details on our pool fencing.',
       handoff: false,
       mediaId: null,
       productTagId: 'prod-1',
-    })
+    });
 
-    await dispatchInboundToAiReply(ARGS)
+    await dispatchInboundToAiReply(ARGS);
 
     expect(h.addContactTagAndDispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId: 'acct-1', contactId: 'contact-1', tagId: 'tag-1' }),
-    )
-  })
+      expect.objectContaining({
+        accountId: 'acct-1',
+        contactId: 'contact-1',
+        tagId: 'tag-1',
+      })
+    );
+  });
 
   it('grounds the reply in retrieved knowledge', async () => {
-    h.retrieveKnowledge.mockResolvedValue(['Returns accepted within 30 days.'])
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.retrieveKnowledge).toHaveBeenCalled()
-    const systemPrompt = h.generateReply.mock.calls[0][0].systemPrompt as string
-    expect(systemPrompt).toContain('Returns accepted within 30 days.')
-  })
+    h.retrieveKnowledge.mockResolvedValue(['Returns accepted within 30 days.']);
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.retrieveKnowledge).toHaveBeenCalled();
+    const systemPrompt = h.generateReply.mock.calls[0][0]
+      .systemPrompt as string;
+    expect(systemPrompt).toContain('Returns accepted within 30 days.');
+  });
 
   it('stands down when an active message-level automation exists', async () => {
-    h.state.autoResponders = [{ id: 'auto-1' }]
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.generateReply).not.toHaveBeenCalled()
-    expect(h.engineSendText).not.toHaveBeenCalled()
-  })
+    h.state.autoResponders = [{ id: 'auto-1' }];
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).not.toHaveBeenCalled();
+    expect(h.engineSendText).not.toHaveBeenCalled();
+  });
 
   it('does not send when the atomic slot claim loses the race', async () => {
-    h.state.claim = false
-    await dispatchInboundToAiReply(ARGS)
+    h.state.claim = false;
+    await dispatchInboundToAiReply(ARGS);
     // It still attempts the claim, but the send is skipped.
-    expect(h.state.rpcCalls).toHaveLength(1)
-    expect(h.engineSendText).not.toHaveBeenCalled()
-  })
+    expect(h.state.rpcCalls).toHaveLength(1);
+    expect(h.engineSendText).not.toHaveBeenCalled();
+  });
 
   it('skips when AI is off / not configured', async () => {
-    h.loadAiConfig.mockResolvedValue(null)
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.generateReply).not.toHaveBeenCalled()
-    expect(h.engineSendText).not.toHaveBeenCalled()
-  })
+    h.loadAiConfig.mockResolvedValue(null);
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).not.toHaveBeenCalled();
+    expect(h.engineSendText).not.toHaveBeenCalled();
+  });
 
   it('skips when auto-reply is disabled for the account', async () => {
-    h.loadAiConfig.mockResolvedValue(aiConfig({ autoReplyEnabled: false }))
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.engineSendText).not.toHaveBeenCalled()
-  })
+    h.loadAiConfig.mockResolvedValue(aiConfig({ autoReplyEnabled: false }));
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.engineSendText).not.toHaveBeenCalled();
+  });
 
   it('skips when a human agent is assigned', async () => {
     h.state.conv = {
       assigned_agent_id: 'agent-9',
       ai_autoreply_disabled: false,
       ai_reply_count: 0,
-    }
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.engineSendText).not.toHaveBeenCalled()
-  })
+    };
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.engineSendText).not.toHaveBeenCalled();
+  });
 
   it('skips when auto-reply was disabled on this conversation', async () => {
     h.state.conv = {
       assigned_agent_id: null,
       ai_autoreply_disabled: true,
       ai_reply_count: 0,
-    }
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.engineSendText).not.toHaveBeenCalled()
-  })
+    };
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.engineSendText).not.toHaveBeenCalled();
+  });
 
   it('forces a real handoff — closing message, disabled flag, notification — when the per-conversation cap is reached, instead of just going silent', async () => {
     h.state.conv = {
       assigned_agent_id: null,
       ai_autoreply_disabled: false,
       ai_reply_count: 3,
-    }
-    h.state.admins = [{ user_id: 'admin-1' }]
-    await dispatchInboundToAiReply(ARGS)
+    };
+    h.state.admins = [{ user_id: 'admin-1' }];
+    await dispatchInboundToAiReply(ARGS);
     // generateReply is never called -- the cap trips before any LLM call.
-    expect(h.generateReply).not.toHaveBeenCalled()
-    expect(h.engineSendText).toHaveBeenCalledTimes(1)
+    expect(h.generateReply).not.toHaveBeenCalled();
+    expect(h.engineSendText).toHaveBeenCalledTimes(1);
     expect(h.engineSendText.mock.calls[0][0]).toMatchObject({
-      text: expect.stringContaining('team members will follow up'),
-    })
-    expect(h.state.updatePayload).toMatchObject({ ai_autoreply_disabled: true })
-    expect(h.state.updatePayload?.ai_handoff_summary).toContain('AI agent handed off')
+      text: expect.stringContaining('request needs a team member to review'),
+    });
+    expect(h.state.updatePayload).toMatchObject({
+      ai_autoreply_disabled: true,
+    });
+    expect(h.state.updatePayload?.ai_handoff_summary).toContain(
+      'AI agent handed off'
+    );
     expect(h.state.notificationInserts).toContainEqual(
-      expect.objectContaining({ user_id: 'admin-1', type: 'ai_handoff' }),
-    )
-  })
+      expect.objectContaining({ user_id: 'admin-1', type: 'ai_handoff' })
+    );
+  });
 
   it('skips when there is nothing to reply to', async () => {
-    h.buildConversationContext.mockResolvedValue([])
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.generateReply).not.toHaveBeenCalled()
-    expect(h.engineSendText).not.toHaveBeenCalled()
-  })
-})
+    h.buildConversationContext.mockResolvedValue([]);
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).not.toHaveBeenCalled();
+    expect(h.engineSendText).not.toHaveBeenCalled();
+  });
+});
 
 describe('dispatchInboundToAiReply — reply debounce', () => {
-  const originalDebounceMs = process.env.AI_REPLY_DEBOUNCE_MS
+  const originalDebounceMs = process.env.AI_REPLY_DEBOUNCE_MS;
 
   beforeEach(() => {
     // A few ms, not the real 8s default -- just enough to exercise the
     // actual setTimeout + DB re-check path without slowing the suite.
-    process.env.AI_REPLY_DEBOUNCE_MS = '5'
-  })
+    process.env.AI_REPLY_DEBOUNCE_MS = '5';
+  });
 
   afterEach(() => {
-    if (originalDebounceMs === undefined) delete process.env.AI_REPLY_DEBOUNCE_MS
-    else process.env.AI_REPLY_DEBOUNCE_MS = originalDebounceMs
-  })
+    if (originalDebounceMs === undefined)
+      delete process.env.AI_REPLY_DEBOUNCE_MS;
+    else process.env.AI_REPLY_DEBOUNCE_MS = originalDebounceMs;
+  });
 
   it('replies immediately, with no wait, when triggerMessageId is omitted', async () => {
     // e.g. every other test in this file, exercising the pipeline
     // directly -- must keep working exactly as before debouncing existed.
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.engineSendText).toHaveBeenCalled()
-  })
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.engineSendText).toHaveBeenCalled();
+  });
 
   it('sends when it is still the latest customer message after the debounce window', async () => {
-    h.state.latestCustomerMessage = { message_id: 'wamid.999' }
-    await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'wamid.999' })
-    expect(h.generateReply).toHaveBeenCalled()
-    expect(h.engineSendText).toHaveBeenCalled()
-  })
+    h.state.latestCustomerMessage = { message_id: 'wamid.999' };
+    await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'wamid.999' });
+    expect(h.generateReply).toHaveBeenCalled();
+    expect(h.engineSendText).toHaveBeenCalled();
+  });
 
   it('stands down silently, before any LLM call, when a newer customer message landed during the wait', async () => {
-    h.state.latestCustomerMessage = { message_id: 'wamid.NEWER' }
-    await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'wamid.999' })
-    expect(h.generateReply).not.toHaveBeenCalled()
-    expect(h.engineSendText).not.toHaveBeenCalled()
-  })
+    h.state.latestCustomerMessage = { message_id: 'wamid.NEWER' };
+    await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'wamid.999' });
+    expect(h.generateReply).not.toHaveBeenCalled();
+    expect(h.engineSendText).not.toHaveBeenCalled();
+  });
 
   it('drops its reply when a newer burst message lands while the reply is being generated', async () => {
     // The first check passes (still the latest after the wait), but the
     // customer's next bubble arrives during the LLM call. Before the
     // second check, both invocations replied -- 73 back-to-back AI
     // replies in 30 days of real traffic, median 10s apart.
-    h.state.latestCustomerMessage = { message_id: 'wamid.999' }
+    h.state.latestCustomerMessage = { message_id: 'wamid.999' };
     h.generateReply.mockImplementation(async () => {
-      h.state.latestCustomerMessage = { message_id: 'wamid.NEWER' }
-      return { text: 'مدخل كراج، تمام. رول أسترالي أو باب أمريكي؟', handoff: false }
-    })
-    await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'wamid.999' })
-    expect(h.generateReply).toHaveBeenCalled()
-    expect(h.engineSendText).not.toHaveBeenCalled()
-    expect(h.state.rpcCalls).toEqual([])
-  })
+      h.state.latestCustomerMessage = { message_id: 'wamid.NEWER' };
+      return {
+        text: 'مدخل كراج، تمام. رول أسترالي أو باب أمريكي؟',
+        handoff: false,
+      };
+    });
+    await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'wamid.999' });
+    expect(h.generateReply).toHaveBeenCalled();
+    expect(h.engineSendText).not.toHaveBeenCalled();
+    expect(h.state.rpcCalls).toEqual([]);
+  });
 
   it('replies immediately without waiting when the debounce window is configured to 0', async () => {
-    process.env.AI_REPLY_DEBOUNCE_MS = '0'
+    process.env.AI_REPLY_DEBOUNCE_MS = '0';
     // Even a "someone else replied" DB state must not matter when
     // debouncing is off -- the staleness check itself is skipped.
-    h.state.latestCustomerMessage = { message_id: 'wamid.SOMETHING-ELSE' }
-    await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'wamid.999' })
-    expect(h.engineSendText).toHaveBeenCalled()
-  })
-})
+    h.state.latestCustomerMessage = { message_id: 'wamid.SOMETHING-ELSE' };
+    await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'wamid.999' });
+    expect(h.engineSendText).toHaveBeenCalled();
+  });
+});
 
 describe('dispatchInboundToAiReply — handoff', () => {
   it('disables auto-reply, writes a summary, and sends only the fixed closing message', async () => {
-    h.generateReply.mockResolvedValue({ text: '', handoff: true })
-    await dispatchInboundToAiReply(ARGS)
+    h.generateReply.mockResolvedValue({ text: '', handoff: true });
+    await dispatchInboundToAiReply(ARGS);
     // The model's own text is never sent on handoff -- only the fixed
     // closing message (never the model's own words) goes out.
-    expect(h.engineSendText).toHaveBeenCalledTimes(1)
+    expect(h.engineSendText).toHaveBeenCalledTimes(1);
     expect(h.engineSendText.mock.calls[0][0]).toMatchObject({
-      text: expect.stringContaining('team members will follow up'),
-    })
-    expect(h.state.rpcCalls).toHaveLength(0)
-    expect(h.state.updatePayload).toMatchObject({ ai_autoreply_disabled: true })
+      text: expect.stringContaining('request needs a team member to review'),
+    });
+    expect(h.state.rpcCalls).toHaveLength(0);
+    expect(h.state.updatePayload).toMatchObject({
+      ai_autoreply_disabled: true,
+    });
     expect(h.state.updatePayload?.ai_handoff_summary).toContain(
-      'AI agent handed off',
-    )
+      'AI agent handed off'
+    );
     // No handoff target configured → conversation left unassigned.
-    expect(h.state.updatePayload).not.toHaveProperty('assigned_agent_id')
-  })
+    expect(h.state.updatePayload).not.toHaveProperty('assigned_agent_id');
+  });
 
   it('routes to the configured handoff agent on handoff', async () => {
-    h.loadAiConfig.mockResolvedValue(aiConfig({ handoffAgentId: 'agent-7' }))
-    h.generateReply.mockResolvedValue({ text: '', handoff: true })
-    await dispatchInboundToAiReply(ARGS)
+    h.loadAiConfig.mockResolvedValue(aiConfig({ handoffAgentId: 'agent-7' }));
+    h.generateReply.mockResolvedValue({ text: '', handoff: true });
+    await dispatchInboundToAiReply(ARGS);
     expect(h.state.updatePayload).toMatchObject({
       ai_autoreply_disabled: true,
       assigned_agent_id: 'agent-7',
-    })
-  })
+    });
+  });
 
   it('explicitly notifies the newly-assigned agent, not just the generic assignment trigger', async () => {
-    h.loadAiConfig.mockResolvedValue(aiConfig({ handoffAgentId: 'agent-7' }))
-    h.generateReply.mockResolvedValue({ text: '', handoff: true })
-    await dispatchInboundToAiReply(ARGS)
+    h.loadAiConfig.mockResolvedValue(aiConfig({ handoffAgentId: 'agent-7' }));
+    h.generateReply.mockResolvedValue({ text: '', handoff: true });
+    await dispatchInboundToAiReply(ARGS);
     expect(h.state.notificationInserts).toContainEqual(
       expect.objectContaining({
         user_id: 'agent-7',
         type: 'ai_handoff',
         title: 'AI assistant handed off a conversation',
         body: expect.stringContaining('AI agent handed off'),
-      }),
-    )
-  })
+      })
+    );
+  });
 
   it('falls back to notifying every admin when no handoff agent is configured or already assigned', async () => {
-    h.state.admins = [{ user_id: 'admin-1' }, { user_id: 'admin-2' }]
-    h.generateReply.mockResolvedValue({ text: '', handoff: true })
-    await dispatchInboundToAiReply(ARGS)
+    h.state.admins = [{ user_id: 'admin-1' }, { user_id: 'admin-2' }];
+    h.generateReply.mockResolvedValue({ text: '', handoff: true });
+    await dispatchInboundToAiReply(ARGS);
     const handoffNotices = h.state.notificationInserts.filter(
-      (n) => (n as { type: string }).type === 'ai_handoff',
-    )
-    expect(handoffNotices.map((n) => (n as { user_id: string }).user_id)).toEqual([
-      'admin-1',
-      'admin-2',
-    ])
-  })
-})
+      (n) => (n as { type: string }).type === 'ai_handoff'
+    );
+    expect(
+      handoffNotices.map((n) => (n as { user_id: string }).user_id)
+    ).toEqual(['admin-1', 'admin-2']);
+  });
+});
 
-const CLOSED_HOURS = { mon: null, tue: null, wed: null, thu: null, fri: null, sat: null, sun: null }
+const CLOSED_HOURS = {
+  mon: null,
+  tue: null,
+  wed: null,
+  thu: null,
+  fri: null,
+  sat: null,
+  sun: null,
+};
 
 describe('dispatchInboundToAiReply — after-hours takeover', () => {
   it('skips a human-assigned conversation when takeover is off', async () => {
-    h.state.conv = { ...h.state.conv, assigned_agent_id: 'human-1' }
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.generateReply).not.toHaveBeenCalled()
-  })
+    h.state.conv = { ...h.state.conv, assigned_agent_id: 'human-1' };
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).not.toHaveBeenCalled();
+  });
 
   it('skips a human-assigned conversation when takeover is on but within business hours', async () => {
-    h.loadAiConfig.mockResolvedValue(aiConfig({ afterHoursTakeoverEnabled: true }))
-    h.state.conv = { ...h.state.conv, assigned_agent_id: 'human-1' }
-    h.state.account = { business_hours: null, timezone: 'UTC' } // null = always open
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.generateReply).not.toHaveBeenCalled()
-  })
+    h.loadAiConfig.mockResolvedValue(
+      aiConfig({ afterHoursTakeoverEnabled: true })
+    );
+    h.state.conv = { ...h.state.conv, assigned_agent_id: 'human-1' };
+    h.state.account = { business_hours: null, timezone: 'UTC' }; // null = always open
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).not.toHaveBeenCalled();
+  });
 
   it('replies to a human-assigned conversation when takeover is on and outside business hours', async () => {
-    h.loadAiConfig.mockResolvedValue(aiConfig({ afterHoursTakeoverEnabled: true }))
-    h.state.conv = { ...h.state.conv, assigned_agent_id: 'human-1' }
-    h.state.account = { business_hours: CLOSED_HOURS, timezone: 'UTC' }
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.generateReply).toHaveBeenCalled()
-    expect(h.engineSendText).toHaveBeenCalled()
-  })
+    h.loadAiConfig.mockResolvedValue(
+      aiConfig({ afterHoursTakeoverEnabled: true })
+    );
+    h.state.conv = { ...h.state.conv, assigned_agent_id: 'human-1' };
+    h.state.account = { business_hours: CLOSED_HOURS, timezone: 'UTC' };
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).toHaveBeenCalled();
+    expect(h.engineSendText).toHaveBeenCalled();
+  });
 
   it('still respects a prior explicit handoff even after hours', async () => {
-    h.loadAiConfig.mockResolvedValue(aiConfig({ afterHoursTakeoverEnabled: true }))
+    h.loadAiConfig.mockResolvedValue(
+      aiConfig({ afterHoursTakeoverEnabled: true })
+    );
     h.state.conv = {
       ...h.state.conv,
       assigned_agent_id: 'human-1',
       ai_autoreply_disabled: true,
-    }
-    h.state.account = { business_hours: CLOSED_HOURS, timezone: 'UTC' }
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.generateReply).not.toHaveBeenCalled()
-  })
-})
+    };
+    h.state.account = { business_hours: CLOSED_HOURS, timezone: 'UTC' };
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).not.toHaveBeenCalled();
+  });
+});
 
 describe('dispatchInboundToAiReply — pause during business hours', () => {
   afterEach(() => {
-    vi.useRealTimers()
-  })
+    vi.useRealTimers();
+  });
 
   it('is silent for an unassigned conversation when paused and within business hours', async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-07-27T12:00:00Z')) // Monday, noon UTC
-    h.loadAiConfig.mockResolvedValue(aiConfig({ pauseDuringBusinessHours: true }))
-    h.state.account = { business_hours: { mon: ['09:00', '18:00'] }, timezone: 'UTC' }
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.generateReply).not.toHaveBeenCalled()
-  })
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-27T12:00:00Z')); // Monday, noon UTC
+    h.loadAiConfig.mockResolvedValue(
+      aiConfig({ pauseDuringBusinessHours: true })
+    );
+    h.state.account = {
+      business_hours: { mon: ['09:00', '18:00'] },
+      timezone: 'UTC',
+    };
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).not.toHaveBeenCalled();
+  });
 
   it('replies normally once outside business hours', async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-07-27T20:00:00Z')) // Monday, 8pm UTC -- after close
-    h.loadAiConfig.mockResolvedValue(aiConfig({ pauseDuringBusinessHours: true }))
-    h.state.account = { business_hours: { mon: ['09:00', '18:00'] }, timezone: 'UTC' }
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.generateReply).toHaveBeenCalled()
-  })
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-27T20:00:00Z')); // Monday, 8pm UTC -- after close
+    h.loadAiConfig.mockResolvedValue(
+      aiConfig({ pauseDuringBusinessHours: true })
+    );
+    h.state.account = {
+      business_hours: { mon: ['09:00', '18:00'] },
+      timezone: 'UTC',
+    };
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).toHaveBeenCalled();
+  });
 
   it('has no effect when business hours are unconfigured, even mid-day (fails open)', async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-07-27T12:00:00Z'))
-    h.loadAiConfig.mockResolvedValue(aiConfig({ pauseDuringBusinessHours: true }))
-    h.state.account = { business_hours: null, timezone: 'UTC' }
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.generateReply).toHaveBeenCalled()
-  })
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-27T12:00:00Z'));
+    h.loadAiConfig.mockResolvedValue(
+      aiConfig({ pauseDuringBusinessHours: true })
+    );
+    h.state.account = { business_hours: null, timezone: 'UTC' };
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).toHaveBeenCalled();
+  });
 
   it('does not pause anything when the toggle is off', async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-07-27T12:00:00Z'))
-    h.loadAiConfig.mockResolvedValue(aiConfig({ pauseDuringBusinessHours: false }))
-    h.state.account = { business_hours: { mon: ['09:00', '18:00'] }, timezone: 'UTC' }
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.generateReply).toHaveBeenCalled()
-  })
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-27T12:00:00Z'));
+    h.loadAiConfig.mockResolvedValue(
+      aiConfig({ pauseDuringBusinessHours: false })
+    );
+    h.state.account = {
+      business_hours: { mon: ['09:00', '18:00'] },
+      timezone: 'UTC',
+    };
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).toHaveBeenCalled();
+  });
 
   it('also silences an after-hours-takeover-assigned conversation while still within business hours', async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-07-27T12:00:00Z'))
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-27T12:00:00Z'));
     h.loadAiConfig.mockResolvedValue(
-      aiConfig({ pauseDuringBusinessHours: true, afterHoursTakeoverEnabled: true }),
-    )
-    h.state.conv = { ...h.state.conv, assigned_agent_id: 'human-1' }
-    h.state.account = { business_hours: { mon: ['09:00', '18:00'] }, timezone: 'UTC' }
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.generateReply).not.toHaveBeenCalled()
-  })
-})
+      aiConfig({
+        pauseDuringBusinessHours: true,
+        afterHoursTakeoverEnabled: true,
+      })
+    );
+    h.state.conv = { ...h.state.conv, assigned_agent_id: 'human-1' };
+    h.state.account = {
+      business_hours: { mon: ['09:00', '18:00'] },
+      timezone: 'UTC',
+    };
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).not.toHaveBeenCalled();
+  });
+});
 
 describe('dispatchInboundToAiReply — AI priority', () => {
   it('always persists the priority, even "normal"', async () => {
@@ -575,68 +662,70 @@ describe('dispatchInboundToAiReply — AI priority', () => {
       handoff: false,
       priority: 'normal',
       priorityReason: 'routine question',
-    })
-    await dispatchInboundToAiReply(ARGS)
+    });
+    await dispatchInboundToAiReply(ARGS);
     expect(h.state.conversationUpdates).toContainEqual({
       ai_priority: 'normal',
       ai_priority_reason: 'routine question',
-    })
-    expect(h.state.notificationInserts).toHaveLength(0)
-  })
+    });
+    expect(h.state.notificationInserts).toHaveLength(0);
+  });
 
   it('notifies the assigned agent on a transition into urgent', async () => {
-    h.loadAiConfig.mockResolvedValue(aiConfig({ afterHoursTakeoverEnabled: true }))
+    h.loadAiConfig.mockResolvedValue(
+      aiConfig({ afterHoursTakeoverEnabled: true })
+    );
     h.state.conv = {
       ...h.state.conv,
       assigned_agent_id: 'human-1',
       ai_priority: 'normal',
-    }
-    h.state.account = { business_hours: CLOSED_HOURS, timezone: 'UTC' }
+    };
+    h.state.account = { business_hours: CLOSED_HOURS, timezone: 'UTC' };
     h.generateReply.mockResolvedValue({
       text: 'On it',
       handoff: false,
       priority: 'urgent',
       priorityReason: 'threatened to cancel',
-    })
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.state.notificationInserts).toHaveLength(1)
+    });
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.state.notificationInserts).toHaveLength(1);
     expect(h.state.notificationInserts[0]).toMatchObject({
       type: 'urgent_lead',
       user_id: 'human-1',
       body: 'threatened to cancel',
-    })
-  })
+    });
+  });
 
   it('falls back to admins when no agent is assigned', async () => {
-    h.state.admins = [{ user_id: 'admin-1' }, { user_id: 'admin-2' }]
+    h.state.admins = [{ user_id: 'admin-1' }, { user_id: 'admin-2' }];
     h.generateReply.mockResolvedValue({
       text: 'On it',
       handoff: false,
       priority: 'urgent',
       priorityReason: 'high value lead',
-    })
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.state.notificationInserts).toHaveLength(2)
-  })
+    });
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.state.notificationInserts).toHaveLength(2);
+  });
 
   it('does not re-notify when the conversation is already urgent', async () => {
-    h.state.conv = { ...h.state.conv, ai_priority: 'urgent' }
+    h.state.conv = { ...h.state.conv, ai_priority: 'urgent' };
     h.generateReply.mockResolvedValue({
       text: 'Still on it',
       handoff: false,
       priority: 'urgent',
       priorityReason: 'same issue',
-    })
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.state.notificationInserts).toHaveLength(0)
-  })
-})
+    });
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.state.notificationInserts).toHaveLength(0);
+  });
+});
 
 describe('dispatchInboundToAiReply — language correction', () => {
   it('translates and sends the corrected text when the reply lands in the wrong script', async () => {
     h.buildConversationContext.mockResolvedValue([
       { role: 'user', content: 'We have a gate 6x3 m' },
-    ])
+    ]);
     h.generateReply
       .mockResolvedValueOnce({
         text: 'أكيد، أقدر أرسل صور الخيارات المتوفرة. هل تقصد بوابات المحلات التجارية أو بوابات الكراجات؟',
@@ -646,26 +735,26 @@ describe('dispatchInboundToAiReply — language correction', () => {
         text: 'Sure, I can send photos of the available options. Do you mean commercial gates or garage gates?',
         handoff: false,
         usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
-      })
+      });
 
-    await dispatchInboundToAiReply(ARGS)
+    await dispatchInboundToAiReply(ARGS);
 
-    expect(h.generateReply).toHaveBeenCalledTimes(2)
-    const correctionCall = h.generateReply.mock.calls[1][0]
-    expect(correctionCall.systemPrompt).toContain('English')
+    expect(h.generateReply).toHaveBeenCalledTimes(2);
+    const correctionCall = h.generateReply.mock.calls[1][0];
+    expect(correctionCall.systemPrompt).toContain('English');
     expect(correctionCall.messages).toEqual([
       {
         role: 'user',
         content:
           'أكيد، أقدر أرسل صور الخيارات المتوفرة. هل تقصد بوابات المحلات التجارية أو بوابات الكراجات؟',
       },
-    ])
+    ]);
     expect(h.engineSendText).toHaveBeenCalledWith(
       expect.objectContaining({
         text: 'Sure, I can send photos of the available options. Do you mean commercial gates or garage gates?',
-      }),
-    )
-  })
+      })
+    );
+  });
 
   it('still corrects an English reply after an uncaptioned photo, even though the photo caption itself reads as English', async () => {
     // Regression test for the recurring bug: the customer has been
@@ -680,7 +769,7 @@ describe('dispatchInboundToAiReply — language correction', () => {
       { role: 'user', content: 'مرحبًا، أريد باب أوتوماتيكي' },
       { role: 'assistant', content: 'أكيد، ممكن ترسل صورة؟' },
       { role: 'user', content: '[Image: A grey wall-mounted intercom box.]' },
-    ])
+    ]);
     h.generateReply
       .mockResolvedValueOnce({
         text: 'Could you clarify what you mean by the image, or write out what is needed?',
@@ -690,31 +779,35 @@ describe('dispatchInboundToAiReply — language correction', () => {
         text: 'ممكن توضح المقصود من الصورة، أو تكتب اللي محتاجه؟',
         handoff: false,
         usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
-      })
+      });
 
-    await dispatchInboundToAiReply(ARGS)
+    await dispatchInboundToAiReply(ARGS);
 
     // Two calls means the correction pass actually fired -- before the
     // fix it would have seen "English reply" vs. "English caption" as a
     // script match and skipped correction entirely.
-    expect(h.generateReply).toHaveBeenCalledTimes(2)
-    const correctionCall = h.generateReply.mock.calls[1][0]
-    expect(correctionCall.systemPrompt).toContain('Arabic')
+    expect(h.generateReply).toHaveBeenCalledTimes(2);
+    const correctionCall = h.generateReply.mock.calls[1][0];
+    expect(correctionCall.systemPrompt).toContain('Arabic');
     expect(h.engineSendText).toHaveBeenCalledWith(
       expect.objectContaining({
         text: 'ممكن توضح المقصود من الصورة، أو تكتب اللي محتاجه؟',
-      }),
-    )
-  })
+      })
+    );
+  });
 
-  it("keeps an Arabic customer in Arabic when their latest message is only measurements", async () => {
+  it('keeps an Arabic customer in Arabic when their latest message is only measurements', async () => {
     // Real thread (2026-09-21): "200 cm × 110cm" was read as English, so
     // an Arabic conversation got an English reply.
     h.buildConversationContext.mockResolvedValue([
       { role: 'user', content: 'لباب المنزل خارجي' },
-      { role: 'assistant', content: 'لباب البيت الخارجي، تمام. هل تفضّل باب محوري أو فولاذي أو ألمنيوم؟' },
+      {
+        role: 'assistant',
+        content:
+          'لباب البيت الخارجي، تمام. هل تفضّل باب محوري أو فولاذي أو ألمنيوم؟',
+      },
       { role: 'user', content: '200 cm × 110cm' },
-    ])
+    ]);
     h.generateReply
       .mockResolvedValueOnce({
         text: '200×110 cm, okay. Would you like it to be a pivot door, a steel door, or aluminum?',
@@ -723,21 +816,26 @@ describe('dispatchInboundToAiReply — language correction', () => {
       .mockResolvedValueOnce({
         text: '200×110 سم، تمام. تفضّله باب محوري أو فولاذي أو ألمنيوم؟',
         handoff: false,
-      })
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.generateReply).toHaveBeenCalledTimes(2)
-    expect(h.generateReply.mock.calls[1][0].systemPrompt).toContain('Arabic')
+      });
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).toHaveBeenCalledTimes(2);
+    expect(h.generateReply.mock.calls[1][0].systemPrompt).toContain('Arabic');
     expect(h.engineSendText).toHaveBeenCalledWith(
-      expect.objectContaining({ text: '200×110 سم، تمام. تفضّله باب محوري أو فولاذي أو ألمنيوم؟' }),
-    )
-  })
+      expect.objectContaining({
+        text: '200×110 سم، تمام. تفضّله باب محوري أو فولاذي أو ألمنيوم؟',
+      })
+    );
+  });
 
   it('corrects an Arabic reply to an English customer even when it contains "UPVC"', async () => {
     // Real thread (2026-09-05): the old check saw "UPVC" in the Arabic
     // reply, called it "mixed", and let it through untranslated.
     h.buildConversationContext.mockResolvedValue([
-      { role: 'user', content: 'i want door for bathrooms and windows for villa' },
-    ])
+      {
+        role: 'user',
+        content: 'i want door for bathrooms and windows for villa',
+      },
+    ]);
     h.generateReply
       .mockResolvedValueOnce({
         text: 'أكيد، نقدر نساعدك في الاثنين. هل تفضّل أبواب الحمّامات ألمنيوم أو UPVC؟',
@@ -746,53 +844,56 @@ describe('dispatchInboundToAiReply — language correction', () => {
       .mockResolvedValueOnce({
         text: 'Sure, we can help with both. Do you prefer aluminium or UPVC bathroom doors?',
         handoff: false,
-      })
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.generateReply).toHaveBeenCalledTimes(2)
+      });
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).toHaveBeenCalledTimes(2);
     expect(h.engineSendText).toHaveBeenCalledWith(
       expect.objectContaining({
         text: 'Sure, we can help with both. Do you prefer aluminium or UPVC bathroom doors?',
-      }),
-    )
-  })
+      })
+    );
+  });
 
   it('does not call generateReply a second time when the reply already matches the customer script', async () => {
     h.buildConversationContext.mockResolvedValue([
       { role: 'user', content: 'We have a gate 6x3 m' },
-    ])
-    h.generateReply.mockResolvedValue({ text: 'Sure, happy to help.', handoff: false })
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.generateReply).toHaveBeenCalledTimes(1)
+    ]);
+    h.generateReply.mockResolvedValue({
+      text: 'Sure, happy to help.',
+      handoff: false,
+    });
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).toHaveBeenCalledTimes(1);
     expect(h.engineSendText).toHaveBeenCalledWith(
-      expect.objectContaining({ text: 'Sure, happy to help.' }),
-    )
-  })
+      expect.objectContaining({ text: 'Sure, happy to help.' })
+    );
+  });
 
   it('falls back to the original text when the correction call also fails to land in the right script', async () => {
     h.buildConversationContext.mockResolvedValue([
       { role: 'user', content: 'We have a gate 6x3 m' },
-    ])
+    ]);
     h.generateReply
       .mockResolvedValueOnce({ text: 'مرحبا، كيف أساعدك؟', handoff: false })
-      .mockResolvedValueOnce({ text: 'مرحبا مجددا', handoff: false })
-    await dispatchInboundToAiReply(ARGS)
+      .mockResolvedValueOnce({ text: 'مرحبا مجددا', handoff: false });
+    await dispatchInboundToAiReply(ARGS);
     expect(h.engineSendText).toHaveBeenCalledWith(
-      expect.objectContaining({ text: 'مرحبا، كيف أساعدك؟' }),
-    )
-  })
+      expect.objectContaining({ text: 'مرحبا، كيف أساعدك؟' })
+    );
+  });
 
   it('leaves mixed-script replies alone rather than risk a false correction', async () => {
     h.buildConversationContext.mockResolvedValue([
       { role: 'user', content: 'بكم سعر ال UPVC؟' },
-    ])
+    ]);
     h.generateReply.mockResolvedValue({
       text: 'السعر يعتمد على المقاس -- هل هو للنوافذ أو الباب؟',
       handoff: false,
-    })
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.generateReply).toHaveBeenCalledTimes(1)
-  })
-})
+    });
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('dispatchInboundToAiReply — unverified price backstop', () => {
   it('hands off instead of sending a price that was not tagged to any product', async () => {
@@ -801,18 +902,20 @@ describe('dispatchInboundToAiReply — unverified price backstop', () => {
       handoff: false,
       mediaId: null,
       productTagId: null,
-    })
-    h.state.admins = [{ user_id: 'admin-1' }]
+    });
+    h.state.admins = [{ user_id: 'admin-1' }];
 
-    await dispatchInboundToAiReply(ARGS)
+    await dispatchInboundToAiReply(ARGS);
 
-    expect(h.state.rpcCalls).toHaveLength(0) // never claimed a reply slot -- no send attempted
-    expect(h.engineSendText).toHaveBeenCalledTimes(1)
+    expect(h.state.rpcCalls).toHaveLength(0); // never claimed a reply slot -- no send attempted
+    expect(h.engineSendText).toHaveBeenCalledTimes(1);
     expect(h.engineSendText.mock.calls[0][0]).toMatchObject({
-      text: expect.stringContaining('team members will follow up'),
-    })
-    expect(h.state.updatePayload).toMatchObject({ ai_autoreply_disabled: true })
-  })
+      text: expect.stringContaining('request needs a team member to review'),
+    });
+    expect(h.state.updatePayload).toMatchObject({
+      ai_autoreply_disabled: true,
+    });
+  });
 
   it('hands off when the tagged product has no configured price range to back up the quoted number', async () => {
     h.state.products = [
@@ -827,26 +930,26 @@ describe('dispatchInboundToAiReply — unverified price backstop', () => {
         price_notes: null,
         ai_product_media: [],
       },
-    ]
+    ];
     h.generateReply.mockResolvedValue({
       text: 'السعر التقديري للمتر يبدأ من 350 إلى 380 ريال للمتر.',
       handoff: false,
       mediaId: null,
       productTagId: 'prod-1',
-    })
+    });
 
-    await dispatchInboundToAiReply(ARGS)
+    await dispatchInboundToAiReply(ARGS);
 
-    expect(h.state.rpcCalls).toHaveLength(0)
+    expect(h.state.rpcCalls).toHaveLength(0);
     expect(h.engineSendText.mock.calls[0][0]).toMatchObject({
-      text: expect.stringContaining('team members will follow up'),
-    })
-  })
+      text: expect.stringContaining('request needs a team member to review'),
+    });
+  });
 
   it('sends normally when the quoted price is backed by the actually-tagged product', async () => {
     h.buildConversationContext.mockResolvedValue([
       { role: 'user', content: 'كم سعر المتر بديل الخشب' },
-    ])
+    ]);
     h.state.products = [
       {
         id: 'prod-1',
@@ -859,70 +962,77 @@ describe('dispatchInboundToAiReply — unverified price backstop', () => {
         price_notes: null,
         ai_product_media: [],
       },
-    ]
+    ];
     h.generateReply.mockResolvedValue({
       text: 'السعر التقديري للمتر يبدأ من 350 إلى 380 ريال للمتر.',
       handoff: false,
       mediaId: null,
       productTagId: 'prod-1',
-    })
+    });
 
-    await dispatchInboundToAiReply(ARGS)
+    await dispatchInboundToAiReply(ARGS);
 
-    expect(h.state.rpcCalls).toHaveLength(1)
+    expect(h.state.rpcCalls).toHaveLength(1);
     expect(h.engineSendText).toHaveBeenCalledWith(
       expect.objectContaining({
         text: 'السعر التقديري للمتر يبدأ من 350 إلى 380 ريال للمتر.',
-      }),
-    )
-  })
+      })
+    );
+  });
 
   it('does not affect a reply with no price figure at all', async () => {
     h.buildConversationContext.mockResolvedValue([
       { role: 'user', content: 'كم سعر المتر بديل الخشب' },
-    ])
+    ]);
     h.generateReply.mockResolvedValue({
       text: 'ممكن ترسل المقاسات التقريبية أو صورة للمكان؟',
       handoff: false,
       mediaId: null,
       productTagId: null,
-    })
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.state.rpcCalls).toHaveLength(1)
+    });
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.state.rpcCalls).toHaveLength(1);
     expect(h.engineSendText).toHaveBeenCalledWith(
-      expect.objectContaining({ text: 'ممكن ترسل المقاسات التقريبية أو صورة للمكان؟' }),
-    )
-  })
-})
+      expect.objectContaining({
+        text: 'ممكن ترسل المقاسات التقريبية أو صورة للمكان؟',
+      })
+    );
+  });
+});
 
 describe('dispatchInboundToAiReply — repeated price ask backstop', () => {
   it('hands off when the customer asked about price 2+ times and this reply still offers nothing', async () => {
-    h.state.conv = { ...h.state.conv, ai_reply_count: 2 }
+    h.state.conv = { ...h.state.conv, ai_reply_count: 2 };
     h.buildConversationContext.mockResolvedValue([
       { role: 'user', content: 'كم سعر الباب؟' },
-      { role: 'assistant', content: 'يعتمد على النوع والمقاس، ممكن ترسل التفاصيل؟' },
+      {
+        role: 'assistant',
+        content: 'يعتمد على النوع والمقاس، ممكن ترسل التفاصيل؟',
+      },
       { role: 'user', content: 'طيب سعره كام بالظبط؟' },
-    ])
+    ]);
     h.generateReply.mockResolvedValue({
       text: 'السعر يعتمد على النوع والمقاس، ما أقدر أأكد رقم نهائي الآن.',
       handoff: false,
       mediaId: null,
       productTagId: null,
-    })
-    h.state.admins = [{ user_id: 'admin-1' }]
+    });
+    h.state.admins = [{ user_id: 'admin-1' }];
 
-    await dispatchInboundToAiReply(ARGS)
+    await dispatchInboundToAiReply(ARGS);
 
-    expect(h.state.rpcCalls).toHaveLength(0) // never claimed a reply slot -- no send attempted
-    expect(h.engineSendText).toHaveBeenCalledTimes(1)
+    expect(h.state.rpcCalls).toHaveLength(0); // never claimed a reply slot -- no send attempted
+    expect(h.engineSendText).toHaveBeenCalledTimes(1);
     // Arabic closing message -- the customer's own messages here are
     // Arabic, unlike the other backstop tests above which default to
     // the beforeEach's English "hi" and so get the English closing text.
     expect(h.engineSendText.mock.calls[0][0]).toMatchObject({
-      text: expect.stringContaining('سيتواصل معك'),
-    })
-    expect(h.state.updatePayload).toMatchObject({ ai_autoreply_disabled: true })
-  })
+      text: expect.stringContaining('يحتاج مراجعة'),
+    });
+    expect(h.state.updatePayload).toMatchObject({
+      ai_autoreply_disabled: true,
+    });
+  });
 
   it('does NOT hand off on the very first reply, even with two price questions already in the burst', async () => {
     // ai_reply_count is 0 (default) -- the bot hasn't had a turn to
@@ -931,24 +1041,26 @@ describe('dispatchInboundToAiReply — repeated price ask backstop', () => {
     h.buildConversationContext.mockResolvedValue([
       { role: 'user', content: 'كم سعر الباب؟' },
       { role: 'user', content: 'يعني بكام تقريبا؟' },
-    ])
+    ]);
     h.generateReply.mockResolvedValue({
       text: 'يعتمد على النوع والمقاس، ممكن ترسل التفاصيل؟',
       handoff: false,
       mediaId: null,
       productTagId: null,
-    })
+    });
 
-    await dispatchInboundToAiReply(ARGS)
+    await dispatchInboundToAiReply(ARGS);
 
-    expect(h.state.rpcCalls).toHaveLength(1)
+    expect(h.state.rpcCalls).toHaveLength(1);
     expect(h.engineSendText).toHaveBeenCalledWith(
-      expect.objectContaining({ text: 'يعتمد على النوع والمقاس، ممكن ترسل التفاصيل؟' }),
-    )
-  })
+      expect.objectContaining({
+        text: 'يعتمد على النوع والمقاس، ممكن ترسل التفاصيل؟',
+      })
+    );
+  });
 
   it('does NOT hand off when a legitimately backed price is actually offered', async () => {
-    h.state.conv = { ...h.state.conv, ai_reply_count: 2 }
+    h.state.conv = { ...h.state.conv, ai_reply_count: 2 };
     h.state.products = [
       {
         id: 'prod-1',
@@ -961,66 +1073,310 @@ describe('dispatchInboundToAiReply — repeated price ask backstop', () => {
         price_notes: null,
         ai_product_media: [],
       },
-    ]
+    ];
     h.buildConversationContext.mockResolvedValue([
       { role: 'user', content: 'كم سعر الباب؟' },
       { role: 'assistant', content: 'ممكن ترسل التفاصيل؟' },
       { role: 'user', content: 'طيب سعره كام؟' },
-    ])
+    ]);
     h.generateReply.mockResolvedValue({
       text: 'السعر التقديري للمتر يبدأ من 350 إلى 380 ريال.',
       handoff: false,
       mediaId: null,
       productTagId: 'prod-1',
-    })
+    });
 
-    await dispatchInboundToAiReply(ARGS)
+    await dispatchInboundToAiReply(ARGS);
 
-    expect(h.state.rpcCalls).toHaveLength(1)
+    expect(h.state.rpcCalls).toHaveLength(1);
     expect(h.engineSendText).toHaveBeenCalledWith(
-      expect.objectContaining({ text: 'السعر التقديري للمتر يبدأ من 350 إلى 380 ريال.' }),
-    )
-  })
-})
+      expect.objectContaining({
+        text: 'السعر التقديري للمتر يبدأ من 350 إلى 380 ريال.',
+      })
+    );
+  });
+});
 
 describe('dispatchInboundToAiReply — rolling conversation summary', () => {
   it('regenerates a stale summary for every conversation, not just after-hours takeover, and mirrors it onto contact_notes', async () => {
-    h.state.conv = { ...h.state.conv, ai_context_summary_at: null }
-    await dispatchInboundToAiReply(ARGS)
+    h.state.conv = { ...h.state.conv, ai_context_summary_at: null };
+    await dispatchInboundToAiReply(ARGS);
     expect(h.state.conversationUpdates).toContainEqual(
-      expect.objectContaining({ ai_context_summary: 'Hello!' }),
-    )
-    expect(h.state.noteInserts).toHaveLength(1)
+      expect.objectContaining({ ai_context_summary: 'Hello!' })
+    );
+    expect(h.state.noteInserts).toHaveLength(1);
     expect(h.state.noteInserts[0]).toMatchObject({
       account_id: 'acct-1',
       contact_id: 'contact-1',
       conversation_id: 'conv-1',
       user_id: 'user-1',
       is_ai_generated: true,
-    })
-    expect(h.state.noteInserts[0].note_text).toContain('Hello!')
-  })
+    });
+    expect(h.state.noteInserts[0].note_text).toContain('Hello!');
+  });
 
   it('updates the existing AI summary note in place instead of duplicating it', async () => {
-    h.state.conv = { ...h.state.conv, ai_context_summary_at: null }
-    h.state.existingAiNote = { id: 'note-1' }
-    await dispatchInboundToAiReply(ARGS)
-    expect(h.state.noteInserts).toHaveLength(0)
-    expect(h.state.noteUpdates).toHaveLength(1)
-    expect(h.state.noteUpdates[0].note_text).toContain('Hello!')
-  })
+    h.state.conv = { ...h.state.conv, ai_context_summary_at: null };
+    h.state.existingAiNote = { id: 'note-1' };
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.state.noteInserts).toHaveLength(0);
+    expect(h.state.noteUpdates).toHaveLength(1);
+    expect(h.state.noteUpdates[0].note_text).toContain('Hello!');
+  });
 
   it('does not regenerate a fresh (non-stale) summary', async () => {
     h.state.conv = {
       ...h.state.conv,
       ai_context_summary: 'existing summary',
       ai_context_summary_at: new Date().toISOString(),
-    }
-    await dispatchInboundToAiReply(ARGS)
+    };
+    await dispatchInboundToAiReply(ARGS);
     expect(
-      h.state.conversationUpdates.some((u) => 'ai_context_summary' in u),
-    ).toBe(false)
-    expect(h.state.noteInserts).toHaveLength(0)
-    expect(h.state.noteUpdates).toHaveLength(0)
-  })
-})
+      h.state.conversationUpdates.some((u) => 'ai_context_summary' in u)
+    ).toBe(false);
+    expect(h.state.noteInserts).toHaveLength(0);
+    expect(h.state.noteUpdates).toHaveLength(0);
+  });
+});
+
+describe('dispatchInboundToAiReply — Jev integration', () => {
+  beforeEach(() => vi.stubEnv('TYPESAFE_MODE', 'enforce'));
+  it.each([
+    {
+      customer: 'I am fed up with this service!',
+      apology: 'I’m sorry about this experience.',
+    },
+    {
+      customer: 'خلاص تعبت منكم، الخدمة سيئة!',
+      apology: 'نعتذر عن هذه التجربة.',
+    },
+  ])(
+    'apologizes and hands off emotional escalation: $customer',
+    async ({ customer, apology }) => {
+      h.buildConversationContext.mockResolvedValue([
+        { role: 'user', content: customer },
+      ]);
+      h.state.admins = [{ user_id: 'admin-1' }];
+      h.salesInput.mockResolvedValue({
+        mode: 'enforce',
+        handoff: true,
+        guidance: '',
+        apologize: true,
+        handoffReason:
+          'Estimated customer tone: frustrated. Possible customer dissatisfaction; human review requested.',
+      });
+      await dispatchInboundToAiReply(ARGS);
+      expect(h.generateReply).not.toHaveBeenCalled();
+      expect(h.engineSendText).toHaveBeenCalledTimes(1);
+      expect(h.engineSendText.mock.calls[0][0].text).toContain(apology);
+      expect(h.state.updatePayload).toMatchObject({
+        ai_autoreply_disabled: true,
+        ai_handoff_summary: expect.stringContaining(
+          'Estimated customer tone: frustrated'
+        ),
+      });
+      expect(h.state.notificationInserts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            user_id: 'admin-1',
+            type: 'ai_handoff',
+            body: expect.stringContaining(
+              'Estimated customer tone: frustrated'
+            ),
+          }),
+        ])
+      );
+      expect(h.ensureFollowup).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ kind: 'handoff' })
+      );
+      // The human owns subsequent turns until someone explicitly enables AI again.
+      h.state.conv = { ...h.state.conv, ...h.state.updatePayload };
+      await dispatchInboundToAiReply(ARGS);
+      expect(h.engineSendText).toHaveBeenCalledTimes(1);
+      expect(h.generateReply).not.toHaveBeenCalled();
+    }
+  );
+  it('still pauses AI and notifies a human when the apology cannot be sent', async () => {
+    h.state.admins = [{ user_id: 'admin-1' }];
+    h.salesInput.mockResolvedValue({
+      mode: 'enforce',
+      handoff: true,
+      guidance: '',
+      apologize: true,
+    });
+    h.engineSendText.mockRejectedValueOnce(new Error('transport unavailable'));
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.state.updatePayload).toMatchObject({
+      ai_autoreply_disabled: true,
+    });
+    expect(h.state.notificationInserts).toHaveLength(1);
+    expect(h.generateReply).not.toHaveBeenCalled();
+  });
+  it('drops an emotional handoff if a newer customer message arrives during assessment', async () => {
+    vi.stubEnv('AI_REPLY_DEBOUNCE_MS', '0');
+    h.state.latestCustomerMessage = { message_id: 'trigger' };
+    h.salesInput.mockImplementation(async () => {
+      h.state.latestCustomerMessage = { message_id: 'newer' };
+      return { mode: 'enforce', handoff: true, guidance: '', apologize: true };
+    });
+    await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'trigger' });
+    expect(h.engineSendText).not.toHaveBeenCalled();
+    expect(h.state.conversationUpdates).toEqual([]);
+    expect(h.state.notificationInserts).toEqual([]);
+  });
+  it('passes concern-aware guidance to generation and the tone estimate to verification', async () => {
+    const emotion = {
+      emotion: 'concerned',
+      confidence: 0.95,
+      upsetProbability: 0.05,
+    };
+    h.salesInput.mockResolvedValue({
+      mode: 'enforce',
+      handoff: false,
+      emotion,
+      guidance:
+        'Acknowledge the specific worry calmly and answer it using known facts.',
+    });
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply.mock.calls[0][0].systemPrompt).toContain(
+      'specific worry'
+    );
+    expect(h.salesOutput.mock.calls[0][1].emotion).toEqual(emotion);
+    expect(
+      h.state.conversationUpdates.some((u) => u.ai_autoreply_disabled)
+    ).toBe(false);
+  });
+  it('hands an explicit human request to the team without generating a sales reply', async () => {
+    h.salesInput.mockResolvedValue({
+      mode: 'enforce',
+      handoff: true,
+      guidance: '',
+    });
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).not.toHaveBeenCalled();
+    expect(h.state.updatePayload).toMatchObject({
+      ai_autoreply_disabled: true,
+    });
+    expect(h.engineSendText).toHaveBeenCalledTimes(1);
+    expect(h.engineSendText.mock.calls[0][0].text).not.toContain('sorry');
+  });
+  it('passes sales guidance and confirmed evidence, but no provider credentials, to the layers', async () => {
+    h.salesInput.mockResolvedValue({
+      mode: 'enforce',
+      handoff: false,
+      guidance: 'Answer the price question first.',
+    });
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply.mock.calls[0][0].systemPrompt).toContain(
+      'Answer the price question first.'
+    );
+    expect(h.salesOutput.mock.calls[0][1]).toMatchObject({
+      messages: [{ role: 'user', content: 'hi' }],
+      knowledge: [],
+    });
+    expect(JSON.stringify(h.salesOutput.mock.calls[0][1])).not.toContain(
+      'sk-test'
+    );
+  });
+  it('rejects a generated reply before it can claim a send slot or save rejected fields', async () => {
+    h.salesOutput.mockImplementation(async (_ctx, _evidence, proposal) => ({
+      ...proposal,
+      text: '',
+      handoff: true,
+      fields: [],
+      mediaId: null,
+      productTagId: null,
+    }));
+    h.generateReply.mockResolvedValue({
+      text: 'Guaranteed free installation tomorrow',
+      handoff: false,
+      fields: [{ name: 'Budget', value: '9999' }],
+    });
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.state.rpcCalls).toHaveLength(0);
+    expect(h.applyCollectedFields).not.toHaveBeenCalled();
+    expect(h.engineSendText.mock.calls[0][0].text).not.toContain('Guaranteed');
+  });
+  it('drops a stale reply when a new customer turn lands during output verification', async () => {
+    vi.stubEnv('AI_REPLY_DEBOUNCE_MS', '0');
+    h.state.latestCustomerMessage = { message_id: 'trigger' };
+    h.salesOutput.mockImplementation(async (_ctx, _evidence, proposal) => {
+      h.state.latestCustomerMessage = { message_id: 'newer' };
+      return proposal;
+    });
+    await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'trigger' });
+    expect(h.engineSendText).not.toHaveBeenCalled();
+    expect(h.state.rpcCalls).toHaveLength(0);
+  });
+  it('respects a human assignment that changes while checking the reply', async () => {
+    h.salesOutput.mockImplementation(async (_ctx, _evidence, proposal) => {
+      h.state.conv = { ...h.state.conv, assigned_agent_id: 'new-human' };
+      return proposal;
+    });
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.engineSendText).not.toHaveBeenCalled();
+    expect(h.state.rpcCalls).toHaveLength(0);
+  });
+});
+
+describe('review-derived operations', () => {
+  it('records why human-owned threads skip AI without taking ownership away', async () => {
+    h.state.conv!.assigned_agent_id = 'agent-1';
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.recordEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ outcome: 'skipped', reason: 'human_owned' })
+    );
+    expect(h.engineSendText).not.toHaveBeenCalled();
+    expect(h.state.conversationUpdates).toEqual([]);
+  });
+  it('creates owned review work for an unreadable attachment before responding', async () => {
+    h.buildConversationContext.mockResolvedValue([
+      {
+        role: 'user',
+        content: '[File sent: villa.dwg]',
+        sourceMessageId: 'file',
+        attachmentState: 'unavailable',
+      },
+    ]);
+    vi.stubEnv('AI_REPLY_DEBOUNCE_MS', '0');
+    await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'file' });
+    expect(h.ensureFollowup).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        kind: 'document_review',
+        sourceMessageId: 'file',
+      })
+    );
+    expect(h.generateReply).not.toHaveBeenCalled();
+    expect(h.engineSendText.mock.calls[0][0].text).not.toContain('shortly');
+  });
+  it('makes source-backed memory available in regular replies, not just after hours', async () => {
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: 'There are five windows', sourceMessageId: 'm' },
+    ]);
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply.mock.calls[0][0].systemPrompt).toContain(
+      'Earlier customer statements and recorded follow-up work'
+    );
+    expect(h.salesOutput.mock.calls[0][1]).toHaveProperty('memory');
+  });
+  it('creates the requested work with the existing handoff owner when calibrated routing is enabled', async () => {
+    h.salesInput.mockResolvedValue({
+      mode: 'enforce',
+      handoff: false,
+      guidance: 'Repair',
+      followupKind: 'repair',
+    });
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.ensureFollowup).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ kind: 'repair' })
+    );
+    expect(h.recordEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ outcome: 'sent' })
+    );
+  });
+});

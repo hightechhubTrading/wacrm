@@ -42,7 +42,10 @@ function pickCreateFields(body: Record<string, unknown>): Record<string, unknown
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent');
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
+    if (!body) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     if (!body.productCode) {
       return NextResponse.json({ error: 'productCode is required' }, { status: 400 });
     }

@@ -1,5 +1,5 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
-import type { CollectFieldPromptItem } from './defaults'
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { CollectFieldPromptItem } from './defaults';
 
 // ============================================================
 // AI-collectible fields: lets the autonomous auto-reply bot naturally
@@ -31,7 +31,7 @@ import type { CollectFieldPromptItem } from './defaults'
 // ============================================================
 
 function sameName(a: string, b: string): boolean {
-  return a.trim().toLowerCase() === b.trim().toLowerCase()
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
 /**
@@ -57,7 +57,7 @@ function sameName(a: string, b: string): boolean {
  */
 export async function listAiCollectibleFields(
   db: SupabaseClient,
-  accountId: string,
+  accountId: string
 ): Promise<CollectFieldPromptItem[]> {
   try {
     const { data, error } = await db
@@ -65,23 +65,23 @@ export async function listAiCollectibleFields(
       .select('id, field_name')
       .eq('account_id', accountId)
       .eq('ai_collectible', true)
-      .is('group_id', null)
-    if (error || !data) return []
+      .is('group_id', null);
+    if (error || !data) return [];
     return data.map((row) => ({
       id: row.id as string,
       name: row.field_name as string,
       scope: 'contact' as const,
-    }))
+    }));
   } catch (err) {
-    console.error('[ai collect-fields] listAiCollectibleFields failed:', err)
-    return []
+    console.error('[ai collect-fields] listAiCollectibleFields failed:', err);
+    return [];
   }
 }
 
 export interface CurrentDeal {
-  id: string
-  stage_id: string
-  notes: string | null
+  id: string;
+  stage_id: string;
+  notes: string | null;
 }
 
 /**
@@ -100,7 +100,7 @@ export interface CurrentDeal {
 export async function resolveCurrentOpenDeal(
   db: SupabaseClient,
   accountId: string,
-  contactId: string,
+  contactId: string
 ): Promise<CurrentDeal | null> {
   try {
     const { data, error } = await db
@@ -111,12 +111,12 @@ export async function resolveCurrentOpenDeal(
       .eq('status', 'open')
       .order('created_at', { ascending: false })
       .limit(1)
-      .maybeSingle()
-    if (error || !data) return null
-    return data as CurrentDeal
+      .maybeSingle();
+    if (error || !data) return null;
+    return data as CurrentDeal;
   } catch (err) {
-    console.error('[ai collect-fields] resolveCurrentOpenDeal failed:', err)
-    return null
+    console.error('[ai collect-fields] resolveCurrentOpenDeal failed:', err);
+    return null;
   }
 }
 
@@ -130,37 +130,47 @@ export async function resolveCurrentOpenDeal(
  */
 export async function listGroupFieldsForStage(
   db: SupabaseClient,
-  stageId: string,
+  stageId: string
 ): Promise<CollectFieldPromptItem[]> {
   try {
     const { data: links, error: linksErr } = await db
       .from('stage_required_groups')
       .select('group_id, custom_field_groups(scope, is_active)')
-      .eq('stage_id', stageId)
-    if (linksErr || !links) return []
+      .eq('stage_id', stageId);
+    if (linksErr || !links) return [];
 
-    type LinkRow = { group_id: string; custom_field_groups: { scope: 'contact' | 'deal'; is_active: boolean } | null }
-    const activeGroups = (links as unknown as LinkRow[]).filter((l) => l.custom_field_groups?.is_active)
-    if (activeGroups.length === 0) return []
+    type LinkRow = {
+      group_id: string;
+      custom_field_groups: {
+        scope: 'contact' | 'deal';
+        is_active: boolean;
+      } | null;
+    };
+    const activeGroups = (links as unknown as LinkRow[]).filter(
+      (l) => l.custom_field_groups?.is_active
+    );
+    if (activeGroups.length === 0) return [];
 
-    const scopeByGroupId = new Map(activeGroups.map((l) => [l.group_id, l.custom_field_groups!.scope]))
-    const groupIds = activeGroups.map((l) => l.group_id)
+    const scopeByGroupId = new Map(
+      activeGroups.map((l) => [l.group_id, l.custom_field_groups!.scope])
+    );
+    const groupIds = activeGroups.map((l) => l.group_id);
 
     const { data: fields, error: fieldsErr } = await db
       .from('custom_fields')
       .select('id, field_name, group_id')
-      .in('group_id', groupIds)
-    if (fieldsErr || !fields) return []
+      .in('group_id', groupIds);
+    if (fieldsErr || !fields) return [];
 
-    type FieldRow = { id: string; field_name: string; group_id: string }
+    type FieldRow = { id: string; field_name: string; group_id: string };
     return (fields as FieldRow[]).map((f) => ({
       id: f.id,
       name: f.field_name,
       scope: scopeByGroupId.get(f.group_id) ?? 'deal',
-    }))
+    }));
   } catch (err) {
-    console.error('[ai collect-fields] listGroupFieldsForStage failed:', err)
-    return []
+    console.error('[ai collect-fields] listGroupFieldsForStage failed:', err);
+    return [];
   }
 }
 
@@ -177,57 +187,81 @@ export async function listGroupFieldsForStage(
  * blocks or fails the reply that triggered it.
  */
 export async function applyCollectedFields(args: {
-  db: SupabaseClient
-  accountId: string
-  contactId: string
-  fields: { name: string; value: string }[]
+  db: SupabaseClient;
+  accountId: string;
+  contactId: string;
+  fields: { name: string; value: string }[];
+  /** When supplied, reject writes if the Jev-verified order/stage changed. */
+  expectedDeal?: CurrentDeal | null;
 }): Promise<void> {
-  const { db, accountId, contactId, fields } = args
-  if (!fields || fields.length === 0) return
+  const { db, accountId, contactId, fields } = args;
+  if (!fields || fields.length === 0) return;
 
   try {
-    const deal = await resolveCurrentOpenDeal(db, accountId, contactId)
-    const contactKnown = await listAiCollectibleFields(db, accountId)
-    const groupKnown = deal ? await listGroupFieldsForStage(db, deal.stage_id) : []
+    const deal = await resolveCurrentOpenDeal(db, accountId, contactId);
+    if (
+      'expectedDeal' in args &&
+      (deal?.id !== args.expectedDeal?.id ||
+        deal?.stage_id !== args.expectedDeal?.stage_id)
+    )
+      return;
+    const contactKnown = await listAiCollectibleFields(db, accountId);
+    const groupKnown = deal
+      ? await listGroupFieldsForStage(db, deal.stage_id)
+      : [];
 
-    const applied: { name: string; value: string }[] = []
+    const applied: { name: string; value: string }[] = [];
 
     for (const f of fields) {
-      const cMatch = contactKnown.find((k) => sameName(k.name, f.name))
+      const cMatch = contactKnown.find((k) => sameName(k.name, f.name));
       if (cMatch) {
-        await db.from('contact_custom_values').upsert(
-          { contact_id: contactId, custom_field_id: cMatch.id, value: f.value },
-          { onConflict: 'contact_id,custom_field_id' },
-        )
-        applied.push({ name: cMatch.name, value: f.value })
-        continue
+        await db
+          .from('contact_custom_values')
+          .upsert(
+            {
+              contact_id: contactId,
+              custom_field_id: cMatch.id,
+              value: f.value,
+            },
+            { onConflict: 'contact_id,custom_field_id' }
+          );
+        applied.push({ name: cMatch.name, value: f.value });
+        continue;
       }
-      const gMatch = groupKnown.find((k) => sameName(k.name, f.name))
+      const gMatch = groupKnown.find((k) => sameName(k.name, f.name));
       if (gMatch && deal) {
         if (gMatch.scope === 'deal') {
-          await db.from('deal_custom_values').upsert(
-            { deal_id: deal.id, custom_field_id: gMatch.id, value: f.value },
-            { onConflict: 'deal_id,custom_field_id' },
-          )
+          await db
+            .from('deal_custom_values')
+            .upsert(
+              { deal_id: deal.id, custom_field_id: gMatch.id, value: f.value },
+              { onConflict: 'deal_id,custom_field_id' }
+            );
         } else {
-          await db.from('contact_custom_values').upsert(
-            { contact_id: contactId, custom_field_id: gMatch.id, value: f.value },
-            { onConflict: 'contact_id,custom_field_id' },
-          )
+          await db
+            .from('contact_custom_values')
+            .upsert(
+              {
+                contact_id: contactId,
+                custom_field_id: gMatch.id,
+                value: f.value,
+              },
+              { onConflict: 'contact_id,custom_field_id' }
+            );
         }
-        applied.push({ name: gMatch.name, value: f.value })
+        applied.push({ name: gMatch.name, value: f.value });
       }
       // else: unmatched name -- skipped, same as before.
     }
 
-    if (applied.length === 0 || !deal) return
+    if (applied.length === 0 || !deal) return;
 
-    const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ')
-    const line = `[${stamp}] ${applied.map((a) => `${a.name}: ${a.value}`).join(' -- ')}`
-    const nextNotes = deal.notes ? `${deal.notes}\n${line}` : line
-    await db.from('deals').update({ notes: nextNotes }).eq('id', deal.id)
+    const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+    const line = `[${stamp}] ${applied.map((a) => `${a.name}: ${a.value}`).join(' -- ')}`;
+    const nextNotes = deal.notes ? `${deal.notes}\n${line}` : line;
+    await db.from('deals').update({ notes: nextNotes }).eq('id', deal.id);
   } catch (err) {
-    console.error('[ai auto-reply] applyCollectedFields failed:', err)
+    console.error('[ai auto-reply] applyCollectedFields failed:', err);
   }
 }
 
@@ -243,11 +277,11 @@ export async function applyCollectedFields(args: {
 export async function listCollectedFieldValues(
   db: SupabaseClient,
   accountId: string,
-  contactId: string,
+  contactId: string
 ): Promise<{ name: string; value: string }[]> {
   try {
-    const known = await listAiCollectibleFields(db, accountId)
-    if (known.length === 0) return []
+    const known = await listAiCollectibleFields(db, accountId);
+    if (known.length === 0) return [];
 
     const { data, error } = await db
       .from('contact_custom_values')
@@ -255,19 +289,19 @@ export async function listCollectedFieldValues(
       .eq('contact_id', contactId)
       .in(
         'custom_field_id',
-        known.map((k) => k.id),
-      )
-    if (error || !data) return []
+        known.map((k) => k.id)
+      );
+    if (error || !data) return [];
 
-    const nameById = new Map(known.map((k) => [k.id, k.name]))
+    const nameById = new Map(known.map((k) => [k.id, k.name]));
     return data
       .map((row) => ({
         name: nameById.get(row.custom_field_id as string) ?? '',
         value: row.value as string,
       }))
-      .filter((f) => f.name && f.value)
+      .filter((f) => f.name && f.value);
   } catch (err) {
-    console.error('[ai collect-fields] listCollectedFieldValues failed:', err)
-    return []
+    console.error('[ai collect-fields] listCollectedFieldValues failed:', err);
+    return [];
   }
 }

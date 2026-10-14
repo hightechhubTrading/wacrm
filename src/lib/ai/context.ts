@@ -1,13 +1,16 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
-import type { ChatMessage } from './types'
-import { aiContextMessageLimit } from './defaults'
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { ChatMessage } from './types';
+import { aiContextMessageLimit } from './defaults';
 
 interface DbMessage {
-  sender_type: 'customer' | 'agent' | 'bot'
-  content_type?: string | null
-  content_text: string | null
-  transcript: string | null
-  image_description: string | null
+  message_id?: string | null;
+  document_text?: string | null;
+  document_status?: string | null;
+  sender_type: 'customer' | 'agent' | 'bot';
+  content_type?: string | null;
+  content_text: string | null;
+  transcript: string | null;
+  image_description: string | null;
 }
 
 /**
@@ -30,20 +33,29 @@ interface DbMessage {
 export async function buildConversationContext(
   db: SupabaseClient,
   conversationId: string,
-  limit: number = aiContextMessageLimit(),
+  limit: number = aiContextMessageLimit()
 ): Promise<ChatMessage[]> {
   const { data, error } = await db
     .from('messages')
-    .select('sender_type, content_type, content_text, transcript, image_description')
+    .select(
+      'message_id, sender_type, content_type, content_text, transcript, image_description, document_text, document_status'
+    )
     .eq('conversation_id', conversationId)
-    .in('content_type', ['text', 'audio', 'image', 'location', 'document', 'video'])
+    .in('content_type', [
+      'text',
+      'audio',
+      'image',
+      'location',
+      'document',
+      'video',
+    ])
     .order('created_at', { ascending: false })
-    .limit(limit)
+    .limit(limit);
 
-  if (error) throw error
+  if (error) throw error;
 
-  const rows = ((data ?? []) as DbMessage[]).reverse()
-  const result: ChatMessage[] = []
+  const rows = ((data ?? []) as DbMessage[]).reverse();
+  const result: ChatMessage[] = [];
   for (const [i, m] of rows.entries()) {
     // WhatsApp's "unsupported" placeholder usually arrives alongside a
     // batch of photos (an album) -- once anything newer from the
@@ -54,15 +66,26 @@ export async function buildConversationContext(
       m.content_text?.startsWith(UNSUPPORTED_PREFIX) &&
       rows.slice(i + 1).some((later) => later.sender_type === 'customer')
     ) {
-      continue
+      continue;
     }
-    const marker = mediaMarker(m)
+    const marker = mediaMarker(m);
     if (marker) {
       result.push({
         role: m.sender_type === 'customer' ? 'user' : 'assistant',
         content: marker,
-      })
-      continue
+        ...(m.message_id ? { sourceMessageId: m.message_id } : {}),
+        ...((m.content_type === 'document' || m.content_type === 'audio') &&
+        m.sender_type === 'customer'
+          ? {
+              attachmentState: m.document_text
+                ? m.document_status === 'partial'
+                  ? ('partial' as const)
+                  : ('parsed' as const)
+                : ('unavailable' as const),
+            }
+          : {}),
+      });
+      continue;
     }
 
     // A captioned photo carries both a caption (content_text) and a
@@ -75,26 +98,29 @@ export async function buildConversationContext(
     // description used to read exactly like a customer message in
     // English, which threw off the reply-language match on any photo
     // sent without a caption in a non-English conversation.
-    const caption = m.content_text?.trim()
+    const caption = m.content_text?.trim();
     const description =
       m.image_description?.trim() ||
       (m.content_type === 'image' && m.sender_type === 'customer'
         ? 'no description available'
-        : undefined)
+        : undefined);
     const text =
       caption && description
         ? `${caption}\n[Image: ${description}]`
-        : (caption ?? m.transcript?.trim() ?? (description ? `[Image: ${description}]` : description))
-    if (!text) continue
+        : (caption ??
+          m.transcript?.trim() ??
+          (description ? `[Image: ${description}]` : description));
+    if (!text) continue;
     result.push({
       role: m.sender_type === 'customer' ? 'user' : 'assistant',
       content: text,
-    })
+      ...(m.message_id ? { sourceMessageId: m.message_id } : {}),
+    });
   }
-  return result
+  return result;
 }
 
-const UNSUPPORTED_PREFIX = '[Unsupported message type'
+const UNSUPPORTED_PREFIX = '[Unsupported message type';
 
 /**
  * The transcript line for a location / file / video message, or for a
@@ -102,21 +128,28 @@ const UNSUPPORTED_PREFIX = '[Unsupported message type'
  * (handled as text/voice/customer photo by the caller).
  */
 function mediaMarker(m: DbMessage): string | undefined {
-  const text = m.content_text?.trim()
+  const text = m.content_text?.trim();
   switch (m.content_type) {
     case 'location':
-      return text ? `[Location shared: ${text}]` : '[Location shared]'
+      return text ? `[Location shared: ${text}]` : '[Location shared]';
     case 'document':
-      return text ? `[File sent: ${text}]` : '[File sent]'
+      if (m.sender_type === 'customer' && m.document_text)
+        return `[File sent: ${text || 'document'}]\n[Extracted document text${m.document_status === 'partial' ? ' (partial)' : ''}: ${m.document_text}]`;
+      return text ? `[File sent: ${text}]` : '[File sent]';
+    case 'audio':
+      return !m.transcript && !text
+        ? '[Audio received; not transcribed]'
+        : undefined;
     case 'video':
-      return text ? `${text}\n[Video sent]` : '[Video sent]'
+      return text ? `${text}\n[Video sent]` : '[Video sent]';
     case 'image':
       // The business's own outbound photo (catalog attachment, or one a
       // human agent sent) -- recorded so the model knows it already went
       // out instead of promising it again.
-      if (m.sender_type !== 'customer') return text ? `${text}\n[Photo sent]` : '[Photo sent]'
-      return undefined
+      if (m.sender_type !== 'customer')
+        return text ? `${text}\n[Photo sent]` : '[Photo sent]';
+      return undefined;
     default:
-      return undefined
+      return undefined;
   }
 }

@@ -1,26 +1,49 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { DirectionProvider } from '@base-ui/react/direction-provider';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import {
   CONVERSATION_SELECT,
   matchesContactFilters,
   normalizeConversations,
-} from "@/lib/inbox/conversations";
-import { cn } from "@/lib/utils";
-import type { Conversation, ConversationStatus, Tag, Profile } from "@/types";
-import { Search, ChevronDown, X, Flame, ArrowUpCircle, Megaphone } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { useTranslations } from "next-intl";
-import { Input } from "@/components/ui/input";
+} from '@/lib/inbox/conversations';
+import { useSalesContext } from '@/hooks/use-sales-context';
+import {
+  SALES_VIEWS,
+  matchesSalesView,
+  type SalesView,
+} from '@/lib/inbox/sales-context';
+import { TRIAGE_GROUPS, sortTriage, triageGroup } from '@/lib/inbox/triage';
+import { useAuth } from '@/hooks/use-auth';
+import { ar, enUS } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import type { Conversation, ConversationStatus, Tag, Profile } from '@/types';
+import {
+  Search,
+  ChevronDown,
+  X,
+  Flame,
+  ArrowUpCircle,
+  Megaphone,
+  Inbox,
+  Mail,
+  UserRound,
+  SlidersHorizontal,
+  Tag as TagIcon,
+  Building2,
+} from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { useLocale, useTranslations } from 'next-intl';
+import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
+} from '@/components/ui/dropdown-menu';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ConversationListProps {
   activeConversationId: string | null;
@@ -37,18 +60,16 @@ interface ConversationListProps {
 }
 
 const STATUS_COLORS: Record<ConversationStatus, string> = {
-  open: "bg-primary",
-  pending: "bg-amber-500",
-  closed: "bg-muted-foreground",
+  open: 'bg-primary',
+  pending: 'bg-amber-500',
+  closed: 'bg-muted-foreground',
 };
 
-
-
-type InboxFilter = ConversationStatus | "all" | "unread";
+type InboxFilter = ConversationStatus | 'all' | 'unread' | 'mine' | SalesView;
 
 /** Sentinel for the "no assigned agent" filter option, distinct from
  *  any real `profiles.user_id`. */
-const UNASSIGNED_AGENT = "__unassigned__";
+const UNASSIGNED_AGENT = '__unassigned__';
 
 export function ConversationList({
   activeConversationId,
@@ -57,19 +78,40 @@ export function ConversationList({
   onConversationsLoaded,
   resyncToken = 0,
 }: ConversationListProps) {
-  const t = useTranslations("Inbox.conversationList");
-  
-  const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(() => [
-    { label: t("filterAll"), value: "all" },
-    { label: t("filterUnread"), value: "unread" },
-    { label: t("filterOpen"), value: "open" },
-    { label: t("filterPending"), value: "pending" },
-    { label: t("filterClosed"), value: "closed" },
-  ], [t]);
+  const t = useTranslations('Inbox.conversationList');
+  const locale = useLocale();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
+  const sales = useSalesContext(
+    conversations
+      .map((c) => `${c.id}|${c.last_message_at ?? ''}`)
+      .sort()
+      .join(',')
+  );
 
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<InboxFilter>("all");
+  const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(
+    () => [
+      ...(sales.available
+        ? SALES_VIEWS.map((value) => ({
+            label: t(`salesViews.${value}`),
+            value,
+          }))
+        : []),
+      { label: t('filterAll'), value: 'all' },
+      { label: t('filterUnread'), value: 'unread' },
+      { label: t('mine'), value: 'mine' },
+      { label: t('filterOpen'), value: 'open' },
+      { label: t('filterPending'), value: 'pending' },
+      { label: t('filterClosed'), value: 'closed' },
+    ],
+    [t, sales.available]
+  );
+
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<InboxFilter>('all');
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+  const [retry, setRetry] = useState(0);
   // Contact-based filters (issue #272). Tags use OR logic (a conversation
   // matches if its contact carries any selected tag), consistent with
   // Broadcast audience filtering. Company is an exact match on the field.
@@ -103,15 +145,16 @@ export function ConversationList({
 
     (async () => {
       const { data, error } = await supabase
-        .from("conversations")
+        .from('conversations')
         .select(CONVERSATION_SELECT)
-        .order("last_message_at", { ascending: false });
+        .order('last_message_at', { ascending: false });
 
       if (cancelled) return;
 
       if (error) {
+        setFetchError(true);
         // Supabase errors have non-enumerable properties — log fields explicitly
-        console.error("Failed to fetch conversations:", {
+        console.error('Failed to fetch conversations:', {
           message: error.message,
           details: error.details,
           hint: error.hint,
@@ -121,6 +164,7 @@ export function ConversationList({
         return;
       }
 
+      setFetchError(false);
       onConversationsLoadedRef.current(normalizeConversations(data ?? []));
       setLoading(false);
     })();
@@ -131,7 +175,7 @@ export function ConversationList({
     // `resyncToken` is included so the parent can force a refetch when
     // the realtime channel reconnects or the tab regains focus — catches
     // up on any events sent while the WS was disconnected or throttled.
-  }, [resyncToken]);
+  }, [resyncToken, retry]);
 
   // Tag definitions for the filter picker — loaded once so labels/colours
   // stay stable regardless of which conversations happen to be loaded.
@@ -139,7 +183,7 @@ export function ConversationList({
     const supabase = createClient();
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.from("tags").select("*").order("name");
+      const { data } = await supabase.from('tags').select('*').order('name');
       if (!cancelled && data) setTags(data as Tag[]);
     })();
     return () => {
@@ -155,12 +199,12 @@ export function ConversationList({
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("full_name");
+        .from('profiles')
+        .select('*')
+        .order('full_name');
       if (cancelled) return;
       if (error) {
-        console.error("Failed to fetch profiles:", error);
+        console.error('Failed to fetch profiles:', error);
         return;
       }
       setProfiles((data as Profile[]) ?? []);
@@ -197,9 +241,20 @@ export function ConversationList({
   const filtered = useMemo(() => {
     let result = conversations;
 
-    if (filter === "unread") {
+    if (SALES_VIEWS.includes(filter as SalesView)) {
+      result = result.filter((c) =>
+        matchesSalesView(
+          filter as SalesView,
+          sales.data[c.id],
+          c.status,
+          user?.id
+        )
+      );
+    } else if (filter === 'unread') {
       result = result.filter((c) => c.unread_count > 0);
-    } else if (filter !== "all") {
+    } else if (filter === 'mine') {
+      result = result.filter((c) => c.assigned_agent_id === user?.id);
+    } else if (filter !== 'all') {
       result = result.filter((c) => c.status === filter);
     }
 
@@ -226,15 +281,24 @@ export function ConversationList({
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter((c) => {
-        const name = c.contact?.name?.toLowerCase() ?? "";
-        const phone = c.contact?.phone?.toLowerCase() ?? "";
-        const lastMsg = c.last_message_text?.toLowerCase() ?? "";
+        const name = c.contact?.name?.toLowerCase() ?? '';
+        const phone = c.contact?.phone?.toLowerCase() ?? '';
+        const lastMsg = c.last_message_text?.toLowerCase() ?? '';
         return name.includes(q) || phone.includes(q) || lastMsg.includes(q);
       });
     }
 
     return result;
-  }, [conversations, filter, search, selectedTagIds, selectedCompany, selectedAgentId]);
+  }, [
+    conversations,
+    sales.data,
+    filter,
+    search,
+    selectedTagIds,
+    selectedCompany,
+    selectedAgentId,
+    user?.id,
+  ]);
 
   const toggleTag = useCallback((id: string) => {
     setSelectedTagIds((prev) =>
@@ -249,7 +313,9 @@ export function ConversationList({
   }, []);
 
   const hasContactFilters =
-    selectedTagIds.length > 0 || selectedCompany !== null || selectedAgentId !== null;
+    selectedTagIds.length > 0 ||
+    selectedCompany !== null ||
+    selectedAgentId !== null;
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -266,285 +332,423 @@ export function ConversationList({
   );
 
   const activeFilter = FILTER_OPTIONS.find((o) => o.value === filter);
+  const advancedView = !['all', 'unread', 'mine'].includes(filter);
+  const refinementCount =
+    selectedTagIds.length +
+    Number(selectedCompany !== null) +
+    Number(selectedAgentId !== null) +
+    Number(advancedView);
 
   return (
     // w-full on mobile so the list occupies the whole viewport when it's
     // the single pane showing; fixed 320px on desktop where it shares the
     // row with the thread + contact sidebar.
-    <div className="flex h-full w-full flex-col border-r border-border bg-card lg:w-80">
-      {/* Search + Filter */}
-      <div className="space-y-2 border-b border-border p-3">
-        <div className="relative">
-          <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={handleSearchChange}
-            placeholder={t("searchPlaceholder")}
-            className="border-border bg-muted ps-9 text-sm text-foreground placeholder-muted-foreground focus:border-primary/50"
-          />
-        </div>
+    <DirectionProvider direction={locale === 'ar' ? 'rtl' : 'ltr'}>
+      <div className="crm-queue bg-card flex h-full w-full flex-col lg:w-80">
+        {/* Search + Filter */}
+        <div className="crm-queue-head space-y-2">
+          <div className="crm-queue-identity">
+            <span className="crm-queue-mark" aria-hidden="true">
+              <Inbox size={21} />
+            </span>
+            <div>
+              <h1 className="crm-queue-title">{t('inbox')}</h1>
+              <p>{t('queueHint')}</p>
+            </div>
+            {!loading && (
+              <span
+                className="crm-queue-count"
+                aria-label={t('visibleCount', { count: filtered.length })}
+              >
+                {filtered.length}
+              </span>
+            )}
+          </div>
+          <div className="crm-queue-search relative">
+            <Search className="text-muted-foreground absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+            <Input
+              ref={searchInputRef}
+              value={search}
+              onChange={handleSearchChange}
+              placeholder={t('searchPlaceholder')}
+              aria-label={t('searchPlaceholder')}
+              className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 ps-9 pe-9 text-sm"
+            />
+            {search && (
+              <button
+                type="button"
+                aria-label={t('clearSearch')}
+                onClick={() => {
+                  setSearch('');
+                  searchInputRef.current?.focus();
+                }}
+              >
+                <X size={15} aria-hidden />
+              </button>
+            )}
+          </div>
 
-        <div className="flex flex-wrap items-center gap-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center justify-center h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-muted">
-                {activeFilter?.label ?? t("filterAll")}
-                <ChevronDown className="h-3 w-3" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="border-border bg-popover"
-            >
-              {FILTER_OPTIONS.map((opt) => (
-                <DropdownMenuItem
-                  key={opt.value}
-                  onClick={() => setFilter(opt.value)}
-                  className={cn(
-                    "text-sm",
-                    filter === opt.value
-                      ? "text-primary"
-                      : "text-popover-foreground"
-                  )}
+          {SALES_VIEWS.includes(filter as SalesView) && (
+            <p role="status" className="text-muted-foreground text-xs">
+              {sales.error
+                ? t('salesUnavailable')
+                : sales.loading
+                  ? t('salesLoading')
+                  : t('salesViewHint')}
+            </p>
+          )}
+          <div className="crm-segment" role="group" aria-label={t('filters')}>
+            {(['all', 'unread', 'mine'] as const).map((value) => (
+              <button
+                key={value}
+                aria-pressed={filter === value}
+                onClick={() => setFilter(value)}
+              >
+                {value === 'all' ? (
+                  <Inbox size={15} aria-hidden />
+                ) : value === 'unread' ? (
+                  <Mail size={15} aria-hidden />
+                ) : (
+                  <UserRound size={15} aria-hidden />
+                )}
+                {value === 'mine'
+                  ? t('mine')
+                  : t(value === 'all' ? 'filterAll' : 'filterUnread')}
+              </button>
+            ))}
+          </div>
+          <details className="crm-queue-filter-panel">
+            <summary>
+              <SlidersHorizontal size={16} aria-hidden />
+              <span>{t('refine')}</span>
+              {refinementCount > 0 && <b>{refinementCount}</b>}
+              <ChevronDown
+                size={15}
+                className="crm-filter-chevron"
+                aria-hidden
+              />
+            </summary>
+            <div className="crm-queue-refinements">
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className="crm-filter-control"
+                  data-applied={advancedView || undefined}
+                  aria-label={`${t('view')}: ${activeFilter?.label ?? t('filterAll')}`}
                 >
-                  {opt.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                  <SlidersHorizontal size={15} aria-hidden />
+                  <span>{advancedView ? activeFilter?.label : t('view')}</span>
+                  <ChevronDown className="h-3 w-3" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="border-border bg-popover"
+                >
+                  {FILTER_OPTIONS.map((opt) => (
+                    <DropdownMenuItem
+                      key={opt.value}
+                      onClick={() => setFilter(opt.value)}
+                      className={cn(
+                        'text-sm',
+                        filter === opt.value
+                          ? 'text-primary'
+                          : 'text-popover-foreground'
+                      )}
+                    >
+                      {opt.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-          {tags.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className={cn(
-                  "inline-flex items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
-                  selectedTagIds.length > 0
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {t("tags")}
-                {selectedTagIds.length > 0 && (
-                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                    {selectedTagIds.length}
-                  </span>
-                )}
-                <ChevronDown className="h-3 w-3" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="max-h-64 w-56 border-border bg-popover"
-              >
-                {tags.map((t) => (
-                  <DropdownMenuCheckboxItem
-                    key={t.id}
-                    checked={selectedTagIds.includes(t.id)}
-                    onCheckedChange={() => toggleTag(t.id)}
-                    className="text-sm text-popover-foreground"
+              {tags.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    className={cn(
+                      'crm-filter-control hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs',
+                      selectedTagIds.length > 0
+                        ? 'text-primary'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                    data-applied={selectedTagIds.length > 0 || undefined}
                   >
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: t.color }}
-                      />
-                      <span className="truncate">{t.name}</span>
+                    <TagIcon size={15} aria-hidden />
+                    {t('tags')}
+                    {selectedTagIds.length > 0 && (
+                      <span className="bg-primary text-primary-foreground flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold">
+                        {selectedTagIds.length}
+                      </span>
+                    )}
+                    <ChevronDown className="h-3 w-3" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    className="border-border bg-popover max-h-64 w-56"
+                  >
+                    {tags.map((t) => (
+                      <DropdownMenuCheckboxItem
+                        key={t.id}
+                        checked={selectedTagIds.includes(t.id)}
+                        onCheckedChange={() => toggleTag(t.id)}
+                        className="text-popover-foreground text-sm"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: t.color }}
+                          />
+                          <span className="truncate">{t.name}</span>
+                        </span>
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
+              {companies.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    className={cn(
+                      'crm-filter-control hover:bg-muted inline-flex h-7 max-w-40 items-center justify-center gap-1 rounded-md px-2 text-xs',
+                      selectedCompany
+                        ? 'text-primary'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                    data-applied={Boolean(selectedCompany) || undefined}
+                  >
+                    <Building2 size={15} aria-hidden />
+                    <span className="truncate">
+                      {selectedCompany ?? t('company')}
                     </span>
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          {companies.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className={cn(
-                  "inline-flex max-w-40 items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
-                  selectedCompany
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <span className="truncate">{selectedCompany ?? t("company")}</span>
-                <ChevronDown className="h-3 w-3 shrink-0" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="max-h-64 w-56 border-border bg-popover"
-              >
-                <DropdownMenuItem
-                  onClick={() => setSelectedCompany(null)}
-                  className={cn(
-                    "text-sm",
-                    selectedCompany === null
-                      ? "text-primary"
-                      : "text-popover-foreground"
-                  )}
-                >
-                  {t("allCompanies")}
-                </DropdownMenuItem>
-                {companies.map((co) => (
-                  <DropdownMenuItem
-                    key={co}
-                    onClick={() => setSelectedCompany(co)}
-                    className={cn(
-                      "text-sm",
-                      selectedCompany === co
-                        ? "text-primary"
-                        : "text-popover-foreground"
-                    )}
+                    <ChevronDown className="h-3 w-3 shrink-0" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    className="border-border bg-popover max-h-64 w-56"
                   >
-                    <span className="truncate">{co}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+                    <DropdownMenuItem
+                      onClick={() => setSelectedCompany(null)}
+                      className={cn(
+                        'text-sm',
+                        selectedCompany === null
+                          ? 'text-primary'
+                          : 'text-popover-foreground'
+                      )}
+                    >
+                      {t('allCompanies')}
+                    </DropdownMenuItem>
+                    {companies.map((co) => (
+                      <DropdownMenuItem
+                        key={co}
+                        onClick={() => setSelectedCompany(co)}
+                        className={cn(
+                          'text-sm',
+                          selectedCompany === co
+                            ? 'text-primary'
+                            : 'text-popover-foreground'
+                        )}
+                      >
+                        <span className="truncate">{co}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
 
-          {profiles.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className={cn(
-                  "inline-flex max-w-40 items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
-                  selectedAgentId
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <span className="truncate">
-                  {selectedAgentId === UNASSIGNED_AGENT
-                    ? t("unassigned")
-                    : selectedAgentId
-                      ? (profilesById.get(selectedAgentId)?.full_name ?? t("agent"))
-                      : t("agent")}
-                </span>
-                <ChevronDown className="h-3 w-3 shrink-0" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="max-h-64 w-56 border-border bg-popover"
-              >
-                <DropdownMenuItem
-                  onClick={() => setSelectedAgentId(null)}
-                  className={cn(
-                    "text-sm",
-                    selectedAgentId === null
-                      ? "text-primary"
-                      : "text-popover-foreground"
-                  )}
-                >
-                  {t("allAgents")}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setSelectedAgentId(UNASSIGNED_AGENT)}
-                  className={cn(
-                    "text-sm",
-                    selectedAgentId === UNASSIGNED_AGENT
-                      ? "text-primary"
-                      : "text-popover-foreground"
-                  )}
-                >
-                  {t("unassigned")}
-                </DropdownMenuItem>
-                {profiles.map((p) => (
-                  <DropdownMenuItem
-                    key={p.user_id}
-                    onClick={() => setSelectedAgentId(p.user_id)}
+              {profiles.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
                     className={cn(
-                      "text-sm",
-                      selectedAgentId === p.user_id
-                        ? "text-primary"
-                        : "text-popover-foreground"
+                      'crm-filter-control hover:bg-muted inline-flex h-7 max-w-40 items-center justify-center gap-1 rounded-md px-2 text-xs',
+                      selectedAgentId
+                        ? 'text-primary'
+                        : 'text-muted-foreground hover:text-foreground'
                     )}
+                    data-applied={Boolean(selectedAgentId) || undefined}
                   >
-                    <span className="truncate">{p.full_name}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-
-        {hasContactFilters && (
-          <div className="flex flex-wrap items-center gap-1">
-            {selectedTagIds.map((id) => {
-              const tag = tagsById.get(id);
-              return (
+                    <UserRound size={15} aria-hidden />
+                    <span className="truncate">
+                      {selectedAgentId === UNASSIGNED_AGENT
+                        ? t('unassigned')
+                        : selectedAgentId
+                          ? (profilesById.get(selectedAgentId)?.full_name ??
+                            t('agent'))
+                          : t('agent')}
+                    </span>
+                    <ChevronDown className="h-3 w-3 shrink-0" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    className="border-border bg-popover max-h-64 w-56"
+                  >
+                    <DropdownMenuItem
+                      onClick={() => setSelectedAgentId(null)}
+                      className={cn(
+                        'text-sm',
+                        selectedAgentId === null
+                          ? 'text-primary'
+                          : 'text-popover-foreground'
+                      )}
+                    >
+                      {t('allAgents')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setSelectedAgentId(UNASSIGNED_AGENT)}
+                      className={cn(
+                        'text-sm',
+                        selectedAgentId === UNASSIGNED_AGENT
+                          ? 'text-primary'
+                          : 'text-popover-foreground'
+                      )}
+                    >
+                      {t('unassigned')}
+                    </DropdownMenuItem>
+                    {profiles.map((p) => (
+                      <DropdownMenuItem
+                        key={p.user_id}
+                        onClick={() => setSelectedAgentId(p.user_id)}
+                        className={cn(
+                          'text-sm',
+                          selectedAgentId === p.user_id
+                            ? 'text-primary'
+                            : 'text-popover-foreground'
+                        )}
+                      >
+                        <span className="truncate">{p.full_name}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+          </details>
+          {(hasContactFilters || advancedView) && (
+            <div className="crm-queue-filter-chips flex flex-wrap items-center gap-1">
+              {advancedView && (
+                <button type="button" onClick={() => setFilter('all')}>
+                  <SlidersHorizontal size={12} aria-hidden />
+                  {activeFilter?.label}
+                  <X size={12} aria-hidden />
+                </button>
+              )}
+              {selectedTagIds.map((id) => {
+                const tag = tagsById.get(id);
+                return (
+                  <button
+                    key={id}
+                    onClick={() => toggleTag(id)}
+                    className="bg-muted text-foreground hover:bg-muted/70 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
+                  >
+                    <span
+                      className="h-1.5 w-1.5 shrink-0 rounded-full"
+                      style={{
+                        backgroundColor:
+                          tag?.color ?? 'var(--muted-foreground)',
+                      }}
+                    />
+                    <span className="max-w-24 truncate">
+                      {tag?.name ?? t('tags')}
+                    </span>
+                    <X className="h-3 w-3" />
+                  </button>
+                );
+              })}
+              {selectedCompany && (
                 <button
-                  key={id}
-                  onClick={() => toggleTag(id)}
-                  className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-foreground hover:bg-muted/70"
+                  onClick={() => setSelectedCompany(null)}
+                  className="bg-muted text-foreground hover:bg-muted/70 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
                 >
-                  <span
-                    className="h-1.5 w-1.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: tag?.color ?? "var(--muted-foreground)" }}
-                  />
-                  <span className="max-w-24 truncate">{tag?.name ?? t("tags")}</span>
+                  <span className="max-w-24 truncate">{selectedCompany}</span>
                   <X className="h-3 w-3" />
                 </button>
-              );
-            })}
-            {selectedCompany && (
+              )}
+              {selectedAgentId && (
+                <button
+                  onClick={() => setSelectedAgentId(null)}
+                  className="bg-muted text-foreground hover:bg-muted/70 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
+                >
+                  <span className="max-w-24 truncate">
+                    {selectedAgentId === UNASSIGNED_AGENT
+                      ? t('unassigned')
+                      : (profilesById.get(selectedAgentId)?.full_name ??
+                        t('agent'))}
+                  </span>
+                  <X className="h-3 w-3" />
+                </button>
+              )}
               <button
-                onClick={() => setSelectedCompany(null)}
-                className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-foreground hover:bg-muted/70"
+                onClick={() => {
+                  clearContactFilters();
+                  setFilter('all');
+                }}
+                className="text-muted-foreground hover:text-foreground px-1 text-[11px]"
               >
-                <span className="max-w-24 truncate">{selectedCompany}</span>
-                <X className="h-3 w-3" />
+                {t('clearAll')}
               </button>
-            )}
-            {selectedAgentId && (
-              <button
-                onClick={() => setSelectedAgentId(null)}
-                className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-foreground hover:bg-muted/70"
-              >
-                <span className="max-w-24 truncate">
-                  {selectedAgentId === UNASSIGNED_AGENT
-                    ? t("unassigned")
-                    : (profilesById.get(selectedAgentId)?.full_name ?? t("agent"))}
-                </span>
-                <X className="h-3 w-3" />
-              </button>
-            )}
-            <button
-              onClick={clearContactFilters}
-              className="px-1 text-[11px] text-muted-foreground hover:text-foreground"
-            >
-              {t("clearAll")}
-            </button>
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
 
-      {/* Conversation Items.
+        {/* Conversation Items.
           `min-h-0` is load-bearing: a flex child defaults to
           min-height:auto, so without it this ScrollArea grows to fit
           every conversation instead of shrinking to the remaining
           space — the list then overflows and gets clipped by the
           parent's overflow-hidden with no scrollbar (issue #229). */}
-      <ScrollArea className="min-h-0 flex-1">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="px-4 py-12 text-center">
-            <p className="text-sm text-muted-foreground">{t("noConversations")}</p>
-          </div>
-        ) : (
-          <div className="flex flex-col">
-            {filtered.map((conv) => (
-              <ConversationItem
-                key={conv.id}
-                conversation={conv}
-                isActive={conv.id === activeConversationId}
-                onSelect={handleSelect}
-                t={t}
-                profilesById={profilesById}
-              />
-            ))}
-          </div>
-        )}
-      </ScrollArea>
-    </div>
+        <ScrollArea className="min-h-0 flex-1">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
+            </div>
+          ) : fetchError ? (
+            <div
+              className="text-muted-foreground px-4 py-12 text-center text-sm"
+              role="status"
+            >
+              {t('unavailable')}{' '}
+              <button
+                onClick={() => setRetry((r) => r + 1)}
+                className="text-primary underline"
+              >
+                {t('retry')}
+              </button>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="px-4 py-12 text-center">
+              <p className="text-muted-foreground text-sm">
+                {t('noConversations')}
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col">
+              {TRIAGE_GROUPS.map((group) => {
+                const items = sortTriage(filtered).filter(
+                  (conv) => triageGroup(conv) === group
+                );
+                if (!items.length) return null;
+                return (
+                  <section key={group} aria-label={t(`groups.${group}`)}>
+                    <h3 className="crm-triage-group">
+                      <span>{t(`groups.${group}`)}</span>
+                      <span>{items.length}</span>
+                    </h3>
+                    {items.map((conv) => (
+                      <ConversationItem
+                        key={conv.id}
+                        conversation={conv}
+                        isActive={conv.id === activeConversationId}
+                        onSelect={handleSelect}
+                        t={t}
+                        profilesById={profilesById}
+                      />
+                    ))}
+                  </section>
+                );
+              })}
+            </div>
+          )}
+        </ScrollArea>
+      </div>
+    </DirectionProvider>
   );
 }
 
@@ -563,8 +767,9 @@ function ConversationItem({
   t,
   profilesById,
 }: ConversationItemProps) {
+  const locale = useLocale();
   const contact = conversation.contact;
-  const displayName = contact?.name || contact?.phone || t("unknown");
+  const displayName = contact?.name || contact?.phone || t('unknown');
   const initials = displayName.charAt(0).toUpperCase();
   const assignedAgent = conversation.assigned_agent_id
     ? profilesById.get(conversation.assigned_agent_id)
@@ -577,19 +782,21 @@ function ConversationItem({
   const timeAgo = conversation.last_message_at
     ? formatDistanceToNow(new Date(conversation.last_message_at), {
         addSuffix: false,
+        locale: locale === 'ar' ? ar : enUS,
       })
-    : "";
+    : '';
 
   return (
     <button
+      aria-current={isActive ? 'true' : undefined}
       onClick={handleClick}
       className={cn(
-        "flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/50",
-        isActive && "border-s-2 border-primary bg-muted/70"
+        'crm-conversation hover:bg-muted/50 flex items-start gap-3 transition-colors',
+        isActive && 'bg-muted/70'
       )}
     >
       {/* Avatar */}
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
+      <div className="bg-muted text-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-medium">
         {contact?.avatar_url ? (
           <img
             src={contact.avatar_url}
@@ -605,25 +812,29 @@ function ConversationItem({
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-1">
-            <span className="truncate text-sm font-medium text-foreground">
+            <span className="text-foreground truncate text-sm font-medium">
               {displayName}
             </span>
             {conversation.ad_clicked_at && (
               <span
-                title={conversation.ad_headline || conversation.ad_source_id || t("fromAdBadge")}
-                aria-label={t("fromAdBadge")}
-                className="inline-flex shrink-0 items-center text-primary"
+                title={
+                  conversation.ad_headline ||
+                  conversation.ad_source_id ||
+                  t('fromAdBadge')
+                }
+                aria-label={t('fromAdBadge')}
+                className="text-primary inline-flex shrink-0 items-center"
               >
                 <Megaphone className="h-3 w-3" />
               </span>
             )}
-            {conversation.ai_priority === "urgent" && (
-              <span title={t("aiPriorityUrgent")}>
-                <Flame className="h-3.5 w-3.5 shrink-0 text-destructive" />
+            {conversation.ai_priority === 'urgent' && (
+              <span title={t('aiPriorityUrgent')}>
+                <Flame className="text-destructive h-3.5 w-3.5 shrink-0" />
               </span>
             )}
-            {conversation.ai_priority === "high" && (
-              <span title={t("aiPriorityHigh")}>
+            {conversation.ai_priority === 'high' && (
+              <span title={t('aiPriorityHigh')}>
                 <ArrowUpCircle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
               </span>
             )}
@@ -631,28 +842,28 @@ function ConversationItem({
           <span className="flex shrink-0 items-center gap-1">
             {assignedAgent && (
               <span
-                title={t("assignedTo", { name: assignedAgent.full_name ?? "" })}
-                className="flex h-4 w-4 items-center justify-center rounded-full bg-muted text-[9px] font-semibold text-muted-foreground"
+                title={t('assignedTo', { name: assignedAgent.full_name ?? '' })}
+                className="bg-muted text-muted-foreground flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-semibold"
               >
-                {(assignedAgent.full_name ?? "?").charAt(0).toUpperCase()}
+                {(assignedAgent.full_name ?? '?').charAt(0).toUpperCase()}
               </span>
             )}
-            <span className="text-[10px] text-muted-foreground">{timeAgo}</span>
+            <span className="text-muted-foreground text-[10px]">{timeAgo}</span>
           </span>
         </div>
         <div className="mt-0.5 flex items-center justify-between gap-2">
-          <p className="truncate text-xs text-muted-foreground">
-            {conversation.last_message_text || t("noMessagesYet")}
+          <p className="text-muted-foreground truncate text-xs">
+            {conversation.last_message_text || t('noMessagesYet')}
           </p>
           <div className="flex shrink-0 items-center gap-1.5">
             {conversation.unread_count > 0 && (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+              <span className="bg-primary text-primary-foreground flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold">
                 {conversation.unread_count}
               </span>
             )}
             <span
               className={cn(
-                "h-2 w-2 rounded-full",
+                'h-2 w-2 rounded-full',
                 STATUS_COLORS[conversation.status]
               )}
               title={conversation.status}

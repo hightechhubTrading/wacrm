@@ -1,11 +1,20 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback } from "react";
-import { Sparkles, Hand, Undo2, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
-import { useTranslations } from "next-intl";
-import { useAuth } from "@/hooks/use-auth";
+import { useState, useEffect, useCallback } from 'react';
+import {
+  Sparkles,
+  Hand,
+  Undo2,
+  Loader2,
+  ChevronDown,
+  SlidersHorizontal,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
+import { createClient } from '@/lib/supabase/client';
+import { SalesAssistanceBrief } from './sales-assistance-brief';
+import { useAuth } from '@/hooks/use-auth';
 
 // ------------------------------------------------------------
 // Account AI status is the same for every conversation, so cache it per
@@ -20,15 +29,18 @@ import { useAuth } from "@/hooks/use-auth";
 // ------------------------------------------------------------
 interface AiAccountStatus {
   autoReplyOn: boolean;
+  unavailable?: boolean;
 }
 const statusCache = new Map<string, AiAccountStatus>();
 
-async function fetchAiAccountStatus(accountId: string): Promise<AiAccountStatus> {
+async function fetchAiAccountStatus(
+  accountId: string
+): Promise<AiAccountStatus> {
   const cached = statusCache.get(accountId);
   if (cached) return cached;
   try {
-    const res = await fetch("/api/ai/config", { cache: "no-store" });
-    if (!res.ok) return { autoReplyOn: false }; // don't cache a transient failure
+    const res = await fetch('/api/ai/config', { cache: 'no-store' });
+    if (!res.ok) return { autoReplyOn: false, unavailable: true }; // don't cache a transient failure
     const j = await res.json();
     const status = {
       // AI auto-reply is "live" only when configured, the master switch
@@ -38,7 +50,7 @@ async function fetchAiAccountStatus(accountId: string): Promise<AiAccountStatus>
     statusCache.set(accountId, status);
     return status;
   } catch {
-    return { autoReplyOn: false }; // don't cache
+    return { autoReplyOn: false, unavailable: true }; // don't cache
   }
 }
 
@@ -65,6 +77,11 @@ interface AiThreadBannerProps {
     ai_autoreply_disabled: boolean;
     assigned_agent_id?: string | null;
   }) => void;
+  /** Summary is rendered separately in the floating conversation note. */
+  hideSummary?: boolean;
+  compact?: boolean;
+  alwaysShow?: boolean;
+  onOpenControls?: () => void;
 }
 
 /**
@@ -82,12 +99,17 @@ export function AiThreadBanner({
   contextSummary,
   assignedAgentId,
   currentUserId,
+  hideSummary = false,
+  compact = false,
+  alwaysShow = false,
+  onOpenControls,
   onChange,
 }: AiThreadBannerProps) {
-  const t = useTranslations("Inbox.aiBanner");
+  const t = useTranslations('Inbox.aiBanner');
   const { accountId } = useAuth();
   const [autoReplyOn, setAutoReplyOn] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
   // Optimistic local mirror of the pause flag so the banner flips
   // instantly on click; re-seeds whenever the thread (or its server
   // state via realtime) changes.
@@ -97,7 +119,13 @@ export function AiThreadBanner({
   useEffect(() => {
     if (!accountId) return;
     let alive = true;
-    fetchAiAccountStatus(accountId).then((s) => alive && setAutoReplyOn(s.autoReplyOn));
+    setAutoReplyOn(null);
+    setUnavailable(false);
+    fetchAiAccountStatus(accountId).then((s) => {
+      if (!alive) return;
+      setAutoReplyOn(s.autoReplyOn);
+      setUnavailable(s.unavailable ?? false);
+    });
     return () => {
       alive = false;
     };
@@ -108,14 +136,14 @@ export function AiThreadBanner({
       setBusy(true);
       try {
         const res = await fetch(`/api/ai/autoreply/${conversationId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           // "Take over" also assigns the thread to the acting agent.
           body: JSON.stringify({ paused, assign_to_me: paused }),
         });
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
-          toast.error(j?.error ?? t("updateError"));
+          toast.error(j?.error ?? t('updateError'));
           return;
         }
         setPaused(paused);
@@ -130,15 +158,50 @@ export function AiThreadBanner({
               : {}
             : { assigned_agent_id: null }),
         });
-        toast.success(paused ? t("tookOver") : t("resumed"));
+        toast.success(paused ? t('tookOver') : t('resumed'));
       } catch {
-        toast.error(t("networkError"));
+        toast.error(t('networkError'));
       } finally {
         setBusy(false);
       }
     },
-    [conversationId, currentUserId, onChange, t],
+    [conversationId, currentUserId, onChange, t]
   );
+
+  const status =
+    autoReplyOn === null
+      ? 'checkingStatus'
+      : unavailable
+        ? 'unavailableStatus'
+        : !autoReplyOn
+          ? 'manualStatus'
+          : paused
+            ? 'pausedTitle'
+            : assignedAgentId
+              ? 'teamStatus'
+              : 'activeText';
+  if (compact)
+    return (
+      <button type="button" className="crm-ai-status" onClick={onOpenControls}>
+        <Sparkles size={16} aria-hidden />
+        <span>{t(status)}</span>
+        <ChevronDown size={14} aria-hidden />
+      </button>
+    );
+  if (!autoReplyOn && alwaysShow)
+    return (
+      <Banner tone="muted">
+        <Sparkles size={17} aria-hidden />
+        <span>{t(status)}</span>
+      </Banner>
+    );
+  if (autoReplyOn && assignedAgentId && !paused && alwaysShow)
+    return (
+      <Banner tone="muted">
+        <Hand size={17} aria-hidden />
+        <span>{t('teamStatus')}</span>
+      </Banner>
+    );
 
   // Account has no auto-reply → nothing to show. (Still loading → nothing.)
   if (!autoReplyOn) return null;
@@ -148,15 +211,18 @@ export function AiThreadBanner({
     return (
       <Banner tone="muted">
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-foreground">{t("pausedTitle")}</p>
-          {handoffSummary && (
-            <p className="truncate text-muted-foreground" title={handoffSummary}>
+          <p className="text-foreground font-medium">{t('pausedTitle')}</p>
+          {handoffSummary && !hideSummary && (
+            <p
+              className="text-muted-foreground truncate"
+              title={handoffSummary}
+            >
               {handoffSummary}
             </p>
           )}
         </div>
         <BannerButton onClick={() => toggle(false)} busy={busy} icon={Undo2}>
-          {t("resume")}
+          {t('resume')}
         </BannerButton>
       </Banner>
     );
@@ -166,11 +232,12 @@ export function AiThreadBanner({
   // summary cached, see auto-reply.ts) — surface the recap so the
   // returning agent doesn't have to scroll the overnight exchange.
   if (assignedAgentId && contextSummary) {
+    if (hideSummary) return null;
     return (
       <Banner tone="muted">
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-foreground">{t("afterHoursTitle")}</p>
-          <p className="truncate text-muted-foreground" title={contextSummary}>
+          <p className="text-foreground font-medium">{t('afterHoursTitle')}</p>
+          <p className="text-muted-foreground truncate" title={contextSummary}>
             {contextSummary}
           </p>
         </div>
@@ -185,13 +252,13 @@ export function AiThreadBanner({
   return (
     <Banner tone="primary">
       <div className="flex min-w-0 flex-1 items-center gap-1.5">
-        <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-primary" />
-        <span className="truncate font-medium text-foreground">
-          {t("activeText")}
+        <Sparkles className="text-primary h-3.5 w-3.5 flex-shrink-0" />
+        <span className="text-foreground truncate font-medium">
+          {t('activeText')}
         </span>
       </div>
       <BannerButton onClick={() => toggle(true)} busy={busy} icon={Hand}>
-        {t("takeOver")}
+        {t('takeOver')}
       </BannerButton>
     </Banner>
   );
@@ -201,16 +268,16 @@ function Banner({
   tone,
   children,
 }: {
-  tone: "primary" | "muted";
+  tone: 'primary' | 'muted';
   children: React.ReactNode;
 }) {
   return (
     <div
       className={cn(
-        "flex items-center gap-3 border-b px-3 py-2 text-xs sm:px-4",
-        tone === "primary"
-          ? "border-primary/20 bg-primary/5"
-          : "border-border bg-muted/40",
+        'flex items-center gap-3 border-b px-3 py-2 text-xs sm:px-4',
+        tone === 'primary'
+          ? 'border-primary/20 bg-primary/5'
+          : 'border-border bg-muted/40'
       )}
     >
       {children}
@@ -234,7 +301,7 @@ function BannerButton({
       type="button"
       onClick={onClick}
       disabled={busy}
-      className="inline-flex flex-shrink-0 items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+      className="border-border bg-card text-foreground hover:bg-muted inline-flex flex-shrink-0 items-center gap-1 rounded-md border px-2.5 py-1 font-medium transition-colors disabled:opacity-60"
     >
       {busy ? (
         <Loader2 className="h-3 w-3 animate-spin" />
@@ -243,5 +310,112 @@ function BannerButton({
       )}
       {children}
     </button>
+  );
+}
+
+/** Stored AI context stays visible independently of the auto-reply master switch. */
+export function AiConversationNote({
+  conversationId,
+  contextSummary,
+  handoffSummary,
+  paused,
+  priorityReason,
+  refreshToken,
+  onOpenTools,
+  onPrepareReply,
+  sessionExpired,
+}: {
+  conversationId: string;
+  contextSummary?: string | null;
+  handoffSummary?: string | null;
+  paused: boolean;
+  priorityReason?: string | null;
+  refreshToken?: number;
+  onOpenTools: () => void;
+  onPrepareReply?: () => void;
+  sessionExpired?: boolean;
+}) {
+  const t = useTranslations('Inbox.aiBanner');
+  const [expanded, setExpanded] = useState(false);
+  const [stored, setStored] = useState<{
+    conversationId: string;
+    text: string;
+  } | null>(null);
+  const direct =
+    (paused ? handoffSummary?.trim() : '') ||
+    contextSummary?.trim() ||
+    handoffSummary?.trim();
+  useEffect(() => {
+    if (direct) return;
+    const controller = new AbortController();
+    void (async () => {
+      const { data } = await createClient()
+        .from('contact_notes')
+        .select('note_text')
+        .eq('conversation_id', conversationId)
+        .eq('is_ai_generated', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .abortSignal(controller.signal)
+        .maybeSingle();
+      if (!controller.signal.aborted)
+        setStored({
+          conversationId,
+          text:
+            data?.note_text?.replace(/^(?:🤖\s*)?AI summary:\s*/i, '').trim() ??
+            '',
+        });
+    })().catch(() => {
+      /* Keep the stored conversation context available during a failed fallback read. */
+    });
+    return () => controller.abort();
+  }, [conversationId, direct, refreshToken]);
+  const summary =
+    direct || (stored?.conversationId === conversationId ? stored.text : '');
+  const text = summary || priorityReason;
+  return (
+    <aside className="crm-ai-note" aria-label={t('noteTitle')}>
+      <header>
+        <span className="crm-ai-note-icon" aria-hidden="true">
+          <Sparkles size={21} />
+          <i />
+        </span>
+        <div>
+          <h3>{t('noteTitle')}</h3>
+          <p>{t('internalNote')}</p>
+        </div>
+      </header>
+      {paused && <span className="crm-ai-note-state">{t('pausedTitle')}</span>}
+      {!summary && priorityReason && (
+        <span className="crm-ai-note-state crm-ai-note-priority-state">{t('priorityContext')}</span>
+      )}
+      <SalesAssistanceBrief
+        conversationId={conversationId}
+        refreshToken={refreshToken}
+        onPrepareReply={onPrepareReply}
+        sessionExpired={sessionExpired}
+      />
+      <p
+        dir="auto"
+        className={cn('crm-ai-note-text', expanded && 'crm-ai-note-expanded')}
+      >
+        {text || t('noNote')}
+      </p>
+      {text && (
+        <button
+          type="button"
+          className="crm-ai-note-expand"
+          aria-expanded={expanded}
+          onClick={() => setExpanded(!expanded)}
+        >
+          {t(expanded ? 'showLess' : 'readNote')}
+          <ChevronDown size={14} aria-hidden />
+        </button>
+      )}
+      <button type="button" className="crm-ai-note-tools" onClick={onOpenTools}>
+        <SlidersHorizontal size={14} aria-hidden />
+        {t('openTools')}
+      </button>
+    </aside>
   );
 }

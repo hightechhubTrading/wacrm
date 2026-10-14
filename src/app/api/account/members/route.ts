@@ -25,7 +25,6 @@ interface ProfileRow {
   avatar_url: string | null;
   account_role: string;
   created_at: string;
-  waha_session_name: string | null;
   phone: string | null;
 }
 
@@ -38,7 +37,7 @@ export async function GET() {
     const { data, error } = await ctx.supabase
       .from("profiles")
       .select(
-        "user_id, full_name, email, avatar_url, account_role, created_at, waha_session_name, phone",
+        "user_id, full_name, email, avatar_url, account_role, created_at, phone",
       )
       .eq("account_id", ctx.accountId)
       .order("created_at", { ascending: true });
@@ -68,7 +67,6 @@ export async function GET() {
           joined_at: row.created_at,
           // Same visibility tier as email — operational config, not
           // needed by non-admins.
-          waha_session_name: canSeeEmails ? row.waha_session_name : null,
           phone: canSeeEmails ? row.phone : null,
         },
       ];

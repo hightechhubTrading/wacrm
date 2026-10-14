@@ -32,6 +32,17 @@ export async function POST(
       return NextResponse.json({ error: 'tag_id required' }, { status: 400 });
     }
 
+    // A deliberate manual add clears an earlier AI suppression.
+    const override = await ctx.supabase.rpc('set_sales_tag_override', {
+      p_contact: contactId,
+      p_tag: tagId,
+      p_blocked: false,
+    });
+    if (override.error && override.error.code !== 'PGRST202')
+      return NextResponse.json(
+        { error: 'Could not save tag preference' },
+        { status: 500 }
+      );
     const result = await addContactTagAndDispatch({
       db: ctx.supabase,
       accountId: ctx.accountId,
@@ -60,6 +71,17 @@ export async function DELETE(
       return NextResponse.json({ error: 'tag_id required' }, { status: 400 });
     }
 
+    const override = await ctx.supabase.rpc('set_sales_tag_override', {
+      p_contact: contactId,
+      p_tag: tagId,
+      p_blocked: true,
+    });
+    if (!override.error) return NextResponse.json({ ok: true });
+    if (override.error.code !== 'PGRST202')
+      return NextResponse.json(
+        { error: 'Could not save tag preference' },
+        { status: 500 }
+      );
     await removeContactTag(ctx.supabase, {
       accountId: ctx.accountId,
       contactId,

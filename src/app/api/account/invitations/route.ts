@@ -33,10 +33,9 @@ import {
   RATE_LIMITS,
 } from "@/lib/rate-limit";
 // Base-URL resolution (env → forwarded headers → Host, with an
-// optional host allow-list) lives in @/lib/http/base-url — it was
-// extracted from this file so the members PATCH route can mint an
-// absolute WAHA webhook URL with the same rules. See that module for
-// the full resolution order and the ALLOWED_INVITE_HOSTS rationale.
+// optional host allow-list) lives in @/lib/http/base-url. See that
+// module for the full resolution order and the ALLOWED_INVITE_HOSTS
+// rationale.
 import { getBaseUrl } from "@/lib/http/base-url";
 
 const MAX_LABEL_LEN = 80;

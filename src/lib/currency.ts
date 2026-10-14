@@ -102,7 +102,9 @@ export function formatCurrencyShort(
  */
 export function formatCompactNumber(value: number): string {
   const v = Number(value || 0);
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  // 999,950+ would round to "1000.0k" under the k branch — promote it
+  // to the M branch instead.
+  if (v >= 999_950) return `${(v / 1_000_000).toFixed(1)}M`;
   if (v >= 1_000) return `${(v / 1_000).toFixed(1)}k`;
   return v.toFixed(0);
 }

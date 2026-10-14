@@ -1,4 +1,5 @@
 "use client"
+import { PageIdentity } from '@/components/workspace/page-identity';
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -159,14 +160,14 @@ export default function AutomationsPage() {
   const showTemplates = automations.length < 3
 
   return (
-    <div className="space-y-6">
+    <div className="crm-page crm-automations-page space-y-6">
       <div className="flex items-center justify-between">
-        <div>
+        <PageIdentity icon={Zap}>
           <h1 className="text-2xl font-bold text-foreground">{t("title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {t("subtitle")}
           </p>
-        </div>
+        </PageIdentity>
         <GatedButton
           canAct={canCreate}
           gateReason="create automations"
@@ -189,7 +190,7 @@ export default function AutomationsPage() {
                 <button
                   key={slug}
                   onClick={() => startFromTemplate(slug)}
-                  className="group flex flex-col items-start rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/50 hover:bg-card/80"
+                  className="group flex flex-col items-start rounded-xl border border-border bg-card p-4 text-start transition-colors hover:border-primary/50 hover:bg-card/80"
                 >
                   <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary/15">
                     <Icon className="h-5 w-5" />
@@ -280,7 +281,7 @@ function AutomationCard({
 }) {
   const meta = triggerMeta(automation.trigger_type)
   return (
-    <li className="rounded-xl border border-border bg-card transition-colors hover:border-border">
+    <li className="crm-automation-row rounded-xl border border-border bg-card transition-colors hover:border-border">
       <div className="flex items-center gap-4 p-4">
         <div
           className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10"
@@ -292,7 +293,7 @@ function AutomationCard({
         <button
           type="button"
           onClick={onEdit}
-          className="min-w-0 flex-1 text-left"
+          className="min-w-0 flex-1 text-start"
         >
           <div className="flex items-center gap-2">
             <span className="truncate text-sm font-semibold text-foreground">

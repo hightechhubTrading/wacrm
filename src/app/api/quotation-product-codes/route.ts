@@ -34,7 +34,10 @@ export async function GET(_request: Request) {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent');
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
+    if (!body) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     // quotation_product_codes_write RLS (059) requires 'admin' — a
     // non-admin agent's insert is rejected by Postgres itself here, not
     // by application code.

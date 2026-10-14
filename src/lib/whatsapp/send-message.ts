@@ -17,10 +17,6 @@
 // envelope). Behaviour is identical to the original inline route —
 // this is a straight extraction so the public endpoint can reuse it
 // without duplicating ~250 lines of Meta plumbing.
-//
-// The ONE place the two callers diverge is `SendMessageOptions.publicApi`:
-// the public endpoint is forbidden from sending through an agent's
-// personal WAHA number. See the rejection in the WAHA branch below.
 // ============================================================
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -49,8 +45,6 @@ import {
 } from '@/lib/whatsapp/phone-utils';
 import type { MessageTemplate } from '@/types';
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
-import { resolveAgentWahaChannel } from '@/lib/whatsapp/resolve-agent-channel';
-import { sendWahaIndividualText, WahaSendError } from '@/lib/notifications/waha-client';
 
 export const MEDIA_KINDS = ['image', 'video', 'document', 'audio'] as const;
 export const VALID_MESSAGE_TYPES = [
@@ -91,17 +85,6 @@ export interface SendMessageParams {
   /** Structured payload for `messageType === 'interactive'`. */
   interactivePayload?: InteractiveMessagePayload | null;
   replyToMessageId?: string | null;
-}
-
-export interface SendMessageOptions {
-  /**
-   * Set by the public, API-key-authenticated `/api/v1/messages` route.
-   * Makes a WAHA-routed conversation a hard rejection instead of a
-   * silent send through the assigned agent's personal WhatsApp account.
-   * Omitted (falsy) for the dashboard, where a human agent sending from
-   * their own number is the entire point of the feature.
-   */
-  publicApi?: boolean;
 }
 
 export interface SendMessageResult {
@@ -202,11 +185,9 @@ export function validateSendMessageParams(params: {
  * Validate that `replyToMessageId` (if provided) belongs to this
  * conversation — otherwise a caller could quote a message from a
  * conversation they don't have access to by guessing a UUID. Resolves
- * to the parent's Meta `message_id` (wamid), for the Meta path's reply
- * context; `undefined` if no reply was requested, or the parent has no
- * wamid (e.g. it was itself sent via WAHA). Throws `SendMessageError`
- * on a real mismatch/miss. Shared by both the Meta and WAHA send paths
- * so the membership check can't be skipped by either.
+ * to the parent's Meta `message_id` (wamid), for the reply context;
+ * `undefined` if no reply was requested, or the parent has no wamid.
+ * Throws `SendMessageError` on a real mismatch/miss.
  */
 async function resolveReplyTarget(
   db: SupabaseClient,
@@ -301,8 +282,7 @@ async function pauseAiAutoReplyForConversation(
 export async function sendMessageToConversation(
   db: SupabaseClient,
   accountId: string,
-  params: SendMessageParams,
-  options: SendMessageOptions = {}
+  params: SendMessageParams
 ): Promise<SendMessageResult> {
   const {
     conversationId,
@@ -364,120 +344,6 @@ export async function sendMessageToConversation(
       'Invalid phone number format',
       400
     );
-  }
-
-  // If the conversation's assigned agent has their own connected WAHA
-  // channel, route through it instead of the account's shared Meta
-  // number — see resolve-agent-channel.ts for the resolution rule.
-  // This ships text-only: any other message type routed to WAHA is a
-  // hard error rather than a silent Meta fallback (which would send
-  // from the wrong number without the agent realizing it) or an
-  // unverified media call.
-  const wahaChannel = await resolveAgentWahaChannel(
-    db,
-    accountId,
-    conversation.assigned_agent_id ?? null
-  );
-
-  if (wahaChannel) {
-    // Automated traffic must never leave an agent's personal WhatsApp
-    // account. It's a real, human-registered number with no Business
-    // API protections — bulk/automated sending from one is precisely
-    // the pattern WhatsApp bans numbers for, and the agent would lose
-    // their own account, not a company asset. The feature spec's first
-    // non-goal is "no automation on WAHA-routed conversations", and the
-    // WAHA inbound webhook enforces the same rule structurally by never
-    // importing the flow / automation / AI dispatchers.
-    //
-    // The dashboard path is unaffected: a human agent clicking Send in
-    // the inbox is the whole point. Only the API-key-authenticated
-    // `/api/v1/messages` endpoint passes `publicApi: true`, and it fails
-    // loudly here rather than silently falling back to Meta — an
-    // integration that thinks it's messaging a customer should be told
-    // its target is human-owned, not quietly re-routed to a different
-    // sending identity.
-    if (options.publicApi) {
-      throw new SendMessageError(
-        'waha_public_api_forbidden',
-        `This conversation is routed through ${wahaChannel.agentPhone}'s personal WhatsApp number, which the public API is not allowed to send from (automated traffic on a personal number risks a WhatsApp ban). Unassign the conversation, or clear that agent's WAHA session, to send it over the account's Business number.`,
-        403
-      );
-    }
-
-    if (messageType !== 'text') {
-      throw new SendMessageError(
-        'waha_unsupported_type',
-        `This conversation is routed through ${wahaChannel.agentPhone}'s WhatsApp number, which only supports plain text messages (no ${messageType}).`,
-        400
-      );
-    }
-
-    // Same conversation-membership check as the Meta path. WAHA sends
-    // don't thread reply context into the outbound API call, but the
-    // `reply_to_message_id` persisted on the new row still needs the
-    // same guard against quoting a message from a conversation the
-    // caller can't see.
-    await resolveReplyTarget(db, conversationId, replyToMessageId);
-
-    try {
-      await sendWahaIndividualText({
-        baseUrl: wahaChannel.baseUrl,
-        apiKey: wahaChannel.apiKey,
-        session: wahaChannel.session,
-        toPhone: sanitizedPhone,
-        text: contentText!,
-      });
-    } catch (err) {
-      if (err instanceof WahaSendError) {
-        throw new SendMessageError(
-          'waha_error',
-          `Failed to send from ${wahaChannel.agentPhone}'s WhatsApp — reconnect the agent's session in Settings → Members, or reassign the conversation. (${err.message})`,
-          502
-        );
-      }
-      throw err;
-    }
-
-    const waMessageId = '';
-    const { data: messageRecord, error: msgError } = await db
-      .from('messages')
-      .insert({
-        conversation_id: conversationId,
-        sender_type: 'agent',
-        content_type: 'text',
-        content_text: contentText,
-        message_id: waMessageId,
-        status: 'sent',
-        reply_to_message_id: replyToMessageId || null,
-        channel: 'waha',
-      })
-      .select()
-      .single();
-
-    if (msgError) {
-      throw new SendMessageError(
-        'db_error',
-        `Message sent via WAHA but failed to save to DB: ${msgError.message}`,
-        500
-      );
-    }
-
-    await db
-      .from('conversations')
-      .update({
-        last_message_text: contentText,
-        last_message_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', conversationId);
-
-    // Pause any active Flow run and the AI auto-reply bot — an agent
-    // manually replying is exactly as strong a "human is here" signal
-    // over WAHA as it is over Meta. Best-effort.
-    await pauseFlowRunForContact(accountId, contact.id);
-    await pauseAiAutoReplyForConversation(accountId, conversationId);
-
-    return { messageId: messageRecord.id, whatsappMessageId: waMessageId };
   }
 
   // WhatsApp config, account-scoped.
@@ -675,7 +541,6 @@ export async function sendMessageToConversation(
       message_id: waMessageId,
       status: 'sent',
       reply_to_message_id: replyToMessageId || null,
-      channel: 'meta',
     })
     .select()
     .single();

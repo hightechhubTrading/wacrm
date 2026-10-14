@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
-import { supabaseAdmin } from '@/lib/automations/admin-client'
-import { dispatchStageEnterNotification } from '@/lib/pipelines/notify'
 import { resolveStageGroupFields } from '@/lib/pipelines/group-values'
 
 /**
@@ -11,7 +9,7 @@ import { resolveStageGroupFields } from '@/lib/pipelines/group-values'
  *
  * The only server-side path for moving a deal between pipeline stages
  * (previously a bare client-side `supabase.from("deals").update(...)`
- * with no validation — see pipelines/page.tsx). Adds three things that
+ * with no validation — see pipelines/page.tsx). Adds two things that
  * needed a server hook to exist at all:
  *
  *   1. Field-group gating — refuses the move with 422 if any REQUIRED
@@ -23,10 +21,6 @@ import { resolveStageGroupFields } from '@/lib/pipelines/group-values'
  *      `requires_contact_identity`, also refuses the move unless the
  *      linked contact's name/phone are filled. Independent of any
  *      group, since name/phone are real `contacts` columns.
- *   3. Notification — if the *target* stage is flagged
- *      `notify_group_on_enter`, fires a best-effort WAHA group message
- *      after the move succeeds, from the deal's ASSIGNED agent's own
- *      WAHA session (migration 045) — never blocks/fails the response.
  *
  * Uses `ctx.supabase` (RLS-scoped to the caller), so authorization is
  * unchanged from today: `deals_update` RLS still restricts an `agent`
@@ -67,11 +61,10 @@ export async function POST(
     }
 
     // Fetch both the current stage (for gating below) and the target
-    // stage (for the pipeline-membership check + notify flag) in one
-    // round trip.
+    // stage (for the pipeline-membership check) in one round trip.
     const { data: stageRows, error: stageErr } = await ctx.supabase
       .from('pipeline_stages')
-      .select('id, pipeline_id, name, notify_group_on_enter, requires_contact_identity')
+      .select('id, pipeline_id, requires_contact_identity')
       .in('id', [deal.stage_id, targetStageId])
     if (stageErr) {
       console.error('[deals/move] stage fetch failed:', stageErr)
@@ -145,32 +138,6 @@ export async function POST(
     if (updateErr || !updatedDeal) {
       console.error('[deals/move] update failed:', updateErr)
       return NextResponse.json({ error: 'Failed to move deal' }, { status: 500 })
-    }
-
-    if (targetStage.notify_group_on_enter) {
-      // Best-effort, fire-and-forget — never blocks this response. The
-      // deal has already moved at this point; wrapped in try/catch
-      // because supabaseAdmin() itself can throw synchronously (e.g. a
-      // missing SUPABASE_SERVICE_ROLE_KEY), which — unlike an async
-      // rejection inside dispatchStageEnterNotification's own try/catch
-      // — would otherwise propagate straight to the outer handler and
-      // turn an already-successful move into a reported failure.
-      try {
-        void dispatchStageEnterNotification({
-          db: supabaseAdmin(),
-          accountId: ctx.accountId,
-          dealId: deal.id,
-          stageId: targetStageId,
-          contactId: deal.contact_id,
-          stageName: targetStage.name,
-          dealTitle: deal.title,
-          dealValue: deal.value,
-          dealCurrency: deal.currency,
-          assignedToProfileId: deal.assigned_to ?? null,
-        })
-      } catch (err) {
-        console.error('[deals/move] failed to dispatch group notification:', err)
-      }
     }
 
     return NextResponse.json({ deal: updatedDeal })

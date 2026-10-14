@@ -4,7 +4,6 @@ import {
   Hash,
   KeyRound,
   LayoutGrid,
-  MessageSquare,
   Package,
   Palette,
   PlugZap,
@@ -35,7 +34,6 @@ export const SETTINGS_SECTIONS = [
   'fields',
   'deals',
   'products',
-  'group-notifications',
   'members',
   'api',
   'quotation-product-codes',
@@ -64,7 +62,6 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   fields: { id: 'fields', label: 'Fields & tags', icon: Tags, group: 'workspace' },
   deals: { id: 'deals', label: 'Deals & currency', icon: Coins, group: 'workspace' },
   products: { id: 'products', label: 'Product catalog', icon: Package, group: 'workspace' },
-  'group-notifications': { id: 'group-notifications', label: 'Group notifications', icon: MessageSquare, group: 'workspace' },
   members: { id: 'members', label: 'Team members', icon: UsersRound, group: 'workspace' },
   api: { id: 'api', label: 'API keys', icon: KeyRound, group: 'workspace' },
   'quotation-product-codes': {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CURRENCIES,
   DEFAULT_CURRENCY,
+  formatCompactNumber,
   formatCurrency,
   formatCurrencyShort,
 } from "./currency";
@@ -61,5 +62,18 @@ describe("formatCurrencyShort", () => {
 
   it("falls back to the code prefix for unknown currencies (no throw)", () => {
     expect(formatCurrencyShort(1_000, "ZZZ")).toBe("ZZZ 1.0k");
+  });
+});
+
+describe("formatCompactNumber", () => {
+  it("promotes a value that would round to 1000.0k up to the M branch", () => {
+    expect(formatCompactNumber(999_999)).toBe("1.0M");
+    expect(formatCompactNumber(999_950)).toBe("1.0M");
+  });
+
+  it("keeps the k branch below the rounding boundary", () => {
+    expect(formatCompactNumber(999_949)).toBe("999.9k");
+    expect(formatCompactNumber(1_234)).toBe("1.2k");
+    expect(formatCompactNumber(900)).toBe("900");
   });
 });

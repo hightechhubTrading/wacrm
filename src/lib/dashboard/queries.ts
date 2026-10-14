@@ -75,6 +75,9 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
       .lt('created_at', todayStart),
   ])
 
+  const failure = [openConvCur, newConvToday, newConvYesterday, newContactsToday, newContactsYesterday, openDeals, messagesToday, messagesYesterday].find(result => result.error)?.error
+  if (failure) throw failure
+
   const openDealsRows = (openDeals.data ?? []) as { value: number | null }[]
   const openDealsValue = openDealsRows.reduce((sum, d) => sum + (d.value ?? 0), 0)
 

@@ -106,3 +106,39 @@ describe('getTagChainDepth', () => {
     expect(getTagChainDepth({ vars: { _tag_chain_depth: 2.8 } })).toBe(2);
   });
 });
+
+it('does not re-add a human-suppressed AI tag or dispatch automations', async () => {
+  const rpc = vi.fn().mockResolvedValue({ data: false, error: null });
+  await expect(
+    addContactTagAndDispatch({
+      ...base,
+      db: { rpc } as never,
+      aiGenerated: true,
+    })
+  ).resolves.toMatchObject({ added: false, dispatched: false });
+  expect(mocks.add).not.toHaveBeenCalled();
+  expect(mocks.dispatch).not.toHaveBeenCalled();
+});
+it('keeps legacy tagging before migration but fails closed on preference-storage errors', async () => {
+  const rpc = vi
+    .fn()
+    .mockResolvedValue({ data: null, error: { code: 'PGRST202' } });
+  mocks.add.mockResolvedValue(true);
+  await expect(
+    addContactTagAndDispatch({
+      ...base,
+      db: { rpc } as never,
+      aiGenerated: true,
+    })
+  ).resolves.toMatchObject({ added: true });
+  rpc.mockResolvedValue({ data: null, error: { code: 'XX000' } });
+  mocks.add.mockClear();
+  await expect(
+    addContactTagAndDispatch({
+      ...base,
+      db: { rpc } as never,
+      aiGenerated: true,
+    })
+  ).rejects.toThrow();
+  expect(mocks.add).not.toHaveBeenCalled();
+});

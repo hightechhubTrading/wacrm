@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Pipeline, PipelineStage, Deal, Tag } from "@/types";
 import { stageHasActiveRequiredGroup } from "@/lib/pipelines/group-values";
+import { WaitingWorkQueue } from "@/components/jobs/group-work";
 import { PipelineBoard } from "@/components/pipelines/pipeline-board";
 import { PipelineSettings } from "@/components/pipelines/pipeline-settings";
 import { DealForm } from "@/components/pipelines/deal-form";
@@ -94,6 +95,7 @@ function normalizeDeals(rows: RawDeal[]): Deal[] {
 
 export default function PipelinesPage() {
   const t = useTranslations("Pipelines.page");
+  const usefulTitle = useTranslations("Workspace")("pipelines");
   const supabase = createClient();
   const canEditSettings = useCan("edit-settings");
   const canCreateDeals = useCan("send-messages");
@@ -410,7 +412,7 @@ export default function PipelinesPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="crm-page crm-pipelines-page space-y-6">
         <div className="flex items-center justify-between">
           <div className="h-8 w-48 animate-pulse rounded bg-muted" />
           <div className="h-9 w-28 animate-pulse rounded-lg bg-muted" />
@@ -425,7 +427,8 @@ export default function PipelinesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="crm-page crm-pipelines-page space-y-6">
+      <h1>{usefulTitle}</h1>
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -524,6 +527,7 @@ export default function PipelinesPage() {
       ) : (
         <>
           <PipelineAnalytics stages={stages} deals={deals} />
+          <WaitingWorkQueue />
           <PipelineBoard
             stages={stages}
             deals={deals}

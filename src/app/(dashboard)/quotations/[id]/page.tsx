@@ -96,7 +96,7 @@ export default function QuotationDetailPage({ params }: Params) {
       : undefined;
 
   return (
-    <div className="space-y-6">
+    <div className="crm-quotation-detail space-y-6">
       <div className="flex items-center gap-4">
         <Button
           variant="outline"

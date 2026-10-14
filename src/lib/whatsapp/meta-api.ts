@@ -1048,17 +1048,41 @@ export interface DownloadMediaArgs {
  * Step two of the media-proxy flow.
  */
 export async function downloadMedia(
-  args: DownloadMediaArgs
+  args: DownloadMediaArgs & { maxBytes?: number; timeoutMs?: number }
 ): Promise<{ buffer: Buffer; contentType: string }> {
-  const { downloadUrl, accessToken } = args
+  const { downloadUrl, accessToken } = args;
   const response = await fetch(downloadUrl, {
     headers: { Authorization: `Bearer ${accessToken}` },
-  })
+    ...(args.timeoutMs ? { signal: AbortSignal.timeout(args.timeoutMs) } : {}),
+  });
   if (!response.ok) {
-    throw new Error(`Media download failed: ${response.status}`)
+    throw new Error(`Media download failed: ${response.status}`);
   }
   const contentType =
-    response.headers.get('content-type') || 'application/octet-stream'
-  const buffer = Buffer.from(await response.arrayBuffer())
-  return { buffer, contentType }
+    response.headers.get('content-type') || 'application/octet-stream';
+  if (!args.maxBytes)
+    return { buffer: Buffer.from(await response.arrayBuffer()), contentType };
+  if (Number(response.headers.get('content-length')) > args.maxBytes) {
+    await response.body?.cancel();
+    throw new Error('Media exceeds limit');
+  }
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('Missing media body');
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    while (true) {
+      const part = await reader.read();
+      if (part.done) break;
+      length += part.value.length;
+      if (length > args.maxBytes) {
+        await reader.cancel();
+        throw new Error('Media exceeds limit');
+      }
+      chunks.push(part.value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return { buffer: Buffer.concat(chunks), contentType };
 }

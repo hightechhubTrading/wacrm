@@ -25,6 +25,7 @@ import { useTranslations } from "next-intl";
 
 interface MessageBubbleProps {
   message: Message;
+  authorLabel?: string;
   /** Pre-computed quote info for messages that reply to another. */
   reply?: { authorLabel: string; preview: string } | null;
   reactions?: MessageReaction[];
@@ -35,11 +36,11 @@ interface MessageBubbleProps {
 function StatusIcon({ status }: { status: Message["status"] }) {
   switch (status) {
     case "sending":
-      return <Clock className="h-3 w-3 text-muted-foreground" />;
+      return <Clock className="text-muted-foreground h-3 w-3" />;
     case "sent":
-      return <Check className="h-3 w-3 text-muted-foreground" />;
+      return <Check className="text-muted-foreground h-3 w-3" />;
     case "delivered":
-      return <CheckCheck className="h-3 w-3 text-muted-foreground" />;
+      return <CheckCheck className="text-muted-foreground h-3 w-3" />;
     case "read":
       return <CheckCheck className="h-3 w-3 text-blue-400" />;
     case "failed":
@@ -49,10 +50,16 @@ function StatusIcon({ status }: { status: Message["status"] }) {
   }
 }
 
-function MediaUnavailable({ label, t }: { label: string, t: ReturnType<typeof useTranslations> }) {
+function MediaUnavailable({
+  label,
+  t,
+}: {
+  label: string;
+  t: ReturnType<typeof useTranslations>;
+}) {
   return (
-    <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-      <ImageOff className="h-4 w-4 shrink-0 text-muted-foreground" />
+    <div className="bg-muted/40 text-muted-foreground flex items-center gap-2 rounded-lg px-3 py-2 text-xs">
+      <ImageOff className="text-muted-foreground h-4 w-4 shrink-0" />
       <span>{t("unavailable", { label })}</span>
     </div>
   );
@@ -111,16 +118,16 @@ function MediaImage({
 
   if (error) {
     return (
-      <div className="flex h-40 w-60 items-center justify-center rounded-lg bg-muted">
-        <ImageOff className="h-8 w-8 text-muted-foreground" />
+      <div className="bg-muted flex h-40 w-60 items-center justify-center rounded-lg">
+        <ImageOff className="text-muted-foreground h-8 w-8" />
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="flex h-40 w-60 items-center justify-center rounded-lg bg-muted">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="bg-muted flex h-40 w-60 items-center justify-center rounded-lg">
+        <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
       </div>
     );
   }
@@ -153,7 +160,7 @@ function MediaImage({
             download={isBlobSrc || undefined}
             target={isBlobSrc ? undefined : "_blank"}
             rel={isBlobSrc ? undefined : "noopener noreferrer"}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+            className="border-border hover:bg-muted inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium"
           >
             <Download className="h-3.5 w-3.5" />
             {t("download")}
@@ -164,11 +171,18 @@ function MediaImage({
   );
 }
 
-function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof useTranslations> }) {
+function MessageContent({
+  message,
+  t,
+}: {
+  message: Message;
+  authorLabel?: string;
+  t: ReturnType<typeof useTranslations>;
+}) {
   switch (message.content_type) {
     case "text":
       return (
-        <p className="whitespace-pre-wrap break-words text-sm">
+        <p dir="auto" className="text-sm break-words whitespace-pre-wrap">
           {message.content_text}
         </p>
       );
@@ -182,12 +196,12 @@ function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof
             <MediaUnavailable label={t("photo")} t={t} />
           )}
           {message.content_text && (
-            <p className="mt-1 whitespace-pre-wrap break-words text-sm">
+            <p dir="auto" className="mt-1 text-sm break-words whitespace-pre-wrap">
               {message.content_text}
             </p>
           )}
           {message.image_description && (
-            <p className="mt-1 flex items-start gap-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+            <p className="text-muted-foreground mt-1 flex items-start gap-1 text-xs break-words whitespace-pre-wrap">
               <Sparkles className="mt-0.5 h-3 w-3 shrink-0" />
               <span>{message.image_description}</span>
             </p>
@@ -208,7 +222,7 @@ function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof
             <MediaUnavailable label={t("video")} t={t} />
           )}
           {message.content_text && (
-            <p className="mt-1 whitespace-pre-wrap break-words text-sm">
+            <p dir="auto" className="mt-1 text-sm break-words whitespace-pre-wrap">
               {message.content_text}
             </p>
           )}
@@ -224,7 +238,7 @@ function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof
             <MediaUnavailable label={t("audio")} t={t} />
           )}
           {message.transcript && (
-            <p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">
+            <p className="text-muted-foreground mt-1 text-sm break-words whitespace-pre-wrap">
               {message.transcript}
             </p>
           )}
@@ -233,16 +247,21 @@ function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof
 
     case "document":
       if (!message.media_url) {
-        return <MediaUnavailable label={message.content_text || t("document")} t={t} />;
+        return (
+          <MediaUnavailable
+            label={message.content_text || t("document")}
+            t={t}
+          />
+        );
       }
       return (
         <a
           href={message.media_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-sm hover:bg-muted"
+          className="bg-muted/50 hover:bg-muted flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
         >
-          <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
+          <FileText className="text-muted-foreground h-5 w-5 shrink-0" />
           <span className="truncate">
             {message.content_text || t("document")}
           </span>
@@ -252,12 +271,12 @@ function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof
     case "template":
       return (
         <div>
-          <span className="mb-1 inline-flex items-center gap-1 rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+          <span className="bg-primary/20 text-primary mb-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium">
             <LayoutTemplate className="h-3 w-3" />
             {t("template")}
           </span>
           {message.content_text && (
-            <p className="mt-1 whitespace-pre-wrap break-words text-sm">
+            <p dir="auto" className="mt-1 text-sm break-words whitespace-pre-wrap">
               {message.content_text}
             </p>
           )}
@@ -271,10 +290,12 @@ function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof
       // instead of inert text.
       const lines = text.split("\n");
       const mapsUrl = lines.find((l) => l.startsWith("http"));
-      const label = mapsUrl ? lines.filter((l) => l !== mapsUrl).join(" — ") : null;
+      const label = mapsUrl
+        ? lines.filter((l) => l !== mapsUrl).join(" — ")
+        : null;
       return (
         <div className="flex items-start gap-2 text-sm">
-          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <MapPin className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
           <div>
             {label && <p className="break-words">{label}</p>}
             {mapsUrl ? (
@@ -282,7 +303,7 @@ function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof
                 href={mapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary underline underline-offset-2 hover:text-primary/80"
+                className="text-primary hover:text-primary/80 underline underline-offset-2"
               >
                 {t("viewOnMap")}
               </a>
@@ -310,18 +331,18 @@ function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof
       if (message.sender_type === "customer") {
         return (
           <div className="flex flex-col gap-0.5">
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-muted-foreground inline-flex items-center gap-1 text-[10px] font-medium tracking-wide uppercase">
               <CornerDownLeft className="h-3 w-3" />
               {t("buttonReply")}
             </span>
-            <p className="whitespace-pre-wrap break-words text-sm">
+            <p dir="auto" className="text-sm break-words whitespace-pre-wrap">
               {message.content_text || t("interactiveReply")}
             </p>
           </div>
         );
       }
       return (
-        <p className="whitespace-pre-wrap break-words text-sm">
+        <p dir="auto" className="text-sm break-words whitespace-pre-wrap">
           {message.content_text || t("interactiveReply")}
         </p>
       );
@@ -329,7 +350,7 @@ function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof
 
     default:
       return (
-        <p className="whitespace-pre-wrap break-words text-sm">
+        <p dir="auto" className="text-sm break-words whitespace-pre-wrap">
           {message.content_text || t("unsupported")}
         </p>
       );
@@ -338,6 +359,7 @@ function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof
 
 export function MessageBubble({
   message,
+  authorLabel,
   reply,
   reactions,
   currentUserId,
@@ -345,38 +367,38 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const t = useTranslations("Inbox.bubble");
 
-  const isAgent = message.sender_type === "agent" || message.sender_type === "bot";
+  const isAgent =
+    message.sender_type === "agent" || message.sender_type === "bot";
   const time = format(new Date(message.created_at), "HH:mm");
 
   // Row alignment + width cap are owned by <MessageActions> so its hover
   // group matches the bubble's content area, not the full row.
   return (
-    <div
-      className={cn(
-        "flex flex-col",
-        isAgent ? "items-end" : "items-start",
-      )}
-    >
+    <div dir="ltr" className={cn("flex flex-col", isAgent ? "items-end" : "items-start")}>
+      {authorLabel && <span dir="auto" className="crm-message-author">{authorLabel}</span>}
       <div
+        dir="auto"
+        data-direction={isAgent ? "outgoing" : "incoming"}
         className={cn(
-          "relative rounded-2xl px-3 py-2",
+          "crm-message-bubble relative rounded-2xl px-3 py-2",
           isAgent
-            ? "rounded-ee-md bg-primary text-primary-foreground"
-            : "rounded-es-md bg-muted text-foreground",
+            ? "bg-primary text-primary-foreground rounded-ee-md"
+            : "bg-muted text-foreground rounded-es-md"
         )}
       >
         {reply && (
           <ReplyQuote
             authorLabel={reply.authorLabel}
             preview={reply.preview}
-            onPrimary={isAgent}
+            onPrimary={false}
           />
         )}
         <MessageContent message={message} t={t} />
         <div
+          dir="ltr"
           className={cn(
-            "mt-1 flex items-center gap-1",
-            isAgent ? "justify-end" : "justify-start",
+            "crm-message-meta mt-1 flex items-center gap-1",
+            isAgent ? "justify-end" : "justify-start"
           )}
         >
           {/* AI badge — only on replies the auto-reply bot generated
@@ -385,7 +407,7 @@ export function MessageBubble({
               glance. */}
           {message.ai_generated && (
             <span
-              className="inline-flex items-center gap-0.5 rounded-full bg-primary-foreground/20 px-1.5 py-px text-[9px] font-semibold uppercase leading-none tracking-wide text-primary-foreground"
+              className="bg-primary-foreground/20 text-primary-foreground inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[9px] leading-none font-semibold tracking-wide uppercase"
               title={t("aiBadgeTitle")}
             >
               <Sparkles className="h-2.5 w-2.5" />
@@ -399,7 +421,7 @@ export function MessageBubble({
               // timestamp must read against that (not the neutral
               // foreground) — otherwise it goes low-contrast in light
               // mode. Inbound bubbles use the muted surface.
-              isAgent ? "text-primary-foreground/70" : "text-muted-foreground",
+              isAgent ? "text-primary-foreground/70" : "text-muted-foreground"
             )}
           >
             {time}

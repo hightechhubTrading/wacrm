@@ -28,11 +28,6 @@
   base** (FAQs, policies, product docs) and it answers from your own content
   — hybrid retrieval (Postgres full-text, or semantic pgvector when an
   embeddings key is set).
-- **Internal WhatsApp-group notifications** via an optional self-hosted WAHA
-  instance — e.g. post a message into an internal ops group when a deal
-  enters a flagged pipeline stage. Deliberately isolated from the
-  customer-facing Meta Cloud API number, authenticated with its own WhatsApp
-  number and per-agent sessions.
 - **Real-time dashboard** — response times, daily volume, pipeline value,
   cross-module activity feed.
 - **Team accounts** — invite teammates by link, role-based access (owner /
@@ -51,8 +46,7 @@
 
 - **App** — Next.js 16 (App Router), React 19, TypeScript, Tailwind v4.
 - **Data** — Supabase (Postgres + Auth + Storage + RLS).
-- **WhatsApp** — Meta Cloud API (official WhatsApp Business API), with an
-  optional WAHA container for internal group notifications.
+- **WhatsApp** — Meta Cloud API (official WhatsApp Business API).
 - **Security** — token encryption (AES-256-GCM), RLS on every table,
   HMAC-verified webhooks, CSP, rate limiting, CI typecheck/build on every PR.
 
@@ -110,3 +104,7 @@ For a bare VPS/Docker deploy instead, see [`docker-compose.yml`](./docker-compos
 ## License
 
 [MIT](./LICENSE).
+
+### Jev sales communication checks
+
+Optional TypeSafe input guidance and output verification run alongside your existing AI reply provider. Set the server-side `TYPESAFE_API_KEY` to enable enforced checks; use `TYPESAFE_MODE=shadow` for observation only or `off` to disable. See [Jev sales checks](docs/jev-sales.md) for behavior, deployment, audit storage and synthetic evaluation.

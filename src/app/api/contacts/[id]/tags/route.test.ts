@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   requireRole: vi.fn(),
   add: vi.fn(),
   remove: vi.fn(),
+  rpc: vi.fn(),
 }));
 
 vi.mock('@/lib/auth/account', () => ({
@@ -31,7 +32,7 @@ vi.mock('@/lib/contacts/tag-write', () => ({
 import { DELETE, POST } from './route';
 
 const context = {
-  supabase: { name: 'scoped-client' },
+  supabase: { name: 'scoped-client', rpc: mocks.rpc },
   accountId: 'account-1',
   userId: 'user-1',
   role: 'agent',
@@ -52,6 +53,8 @@ beforeEach(() => {
   mocks.requireRole.mockReset();
   mocks.add.mockReset();
   mocks.remove.mockReset();
+  mocks.rpc.mockReset();
+  mocks.rpc.mockResolvedValue({ error: { code: 'PGRST202' } });
   mocks.requireRole.mockResolvedValue(context);
 });
 
@@ -92,4 +95,24 @@ describe('/api/contacts/[id]/tags', () => {
       tagId: 'tag-1',
     });
   });
+});
+
+it('atomically removes a tag and records human suppression after migration', async () => {
+  mocks.rpc.mockResolvedValue({ error: null });
+  expect(
+    (await DELETE(request('DELETE', { tag_id: 'tag-1' }), params)).status
+  ).toBe(200);
+  expect(mocks.rpc).toHaveBeenCalledWith('set_sales_tag_override', {
+    p_contact: 'contact-1',
+    p_tag: 'tag-1',
+    p_blocked: true,
+  });
+  expect(mocks.remove).not.toHaveBeenCalled();
+});
+it('does not perform a partial removal when saving suppression fails', async () => {
+  mocks.rpc.mockResolvedValue({ error: { code: 'XX000' } });
+  expect(
+    (await DELETE(request('DELETE', { tag_id: 'tag-1' }), params)).status
+  ).toBe(500);
+  expect(mocks.remove).not.toHaveBeenCalled();
 });

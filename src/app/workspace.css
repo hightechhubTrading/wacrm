@@ -1,0 +1,360 @@
+/* Shared workspace surfaces. Accent and appearance remain user preferences. */
+.crm-workspace {
+  font-family:
+    var(--font-sans),
+    var(--font-arabic),
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  height: 100dvh;
+  --radius: 0.9rem;
+}
+.crm-workspace main {
+  scrollbar-gutter: stable;
+}
+.crm-workspace > aside {
+  background: color-mix(in srgb, var(--card) 76%, var(--background));
+}
+.crm-workspace > div > header {
+  background: var(--background);
+  border-color: transparent;
+}
+.crm-workspace nav a {
+  border-radius: 10px;
+}
+.crm-workspace nav a[aria-current='page'] {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.crm-workspace nav a[aria-current='page'] svg {
+  color: var(--primary);
+}
+.crm-workspace button,
+.crm-workspace a {
+  -webkit-tap-highlight-color: transparent;
+}
+.crm-workspace button:focus-visible,
+.crm-workspace a:focus-visible,
+.crm-workspace summary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+.crm-dashboard {
+  max-width: 1320px;
+  margin-inline: auto;
+}
+.crm-dashboard > div:has(> h1) {
+  padding-block: 8px 12px;
+}
+.crm-dashboard h1 {
+  font-size: clamp(26px, 3vw, 34px);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+}
+.crm-dashboard .rounded-xl.border {
+  border: 0;
+  border-radius: 20px;
+  box-shadow: 0 2px 10px #00000004;
+}
+.crm-agenda-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 18px;
+}
+.crm-agenda-heading h1 {
+  line-height: 1.2;
+}
+.crm-agenda-heading p {
+  margin-top: 8px;
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+.crm-agenda-date {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  text-align: end;
+}
+.crm-agenda-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 20px;
+}
+.crm-agenda-panel {
+  border-radius: 20px;
+  padding: 22px;
+  background: var(--card);
+  min-width: 0;
+}
+.crm-agenda-panel h2 {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+.crm-agenda-panel > p {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  margin-top: 5px;
+}
+.crm-agenda-panel ul {
+  margin-top: 16px;
+}
+.crm-agenda-panel li + li {
+  border-top: 1px solid var(--border);
+}
+.crm-agenda-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-block: 13px;
+  border-radius: 9px;
+}
+.crm-agenda-row:hover {
+  background: var(--muted);
+}
+.crm-agenda-row strong {
+  font-size: 14px;
+  font-weight: 550;
+  display: block;
+}
+.crm-agenda-row small {
+  display: block;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  margin-top: 3px;
+}
+.crm-agenda-row > span:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+}
+.crm-agenda-avatar {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--muted);
+  font-size: 13px;
+}
+.crm-agenda-row svg {
+  width: 16px;
+  height: 16px;
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+.crm-agenda-empty {
+  padding-block: 30px;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.crm-agenda-brief {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  background: var(--primary-soft);
+  border-radius: 14px;
+  color: var(--foreground);
+  font-size: 13px;
+}
+.crm-agenda-brief svg {
+  width: 18px;
+  height: 18px;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.crm-analytics > summary {
+  padding: 16px 4px;
+  cursor: pointer;
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+.crm-analytics[open] > summary {
+  margin-bottom: 4px;
+}
+.crm-queue {
+  border-inline-end: 1px solid var(--border);
+  background: var(--card);
+}
+.crm-queue-head {
+  border: 0;
+  padding: 20px 16px 12px;
+}
+.crm-queue-title {
+  font-size: 23px;
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  margin-bottom: 14px;
+}
+.crm-queue input {
+  border: 0;
+  border-radius: 10px;
+  height: 36px;
+}
+.crm-segment {
+  display: flex;
+  background: var(--muted);
+  padding: 3px;
+  border-radius: 9px;
+  gap: 2px;
+  margin-top: 10px;
+}
+.crm-segment button {
+  flex: 1;
+  padding: 6px;
+  font-size: 12px;
+  border-radius: 7px;
+  color: var(--muted-foreground);
+}
+.crm-segment button[aria-pressed='true'] {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 1px 3px #00000010;
+}
+.crm-triage-group {
+  padding: 14px 18px 6px;
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 600;
+}
+.crm-conversation {
+  width: calc(100% - 16px);
+  margin: 3px 8px;
+  padding: 13px 10px;
+  border-radius: 12px;
+  border: 0;
+  text-align: start;
+}
+.crm-conversation[aria-current='true'] {
+  background: var(--primary-soft);
+}
+.crm-thread {
+  background: var(--background);
+}
+.crm-thread-header {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+.crm-message-bubble {
+  padding: 11px 14px;
+  border-radius: 19px;
+  line-height: 1.55;
+  box-shadow: none;
+}
+.crm-message-bubble[data-direction='incoming'] {
+  background: var(--card);
+  border-end-start-radius: 7px;
+}
+.crm-message-bubble[data-direction='outgoing'] {
+  border-end-end-radius: 7px;
+}
+.crm-composer {
+  background: var(--background);
+  border-color: transparent;
+  padding: 12px 20px 18px;
+}
+.crm-composer textarea {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding-block: 13px;
+}
+.crm-contact-panel {
+  border-inline-start: 1px solid var(--border);
+  background: var(--card);
+}
+@media (min-width: 1024px) {
+  .crm-queue {
+    width: 330px;
+  }
+}
+@media (max-width: 767px) {
+  .crm-agenda-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .crm-agenda-panel {
+    padding: 20px;
+  }
+  .crm-agenda-date {
+    display: none;
+  }
+  .crm-composer {
+    padding: 10px 12px 14px;
+  }
+}
+@media (prefers-contrast: more) {
+  .crm-workspace {
+    --border: #888;
+  }
+  .crm-agenda-panel {
+    border: 1px solid var(--border);
+  }
+}
+
+.crm-workspace main:has(.crm-queue) {
+  scrollbar-gutter: auto;
+}
+.crm-thread-brief {
+  display: flex;
+  gap: 10px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  background: var(--card);
+}
+.crm-thread-brief svg {
+  width: 15px;
+  height: 15px;
+  color: var(--primary);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.crm-thread-brief p {
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+.crm-thread-brief span {
+  display: block;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 2px;
+}
+
+@media (max-width: 767px) {
+  .crm-compose-row {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+  }
+  .crm-compose-row textarea {
+    flex: 1 1 calc(100% - 52px);
+    min-width: 0;
+    order: -2;
+    margin-bottom: 5px;
+  }
+  .crm-compose-row > :last-child {
+    order: -1;
+    margin-bottom: 5px;
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+  }
+  .crm-compose-row > button {
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .crm-composer > p {
+    padding-inline-start: 0;
+  }
+  .crm-conversation {
+    min-height: 68px;
+  }
+}

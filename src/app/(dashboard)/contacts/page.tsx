@@ -1,4 +1,5 @@
 'use client';
+import { PageIdentity } from '@/components/workspace/page-identity';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -340,15 +341,15 @@ export default function ContactsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="crm-page crm-contacts-page space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
+        <PageIdentity icon={Users}>
           <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {totalCount > 0 ? t('subtitle', { count: totalCount }) : t('subtitleZero')}
           </p>
-        </div>
+        </PageIdentity>
         <div className="flex items-center gap-2">
           {canManageFieldGroups && (
             <Button
@@ -528,7 +529,7 @@ export default function ContactsPage() {
       )}
 
       {/* Table */}
-      <div className="rounded-lg border border-border overflow-hidden">
+      <div className="crm-table-panel rounded-lg border border-border overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
@@ -601,9 +602,12 @@ export default function ContactsPage() {
                     />
                   </TableCell>
                   <TableCell className="text-foreground font-medium">
-                    {contact.name || <span className="text-muted-foreground italic">{t('unnamed')}</span>}
+                    <button type="button" className="crm-customer-identity" onClick={(event) => { event.stopPropagation(); openDetail(contact.id); }}>
+                      <span className="crm-customer-avatar" aria-hidden="true">{(contact.name || contact.phone || '?').charAt(0).toUpperCase()}</span>
+                      <span>{contact.name || <span className="text-muted-foreground italic">{t('unnamed')}</span>}</span>
+                    </button>
                   </TableCell>
-                  <TableCell className="text-muted-foreground font-mono text-xs">
+                  <TableCell dir="ltr" className="text-muted-foreground font-mono text-xs text-start">
                     {contact.phone}
                   </TableCell>
                   <TableCell className="text-muted-foreground hidden md:table-cell text-sm">

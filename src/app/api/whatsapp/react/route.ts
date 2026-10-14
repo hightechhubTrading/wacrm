@@ -51,8 +51,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = await request.json();
-    const { message_id, emoji } = body as {
+    const parsed = await request.json().catch(() => null);
+    if (!parsed) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+    const { message_id, emoji } = parsed as {
       message_id?: string;
       emoji?: string;
     };

@@ -323,12 +323,15 @@ export async function deliverBroadcast(
   }
 
   // Terminal status only — counts are trigger-owned (see the note
-  // above). If nothing sent, the broadcast failed outright; a partial
-  // send is still 'sent' (per-recipient failures show in failed_count).
+  // above). Only mark `failed` when we actually attempted sends and
+  // none succeeded; a broadcast where every recipient was opted out
+  // (`planned` empty) completed without sending and is not a failure.
+  const attempted = plan.planned.length;
+  const terminalStatus = sentCount > 0 || attempted === 0 ? 'sent' : 'failed';
   await db
     .from('broadcasts')
     .update({
-      status: sentCount > 0 ? 'sent' : 'failed',
+      status: terminalStatus,
       updated_at: new Date().toISOString(),
     })
     .eq('id', plan.broadcastId);

@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import type { SupabaseClient } from '@supabase/supabase-js'
-import { buildConversationContext } from './context'
+import { describe, it, expect } from 'vitest';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { buildConversationContext } from './context';
 
 /** Minimal fake matching the query chain in buildConversationContext:
  *  from().select().eq().in().order().limit() → { data, error }. */
@@ -12,8 +12,8 @@ function fakeDb(rows: unknown[]): SupabaseClient {
     in: () => chain,
     order: () => chain,
     limit: () => Promise.resolve({ data: rows, error: null }),
-  }
-  return chain as unknown as SupabaseClient
+  };
+  return chain as unknown as SupabaseClient;
 }
 
 describe('buildConversationContext', () => {
@@ -23,40 +23,46 @@ describe('buildConversationContext', () => {
       { sender_type: 'customer', content_text: 'third' },
       { sender_type: 'agent', content_text: 'second' },
       { sender_type: 'customer', content_text: 'first' },
-    ]
-    const out = await buildConversationContext(fakeDb(rows), 'conv-1')
+    ];
+    const out = await buildConversationContext(fakeDb(rows), 'conv-1');
     expect(out).toEqual([
       { role: 'user', content: 'first' },
       { role: 'assistant', content: 'second' },
       { role: 'user', content: 'third' },
-    ])
-  })
+    ]);
+  });
 
   it('treats bot messages as assistant', async () => {
     const out = await buildConversationContext(
       fakeDb([{ sender_type: 'bot', content_text: 'auto reply' }]),
-      'conv-1',
-    )
-    expect(out).toEqual([{ role: 'assistant', content: 'auto reply' }])
-  })
+      'conv-1'
+    );
+    expect(out).toEqual([{ role: 'assistant', content: 'auto reply' }]);
+  });
 
   it('falls back to transcript for a transcribed voice note', async () => {
     const out = await buildConversationContext(
       fakeDb([
-        { sender_type: 'customer', content_text: null, transcript: 'voice note text' },
+        {
+          sender_type: 'customer',
+          content_text: null,
+          transcript: 'voice note text',
+        },
       ]),
-      'conv-1',
-    )
-    expect(out).toEqual([{ role: 'user', content: 'voice note text' }])
-  })
+      'conv-1'
+    );
+    expect(out).toEqual([{ role: 'user', content: 'voice note text' }]);
+  });
 
   it('drops an untranscribed audio message (no content_text, no transcript)', async () => {
     const out = await buildConversationContext(
-      fakeDb([{ sender_type: 'customer', content_text: null, transcript: null }]),
-      'conv-1',
-    )
-    expect(out).toEqual([])
-  })
+      fakeDb([
+        { sender_type: 'customer', content_text: null, transcript: null },
+      ]),
+      'conv-1'
+    );
+    expect(out).toEqual([]);
+  });
 
   it('wraps a standalone image_description (uncaptioned photo) in an [Image: ...] marker', async () => {
     // Unwrapped, this would read exactly like the customer's own words
@@ -71,10 +77,10 @@ describe('buildConversationContext', () => {
           image_description: 'a grey sofa',
         },
       ]),
-      'conv-1',
-    )
-    expect(out).toEqual([{ role: 'user', content: '[Image: a grey sofa]' }])
-  })
+      'conv-1'
+    );
+    expect(out).toEqual([{ role: 'user', content: '[Image: a grey sofa]' }]);
+  });
 
   it('combines a caption and an image description on the same message', async () => {
     const out = await buildConversationContext(
@@ -86,22 +92,26 @@ describe('buildConversationContext', () => {
           image_description: 'a grey sofa',
         },
       ]),
-      'conv-1',
-    )
+      'conv-1'
+    );
     expect(out).toEqual([
       { role: 'user', content: 'is this in stock?\n[Image: a grey sofa]' },
-    ])
-  })
+    ]);
+  });
 
   it('drops an unanalyzed photo (no content_text, no image_description)', async () => {
     const out = await buildConversationContext(
       fakeDb([
-        { sender_type: 'customer', content_text: null, image_description: null },
+        {
+          sender_type: 'customer',
+          content_text: null,
+          image_description: null,
+        },
       ]),
-      'conv-1',
-    )
-    expect(out).toEqual([])
-  })
+      'conv-1'
+    );
+    expect(out).toEqual([]);
+  });
 
   it('drops empty / whitespace-only messages', async () => {
     const out = await buildConversationContext(
@@ -110,11 +120,11 @@ describe('buildConversationContext', () => {
         { sender_type: 'customer', content_text: null },
         { sender_type: 'customer', content_text: 'real' },
       ]),
-      'conv-1',
-    )
-    expect(out).toEqual([{ role: 'user', content: 'real' }])
-  })
-})
+      'conv-1'
+    );
+    expect(out).toEqual([{ role: 'user', content: 'real' }]);
+  });
+});
 
 describe('buildConversationContext — non-text messages', () => {
   it('shows a shared location so the model stops asking for it', async () => {
@@ -128,44 +138,64 @@ describe('buildConversationContext — non-text messages', () => {
           content_text: 'https://www.google.com/maps?q=25.33,51.39',
         },
       ]),
-      'conv-1',
-    )
+      'conv-1'
+    );
     expect(out).toEqual([
-      { role: 'user', content: '[Location shared: https://www.google.com/maps?q=25.33,51.39]' },
-    ])
-  })
+      {
+        role: 'user',
+        content: '[Location shared: https://www.google.com/maps?q=25.33,51.39]',
+      },
+    ]);
+  });
 
   it('marks files and videos instead of dropping them', async () => {
     const out = await buildConversationContext(
       fakeDb([
         { sender_type: 'customer', content_type: 'video', content_text: null },
-        { sender_type: 'customer', content_type: 'document', content_text: 'Binder1.pdf' },
+        {
+          sender_type: 'customer',
+          content_type: 'document',
+          content_text: 'Binder1.pdf',
+        },
       ]),
-      'conv-1',
-    )
+      'conv-1'
+    );
     expect(out).toEqual([
-      { role: 'user', content: '[File sent: Binder1.pdf]' },
+      {
+        role: 'user',
+        content: '[File sent: Binder1.pdf]',
+        attachmentState: 'unavailable',
+      },
       { role: 'user', content: '[Video sent]' },
-    ])
-  })
+    ]);
+  });
 
   it("records the business's own outbound photo so the model knows it already went out", async () => {
     const out = await buildConversationContext(
-      fakeDb([{ sender_type: 'bot', content_type: 'image', content_text: null }]),
-      'conv-1',
-    )
-    expect(out).toEqual([{ role: 'assistant', content: '[Photo sent]' }])
-  })
+      fakeDb([
+        { sender_type: 'bot', content_type: 'image', content_text: null },
+      ]),
+      'conv-1'
+    );
+    expect(out).toEqual([{ role: 'assistant', content: '[Photo sent]' }]);
+  });
 
   it('keeps an undescribed customer photo visible instead of dropping it', async () => {
     const out = await buildConversationContext(
       fakeDb([
-        { sender_type: 'customer', content_type: 'image', content_text: null, image_description: null },
+        {
+          sender_type: 'customer',
+          content_type: 'image',
+          content_text: null,
+          image_description: null,
+        },
       ]),
-      'conv-1',
-    )
-    expect(out).toEqual([{ role: 'user', content: '[Image: no description available]' }])
-  })
+      'conv-1'
+    );
+    expect(out).toEqual([
+      { role: 'user', content: '[Image: no description available]' },
+    ]);
+  });
 
   it('drops the "unsupported" placeholder once photos follow it (a WhatsApp album)', async () => {
     // Real thread (2026-09-10): the model kept asking the customer to
@@ -185,10 +215,12 @@ describe('buildConversationContext — non-text messages', () => {
           content_text: '[Unsupported message type: unsupported]',
         },
       ]),
-      'conv-1',
-    )
-    expect(out).toEqual([{ role: 'user', content: '[Image: The exterior of a new shop.]' }])
-  })
+      'conv-1'
+    );
+    expect(out).toEqual([
+      { role: 'user', content: '[Image: The exterior of a new shop.]' },
+    ]);
+  });
 
   it('keeps the "unsupported" placeholder when nothing follows it', async () => {
     const out = await buildConversationContext(
@@ -199,8 +231,52 @@ describe('buildConversationContext — non-text messages', () => {
           content_text: '[Unsupported message type: unsupported]',
         },
       ]),
-      'conv-1',
-    )
-    expect(out).toEqual([{ role: 'user', content: '[Unsupported message type: unsupported]' }])
-  })
-})
+      'conv-1'
+    );
+    expect(out).toEqual([
+      { role: 'user', content: '[Unsupported message type: unsupported]' },
+    ]);
+  });
+});
+
+it('records source IDs and distinguishes parsed documents from receipt-only files', async () => {
+  const out = await buildConversationContext(
+    fakeDb([
+      {
+        message_id: 'm',
+        sender_type: 'customer',
+        content_type: 'document',
+        content_text: 'Openings.xlsx',
+        document_text: 'A2: Window 5',
+        document_status: 'partial',
+      },
+    ]),
+    'thread'
+  );
+  expect(out[0]).toMatchObject({
+    sourceMessageId: 'm',
+    attachmentState: 'partial',
+  });
+  expect(out[0].content).toContain(
+    'Extracted document text (partial): A2: Window 5'
+  );
+});
+it('keeps an untranscribed voice note visible for human review', async () => {
+  const out = await buildConversationContext(
+    fakeDb([
+      {
+        message_id: 'voice',
+        sender_type: 'customer',
+        content_type: 'audio',
+        content_text: null,
+        transcript: null,
+      },
+    ]),
+    'thread'
+  );
+  expect(out[0]).toMatchObject({
+    sourceMessageId: 'voice',
+    attachmentState: 'unavailable',
+    content: '[Audio received; not transcribed]',
+  });
+});

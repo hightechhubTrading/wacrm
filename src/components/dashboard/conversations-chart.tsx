@@ -31,6 +31,7 @@ import { useTranslations } from 'next-intl'
 
 export function ConversationsChart({ series, loading, range, onRangeChange }: ConversationsChartProps) {
   const t = useTranslations('Dashboard.conversationsChart')
+  const errorText = useTranslations('Dashboard.page')
   const data = series[range]
 
   // Memoise the max so per-day hover math doesn't recompute it.
@@ -75,8 +76,10 @@ export function ConversationsChart({ series, loading, range, onRangeChange }: Co
       </header>
 
       <div className="p-5">
-        {loading || !data ? (
+        {loading ? (
           <Skeleton className="h-[240px] w-full" />
+        ) : !data ? (
+          <p role="status" className="text-sm text-muted-foreground py-8">{errorText('unavailable')}</p>
         ) : data.every((p) => p.incoming === 0 && p.outgoing === 0) ? (
           <EmptyState
             icon={MessageSquare}

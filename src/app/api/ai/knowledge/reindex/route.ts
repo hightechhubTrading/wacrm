@@ -51,28 +51,31 @@ export async function POST() {
     }
 
     let reindexed = 0
+    const failures: { id: string; error: string }[] = []
     for (const doc of docs ?? []) {
       try {
         await ingestDocument(supabase, accountId, { embeddingsApiKey }, doc.id, doc.content)
         reindexed += 1
       } catch (err) {
-        // One bad document (e.g. a mid-run embeddings rate-limit) should
-        // not abort the whole batch.
+        // One bad document (e.g. a mid-run embeddings rate-limit) must
+        // not abort the whole batch — record it and continue so the
+        // remaining documents still get reindexed.
         const message = err instanceof AiError ? err.message : String(err)
         console.error(`[ai/knowledge/reindex] doc ${doc.id} failed:`, message)
-        return NextResponse.json(
-          {
-            success: false,
-            reindexed,
-            total: (docs ?? []).length,
-            error: `Reindexed ${reindexed}, then hit an error: ${message}`,
-          },
-          { status: 200 },
-        )
+        failures.push({ id: doc.id, error: message })
       }
     }
 
-    return NextResponse.json({ success: true, reindexed })
+    return NextResponse.json({
+      success: failures.length === 0,
+      reindexed,
+      total: (docs ?? []).length,
+      failed: failures.length,
+      failures,
+      ...(failures.length > 0
+        ? { error: `Reindexed ${reindexed}, ${failures.length} failed.` }
+        : {}),
+    })
   } catch (err) {
     return toErrorResponse(err)
   }
