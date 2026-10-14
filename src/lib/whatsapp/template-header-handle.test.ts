@@ -5,8 +5,15 @@ vi.mock('./meta-api', () => ({
   uploadResumableMedia: vi.fn(async () => ({ handle: 'HANDLE123' })),
 }));
 
+// Default the SSRF guard to "public" so the happy-path tests reach fetch;
+// individual tests flip it to assert the guard.
+vi.mock('@/lib/webhooks/ssrf', () => ({
+  isDeliverableUrl: vi.fn(async () => true),
+}));
+
 import { ensureImageHeaderHandle } from './template-header-handle';
 import { uploadResumableMedia } from './meta-api';
+import { isDeliverableUrl } from '@/lib/webhooks/ssrf';
 import type { TemplatePayload } from './template-validators';
 
 function payload(over: Partial<TemplatePayload> = {}): TemplatePayload {
@@ -33,6 +40,8 @@ function imgResponse(type = 'image/jpeg', size = 1024, ok = true, status = 200):
 describe('ensureImageHeaderHandle', () => {
   beforeEach(() => {
     vi.mocked(uploadResumableMedia).mockClear();
+    vi.mocked(isDeliverableUrl).mockClear();
+    vi.mocked(isDeliverableUrl).mockResolvedValue(true);
   });
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -76,6 +85,38 @@ describe('ensureImageHeaderHandle', () => {
   it('rejects an image over 5 MB', async () => {
     vi.stubEnv('META_APP_ID', 'app-1');
     vi.stubGlobal('fetch', vi.fn(async () => imgResponse('image/png', 6 * 1024 * 1024)));
+    await expect(ensureImageHeaderHandle(payload(), 'tok')).rejects.toThrow(/5 MB/);
+  });
+
+  it('rejects a non-public URL before fetching', async () => {
+    vi.stubEnv('META_APP_ID', 'app-1');
+    vi.mocked(isDeliverableUrl).mockResolvedValue(false);
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    await expect(ensureImageHeaderHandle(payload(), 'tok')).rejects.toThrow(
+      /publicly reachable/,
+    );
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects early when content-length exceeds the cap', async () => {
+    vi.stubEnv('META_APP_ID', 'app-1');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        headers: {
+          get: (h: string) =>
+            h.toLowerCase() === 'content-length'
+              ? String(6 * 1024 * 1024)
+              : h.toLowerCase() === 'content-type'
+                ? 'image/png'
+                : null,
+        },
+        arrayBuffer: async () => new ArrayBuffer(0),
+      } as unknown as Response)),
+    );
     await expect(ensureImageHeaderHandle(payload(), 'tok')).rejects.toThrow(/5 MB/);
   });
 });
