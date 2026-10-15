@@ -1,3 +1,4 @@
+import { areaPerItem, billableQuantity } from './totals';
 // src/lib/quotations/build-html.ts
 //
 // Pure string-in/string-out HTML filler for the branded quotation template.
@@ -26,6 +27,7 @@
 // below that inserts variable content therefore uses a replacer FUNCTION,
 // whose return value is never re-scanned for `$`-patterns. Plain strings
 // are only used where the replacement is 100% static (no interpolation).
+import { isNonChargeable } from './totals';
 import { amountInWordsBilingual } from './number-to-words';
 import { QUOTATION_TEMPLATE_HTML } from './templates/quotation-html';
 import type { Quotation, QuotationItem } from './types';
@@ -37,7 +39,10 @@ import type { Quotation, QuotationItem } from './types';
 // server runtime despite passing every unit test and ad-hoc script check.
 
 function esc(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 // Template dates read "__ / __ / ____" (DD / MM / YYYY). Quotation stores
@@ -49,19 +54,39 @@ function formatDateDMY(iso: string | null): string | null {
   return `${d} / ${m} / ${y}`;
 }
 
-function itemRowHtml(item: QuotationItem): string {
+function itemRowHtml(
+  item: QuotationItem,
+  packageParts: QuotationItem[] = []
+): string {
   if (item.itemType === 'section') {
     return `\n      <tr class="grp"><td colspan="6">${esc(item.description ?? '')}</td></tr>`;
   }
-  const size = item.sizeW != null && item.sizeH != null ? `${item.sizeW} × ${item.sizeH}` : '— × —';
+  const included = item.kind === 'Included';
+  const optional = item.kind === 'Optional';
+  const priceLabel = included
+    ? 'Included in package · مشمول في سعر المنتج'
+    : optional
+      ? 'Optional — excluded from total · اختياري — غير مشمول في الإجمالي'
+      : '';
+  const packageHtml = packageParts.length
+    ? `<span class="spec"><b>Included in package · مشمول في السعر</b></span>${packageParts.map((part) => `<span class="spec">• ${esc(part.description ?? '')}${part.descriptionAr ? ` · ${esc(part.descriptionAr)}` : ''} × ${part.qty ?? 1}${part.unit === 'per_product' ? ' per product · لكل منتج' : ''}${part.specification ? ` — ${esc(part.specification)}` : ''}</span>`).join('')}`
+    : '';
+  const size =
+    item.sizeW != null && item.sizeH != null
+      ? `${item.sizeW} × ${item.sizeH} ${esc(item.measurementUnit ?? 'mm')}`
+      : '—';
+  const areaDescription =
+    item.unit === 'm2'
+      ? `<span class="spec">${areaPerItem({ sizeW: item.sizeW ?? undefined, sizeH: item.sizeH ?? undefined, measurementUnit: item.measurementUnit ?? undefined }).toLocaleString('en', { maximumFractionDigits: 6 })} m² × ${item.qty ?? 1} = ${billableQuantity({ qty: item.qty ?? 1, unit: 'm2', sizeW: item.sizeW ?? undefined, sizeH: item.sizeH ?? undefined, measurementUnit: item.measurementUnit ?? undefined }).toLocaleString('en', { maximumFractionDigits: 6 })} m² · Price per m² · سعر المتر المربع</span>`
+      : '';
   return `
       <tr>
         <td class="code">${esc(item.itemCode ?? '')}</td>
-        <td><span class="it">${esc(item.description ?? '')}</span></td>
+        <td><span class="it">${item.parentItemId ? '↳ ' : ''}${esc(item.description ?? '')}</span>${item.descriptionAr ? `<span class="ar" dir="rtl">${esc(item.descriptionAr)}</span>` : ''}${item.specification ? `<span class="spec">${esc(item.specification)}</span>` : ''}${priceLabel ? `<span class="spec">${priceLabel}${optional && item.unitPrice == null ? ' · Price on request · السعر عند الطلب' : ''}</span>` : ''}${packageHtml}${areaDescription}${item.discountValue ? `<span class="spec">Discount · خصم: ${item.discountValue}${item.discountType === 'percent' ? '%' : ' QAR'}</span>` : ''}</td>
         <td class="n num">${size}</td>
-        <td class="n num">${item.qty ?? 1}</td>
-        <td class="n num">${(item.unitPrice ?? 0).toLocaleString()}</td>
-        <td class="n num">${item.lineTotal.toLocaleString()}</td>
+        <td class="n num">${item.qty ?? 1}${item.unit ? `<span class="spec">${esc(item.unit === 'per_product' ? 'per product · لكل منتج' : item.unit === 'm2' ? 'openings · فتحات' : item.unit)}</span>` : ''}</td>
+        <td class="n num">${included || item.unitPrice == null ? '—' : item.unitPrice.toLocaleString()}${item.unit === 'm2' ? '<span class="spec">QAR / m²</span>' : ''}</td>
+        <td class="n num">${isNonChargeable(item) ? '—' : item.lineTotal.toLocaleString()}</td>
       </tr>`;
 }
 
@@ -70,13 +95,27 @@ function itemRowHtml(item: QuotationItem): string {
 // the FIRST of the ~19 identical placeholder runs in the template — this
 // keeps each field aimed at its own row. Uses a replacer function (see
 // file header) so a "$"-containing value can never be reinterpreted.
-function fillPartyField(html: string, label: string, value: string | null): string {
-  const re = new RegExp(`(<dt>${label}</dt><dd(?:[^>]*)>)________________(</dd>)`);
-  return html.replace(re, (_match, open: string, close: string) => `${open}${esc(value ?? '')}${close}`);
+function fillPartyField(
+  html: string,
+  label: string,
+  value: string | null
+): string {
+  const re = new RegExp(
+    `(<dt>${label}</dt><dd(?:[^>]*)>)________________(</dd>)`
+  );
+  return html.replace(
+    re,
+    (_match, open: string, close: string) =>
+      `${open}${esc(value ?? '')}${close}`
+  );
 }
 
-export function buildQuotationHtml(quotation: Quotation, items: QuotationItem[]): string {
+export function buildQuotationHtml(
+  quotation: Quotation,
+  items: QuotationItem[]
+): string {
   let html = QUOTATION_TEMPLATE_HTML;
+  const details = quotation.documentDetails ?? {};
   const words = amountInWordsBilingual(quotation.total);
   const revision = String(quotation.revision).padStart(2, '0');
 
@@ -86,11 +125,14 @@ export function buildQuotationHtml(quotation: Quotation, items: QuotationItem[])
   // (both are static, non-interpolated replacements) — the reference text
   // itself is filled a few lines down, once, via replaceAll.
   html = html.replace('class="ref-v todo"', 'class="ref-v"');
-  html = html.replace('<span class="todo">HT-__-___-___</span>', '<span>HT-__-___-___</span>');
+  html = html.replace(
+    '<span class="todo">HT-__-___-___</span>',
+    '<span>HT-__-___-___</span>'
+  );
   // A single non-global .replace() here would silently leave page 2's copy
   // as the literal placeholder — replaceAll is required. Function form:
   // quotation.reference is free text and could in principle contain "$".
-  html = html.replaceAll('HT-__-___-___', () => quotation.reference);
+  html = html.replaceAll('HT-__-___-___', () => esc(quotation.reference));
 
   // Revision — "00" alone is far too generic to blind-replace, so it's
   // anchored to its label on page 1, and to the literal "REV 00" run in
@@ -142,16 +184,25 @@ export function buildQuotationHtml(quotation: Quotation, items: QuotationItem[])
   html = fillPartyField(html, 'Project', quotation.projectName);
   html = fillPartyField(html, 'Location', quotation.location);
   // No "consultant" field on Quotation — cleared, not fabricated.
-  html = fillPartyField(html, 'Consultant', null);
+  html = fillPartyField(html, 'Consultant', details.consultant ?? null);
 
   // Subject (English). Arabic subject has no source field — see report;
   // cleared rather than machine-translated (non-negotiable in this repo's
   // sibling project's CLAUDE.md, and good practice regardless).
-  html = html.replace(
-    'Supply and installation of ________________',
-    () => `Supply and installation of ${esc(quotation.subject ?? '')}`
-  );
-  html = html.replace('توريد وتركيب ________________', 'توريد وتركيب');
+  html = html.replace('Supply and installation of ________________', () => {
+    const subject = quotation.subject?.trim() ?? '';
+    return esc(
+      /^supply\s+and\s+installation\b/i.test(subject)
+        ? subject
+        : `Supply and installation of ${subject}`
+    );
+  });
+  html = html.replace('توريد وتركيب ________________', () => {
+    const subject = details.subjectAr?.trim() ?? '';
+    return esc(
+      /^توريد\s*و\s*تركيب/.test(subject) ? subject : `توريد وتركيب ${subject}`
+    );
+  });
 
   // Items table. The vendored template ships 6 sample rows (D01–D06) plus
   // a "SECTION A — ________________" group header as filler content. The
@@ -161,7 +212,22 @@ export function buildQuotationHtml(quotation: Quotation, items: QuotationItem[])
   // instead, scoped to the items table specifically (the payment-schedule
   // table on page 2 has its own <tbody> and must not be touched). Item
   // descriptions are free text and could contain "$" — replacer function.
-  const rows = items.map(itemRowHtml).join('');
+  const sorted = [...items].sort((a, b) => a.position - b.position);
+  const rows = sorted
+    .filter((item) => !item.parentItemId)
+    .flatMap((item) => {
+      const children = sorted.filter((child) => child.parentItemId === item.id);
+      return [
+        itemRowHtml(
+          item,
+          children.filter((child) => child.kind === 'Included')
+        ),
+        ...children
+          .filter((child) => child.kind !== 'Included')
+          .map((child) => itemRowHtml(child)),
+      ];
+    })
+    .join('');
   html = html.replace(
     /(<table class="items">[\s\S]*?<tbody>)[\s\S]*?(<\/tbody>)/,
     (_match, open: string, close: string) => `${open}${rows}\n    ${close}`
@@ -172,29 +238,126 @@ export function buildQuotationHtml(quotation: Quotation, items: QuotationItem[])
   // amountInWordsBilingual already returns that full shell, so the whole
   // fixed phrase is replaced wholesale rather than just the inner
   // placeholder — otherwise the wrapper words would double up.
-  html = html.replace(/________________ Qatari Riyals only/, () => esc(words.en));
-  html = html.replace(/فقط ________________ ريالاً قطرياً لا غير/, () => esc(words.ar));
+  html = html.replace(/________________ Qatari Riyals only/, () =>
+    esc(words.en)
+  );
+  html = html.replace(/فقط ________________ ريالاً قطرياً لا غير/, () =>
+    esc(words.ar)
+  );
   html = html.replace(
     /(<div class="total-f">)—(<small>QAR<\/small><\/div>)/,
-    (_match, open: string, close: string) => `${open}${quotation.total.toLocaleString()}${close}`
+    (_match, open: string, close: string) =>
+      `${open}${quotation.total.toLocaleString()}${close}`
   );
 
-  // Decorative placeholders with no corresponding data field on Quotation
-  // — dropped rather than filled with invented text (all static, no
-  // interpolation, so plain-string replace is fine here).
+  // User-editable commercial fields from the original HTH fillable document.
+  const lines = (text: string) =>
+    text
+      .split('\n')
+      .filter((l) => l.trim())
+      .map((l) => `<li dir="auto">${esc(l)}</li>`)
+      .join('');
+  if (details.included !== undefined)
+    html = html.replace(
+      /(<h3>INCLUDED[^<]*<\/h3>\s*<ul>)[\s\S]*?(<\/ul>)/,
+      (_m, a, b) => a + lines(details.included!) + b
+    );
+  if (details.excluded !== undefined)
+    html = html.replace(
+      /(<h3>NOT INCLUDED[^<]*<\/h3>\s*<ul>)[\s\S]*?(<\/ul>)/,
+      (_m, a, b) => a + lines(details.excluded!) + b
+    );
   html = html.replace('<li>________________</li>', '');
-  html = html.replace('Prepared by ________________', 'Prepared by');
-
-  // Payment-schedule share percentages (3 identical rows: advance,
-  // pre-installation, completion) and the delivery/shop-drawing lead-time
-  // figures (Terms row + "What happens next", English and Arabic) have no
-  // corresponding field on Quotation/QuotationItem either. Same treatment:
-  // cleared, not fabricated, and — because these carry the "todo" amber
-  // flagging class — the class is stripped too, so the cleared cell ships
-  // with neither the raw placeholder text nor the "still needs input"
-  // styling. Static replacements throughout; no user data involved.
-  html = html.replace(/class="n pct todo">__ %</g, 'class="n pct"><');
-  html = html.replaceAll('<span class="todo">__</span>', '<span></span>');
-
+  html = html.replace(
+    /(<td class="k">Delivery · التسليم<\/td><td class="v">)[\s\S]*?(<\/td>)/,
+    (_m, a, b) => a + esc(quotation.deliveryTerms ?? '') + b
+  );
+  if (quotation.warrantyTerms?.trim())
+    html = html.replace(
+      /(<td class="k">Warranty · الضمان<\/td><td class="v">)[\s\S]*?(<\/td>)/,
+      (_m, a, b) => a + esc(quotation.warrantyTerms!) + b
+    );
+  else
+    html = html.replace(
+      /<tr><td class="k">Warranty · الضمان<\/td>[\s\S]*?<\/tr>/,
+      ''
+    );
+  const schedule = details.paymentSchedule;
+  if (schedule) {
+    const stages = [
+      {
+        share: schedule.advance,
+        label: 'Advance · مقدَّم',
+        trigger: 'On acceptance · عند اعتماد العرض',
+      },
+      {
+        share: schedule.delivery,
+        label:
+          schedule.deliveryTrigger === 'before_installation'
+            ? 'Before installation · قبل التركيب'
+            : 'Site delivery · التوريد',
+        trigger:
+          schedule.deliveryTrigger === 'before_installation'
+            ? 'Before installation and completion · قبل التركيب والإنجاز'
+            : 'On delivery to site · عند التوريد للموقع',
+      },
+      {
+        share: schedule.completion,
+        label: 'Completion · الإنجاز',
+        trigger: 'On handover · عند التسليم',
+      },
+    ];
+    html = html.replace(
+      /(<table class="pay">[\s\S]*?<tbody>)[\s\S]*?(<\/tbody>)/,
+      (_m, a, b) =>
+        a +
+        stages
+          .filter((s) => s.share > 0)
+          .map(
+            (s) =>
+              `<tr><td>${s.label}</td><td>${s.trigger}</td><td class="n pct">${s.share} %</td></tr>`
+          )
+          .join('') +
+        b
+    );
+  } else {
+    html = html.replace(
+      /<table class="pay">[\s\S]*?<\/table>/,
+      () =>
+        `<p class="commercial-text" dir="auto">${esc(quotation.paymentTerms ?? '')}</p>`
+    );
+  }
+  if (schedule && quotation.paymentTerms)
+    html = html.replace(
+      '</table>\n\n  <h2 style="margin-block-start:6mm">Terms',
+      () =>
+        `</table><p class="commercial-text" dir="auto">${esc(quotation.paymentTerms!)}</p>\n  <h2 style="margin-block-start:6mm">Terms`
+    );
+  if (details.shopDrawingDays !== undefined)
+    html = html.replaceAll(
+      '<span class="todo">__</span>',
+      () => `<span>${details.shopDrawingDays}</span>`
+    );
+  else html = html.replace(/<div class="next">[\s\S]*?<\/div>/, '');
+  if (details.notes?.trim())
+    html = html.replace(
+      '<div class="accept">',
+      () =>
+        `<h2>Notes <span class="ar">ملاحظات</span></h2><ul class="commercial-text">${lines(details.notes!)}</ul><div class="accept">`
+    );
+  html = html.replace(
+    'Prepared by ________________',
+    () =>
+      `Prepared by ${esc(details.preparedBy ?? '')}${details.repPhone ? ` · ${esc(details.repPhone)}` : ''}`
+  );
+  if (quotation.discountAmount > 0)
+    html = html.replace(
+      '<div class="total">',
+      () =>
+        `<div class="discount-summary">Subtotal · المجموع: ${quotation.subtotal.toLocaleString()} QAR &nbsp; Discount · الخصم: −${quotation.discountAmount.toLocaleString()} QAR</div><div class="total">`
+    );
+  // Date blanks in an incomplete draft are neutral; export validation requires validity.
+  html = html.replaceAll('__ / __ / ____', '—');
+  html = html.replaceAll('class="n pct todo">__ %<', 'class="n pct"><');
   return html;
 }

@@ -1,7 +1,7 @@
 # Quotation workspace plan
 
 Date: 2026-10-14
-Status: proposed; no application changes made.
+Status: implemented locally. Migration 073 is applied to the linked app database as `20261014191054 / 073_quotation_workspace`. Application deployment remains separate.
 
 ## Direction
 
@@ -107,3 +107,37 @@ Reusable term/item templates, bulk item entry, structured payment milestones, cu
 ## Evidence consulted
 
 Repository quotation specification (2026-08-14), current detail/list/form/item/action components, shared types/totals/HTML builder and PATCH/send routes. Project hub and linked architecture, code atlas, working guide and Jev proposal were consulted for ownership and workflow context. No production functionality or deployment state is inferred from these sources.
+
+## Product editor refinement
+
+The product area now follows HTH quoting work: select a door/shutter/service starter or search the catalog, enter a product name separately from its drawing reference, describe materials and finish, record opening dimensions, then enter selling quantity/unit/price. Priced motors, remotes, locks and handles sit under their parent product with a combined total. Optional Arabic descriptions and line discounts use progressive disclosure. Product/reference confusion receives an inline correction action. Measurement-unit changes preserve the actual size; duplication assigns unique references and preserves accessory relationships; undo removal retains subsequent edits. No product prices, measurements or technical standards are invented by the starters.
+
+## Corrections from actual HTH quotations
+
+Included components use their parent package price; unselected optional upgrades do not contribute to totals. Chargeable extras and explicitly accepted upgrades contribute their own quantity × price. Shared client/server calculations and the database RPC enforce these rules; the PDF lists included parts inside the parent description and labels optional upgrades as excluded. Matching motors previously charged separately become included when applying the shutter package example, avoiding double charging.
+
+Editable specification examples cover the supplied shutter, pivot, steel-door and CAME 1800 gate packages. They provide no automatic product prices. Editable commercial examples use 5–7 days / 100% advance for shutters and 30–35 days / 70% advance + 30% before installation for steel/pivot doors, with delivery starting after receipt of advance payment and 15-day validity. These are supplied quotation examples, not universal approved product or commercial policies. Warranty is optional; empty saved warranty terms do not produce a fabricated warranty in the PDF. Site responsibilities and project notes are visible.
+
+Validation: quotation/localization regression tests, typecheck, lint and production build pass; the live-schema transactional check passed whole-document save, non-chargeable exclusion, accepted upgrade, conflict and authorization cases, with test records rolled back. English/Arabic desktop/mobile browser checks passed against synthetic records. Chromium is installed locally and the actual PDF renderer was exercised. A mixed shutter/pivot example retains all content across three physical pages with accurate page numbering; application deployment and the deployment host's Chromium remain separate.
+
+One existing PDF predating the workspace history was copied to a separate archive path and registered as an imported document. Imported files remain available in history and are not treated as verified fresh exports of the current data.
+
+### Focused workflow refinement
+
+The editor now presents customer/project, products/services, and commercial terms as three focused stages with a persistent customer/project/total summary. Products collapse into summaries; specifications, dimensions and package components remain editable on expansion. Document review supports fit-width, 25–200% zoom, and an expanded view with Escape to close.
+
+CRM prefill uses the selected deal title as the project name and its account-scoped linked contact for name, WhatsApp phone and company. It fills empty draft values only, rejects stale asynchronous responses, preserves edits, and does not mix a separately linked customer. Closed quotations are not hydrated.
+
+`catalog_items` remains the shared product identity for future inventory. Quotes retain `productId` with independent description/specification/unit/price snapshots. Catalog browse and search support names (English/Arabic), SKU and category filtering; custom quote items can already be saved back to that catalog. Future inventory should extend these identities with stock movements and bundles rather than introducing another product list. Inventory quantities/costs and stock reservations are not implemented in this change.
+
+### Dropdown clarity
+
+Quotation fields, date month/year, and review zoom use one styled Base UI select, replacing browser-native menus. Component pricing choices explain their impact directly in the menu and below the selected component: included is covered by the product price, extra is added to the total, optional is excluded until explicitly added. A shutter-package example makes the distinction concrete. The acceptance button says “Add upgrade to quotation total” rather than implying customer acceptance has been recorded.
+
+### Compact product editor and square-metre pricing
+
+Only one product editor opens at a time. Its default controls are name, quantity/opening count, pricing method, price, and calculated total. Drawing references, example specifications, and optional dimensions sit in a secondary disclosure; accessories are a compact list with their own disclosures. Area-priced products keep dimensions in the main editor. Products, accessories and sections have visible duplicate/delete actions; product duplication copies its entire component group with fresh IDs and drawing references. Delete remains undoable. Subtotal is shown only when there is a quotation discount; desktop no longer repeats the save/total footer.
+
+Canonical billing unit `m2` uses width × height × opening count × m² rate. Measurement units mm/cm/m convert to physical square metres without rounding intermediate area. `qty` remains an opening count, and ordinary piece/set/job/linear-metre quantities retain their original meanings. Preview, document HTML, server calculations and discounts share this meaning. Missing area dimensions can be saved while drafting, but exporting requires positive width/height. The document shows opening count, dimensions, measured area and rate per m².
+
+Migration `074_quotation_area_pricing.sql` introduces the database billable-quantity helper and updates the optimistic-locking workspace save calculation. It also preserves pricing snapshot fields through the legacy service-only item-save API. Applied as migration `20261014205135` after isolated and live rollback checks; permissions are preserved, and existing customer quotations were not rewritten. Future inventory can use the same catalog identity and billing unit while keeping item counts separate from measured pricing quantities.

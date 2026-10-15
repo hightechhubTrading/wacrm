@@ -1,6 +1,24 @@
 // src/lib/quotations/types.ts
 export type QuotationStatus = 'draft' | 'sent' | 'won' | 'lost' | 'expired';
 
+export interface QuotationDocumentDetails {
+  consultant?: string;
+  subjectAr?: string;
+  included?: string;
+  excluded?: string;
+  notes?: string;
+  preparedBy?: string;
+  repPhone?: string;
+  shopDrawingDays?: number;
+  commercialPreset?: string;
+  paymentSchedule?: {
+    advance: number;
+    delivery: number;
+    completion: number;
+    deliveryTrigger?: 'before_installation' | 'on_delivery';
+  };
+}
+
 export interface Quotation {
   id: string;
   accountId: string;
@@ -25,6 +43,12 @@ export interface Quotation {
   validUntil: string | null;
   pdfStoragePath: string | null;
   createdAt: string;
+  updatedAt?: string;
+  workspaceVersion?: number;
+  deliveryTerms?: string | null;
+  paymentTerms?: string | null;
+  warrantyTerms?: string | null;
+  documentDetails?: QuotationDocumentDetails;
 }
 
 export interface QuotationItem {
@@ -45,6 +69,9 @@ export interface QuotationItem {
   discountType: 'percent' | 'fixed' | null;
   discountValue: number | null;
   lineTotal: number;
+  specification?: string | null;
+  unit?: string | null;
+  measurementUnit?: string | null;
 }
 
 // Postgres/PostgREST returns snake_case columns; the app works in
@@ -80,6 +107,12 @@ export function mapQuotationRow(row: Record<string, any>): Quotation {
     validUntil: row.valid_until,
     pdfStoragePath: row.pdf_storage_path,
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    workspaceVersion: row.workspace_version ?? 0,
+    deliveryTerms: row.delivery_terms,
+    paymentTerms: row.payment_terms,
+    warrantyTerms: row.warranty_terms,
+    documentDetails: row.document_details ?? {},
   };
 }
 
@@ -103,5 +136,8 @@ export function mapQuotationItemRow(row: Record<string, any>): QuotationItem {
     discountType: row.discount_type,
     discountValue: row.discount_value,
     lineTotal: row.line_total,
+    specification: row.specification,
+    unit: row.unit,
+    measurementUnit: row.measurement_unit,
   };
 }

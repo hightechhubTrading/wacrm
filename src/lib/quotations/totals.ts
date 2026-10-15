@@ -3,9 +3,9 @@
 // Pure calculation, no I/O — runs identically in the browser (live
 // total as a rep edits) and on the server (source of truth on save).
 // Section headers (item_type: 'section') never contribute to the
-// total. Every other item — top-level product or accessory/
-// customization sub-item, distinguished only by parentItemId — is
-// summed the same way, per spec: "everything is a quotation_item."
+// total. Included components share their parent package price; optional
+// upgrades are excluded until explicitly converted to chargeable extras.
+// Area-priced products use count × physical area × m² rate; other lines use quantity × price.
 
 export type DiscountType = 'percent' | 'fixed';
 
@@ -21,8 +21,37 @@ export interface QuotationItemInput {
   kind?: string;
   qty?: number;
   unitPrice?: number;
+  unit?: string;
+  sizeW?: number;
+  sizeH?: number;
+  measurementUnit?: string;
   discountType?: DiscountType;
   discountValue?: number;
+}
+
+/** Dimensions describe one opening; quantity always remains the number of openings. */
+export function areaPerItem(
+  item: Pick<QuotationItemInput, 'sizeW' | 'sizeH' | 'measurementUnit'>
+): number {
+  const divisor =
+    item.measurementUnit === 'm'
+      ? 1
+      : item.measurementUnit === 'cm'
+        ? 10000
+        : 1000000;
+  return ((item.sizeW ?? 0) * (item.sizeH ?? 0)) / divisor;
+}
+export function billableQuantity(
+  item: Pick<
+    QuotationItemInput,
+    'qty' | 'unit' | 'sizeW' | 'sizeH' | 'measurementUnit'
+  >
+): number {
+  return (item.qty ?? 1) * (item.unit === 'm2' ? areaPerItem(item) : 1);
+}
+
+export function isNonChargeable(item: { kind?: string | null }): boolean {
+  return item.kind === 'Included' || item.kind === 'Optional';
 }
 
 export interface QuotationTotals {
@@ -32,7 +61,11 @@ export interface QuotationTotals {
   itemTotals: Record<string, number>;
 }
 
-function applyDiscount(amount: number, type: DiscountType | undefined, value: number | undefined): number {
+function applyDiscount(
+  amount: number,
+  type: DiscountType | undefined,
+  value: number | undefined
+): number {
   if (!type || !value) return amount;
   const discount = type === 'percent' ? amount * (value / 100) : value;
   return Math.max(0, amount - discount);
@@ -40,24 +73,39 @@ function applyDiscount(amount: number, type: DiscountType | undefined, value: nu
 
 export function computeQuotationTotals(
   items: QuotationItemInput[],
-  orderDiscount?: OrderDiscount,
+  orderDiscount?: OrderDiscount
 ): QuotationTotals {
   const itemTotals: Record<string, number> = {};
   let subtotal = 0;
 
   for (const item of items) {
     if (item.itemType === 'section') continue;
-    const qty = item.qty ?? 1;
+    if (isNonChargeable(item)) {
+      itemTotals[item.id] = 0;
+      continue;
+    }
+    const qty = billableQuantity(item);
     const unitPrice = item.unitPrice ?? 0;
-    const lineTotal = applyDiscount(qty * unitPrice, item.discountType, item.discountValue);
+    const lineTotal =
+      Math.round(
+        (applyDiscount(qty * unitPrice, item.discountType, item.discountValue) +
+          Number.EPSILON) *
+          100
+      ) / 100;
     itemTotals[item.id] = lineTotal;
     subtotal += lineTotal;
   }
 
-  const total = orderDiscount
-    ? applyDiscount(subtotal, orderDiscount.discountType, orderDiscount.discountValue)
+  subtotal = Math.round((subtotal + Number.EPSILON) * 100) / 100;
+  const unroundedTotal = orderDiscount
+    ? applyDiscount(
+        subtotal,
+        orderDiscount.discountType,
+        orderDiscount.discountValue
+      )
     : subtotal;
-  const discountAmount = subtotal - total;
+  const total = Math.round((unroundedTotal + Number.EPSILON) * 100) / 100;
+  const discountAmount = Math.round((subtotal - total) * 100) / 100;
 
   return { subtotal, discountAmount, total, itemTotals };
 }

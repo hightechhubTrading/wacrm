@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 function chain(finalResult: unknown) {
   const builder: Record<string, unknown> = {};
-  ['select', 'ilike', 'insert', 'eq', 'limit'].forEach((m) => {
+  ['select', 'or', 'order', 'insert', 'eq', 'limit'].forEach((m) => {
     builder[m] = vi.fn().mockReturnValue(builder);
   });
   builder.single = vi.fn().mockResolvedValue(finalResult);
@@ -24,7 +24,7 @@ beforeEach(() => {
 });
 
 describe('GET /api/catalog-items', () => {
-  it('searches by name using ILIKE, scoped to the caller\'s own account', async () => {
+  it('searches active items by name, Arabic name, and SKU within the caller\'s account', async () => {
     const searchChain = chain({ data: [{ id: 'c-1', name: 'Electronic Lock' }], error: null });
     const supabase = { from: vi.fn().mockReturnValue(searchChain) };
     h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase });
@@ -32,7 +32,12 @@ describe('GET /api/catalog-items', () => {
     const req = new Request('http://test/api/catalog-items?q=lock');
     const res = await GET(req);
     expect(searchChain.eq).toHaveBeenCalledWith('account_id', 'acc-1');
-    expect(searchChain.ilike).toHaveBeenCalledWith('name', '%lock%');
+    expect(searchChain.eq).toHaveBeenCalledWith('status', 'active');
+    expect(searchChain.or).toHaveBeenCalledWith(
+      'name.ilike.%lock%,name_ar.ilike.%lock%,sku.ilike.%lock%'
+    );
+    expect(searchChain.order).toHaveBeenCalledWith('name');
+    expect(res.status).toBe(200);
     expect((await res.json())[0].name).toBe('Electronic Lock');
   });
 });

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { numberToWordsEN, numberToWordsAR, amountInWordsBilingual } from './number-to-words';
+import {
+  numberToWordsEN,
+  numberToWordsAR,
+  amountInWordsBilingual,
+} from './number-to-words';
 
 describe('numberToWordsEN', () => {
   it('renders thousands and hundreds', () => {
@@ -54,17 +58,23 @@ describe('amountInWordsBilingual', () => {
   // total (e.g. 10% off 1055 -> 949.5). Un-rounded, that fractional
   // value indexes the word arrays out of bounds and renders the
   // literal string "undefined" on the PDF in both languages.
-  it('rounds a fractional total to the nearest whole riyal before wording it', () => {
+  it('keeps fractional riyals equal to the numeric amount instead of rounding them away', () => {
     const a = amountInWordsBilingual(949.5);
     expect(a.ar).not.toContain('undefined');
     expect(a.en).not.toContain('undefined');
-    expect(a.ar).toBe('فقط تسعمئة وخمسون ريال قطري لا غير');
-    expect(a.en).toBe('Nine Hundred Fifty Qatari Riyals only');
+    expect(a.ar).toBe(
+      'فقط تسعمئة وتسعة وأربعون ريال قطري وخمسون درهماً لا غير'
+    );
+    expect(a.en).toBe(
+      'Nine Hundred Forty Nine Qatari Riyals and Fifty Dirhams only'
+    );
 
     const b = amountInWordsBilingual(1250.5);
     expect(b.ar).not.toContain('undefined');
     expect(b.en).not.toContain('undefined');
-    expect(b.ar).toBe('فقط ألف ومئتان وواحد وخمسون ريال قطري لا غير');
-    expect(b.en).toBe('One Thousand Two Hundred Fifty One Qatari Riyals only');
+    expect(b.ar).toBe('فقط ألف ومئتان وخمسون ريال قطري وخمسون درهماً لا غير');
+    expect(b.en).toBe(
+      'One Thousand Two Hundred Fifty Qatari Riyals and Fifty Dirhams only'
+    );
   });
 });

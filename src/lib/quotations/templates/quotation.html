@@ -133,8 +133,8 @@ body { display: flex; flex-direction: column; align-items: center; gap: 8mm; pad
 /* English leads, Arabic supports. Logical properties throughout, so setting
    the root to dir="rtl" mirrors the document with no other change. */
 .page {
-  position: relative; width: 210mm; height: 297mm;
-  background: #FFFFFF; overflow: hidden;
+  position: relative; width: 210mm; min-height: 297mm; height: auto;
+  background: #FFFFFF; overflow: visible;
   padding: 14mm 16mm 0;
   font-family: "tajawal", sans-serif; color: var(--navy);
   display: flex; flex-direction: column;
@@ -202,7 +202,7 @@ table { width: 100%; border-collapse: collapse; }
 .items .num { font-family: "space-mono", monospace; font-size: 8pt; }
 .items .code { font-family: "space-mono", monospace; font-size: 7.5pt; color: var(--concrete); }
 .items .it { font-weight: 500; }
-.items .spec { display: block; font-size: 7.5pt; color: var(--steel); line-height: 1.7; margin-block-start: 1.2mm; }
+.items .spec { white-space: pre-wrap; display: block; font-size: 7.5pt; color: var(--steel); line-height: 1.7; margin-block-start: 1.2mm; }
 /* The standard cited per line is the B2B differentiator — a contractor's
    first fear is failing inspection, and this is where that fear is answered. */
 .items .std { display: inline-block; font-family: "space-mono", monospace; font-size: 6.8pt;
@@ -272,7 +272,21 @@ table { width: 100%; border-collapse: collapse; }
         padding-block-end: 3mm; border-block-end: 1.4mm solid var(--navy); margin-block-end: 8mm; }
 .cont-r { font-family: "space-mono", monospace; font-size: 7.5pt; color: var(--steel); text-align: end; line-height: 1.7; }
 </style>
-</head>
+<style>
+.commercial-text { font-size: 8.5pt; white-space: pre-wrap; line-height: 1.6; margin-block: 2mm; }
+.discount-summary { font-size: 8pt; text-align: end; margin-block: 3mm; }
+.items .it { white-space: pre-wrap; }
+@page { size: A4; margin: 12mm 0; }
+@media print {
+ body { display: block; padding: 0; background: white; }
+ .page { min-height: 250mm; height: auto; overflow: visible; break-after: page; }
+ .page:last-child { break-after: auto; }
+ .items thead { display: table-header-group; }
+ tr, .total, .scope, .accept, .foot { break-inside: avoid; }
+ .foot { margin-block-start: auto; }
+ .foot-bar { position: static; flex: none; margin-inline: -16mm; }
+}
+</style></head>
 <body>
 
 <!-- ══════ Page 1 — the offer ══════════════════════════════ -->
@@ -342,7 +356,7 @@ table { width: 100%; border-collapse: collapse; }
       <tr>
         <th style="width:9%">ITEM</th>
         <th style="width:41%">DESCRIPTION</th>
-        <th class="n" style="width:15%">SIZE W × H (m)</th>
+        <th class="n" style="width:15%">SIZE W × H</th>
         <th class="n" style="width:8%">QTY</th>
         <th class="n" style="width:13%">UNIT (QAR)</th>
         <th class="n" style="width:14%">AMOUNT (QAR)</th>
@@ -408,7 +422,7 @@ table { width: 100%; border-collapse: collapse; }
       High Tech Hub Trading &nbsp;·&nbsp; هاي تك هاب تريدينغ<br>
       <span class="mono">P.O. Box 214058, Doha, Qatar &nbsp;·&nbsp; hightechub.com</span>
     </div>
-    <div class="foot-p">PAGE 1 OF 2</div>
+    <div class="foot-p"></div>
   </div>
   <div class="foot-bar"></div>
 </div>
@@ -438,8 +452,6 @@ table { width: 100%; border-collapse: collapse; }
         <li>Supply of materials · توريد المواد</li>
         <li>Installation at site · التركيب في الموقع</li>
         <li>Testing and commissioning · الاختبار والتشغيل</li>
-        <li>Manufacturer documentation · وثائق المصنّع</li>
-        <li>O&amp;M manual and user training · دليل التشغيل والتدريب</li>
       </ul>
     </div>
     <div class="sbox out">
@@ -501,7 +513,7 @@ table { width: 100%; border-collapse: collapse; }
       Prepared by ________________ &nbsp;·&nbsp; Sales Representative<br>
       <span class="mono">+974 5064 0111 &nbsp;·&nbsp; +974 7057 0800 &nbsp;·&nbsp; info@hightechub.com</span>
     </div>
-    <div class="foot-p">PAGE 2 OF 2</div>
+    <div class="foot-p"></div>
   </div>
   <div class="foot-bar"></div>
 </div>

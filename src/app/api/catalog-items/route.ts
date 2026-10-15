@@ -20,10 +20,21 @@ export async function GET(request: Request) {
       .select('*')
       .eq('account_id', ctx.accountId)
       .eq('status', 'active');
-    if (q) query = query.ilike('name', `%${q}%`);
+    const search = q
+      .replace(/[^\p{L}\p{N} +@.-]/gu, '')
+      .trim()
+      .slice(0, 100);
+    if (search)
+      query = query.or(
+        `name.ilike.%${search}%,name_ar.ilike.%${search}%,sku.ilike.%${search}%`
+      );
+    const category = url.searchParams.get('category');
+    if (category) query = query.eq('category', category);
+    query = query.order('name');
 
     const { data, error } = await query.limit(20);
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json(data);
   } catch (err) {
     return toErrorResponse(err);
@@ -59,11 +70,13 @@ export async function POST(request: Request) {
         description: body.description ?? null,
         description_ar: body.descriptionAr ?? null,
         sku: body.sku ?? null,
+        unit_of_measure: body.unitOfMeasure ?? null,
         default_unit_price: body.defaultUnitPrice ?? null,
       })
       .select()
       .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json(data, { status: 201 });
   } catch (err) {
     return toErrorResponse(err);

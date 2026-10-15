@@ -24,7 +24,14 @@ describe('computeQuotationTotals', () => {
 
   it('applies a fixed discount to a single line item', () => {
     const items: QuotationItemInput[] = [
-      { id: 'a', itemType: 'line', qty: 1, unitPrice: 1000, discountType: 'fixed', discountValue: 150 },
+      {
+        id: 'a',
+        itemType: 'line',
+        qty: 1,
+        unitPrice: 1000,
+        discountType: 'fixed',
+        discountValue: 150,
+      },
     ];
     const result = computeQuotationTotals(items);
     expect(result.itemTotals.a).toBe(850);
@@ -33,7 +40,14 @@ describe('computeQuotationTotals', () => {
 
   it('applies a percent discount to a single line item', () => {
     const items: QuotationItemInput[] = [
-      { id: 'a', itemType: 'line', qty: 1, unitPrice: 2000, discountType: 'percent', discountValue: 10 },
+      {
+        id: 'a',
+        itemType: 'line',
+        qty: 1,
+        unitPrice: 2000,
+        discountType: 'percent',
+        discountValue: 10,
+      },
     ];
     expect(computeQuotationTotals(items).itemTotals.a).toBe(1800);
   });
@@ -41,8 +55,22 @@ describe('computeQuotationTotals', () => {
   it('includes accessory/customization sub-items under a parent product', () => {
     const items: QuotationItemInput[] = [
       { id: 'door', itemType: 'line', qty: 1, unitPrice: 16000 },
-      { id: 'lock', itemType: 'line', parentItemId: 'door', kind: 'Accessory', qty: 1, unitPrice: 3000 },
-      { id: 'handle', itemType: 'line', parentItemId: 'door', kind: 'Customization', qty: 1, unitPrice: 800 },
+      {
+        id: 'lock',
+        itemType: 'line',
+        parentItemId: 'door',
+        kind: 'Accessory',
+        qty: 1,
+        unitPrice: 3000,
+      },
+      {
+        id: 'handle',
+        itemType: 'line',
+        parentItemId: 'door',
+        kind: 'Customization',
+        qty: 1,
+        unitPrice: 800,
+      },
     ];
     const result = computeQuotationTotals(items);
     expect(result.subtotal).toBe(19800);
@@ -52,28 +80,116 @@ describe('computeQuotationTotals', () => {
   });
 
   it('applies an order-level fixed discount after subtotal', () => {
-    const items: QuotationItemInput[] = [{ id: 'a', itemType: 'line', qty: 1, unitPrice: 3600 }];
-    const result = computeQuotationTotals(items, { discountType: 'fixed', discountValue: 600 });
+    const items: QuotationItemInput[] = [
+      { id: 'a', itemType: 'line', qty: 1, unitPrice: 3600 },
+    ];
+    const result = computeQuotationTotals(items, {
+      discountType: 'fixed',
+      discountValue: 600,
+    });
     expect(result.subtotal).toBe(3600);
     expect(result.discountAmount).toBe(600);
     expect(result.total).toBe(3000);
   });
 
   it('applies an order-level percent discount after subtotal', () => {
-    const items: QuotationItemInput[] = [{ id: 'a', itemType: 'line', qty: 1, unitPrice: 10000 }];
-    const result = computeQuotationTotals(items, { discountType: 'percent', discountValue: 15 });
+    const items: QuotationItemInput[] = [
+      { id: 'a', itemType: 'line', qty: 1, unitPrice: 10000 },
+    ];
+    const result = computeQuotationTotals(items, {
+      discountType: 'percent',
+      discountValue: 15,
+    });
     expect(result.discountAmount).toBe(1500);
     expect(result.total).toBe(8500);
   });
 
   it('never lets a total go negative', () => {
-    const items: QuotationItemInput[] = [{ id: 'a', itemType: 'line', qty: 1, unitPrice: 100 }];
-    const result = computeQuotationTotals(items, { discountType: 'fixed', discountValue: 500 });
+    const items: QuotationItemInput[] = [
+      { id: 'a', itemType: 'line', qty: 1, unitPrice: 100 },
+    ];
+    const result = computeQuotationTotals(items, {
+      discountType: 'fixed',
+      discountValue: 500,
+    });
     expect(result.total).toBe(0);
   });
 
   it('treats a missing qty as 1 and a missing unitPrice as 0', () => {
     const items: QuotationItemInput[] = [{ id: 'a', itemType: 'line' }];
     expect(computeQuotationTotals(items).subtotal).toBe(0);
+  });
+});
+
+describe('square-metre pricing', () => {
+  const areaItem: QuotationItemInput = {
+    id: 'door',
+    itemType: 'line',
+    unit: 'm2',
+    qty: 2,
+    sizeW: 2000,
+    sizeH: 3000,
+    measurementUnit: 'mm',
+    unitPrice: 100,
+  };
+  it('multiplies physical area, number of openings and m² rate', () => {
+    expect(computeQuotationTotals([areaItem]).total).toBe(1200);
+  });
+  it('uses equivalent areas in metres, centimetres and millimetres', () => {
+    for (const [measurementUnit, sizeW, sizeH] of [
+      ['m', 2, 3],
+      ['cm', 200, 300],
+      ['mm', 2000, 3000],
+    ] as const)
+      expect(
+        computeQuotationTotals([{ ...areaItem, measurementUnit, sizeW, sizeH }])
+          .total
+      ).toBe(1200);
+  });
+  it('applies fixed and percentage discounts to the area amount', () => {
+    expect(
+      computeQuotationTotals([
+        { ...areaItem, discountType: 'fixed', discountValue: 500 },
+      ]).total
+    ).toBe(700);
+    expect(
+      computeQuotationTotals(
+        [{ ...areaItem, discountType: 'percent', discountValue: 10 }],
+        { discountType: 'percent', discountValue: 5 }
+      ).total
+    ).toBe(1026);
+  });
+  it('does not apply dimensions to piece or linear metre pricing', () => {
+    expect(computeQuotationTotals([{ ...areaItem, unit: 'piece' }]).total).toBe(
+      200
+    );
+    expect(computeQuotationTotals([{ ...areaItem, unit: 'm' }]).total).toBe(
+      200
+    );
+  });
+  it('does not charge optional/included components and keeps missing dimensions at zero', () => {
+    expect(
+      computeQuotationTotals([{ ...areaItem, kind: 'Optional' }]).total
+    ).toBe(0);
+    expect(
+      computeQuotationTotals([{ ...areaItem, kind: 'Included' }]).total
+    ).toBe(0);
+    expect(
+      computeQuotationTotals([{ ...areaItem, sizeW: undefined }]).total
+    ).toBe(0);
+  });
+  it('rounds only the final discounted line amount', () => {
+    expect(
+      computeQuotationTotals([
+        {
+          ...areaItem,
+          qty: 3,
+          measurementUnit: 'm',
+          sizeW: 1.333,
+          sizeH: 2.777,
+          unitPrice: 123.45,
+        },
+      ]).total
+    ).toBe(1370.94);
   });
 });

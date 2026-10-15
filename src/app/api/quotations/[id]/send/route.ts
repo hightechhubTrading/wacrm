@@ -22,7 +22,7 @@ type Params = { params: Promise<{ id: string }> };
  * against ctx.supabase, matching every other caller of it in this
  * codebase (src/app/api/v1/messages/route.ts) — not the admin client.
  */
-export async function POST(_request: Request, { params }: Params) {
+export async function POST(request: Request, { params }: Params) {
   try {
     const ctx = await requireRole('agent');
     const { id } = await params;
@@ -32,17 +32,48 @@ export async function POST(_request: Request, { params }: Params) {
       .select('*')
       .eq('id', id)
       .maybeSingle();
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    if (!quotation) return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    if (!quotation)
+      return NextResponse.json(
+        { error: 'Quotation not found' },
+        { status: 404 }
+      );
     if (!quotation.pdf_storage_path) {
-      return NextResponse.json({ error: 'Generate the PDF before sending' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Generate the PDF before sending' },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json().catch(() => ({}));
+    let document = null;
+    if (body.documentId) {
+      const { data } = await ctx.supabase
+        .from('quotation_documents')
+        .select('*')
+        .eq('id', body.documentId)
+        .eq('quotation_id', id)
+        .eq('account_id', ctx.accountId)
+        .maybeSingle();
+      if (!data)
+        return NextResponse.json(
+          { error: 'Document not found' },
+          { status: 404 }
+        );
+      if (
+        data.workspace_version !== quotation.workspace_version ||
+        data.storage_path !== quotation.pdf_storage_path
+      )
+        return NextResponse.json({ error: 'conflict' }, { status: 409 });
+      document = data;
     }
 
     const conversation = await resolveConversationByPhone(
       ctx.supabase,
       quotation.account_id,
       quotation.client_phone,
-      quotation.client_name,
+      quotation.client_name
     );
 
     const { data: pdfUrlData } = ctx.supabase.storage
@@ -60,6 +91,11 @@ export async function POST(_request: Request, { params }: Params) {
       conversationId: conversation.conversationId,
       inboxUrl: `/inbox?c=${conversation.conversationId}`,
       pdfUrl,
+      documentId: document?.id,
+      filename: `${quotation.reference}-rev-${quotation.revision}.pdf`,
+      reference: quotation.reference,
+      revision: quotation.revision,
+      alreadySent: !!document?.sent_at,
     });
   } catch (err) {
     return toErrorResponse(err);

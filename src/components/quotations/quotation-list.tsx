@@ -1,10 +1,11 @@
 'use client';
 
+import { WorkspaceSelect } from './workspace-select';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
-import { FileText, Plus } from 'lucide-react';
+import { FileText, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Quotation } from '@/lib/quotations/types';
 import {
@@ -28,6 +29,7 @@ export function QuotationList() {
   const [loadError, setLoadError] = useState(false);
   const [revision, setRevision] = useState(0);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [search, setSearch] = useState('');
   const [status, setStatus] = useState<string>('');
   const [creating, setCreating] = useState(false);
 
@@ -119,6 +121,12 @@ export function QuotationList() {
     }
   }
 
+  const filtered = quotations.filter((q) =>
+    [q.reference, q.clientName, q.clientCompany, q.projectName].some((value) =>
+      value?.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
+    )
+  );
+
   return (
     <div className="crm-quotation-list space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -160,18 +168,33 @@ export function QuotationList() {
           </Link>
         </p>
       )}
-      <select
+      <div className="relative max-w-md">
+        <Search
+          size={15}
+          className="text-muted-foreground absolute start-3 top-1/2 -translate-y-1/2"
+          aria-hidden
+        />
+        <input
+          aria-label={t('searchQuotations')}
+          placeholder={t('searchQuotations')}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="border-input h-9 w-full rounded-lg border bg-transparent ps-9 pe-3 text-sm"
+        />
+      </div>
+      <WorkspaceSelect
         aria-label={t('status')}
         value={status}
-        onChange={(e) => setStatus(e.target.value)}
-        className="border-input text-foreground h-8 rounded-lg border bg-transparent px-2.5 text-sm"
+        onValueChange={setStatus}
+        className="qw-status-filter"
       >
         <option value="">{t('allStatuses')}</option>
         <option value="draft">{t('draft')}</option>
         <option value="sent">{t('sent')}</option>
         <option value="won">{t('won')}</option>
         <option value="lost">{t('lost')}</option>
-      </select>
+        <option value="expired">{t('expired')}</option>
+      </WorkspaceSelect>
       {loading ? (
         <div className="crm-table-skeleton" role="status">
           <span className="sr-only">{t('loading')}</span>
@@ -190,7 +213,7 @@ export function QuotationList() {
             {t('retry')}
           </Button>
         </div>
-      ) : quotations.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="crm-list-state">
           <FileText size={30} aria-hidden />
           <h2>{t('quotationEmpty')}</h2>
@@ -205,10 +228,11 @@ export function QuotationList() {
                 <th className="py-2 pe-4 font-medium">{t('client')}</th>
                 <th className="py-2 pe-4 font-medium">{t('status')}</th>
                 <th className="py-2 pe-4 font-medium">{t('total')}</th>
+                <th className="py-2 pe-4 font-medium">{t('validUntil')}</th>
               </tr>
             </thead>
             <tbody>
-              {quotations.map((q) => (
+              {filtered.map((q) => (
                 <tr key={q.id} className="border-border border-b">
                   <td className="py-2 pe-4">
                     <Link
@@ -220,6 +244,9 @@ export function QuotationList() {
                   </td>
                   <td className="py-2 pe-4">
                     {q.clientCompany ?? q.clientName ?? '—'}
+                    <small className="text-muted-foreground block">
+                      {q.projectName}
+                    </small>
                   </td>
                   <td className="py-2 pe-4">
                     <span
@@ -231,6 +258,9 @@ export function QuotationList() {
                   </td>
                   <td className="py-2 pe-4">
                     {q.total.toLocaleString()} {q.currency}
+                  </td>
+                  <td className="text-muted-foreground py-2 pe-4">
+                    {q.validUntil ?? '—'}
                   </td>
                 </tr>
               ))}

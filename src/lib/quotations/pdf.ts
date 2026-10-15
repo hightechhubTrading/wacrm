@@ -7,11 +7,13 @@ import type { Quotation, QuotationItem } from './types';
 export async function generateQuotationPdf(
   quotation: Quotation,
   items: QuotationItem[],
+  immutablePath?: string
 ): Promise<{ storagePath: string; publicUrl: string }> {
   const html = buildQuotationHtml(quotation, items);
   const pdfBuffer = await renderHtmlToPdf(html);
 
-  const storagePath = `${quotation.id}/rev-${quotation.revision}.pdf`;
+  const storagePath =
+    immutablePath ?? `${quotation.id}/rev-${quotation.revision}.pdf`;
   const bucket = supabaseAdmin().storage.from('quotation-pdfs');
 
   // cacheControl: '0' -- storagePath is fixed per revision, and revision
@@ -22,7 +24,7 @@ export async function generateQuotationPdf(
   // to an hour even though the underlying object was correctly replaced.
   const { error } = await bucket.upload(storagePath, pdfBuffer, {
     contentType: 'application/pdf',
-    upsert: true,
+    upsert: !immutablePath,
     cacheControl: '0',
   });
   if (error) throw new Error(error.message);

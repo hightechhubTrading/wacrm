@@ -1,7 +1,11 @@
 // src/lib/quotations/crud.ts
 import { supabaseAdmin } from './admin-client';
 import { getNextQuotationReference } from './reference';
-import { computeQuotationTotals, type QuotationItemInput, type OrderDiscount } from './totals';
+import {
+  computeQuotationTotals,
+  type QuotationItemInput,
+  type OrderDiscount,
+} from './totals';
 import { mapQuotationRow, type Quotation } from './types';
 
 export interface CreateQuotationInput {
@@ -27,10 +31,18 @@ export interface QuotationItemToSave extends QuotationItemInput {
   descriptionAr?: string;
   sizeW?: number;
   sizeH?: number;
+  specification?: string;
+  unit?: string;
+  measurementUnit?: string;
 }
 
-export async function createQuotation(input: CreateQuotationInput): Promise<Quotation> {
-  const reference = await getNextQuotationReference(input.accountId, input.productCode);
+export async function createQuotation(
+  input: CreateQuotationInput
+): Promise<Quotation> {
+  const reference = await getNextQuotationReference(
+    input.accountId,
+    input.productCode
+  );
 
   const { data, error } = await supabaseAdmin()
     .from('quotations')
@@ -58,7 +70,7 @@ export async function saveQuotationItems(
   quotationId: string,
   accountId: string,
   items: QuotationItemToSave[],
-  orderDiscount?: OrderDiscount,
+  orderDiscount?: OrderDiscount
 ): Promise<void> {
   const totals = computeQuotationTotals(items, orderDiscount);
 
@@ -79,6 +91,9 @@ export async function saveQuotationItems(
     discount_type: item.discountType ?? null,
     discount_value: item.discountValue ?? null,
     line_total: totals.itemTotals[item.id] ?? 0,
+    specification: item.specification ?? null,
+    unit: item.unit ?? null,
+    measurement_unit: item.measurementUnit ?? null,
   }));
 
   const { error } = await supabaseAdmin().rpc('save_quotation_items', {

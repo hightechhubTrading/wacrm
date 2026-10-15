@@ -11,11 +11,39 @@
 // docs/superpowers/specs/2026-08-14-quotations-design.md.
 
 const EN_ONES = [
-  '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
-  'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
-  'Seventeen', 'Eighteen', 'Nineteen',
+  '',
+  'One',
+  'Two',
+  'Three',
+  'Four',
+  'Five',
+  'Six',
+  'Seven',
+  'Eight',
+  'Nine',
+  'Ten',
+  'Eleven',
+  'Twelve',
+  'Thirteen',
+  'Fourteen',
+  'Fifteen',
+  'Sixteen',
+  'Seventeen',
+  'Eighteen',
+  'Nineteen',
 ];
-const EN_TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+const EN_TENS = [
+  '',
+  '',
+  'Twenty',
+  'Thirty',
+  'Forty',
+  'Fifty',
+  'Sixty',
+  'Seventy',
+  'Eighty',
+  'Ninety',
+];
 
 function enChunk(num: number): string {
   let s = '';
@@ -48,14 +76,53 @@ export function numberToWordsEN(n: number): string {
 
 // Feminine forms — used for 3-10 because ريال is grammatically
 // masculine and Arabic cardinals 3-10 agree with the OPPOSITE gender.
-const AR_ONES_M = ['', 'واحد', 'اثنان', 'ثلاثة', 'أربعة', 'خمسة', 'ستة', 'سبعة', 'ثمانية', 'تسعة'];
-const AR_TEENS = [
-  'عشرة', 'أحد عشر', 'اثنا عشر', 'ثلاثة عشر', 'أربعة عشر', 'خمسة عشر',
-  'ستة عشر', 'سبعة عشر', 'ثمانية عشر', 'تسعة عشر',
+const AR_ONES_M = [
+  '',
+  'واحد',
+  'اثنان',
+  'ثلاثة',
+  'أربعة',
+  'خمسة',
+  'ستة',
+  'سبعة',
+  'ثمانية',
+  'تسعة',
 ];
-const AR_TENS = ['', '', 'عشرون', 'ثلاثون', 'أربعون', 'خمسون', 'ستون', 'سبعون', 'ثمانون', 'تسعون'];
+const AR_TEENS = [
+  'عشرة',
+  'أحد عشر',
+  'اثنا عشر',
+  'ثلاثة عشر',
+  'أربعة عشر',
+  'خمسة عشر',
+  'ستة عشر',
+  'سبعة عشر',
+  'ثمانية عشر',
+  'تسعة عشر',
+];
+const AR_TENS = [
+  '',
+  '',
+  'عشرون',
+  'ثلاثون',
+  'أربعون',
+  'خمسون',
+  'ستون',
+  'سبعون',
+  'ثمانون',
+  'تسعون',
+];
 const AR_HUNDREDS = [
-  '', 'مئة', 'مئتان', 'ثلاثمئة', 'أربعمئة', 'خمسمئة', 'ستمئة', 'سبعمئة', 'ثمانمئة', 'تسعمئة',
+  '',
+  'مئة',
+  'مئتان',
+  'ثلاثمئة',
+  'أربعمئة',
+  'خمسمئة',
+  'ستمئة',
+  'سبعمئة',
+  'ثمانمئة',
+  'تسعمئة',
 ];
 
 function arChunk(num: number): string {
@@ -106,19 +173,22 @@ export function numberToWordsAR(n: number): string {
   return parts.join(' و');
 }
 
-export function amountInWordsBilingual(qar: number): { ar: string; en: string } {
-  // numberToWordsEN/numberToWordsAR index fixed-size word arrays with
-  // the chunk's ones/tens/hundreds digit -- a non-integer `qar` (any
-  // percent discount applied to an odd subtotal produces one, e.g. 10%
-  // off 1055 -> 949.5) makes that lookup land on a non-integer index,
-  // returning `undefined`, which then lands verbatim on the generated
-  // PDF. Round to the nearest whole riyal before ever reaching either
-  // word-builder -- riyal-level precision is what a quotation total in
-  // words needs; nothing in this codebase carries dirham/fils
-  // granularity for the amount-in-words line.
-  const rounded = Math.round(qar);
+export function amountInWordsBilingual(qar: number): {
+  ar: string;
+  en: string;
+} {
+  // Keep wording equal to the two-decimal numeric total, including discounts.
+  const minorUnits = Math.round((qar + Number.EPSILON) * 100);
+  const whole = Math.floor(minorUnits / 100);
+  const fraction = minorUnits % 100;
+  const arFraction =
+    fraction === 1
+      ? 'درهم واحد'
+      : fraction === 2
+        ? 'درهمان'
+        : `${numberToWordsAR(fraction)} ${fraction <= 10 ? 'دراهم' : 'درهماً'}`;
   return {
-    ar: `فقط ${numberToWordsAR(rounded)} ريال قطري لا غير`,
-    en: `${numberToWordsEN(rounded)} Qatari Riyals only`,
+    ar: `فقط ${numberToWordsAR(whole)} ريال قطري${fraction ? ` و${arFraction}` : ''} لا غير`,
+    en: `${numberToWordsEN(whole)} Qatari Riyals${fraction ? ` and ${numberToWordsEN(fraction)} Dirhams` : ''} only`,
   };
 }
