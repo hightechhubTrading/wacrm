@@ -86,6 +86,12 @@ export const INPUT_QUESTIONS = {
   human: noul(
     'Does the latest customer-authored request explicitly ask to speak with a human salesperson or team member? Do not infer this from an ordinary quotation request or a past request already resolved.'
   ),
+  recovery_failed: noul({
+    question:
+      'Has a recovery attempt already failed: does the latest customer explicitly remain dissatisfied about the same unresolved issue after an earlier customer complaint and an intervening assistant attempt to address that complaint?',
+    instructions:
+      'Require all three in chronological conversation history: an earlier customer complaint, an assistant response attempting to resolve or clarify that complaint, and the latest customer still complaining about that same issue. A first complaint about earlier routine answers, a repeated price request, a correction, urgency or disappointment alone is not a failed recovery. Do not infer dissatisfaction from silence or attachment markers. A complaint that the latest customer says is resolved does not qualify.',
+  }),
   stuck: noul(
     'Does the latest customer-authored request explicitly complain that the business is repeating itself, ignoring an already answered detail, or failing to answer the same request? Ordinary requests for more detail are not complaints.'
   ),
@@ -160,13 +166,23 @@ export async function assessSalesInput(
       upsetProbability: upset.noul,
     };
     const emotionalHandoff = emotionNeedsHandoff(assessment);
-    const apologize = emotionalHandoff || stuck.noul >= HANDOFF_MIN;
+    const apologize =
+      upset.noul >= 0.85 ||
+      (assessment.confidence >= 0.8 &&
+        ['angry', 'frustrated', 'disappointed'].includes(assessment.emotion)) ||
+      stuck.noul >= HANDOFF_MIN;
+    const recovery = result.answers.recovery_failed;
+    const recoveryFailed =
+      isProbability(recovery?.noul) && recovery.noul >= HANDOFF_MIN;
     const followupKinds: FollowupKind[] = followupKind ? [followupKind] : [];
     if (!suppressSales && result.answers.needs_location?.noul >= 0.95)
       followupKinds.push('location');
     if (!suppressSales && result.answers.needs_comparison?.noul >= 0.95)
       followupKinds.push('comparison');
-    const handoff = human.noul >= HANDOFF_MIN || apologize;
+    const handoff =
+      human.noul >= HANDOFF_MIN ||
+      emotionalHandoff ||
+      (apologize && recoveryFailed);
     await logJevCheck(ctx, {
       layer: 'input',
       mode,
@@ -179,6 +195,7 @@ export async function assessSalesInput(
         intent: { choice: intent.choice, confidence: intent.confidence },
         human: human.noul,
         stuck: stuck.noul,
+        recovery_failed: recovery?.noul ?? null,
         emotion: { choice: emotion.choice, confidence: emotion.confidence },
         upset: upset.noul,
         needs_location: result.answers.needs_location?.noul ?? null,
@@ -196,10 +213,10 @@ export async function assessSalesInput(
       emotion: mode === 'enforce' ? assessment : undefined,
       apologize: mode === 'enforce' && apologize,
       handoffReason:
-        mode === 'enforce' && apologize
+        mode === 'enforce' && handoff && apologize
           ? emotionalHandoff
             ? emotionHandoffReason(assessment)
-            : 'Customer reports repeated or ignored answers; human review requested.'
+            : 'Customer remains dissatisfied after a recovery attempt; human review requested.'
           : undefined,
       followupKind:
         mode === 'enforce' && v2 === 'enforce' ? followupKind : undefined,
@@ -214,6 +231,10 @@ export async function assessSalesInput(
           ? [
               salesGuidance(intent.choice as SalesIntent, intent.confidence),
               emotionGuidance(assessment),
+              apologize && !handoff
+                ? 'Recover this conversation before considering transfer: briefly acknowledge the specific concern, answer or correct the missed point from evidence, and ask at most one necessary unanswered question. Do not repeat qualification or promise an unconfirmed action.'
+                : '',
+              'Do not hand off solely because a fact is missing. Answer supported parts and clarify one essential missing detail; transfer only when the actual request needs a human decision or recovery has failed.',
             ]
               .filter(Boolean)
               .join('\n')
@@ -226,7 +247,14 @@ export async function assessSalesInput(
       outcome: 'unavailable',
       latencyMs: Date.now() - start,
     });
-    return { mode, handoff: mode === 'enforce', guidance: '' };
+    return {
+      mode,
+      handoff: false,
+      guidance:
+        mode === 'enforce'
+          ? 'Intent checks are temporarily unavailable. Respond cautiously using only confirmed evidence; ask one necessary unanswered clarification. Respect an explicit request for a human immediately. Do not infer anger or invent facts. The reply must still pass output verification.'
+          : '',
+    };
   }
 }
 
@@ -260,12 +288,18 @@ export function outputQuestions(
     questions.completion = noul(
       'Are all claims in proposal.text of completed sends, prepared quotations, booked visits or guaranteed follow-ups supported by recorded successful operations or human completion evidence in evidence.memory.actions? Open/acknowledged tasks and requested dates are not completion or confirmed booking. Conditional offers, clarification questions and general policy that a human confirms final quotes are allowed; do not label them completed-action claims.'
     );
-    questions.scope = noul(
-      'Does proposal.text preserve every quantity, dimension and product specification that the customer actually supplied in evidence.messages and evidence.memory.statements, using the latest correction without omitting an opening? If none were supplied, answer yes: a catalog-backed per-unit estimate does not require invented dimensions or quantities. Faithful translation, Arabic digit normalization and an allowed per-unit price range do not change the customer scope. Do not judge discount policy here; only judge contradictions or omissions of explicitly supplied customer requirements.'
-    );
-    questions.requests = noul(
-      'Does proposal.text respond to all distinct explicit requests in the latest customer turn, or clearly identify what the human team must review, without replacing an inspection, repair, location or price request with a generic greeting? One essential clarification is acceptable. Empty handoff text is acceptable.'
-    );
+    questions.scope = noul({
+      question:
+        'Does proposal.text avoid changing or contradicting customer-supplied quantities, dimensions and specifications, using the latest correction whenever it restates or quotes the scope?',
+      instructions:
+        'Only penalize an omission when the reply claims to summarize, compare, price or fulfill the full requested scope but leaves an opening or requirement out. A brief acknowledgment or necessary clarification need not recite previously supplied measurements. For example, asking for missing height after the customer supplied width preserves scope; asking for the same width again is judged by responsive instead. A catalog-backed per-unit estimate need not enumerate every opening or invent missing dimensions. Faithful translation and Arabic digit normalization are allowed. If no scope is supplied, or the reply makes no conflicting or incomplete scope claim, answer yes.',
+    });
+    questions.requests = noul({
+      question:
+        'Does proposal.text meaningfully advance the latest customer request rather than ignore it or replace it with an unrelated greeting or sales script?',
+      instructions:
+        'Answer known independent requests where possible. One essential unanswered clarification that enables a quote, repair or inspection is a valid response even though the final answer is not available yet. For example, asking for missing height after a width-only price request advances that request. Do not require a price before the essential pricing details are known, an immediate handoff, or repeated restatement of the customer request. A reply that ignores both a material question and a known showroom-location request fails. Empty handoff text is acceptable.',
+    });
   }
   if (proposal.mediaId)
     questions.media = noul(
@@ -287,10 +321,11 @@ export function outputQuestions(
   return questions;
 }
 
-export async function verifySalesOutput(
+async function checkSalesOutput(
   ctx: JevAuditContext,
   evidence: SalesEvidence,
-  proposal: GenerateResult
+  proposal: GenerateResult,
+  attempt = 0
 ): Promise<GenerateResult> {
   const mode = jevMode();
   if (mode === 'off') return proposal;
@@ -361,12 +396,15 @@ export async function verifySalesOutput(
       latencyMs: Date.now() - start,
       inputTokens: result.usage.input_tokens,
       outputTokens: result.usage.output_tokens,
-      judgments: Object.fromEntries(
-        Object.keys(questions).map((id) => {
-          const answer = result.answers[id];
-          return [id, answer?.type === 'noul' ? answer.noul : null];
-        })
-      ),
+      judgments: {
+        attempt,
+        ...Object.fromEntries(
+          Object.keys(questions).map((id) => {
+            const answer = result.answers[id];
+            return [id, answer?.type === 'noul' ? answer.noul : null];
+          })
+        ),
+      },
     });
     if (mode === 'shadow') return proposal;
     return {
@@ -383,6 +421,7 @@ export async function verifySalesOutput(
       mode,
       outcome: 'unavailable',
       latencyMs: Date.now() - start,
+      judgments: { attempt },
     });
     return mode === 'shadow'
       ? proposal
@@ -394,5 +433,31 @@ export async function verifySalesOutput(
           productTagId: null,
           fields: [],
         };
+  }
+}
+
+/** A rejected draft gets one rewrite, never an unchecked send or an open-ended loop. */
+export async function verifySalesOutput(
+  ctx: JevAuditContext,
+  evidence: SalesEvidence,
+  proposal: GenerateResult,
+  repair?: (guidance: string) => Promise<GenerateResult>
+): Promise<GenerateResult> {
+  const checked = await checkSalesOutput(ctx, evidence, proposal);
+  if (
+    !checked.handoff ||
+    proposal.handoff ||
+    !repair ||
+    jevMode() !== 'enforce'
+  )
+    return checked;
+  try {
+    const revised = await repair(
+      'The previous candidate did not pass reply verification. Write a fresh, brief reply to the latest customer using only the supplied evidence. Remove unsupported claims, promises of completed work, appointments, prices or attachment interpretation. Answer supported parts; if a fact is missing, ask one specific unanswered clarification. Acknowledge any concern respectfully. Do not transfer just because the previous wording failed or a detail is missing. Use the handoff marker only if the actual request requires human authority or an explicit human request. All normal evidence, language, field and media rules still apply.'
+    );
+    return await checkSalesOutput(ctx, evidence, revised, 1);
+  } catch {
+    // Keep the original verified/filtered fields, never the rejected raw proposal.
+    return checked;
   }
 }

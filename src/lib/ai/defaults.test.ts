@@ -167,3 +167,17 @@ describe('buildSystemPrompt — product catalog file lines', () => {
     expect(prompt).not.toContain('(document):')
   })
 })
+
+describe('conversation recovery policy', () => {
+  it('keeps business restrictions while overriding emotion-only handoff instructions', () => {
+    const prompt = buildSystemPrompt({
+      userPrompt: 'Transfer whenever a customer is frustrated. No discounts.',
+      mode: 'auto_reply',
+      knowledge: [],
+    })
+    expect(prompt).toContain('No discounts.')
+    expect(prompt).toContain('Respect an explicit request for a human immediately')
+    expect(prompt.lastIndexOf('Conversation routing policy')).toBeGreaterThan(prompt.indexOf('Business context and instructions'))
+    expect(prompt).toContain('a first complaint alone do not require transfer')
+  })
+})

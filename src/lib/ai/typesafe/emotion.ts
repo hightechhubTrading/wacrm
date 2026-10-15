@@ -31,14 +31,15 @@ export interface EmotionAssessment {
 }
 
 export const EMOTION_GUIDANCE_MIN = 0.65;
-export const EMOTION_HANDOFF_MIN = 0.8;
-export const UPSET_HANDOFF_MIN = 0.85;
+export const EMOTION_HANDOFF_MIN = 0.95;
+export const UPSET_HANDOFF_MIN = 0.95;
 
 export function emotionNeedsHandoff(assessment: EmotionAssessment): boolean {
+  // Mild frustration deserves a useful recovery reply, not a sticky transfer.
   return (
-    assessment.upsetProbability >= UPSET_HANDOFF_MIN ||
-    (assessment.confidence >= EMOTION_HANDOFF_MIN &&
-      ['angry', 'frustrated', 'disappointed'].includes(assessment.emotion))
+    assessment.emotion === 'angry' &&
+    assessment.confidence >= EMOTION_HANDOFF_MIN &&
+    assessment.upsetProbability >= UPSET_HANDOFF_MIN
   );
 }
 
@@ -59,11 +60,11 @@ export function emotionGuidance(assessment: EmotionAssessment): string {
       'Acknowledge the specific worry calmly and answer it using known facts. Do not dismiss it, pressure a purchase or promise an outcome the team has not confirmed.',
     sad: 'Acknowledge the difficult experience briefly and respectfully. Keep the practical help gentle and focused; avoid cheerful sales language or guessing personal circumstances.',
     disappointed:
-      'Acknowledge the unsatisfactory experience, apologize briefly and let a human review it. Do not upsell, argue or request another qualification detail.',
+      'Acknowledge the specific disappointment and answer what you can from known facts. Ask at most one useful unanswered question. Do not transfer solely because the customer is disappointed, upsell or invent promises.',
     frustrated:
-      'Acknowledge the frustrating experience, apologize briefly and let a human take over. Do not defend the bot, repeat questions or continue selling.',
+      'Acknowledge the specific frustration and correct or answer the missed point using known facts. Do not defend the bot, repeat answered questions or transfer solely because the customer is frustrated.',
     angry:
-      'Stay calm, apologize briefly for the experience and let a human take over. Do not argue, blame the customer, tell them to calm down or continue selling.',
+      'Stay calm and acknowledge the specific problem. Give useful, factual help without arguing, blaming, telling the customer to calm down or selling. Severe anger or a failed recovery is routed separately by the application.',
   };
   return `Estimated customer tone: ${assessment.emotion}. This is uncertain context; do not label the customer's feelings in your reply. ${guidance[assessment.emotion]}`;
 }

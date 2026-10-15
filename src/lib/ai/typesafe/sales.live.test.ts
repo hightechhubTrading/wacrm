@@ -118,24 +118,24 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
         name: 'frustration',
         customer:
           'I am really frustrated. Nobody is listening and I keep getting nowhere with you.',
-        handoff: true,
+        handoff: false,
       },
       {
         name: 'Gulf Arabic frustration',
         customer: 'تعبت منكم، كل مرة نفس السالفة ولا أحد يسمعني!',
-        handoff: true,
+        handoff: false,
       },
       {
         name: 'sarcastic dissatisfaction',
         customer:
           'Great service. Three days waiting and still no answer. Thanks for absolutely nothing.',
-        handoff: true,
+        handoff: false,
       },
       {
         name: 'disappointment',
         customer:
           'I am disappointed with the installation your team did. This is not what was agreed.',
-        handoff: true,
+        handoff: false,
       },
       {
         name: 'confusion',
@@ -175,11 +175,87 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
         ]);
         const judgments = JSON.stringify(h.audit.mock.lastCall?.[1]);
         expect(result.handoff, judgments).toBe(handoff);
-        expect(result.apologize, judgments).toBe(handoff);
+        if (handoff) expect(result.apologize, judgments).toBe(true);
         expect(result.emotion, judgments).toBeDefined();
       },
       20000
     );
+    it.each([
+      {
+        name: 'first repetition complaint',
+        messages: [
+          { role: 'user' as const, content: 'The shutter is 3 metres wide.' },
+          { role: 'assistant' as const, content: 'What is the width?' },
+          {
+            role: 'user' as const,
+            content:
+              'I already told you it is 3 metres. Please stop repeating the same question.',
+          },
+        ],
+        handoff: false,
+      },
+      {
+        name: 'failed complaint recovery',
+        messages: [
+          {
+            role: 'user' as const,
+            content:
+              'You keep ignoring my answer. The shutter is 3 metres wide.',
+          },
+          {
+            role: 'assistant' as const,
+            content:
+              'I am sorry I missed your answer. Could you tell me the width?',
+          },
+          {
+            role: 'user' as const,
+            content:
+              'You are still ignoring me after I complained. Again, it is 3 metres. Stop asking the same thing.',
+          },
+        ],
+        handoff: true,
+      },
+    ])(
+      '$name respects the recovery sequence',
+      async ({ messages, handoff }) => {
+        const result = await assessSalesInput(ctx, messages);
+        expect(result.handoff, JSON.stringify(h.audit.mock.lastCall?.[1])).toBe(
+          handoff
+        );
+      },
+      20000
+    );
+    it('verifies a safe rewrite after rejecting an invented booking', async () => {
+      const evidence = {
+        ...base,
+        messages: [
+          {
+            role: 'user' as const,
+            content: 'My shutter is 3 metres wide. Can I get an estimate?',
+          },
+        ],
+      };
+      const repair = vi
+        .fn()
+        .mockResolvedValue({
+          ...proposed('Could you share the height so we can check the size?'),
+          productTagId: null,
+        });
+      const result = await verifySalesOutput(
+        ctx,
+        evidence,
+        {
+          ...proposed('Your installation is booked for tomorrow at 5pm.'),
+          productTagId: null,
+        },
+        repair
+      );
+      expect(repair).toHaveBeenCalledTimes(1);
+      expect(result.handoff, JSON.stringify(h.audit.mock.lastCall?.[1])).toBe(
+        false
+      );
+      expect(result.text).toContain('height');
+    }, 20000);
     it('uses the latest tone after earlier anger has been resolved', async () => {
       const result = await assessSalesInput(ctx, [
         {

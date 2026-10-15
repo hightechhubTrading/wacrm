@@ -122,7 +122,13 @@ export async function POST(request: Request) {
         businessContext: config.systemPrompt,
         emotion: input.emotion,
       },
-      generated
+      generated,
+      (guidance) =>
+        generateReply({
+          config,
+          systemPrompt: `${systemPrompt}\n\nReply recovery:\n${guidance}`,
+          messages,
+        })
     );
     return NextResponse.json({
       reply: verified.text,

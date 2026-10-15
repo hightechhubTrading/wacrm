@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   salesInput: vi.fn(),
   salesOutput: vi.fn(),
   applyCollectedFields: vi.fn(),
+  resolveCurrentOpenDeal: vi.fn(),
   loadAiConfig: vi.fn(),
   buildConversationContext: vi.fn(),
   retrieveKnowledge: vi.fn(),
@@ -46,6 +47,7 @@ vi.mock('./typesafe/sales', () => ({
 vi.mock('./collect-fields', async (original) => ({
   ...(await original<typeof import('./collect-fields')>()),
   applyCollectedFields: h.applyCollectedFields,
+  resolveCurrentOpenDeal: h.resolveCurrentOpenDeal,
 }));
 vi.mock('./config', () => ({ loadAiConfig: h.loadAiConfig }));
 vi.mock('./context', () => ({
@@ -231,6 +233,7 @@ beforeEach(() => {
   h.ensureFollowup.mockReset();
   h.ensureFollowup.mockResolvedValue('task-1');
   h.applyCollectedFields.mockResolvedValue(undefined);
+  h.resolveCurrentOpenDeal.mockResolvedValue(null);
   h.state.conv = {
     assigned_agent_id: null,
     ai_autoreply_disabled: false,
@@ -1378,5 +1381,44 @@ describe('review-derived operations', () => {
       expect.anything(),
       expect.objectContaining({ outcome: 'sent' })
     );
+  });
+});
+
+describe('dispatchInboundToAiReply — verified reply recovery', () => {
+  it('wires a rewrite to the verifier and sends only the replacement', async () => {
+    h.generateReply
+      .mockResolvedValueOnce({ text: 'A bad first candidate', handoff: false })
+      .mockResolvedValueOnce({
+        text: 'Which installation area should we check?',
+        handoff: false,
+      });
+    h.salesOutput.mockImplementationOnce(
+      async (_ctx, _evidence, _proposal, repair) =>
+        repair('Use only confirmed facts.')
+    );
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).toHaveBeenCalledTimes(2);
+    expect(h.generateReply.mock.calls[1][0].systemPrompt).toContain(
+      'Reply recovery:'
+    );
+    expect(h.engineSendText).toHaveBeenCalledTimes(1);
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: 'Which installation area should we check?',
+      })
+    );
+  });
+  it('does not generate a replacement once the thread has been taken over', async () => {
+    vi.stubEnv('TYPESAFE_MODE', 'enforce');
+    h.salesOutput.mockImplementationOnce(
+      async (_ctx, _evidence, proposal, repair) => {
+        h.state.conv = { ...h.state.conv, assigned_agent_id: 'human-1' };
+        await expect(repair('Try again')).rejects.toThrow('Superseded reply');
+        return { ...proposal, text: '', handoff: true };
+      }
+    );
+    await dispatchInboundToAiReply(ARGS);
+    expect(h.generateReply).toHaveBeenCalledTimes(1);
+    expect(h.engineSendText).not.toHaveBeenCalled();
   });
 });

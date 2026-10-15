@@ -860,6 +860,7 @@ export async function dispatchInboundToAiReply(
         })
       );
     }
+    const recoveryConfig = config;
     const verified = await verifySalesOutput(
       jevContext,
       {
@@ -884,6 +885,35 @@ export async function dispatchInboundToAiReply(
         priority,
         priorityReason,
         usage,
+      },
+      async (guidance) => {
+        if (!(await stillEligible())) throw new Error('Superseded reply');
+        const revised = await generateReply({
+          config: recoveryConfig,
+          systemPrompt: `${systemPrompt}\n\nReply recovery:\n${guidance}`,
+          messages,
+        });
+        void logAiUsage(db, {
+          accountId,
+          conversationId,
+          mode: 'auto_reply',
+          provider: recoveryConfig.provider,
+          model: recoveryConfig.model,
+          usage: revised.usage,
+        });
+        if (revised.text && !revised.handoff) {
+          revised.text = isolatePhoneNumbers(
+            await correctReplyLanguageIfNeeded({
+              db,
+              accountId,
+              conversationId,
+              config: recoveryConfig,
+              customerScript: customerLanguageScript(messages),
+              replyText: revised.text,
+            })
+          );
+        }
+        return revised;
       }
     );
     text = verified.text;

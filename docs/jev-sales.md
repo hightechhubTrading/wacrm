@@ -19,8 +19,9 @@ your deployment's secret environment for production. Do not prefix it with
 
 `shadow` performs and logs the checks without altering Jev-controlled routing,
 text or actions. `enforce` applies the decision policies described below. An
-explicit `enforce` mode with no key or an unavailable/invalid check requires
-human review; it does not silently approve a response. `off` makes no Jev calls.
+unavailable input check falls back to cautious generation, without assuming the
+customer is upset. Output checks still must pass; an unavailable output check
+never silently approves a response. `off` makes no Jev calls.
 
 Migration `068_ai_judgment_log.sql` creates account-scoped audit storage. Apply it
 through the normal reviewed migration process. The audit writer is best-effort;
@@ -38,9 +39,12 @@ now precedes optional summary generation and the Jev input call.
 
 1. One input request asks independent questions about intent, expressed emotional
    tone, current dissatisfaction, an explicit human request, and explicit
-   complaints about repeated/ignored answers.
-2. A clear human/repetition request or emotional escalation uses the existing handoff path immediately,
-   without requiring another qualification question. Otherwise constant
+   complaints about repeated/ignored answers, and whether an earlier recovery
+   attempt actually failed.
+2. An explicit human request or strongly corroborated severe anger uses the
+   existing handoff path immediately. A first complaint, mild frustration or
+   disappointment gets a useful recovery reply. Persistent dissatisfaction after
+   an actual recovery attempt requires handoff. Otherwise constant
    intent-specific guidance helps the generator answer pricing/questions directly,
    gather one missing detail, or acknowledge an existing order/complaint.
 3. Generate with the existing provider and evidence. Correct the reply language
@@ -48,7 +52,9 @@ now precedes optional summary generation and the Jev input call.
 4. One output request verifies business claim support, relevance/no repeated
    answered questions, selected product/media relevance, and each proposed lead
    field value. All independent questions are batched.
-5. Uncertain/unsupported text requires handoff. Unsupported optional fields,
+5. A rejected candidate gets one fresh generation and the same full output checks
+   before handoff. The rejected text is never sent; a second rejection requires
+   human review. Unsupported optional fields,
    product tags and attachments are filtered independently. Fields are checked
    even when the generator requested a handoff. Existence and field allowlists
    are also checked in code.
@@ -77,7 +83,9 @@ statements, including transcribed audio, and excludes inferred image captions.
 Knowledge excerpts currently retain their text but not original chunk IDs; full
 per-claim source tracing is a future improvement.
 
-Initial policy: explicit handoff signals need probability >= 0.90; output support
+Policy: explicit human requests and failed-recovery judgments need probability
+>= 0.90; severe anger requires both angry Choice confidence and dissatisfaction
+probability >= 0.95. Output support
 needs >= 0.85; intent guidance needs Choice confidence >= 0.65. These are initial
 conservative settings checked on synthetic fixtures, not guarantees of accuracy
 on all customer dialects/products. Low intent confidence yields clarification
@@ -91,9 +99,13 @@ notes exist; Jev checks those conditions semantically. It does not calculate
 area, taxes, discounts, units or final quotation totals. Existing pricing and
 repeated-price-ask backstops remain.
 
-No automatic rewrite loop is introduced. Enforced failed/unavailable checks route
-an auto-reply to the existing fixed closing message, disable AI on the thread,
-and notify the configured teammate/admin queue. Staff can re-enable AI using the
+One bounded rewrite is available in auto-replies, drafts and the playground.
+Only the replacement that passes verification can be used. It is not retried
+again. An explicit model handoff is respected without rewriting it. Exhausted
+failed/unavailable output checks route an auto-reply to the existing fixed closing
+message, disable AI on the thread, and notify the configured teammate/admin queue.
+Replacement generation is usage-logged on auto-reply/draft paths, and automatic
+replies recheck freshness/ownership before regeneration and before effects. Staff can re-enable AI using the
 existing controls. Optional rejected actions do not prevent supported text.
 
 ## Emotion-aware replies and human handoff
@@ -104,36 +116,56 @@ Noul checks current dissatisfaction, including indirect irritation and sarcasm.
 Earlier turns provide context; resolved past anger, inferred attachment descriptions,
 urgency, capitals and ordinary repair/price questions alone do not justify escalation.
 
-In enforce mode, dissatisfaction probability **>= 0.85**, or angry/frustrated/
-disappointed Choice confidence **>= 0.80**, triggers a fixed, brief apology in the
-customer's English/Arabic language. The bot skips generative sales prose, disables
-AI on the thread, preserves an existing assignee or uses the configured handoff
-agent, creates human review work and notifies that teammate (otherwise the admin
-queue). The handoff summary includes an explicitly **estimated** tone/review reason.
-If the apology fails to send, the existing handoff still proceeds. AI stays paused
-until someone enables it again. The closing text makes no refund, blame, confirmed
-booking or response-time promise. Explicit repeated/ignored-answer complaints also
-receive the apology; a calm request for a human keeps the normal closing.
+In enforce mode, mild frustration, disappointment and first complaints receive
+specific acknowledgment and useful help rather than an immediate sticky handoff.
+A recovery-failed judgment requires chronological evidence of an earlier customer
+complaint, an intervening assistant recovery attempt, and continuing dissatisfaction
+about the same issue. It must reach **0.90** and be accompanied by a current
+complaint/dissatisfaction signal. A repeated pricing question or a first correction
+alone does not establish failed recovery.
 
-Confusion, worry or sadness with confidence **>= 0.65** adds patient, specific,
-non-pushy guidance to the generator. An output empathy check must score **>= 0.85**
-before that reply is allowed. It rejects dismissive, argumentative or pressured
-sales language. Uncertain tone does not label the customer's feelings as a fact.
-These are initial thresholds tested on synthetic fixtures, not a calibrated claim
-about every customer or dialect. The ordinary ownership/consent/availability gates
-still determine whether AI handles the message at all.
+Immediate emotional handoff requires **angry** Choice confidence **>= 0.95** AND
+current dissatisfaction probability **>= 0.95**. Explicit human requests still
+transfer immediately without qualification. Genuine handoffs retain the existing
+English/Arabic closing, assignment, review task and notifications; AI stays paused
+until staff resume it. These are initial operating thresholds, not a claim of
+customer-domain calibration.
 
-The playground previews the emotional apology without sending WhatsApp messages.
-Drafts requiring human review return the existing `ai_human_review`/HTTP 422 result.
-Shadow mode records hypothetical emotion decisions without changing replies or
-handoffs; off mode makes no calls. Missing or invalid emotion judgments require
-human review in enforce mode without assuming the customer is upset.
+Confusion, worry, sadness and recoverable dissatisfaction add calm, specific,
+non-pushy guidance. An output empathy check must score **>= 0.85** before sending.
+The single rewrite opportunity also applies to a rejected tone; tone is never
+made acceptable by bypassing verification. Missing input judgments use cautious
+generation and still require output verification. Shadow mode records hypothetical
+decisions without changing behavior; off mode makes no Jev calls.
+
+The application routing policy follows saved business instructions in the prompt
+and explicitly takes precedence over conflicting emotion-only/missing-information
+handoff wording. Business restrictions on prices, discounts, bookings and promises
+remain. The existing unverified-price and repeated-price-request backstops remain.
+
+### Audit findings behind the recovery change, 2026-10-15
+
+Read-only inspection of the connected database found 10 automatic-reply output
+checks: 6 handoffs, 3 allowed and 1 with optional actions filtered. All 10 input
+checks allowed continuation. Thus these records point to rejected reply content,
+not emotional input routing, as the immediate source of the observed transfers.
+Some candidates failed claim support/completed-action checks; others were near the
+support threshold. Thresholds were not lowered to let these claims through.
+Internal assistance checks are a separate workflow and are not customer handoffs.
+The saved business prompt also instructed transfer for missing information or
+frustration; the shared routing policy now resolves that conflict.
+
+This inspection did not change live account settings or verify the running VPS
+checkout/environment. Source changes and local/live synthetic evaluations do not
+constitute a production deployment.
 
 ## Observability
 
 `src/lib/ai/typesafe/audit.ts` logs question version, account/conversation/trigger
 IDs, layer, mode, hypothetical outcome, model, token usage, latency and sanitized
-judgments. Shadow outcomes describe what would have happened. It stores no raw
+judgments. Output judgments include `attempt` (0 = initial candidate, 1 =
+replacement); a rejected initial candidate is not necessarily a completed customer
+handoff. Shadow outcomes describe what would have happened. It stores no raw
 messages, reply text, field values, API keys or remote error bodies. Audit records
 are readable by account admins through RLS; inserts use the service-role client
 on the automatic path. Draft/playground currently use structured logs only.

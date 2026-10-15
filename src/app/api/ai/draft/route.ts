@@ -188,7 +188,27 @@ export async function POST(request: Request) {
         memory,
         emotion: input.emotion,
       },
-      generated
+      generated,
+      async (guidance) => {
+        const revised = await generateReply({
+          config,
+          systemPrompt: `${systemPrompt}\n\nReply recovery:\n${guidance}`,
+          messages,
+        });
+        try {
+          void logAiUsage(supabaseAdmin(), {
+            accountId,
+            conversationId,
+            mode: 'draft',
+            provider: config.provider,
+            model: config.model,
+            usage: revised.usage,
+          });
+        } catch {
+          // Usage accounting must not prevent a verified draft.
+        }
+        return revised;
+      }
     );
     if (verified.handoff) {
       throw new AiError(

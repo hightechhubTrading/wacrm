@@ -119,15 +119,58 @@ it('does not force handoff for a normal quotation request or uncertain intent', 
   expect(result.guidance).toContain('clarification');
 });
 it.each([
-  { emotion: 'angry', confidence: 0.95, upset: 0.7, handoff: true },
-  { emotion: 'frustrated', confidence: 0.85, upset: 0.99, handoff: true },
-  { emotion: 'disappointed', confidence: 0.9, upset: 0.8, handoff: true },
-  { emotion: 'unclear', confidence: 0.2, upset: 0.9, handoff: true },
-  { emotion: 'angry', confidence: 0.3, upset: 0.5, handoff: false },
-  { emotion: 'concerned', confidence: 0.95, upset: 0.05, handoff: false },
+  {
+    emotion: 'angry',
+    confidence: 0.98,
+    upset: 0.98,
+    handoff: true,
+    apologize: true,
+  },
+  {
+    emotion: 'angry',
+    confidence: 0.95,
+    upset: 0.7,
+    handoff: false,
+    apologize: true,
+  },
+  {
+    emotion: 'frustrated',
+    confidence: 0.85,
+    upset: 0.99,
+    handoff: false,
+    apologize: true,
+  },
+  {
+    emotion: 'disappointed',
+    confidence: 0.9,
+    upset: 0.8,
+    handoff: false,
+    apologize: true,
+  },
+  {
+    emotion: 'unclear',
+    confidence: 0.2,
+    upset: 0.9,
+    handoff: false,
+    apologize: true,
+  },
+  {
+    emotion: 'angry',
+    confidence: 0.3,
+    upset: 0.5,
+    handoff: false,
+    apologize: false,
+  },
+  {
+    emotion: 'concerned',
+    confidence: 0.95,
+    upset: 0.05,
+    handoff: false,
+    apologize: false,
+  },
 ])(
   'routes $emotion at confidence $confidence and upset $upset',
-  async ({ emotion, confidence, upset, handoff }) => {
+  async ({ emotion, confidence, upset, handoff, apologize }) => {
     h.ask.mockResolvedValue({
       model: 'jev-test',
       usage: { input_tokens: 4, output_tokens: 3 },
@@ -141,7 +184,7 @@ it.each([
     });
     const result = await assessSalesInput(ctx, evidence.messages);
     expect(result.handoff).toBe(handoff);
-    expect(result.apologize).toBe(handoff);
+    expect(result.apologize).toBe(apologize);
     expect(result.emotion).toEqual({
       emotion,
       confidence,
@@ -186,7 +229,7 @@ it('shadow records emotional escalation without changing routing, guidance or ap
     expect.objectContaining({ outcome: 'handoff', mode: 'shadow' })
   );
 });
-it('requires human review when an emotion judgment is missing or invalid', async () => {
+it('uses cautious generation with output verification when input judgments are unavailable', async () => {
   h.ask.mockResolvedValue({
     model: 'jev-test',
     usage: { input_tokens: 4, output_tokens: 3 },
@@ -197,7 +240,8 @@ it('requires human review when an emotion judgment is missing or invalid', async
     },
   });
   const result = await assessSalesInput(ctx, evidence.messages);
-  expect(result).toMatchObject({ handoff: true, guidance: '' });
+  expect(result.handoff).toBe(false);
+  expect(result.guidance).toContain('must still pass output verification');
   expect(result.apologize).toBeUndefined();
   expect(h.audit).toHaveBeenCalledWith(
     ctx,
@@ -443,4 +487,121 @@ describe('review-derived Jev checks', () => {
       ])
     ).toEqual([]);
   });
+});
+
+it.each([false, true])(
+  'only transfers a repetition complaint after a failed recovery (%s)',
+  async (failed) => {
+    h.ask.mockResolvedValue({
+      model: 'jev-test',
+      usage: { input_tokens: 4, output_tokens: 3 },
+      answers: {
+        intent: { choice: 'complaint', confidence: 0.95 },
+        human: { noul: 0.01 },
+        stuck: { noul: 0.98 },
+        emotion: { choice: 'frustrated', confidence: 0.9 },
+        upset: { noul: 0.95 },
+        recovery_failed: { noul: failed ? 0.98 : 0.05 },
+      },
+    });
+    const result = await assessSalesInput(ctx, evidence.messages);
+    expect(result.handoff).toBe(failed);
+    expect(result.apologize).toBe(true);
+    if (!failed) expect(result.guidance).toContain('Recover this conversation');
+  }
+);
+
+it('rewrites a rejected candidate once and verifies the replacement before allowing it', async () => {
+  h.ask
+    .mockResolvedValueOnce(output({ grounded: 0.4, responsive: 0.99 }))
+    .mockResolvedValueOnce(output({ grounded: 0.99, responsive: 0.99 }));
+  const repair = vi.fn().mockResolvedValue({
+    ...proposal,
+    text: 'Which area is the installation in?',
+  });
+  const result = await verifySalesOutput(
+    ctx,
+    evidence,
+    { ...proposal, text: 'Installation is guaranteed tomorrow.' },
+    repair
+  );
+  expect(repair).toHaveBeenCalledTimes(1);
+  expect(h.ask).toHaveBeenCalledTimes(2);
+  expect(result).toMatchObject({
+    handoff: false,
+    text: 'Which area is the installation in?',
+  });
+});
+it('never loops or sends the second candidate if its claims still fail', async () => {
+  h.ask.mockResolvedValue(output({ grounded: 0.2, responsive: 0.99 }));
+  const repair = vi.fn().mockResolvedValue({
+    ...proposal,
+    text: 'Booked for tomorrow.',
+    fields: [{ name: 'Width', value: 'invented' }],
+  });
+  const result = await verifySalesOutput(ctx, evidence, proposal, repair);
+  expect(repair).toHaveBeenCalledTimes(1);
+  expect(result.handoff).toBe(true);
+  expect(result.text).toBe('');
+  expect(result.fields).toEqual([]);
+});
+it('does not retry a good candidate or an explicit model handoff', async () => {
+  h.ask.mockResolvedValue(output({ grounded: 0.99, responsive: 0.99 }));
+  const repair = vi.fn();
+  await verifySalesOutput(ctx, evidence, proposal, repair);
+  await verifySalesOutput(
+    ctx,
+    evidence,
+    { ...proposal, text: '', handoff: true },
+    repair
+  );
+  expect(repair).not.toHaveBeenCalled();
+});
+it('recovers from a transient output-check failure but never approves an unchecked replacement', async () => {
+  h.ask
+    .mockRejectedValueOnce(new Error('timeout'))
+    .mockResolvedValueOnce(output({ grounded: 0.99, responsive: 0.99 }));
+  const repair = vi.fn().mockResolvedValue(proposal);
+  expect(
+    (await verifySalesOutput(ctx, evidence, proposal, repair)).handoff
+  ).toBe(false);
+  expect(repair).toHaveBeenCalledTimes(1);
+});
+it('preserves filtered fields if the rewrite provider fails', async () => {
+  h.ask.mockResolvedValue(
+    output({ grounded: 0.2, responsive: 0.99, field_0: 0.1 })
+  );
+  const result = await verifySalesOutput(
+    ctx,
+    evidence,
+    { ...proposal, fields: [{ name: 'Width', value: 'invented' }] },
+    async () => {
+      throw new Error('provider unavailable');
+    }
+  );
+  expect(result).toMatchObject({ handoff: true, text: '', fields: [] });
+});
+
+it('keeps unverified replies blocked after two output service failures', async () => {
+  h.ask.mockRejectedValue(new Error('timeout'));
+  const repair = vi.fn().mockResolvedValue(proposal);
+  const result = await verifySalesOutput(ctx, evidence, proposal, repair);
+  expect(result).toMatchObject({
+    handoff: true,
+    text: '',
+    fields: [],
+    mediaId: null,
+    productTagId: null,
+  });
+  expect(repair).toHaveBeenCalledTimes(1);
+  expect(h.ask).toHaveBeenCalledTimes(2);
+});
+it('shadow mode never invokes paid regeneration for a rejected candidate', async () => {
+  vi.stubEnv('TYPESAFE_MODE', 'shadow');
+  h.ask.mockResolvedValue(output({ grounded: 0.1, responsive: 0.1 }));
+  const repair = vi.fn();
+  expect(await verifySalesOutput(ctx, evidence, proposal, repair)).toBe(
+    proposal
+  );
+  expect(repair).not.toHaveBeenCalled();
 });
