@@ -1,9 +1,10 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/use-auth';
 import { Input } from '@/components/ui/input';
 import { CalendarClock, Plus, ChevronDown } from 'lucide-react';
 import {
@@ -23,11 +24,18 @@ type Data = {
 export function AiFollowups({
   conversationId,
   standalone = false,
+  preview = false,
+  onOpen,
 }: {
   conversationId: string;
   standalone?: boolean;
+  preview?: boolean;
+  onOpen?: () => void;
 }) {
   const t = useTranslations('Inbox.followups');
+  const locale = useLocale();
+  const { canSendMessages } = useAuth();
+  const [now, setNow] = useState(() => Date.now());
   const target = useSearchParams().get('followup');
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const openedTarget = useRef<string | null>(null);
@@ -56,6 +64,7 @@ export function AiFollowups({
             !signal?.aborted
           ) {
             setData(next);
+            setNow(Date.now());
             setLoadError(false);
           }
         }
@@ -76,10 +85,16 @@ export function AiFollowups({
     setConfirmed('');
     const controller = new AbortController();
     void refresh(controller.signal);
-    const timer = setInterval(() => void refresh(controller.signal), 30000);
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible')
+        void refresh(controller.signal);
+    }, 30000);
+    const updated = () => void refresh(controller.signal);
+    window.addEventListener('sales-followups-updated', updated);
     return () => {
       controller.abort();
       clearInterval(timer);
+      window.removeEventListener('sales-followups-updated', updated);
     };
   }, [refresh]);
   useEffect(() => {
@@ -137,8 +152,15 @@ export function AiFollowups({
     }
   }
   if (!data)
-    return standalone ? (
-      <div className="crm-followup-load" role={loadError ? 'alert' : 'status'}>
+    return standalone || preview ? (
+      <div
+        className={
+          preview
+            ? 'crm-followup-load crm-followup-load-preview'
+            : 'crm-followup-load'
+        }
+        role={loadError ? 'alert' : 'status'}
+      >
         <CalendarClock size={24} aria-hidden />
         <p>{t(loadError ? 'loadError' : 'loading')}</p>
         {loadError && (
@@ -157,6 +179,100 @@ export function AiFollowups({
   const active = data.followups.filter((f) =>
     ['open', 'acknowledged', 'deferred'].includes(f.status)
   );
+  if (preview) {
+    const ordered = [...active].sort(
+      (a, b) => Date.parse(a.due_at) - Date.parse(b.due_at)
+    );
+    return (
+      <section
+        className="crm-followup-overview"
+        aria-label={t('overviewTitle')}
+      >
+        <div className="crm-followup-overview-heading">
+          <CalendarClock size={18} aria-hidden />
+          <strong>{t('overviewTitle')}</strong>
+          <span className="crm-followup-status">
+            {t('title', { count: active.length })}
+          </span>
+          <Button size="sm" variant="outline" onClick={onOpen}>
+            {t('manage')}
+          </Button>
+        </div>
+        <p className="crm-followup-overview-context">
+          {data.conversation.ai_autoreply_disabled
+            ? t('paused')
+            : data.conversation.assigned_agent_id
+              ? t('humanOwned')
+              : t('eligible')}
+        </p>
+        {!data.available ? (
+          <p role="status">{t('unavailable')}</p>
+        ) : ordered.length ? (
+          <ul className="crm-followup-overview-tasks">
+            {ordered.slice(0, 2).map((task) => (
+              <li key={task.id}>
+                <div>
+                  <strong>{t(`kinds.${task.kind}`)}</strong>
+                  <small>
+                    {t(`statuses.${task.status}`)} ·{' '}
+                    <span
+                      data-overdue={Date.parse(task.due_at) < now || undefined}
+                    >
+                      {Date.parse(task.due_at) < now
+                        ? `${t('overdue')} · `
+                        : ''}
+                      {new Date(task.due_at).toLocaleString(locale, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </small>
+                </div>
+                <div className="crm-followup-actions">
+                  {canSendMessages && task.status === 'open' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() =>
+                        void mutate('PATCH', {
+                          id: task.id,
+                          status: 'acknowledged',
+                        })
+                      }
+                    >
+                      {t('take')}
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={onOpen}>
+                    {t('update')}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="crm-followup-overview-context">{t('empty')}</p>
+        )}
+        {data.available && (
+          <button
+            type="button"
+            className="crm-followup-overview-add"
+            onClick={onOpen}
+          >
+            <Plus size={14} aria-hidden />
+            {active.length > 2
+              ? t('viewAll', { count: active.length })
+              : canSendMessages
+                ? t('newTask')
+                : t('manage')}
+          </button>
+        )}
+      </section>
+    );
+  }
   const reason = data.latestEvent?.reason;
   const knownReasons = [
     'ai_disabled',

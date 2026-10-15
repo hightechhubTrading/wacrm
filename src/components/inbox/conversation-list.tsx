@@ -32,6 +32,7 @@ import {
   SlidersHorizontal,
   Tag as TagIcon,
   Building2,
+  ArrowDownUp,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useLocale, useTranslations } from 'next-intl';
@@ -41,6 +42,10 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -60,12 +65,19 @@ interface ConversationListProps {
 }
 
 const STATUS_COLORS: Record<ConversationStatus, string> = {
-  open: 'bg-primary',
-  pending: 'bg-amber-500',
-  closed: 'bg-muted-foreground',
+  open: 'bg-info',
+  pending: 'bg-warning',
+  closed: 'bg-success',
 };
 
-type InboxFilter = ConversationStatus | 'all' | 'unread' | 'mine' | SalesView;
+type InboxFilter =
+  | ConversationStatus
+  | 'all'
+  | 'unread'
+  | 'mine'
+  | 'priority'
+  | 'unassigned'
+  | SalesView;
 
 /** Sentinel for the "no assigned agent" filter option, distinct from
  *  any real `profiles.user_id`. */
@@ -100,6 +112,8 @@ export function ConversationList({
       { label: t('filterAll'), value: 'all' },
       { label: t('filterUnread'), value: 'unread' },
       { label: t('mine'), value: 'mine' },
+      { label: t('groups.priority'), value: 'priority' },
+      { label: t('unassigned'), value: 'unassigned' },
       { label: t('filterOpen'), value: 'open' },
       { label: t('filterPending'), value: 'pending' },
       { label: t('filterClosed'), value: 'closed' },
@@ -109,6 +123,28 @@ export function ConversationList({
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<InboxFilter>('all');
+  const [sort, setSort] = useState<'priority' | 'newest' | 'oldest'>(
+    'priority'
+  );
+
+  const matchesView = useCallback(
+    (c: Conversation, view: InboxFilter) => {
+      if (SALES_VIEWS.includes(view as SalesView))
+        return matchesSalesView(
+          view as SalesView,
+          sales.data[c.id],
+          c.status,
+          user?.id
+        );
+      if (view === 'unread') return c.unread_count > 0;
+      if (view === 'mine')
+        return Boolean(user?.id) && c.assigned_agent_id === user?.id;
+      if (view === 'priority') return triageGroup(c) === 'priority';
+      if (view === 'unassigned') return !c.assigned_agent_id;
+      return view === 'all' || c.status === view;
+    },
+    [sales.data, user?.id]
+  );
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -238,25 +274,8 @@ export function ConversationList({
     return m;
   }, [profiles]);
 
-  const filtered = useMemo(() => {
+  const refined = useMemo(() => {
     let result = conversations;
-
-    if (SALES_VIEWS.includes(filter as SalesView)) {
-      result = result.filter((c) =>
-        matchesSalesView(
-          filter as SalesView,
-          sales.data[c.id],
-          c.status,
-          user?.id
-        )
-      );
-    } else if (filter === 'unread') {
-      result = result.filter((c) => c.unread_count > 0);
-    } else if (filter === 'mine') {
-      result = result.filter((c) => c.assigned_agent_id === user?.id);
-    } else if (filter !== 'all') {
-      result = result.filter((c) => c.status === filter);
-    }
 
     // Contact-based filters (tags via OR logic, exact company match).
     if (selectedTagIds.length > 0 || selectedCompany !== null) {
@@ -279,7 +298,7 @@ export function ConversationList({
     }
 
     if (search.trim()) {
-      const q = search.toLowerCase();
+      const q = search.trim().toLowerCase();
       result = result.filter((c) => {
         const name = c.contact?.name?.toLowerCase() ?? '';
         const phone = c.contact?.phone?.toLowerCase() ?? '';
@@ -289,16 +308,47 @@ export function ConversationList({
     }
 
     return result;
-  }, [
-    conversations,
-    sales.data,
-    filter,
-    search,
-    selectedTagIds,
-    selectedCompany,
-    selectedAgentId,
-    user?.id,
-  ]);
+  }, [conversations, search, selectedTagIds, selectedCompany, selectedAgentId]);
+
+  const viewCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        FILTER_OPTIONS.map((option) => [
+          option.value,
+          refined.filter((c) => matchesView(c, option.value)).length,
+        ])
+      ),
+    [FILTER_OPTIONS, refined, matchesView]
+  );
+  const filtered = useMemo(
+    () => refined.filter((c) => matchesView(c, filter)),
+    [refined, matchesView, filter]
+  );
+  const sections = useMemo(() => {
+    if (sort === 'priority') {
+      const ordered = sortTriage(filtered);
+      return TRIAGE_GROUPS.map((group) => ({
+        key: group,
+        label: t(`groups.${group}`),
+        items: ordered.filter((c) => triageGroup(c) === group),
+      }));
+    }
+    const timestamp = (c: Conversation) => {
+      const parsed = Date.parse(c.last_message_at ?? '');
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+    return [
+      {
+        key: sort,
+        label: t(`sorting.${sort}`),
+        items: [...filtered].sort((a, b) =>
+          sort === 'newest'
+            ? timestamp(b) - timestamp(a)
+            : timestamp(a) - timestamp(b)
+        ),
+      },
+    ];
+  }, [filtered, sort, t]);
 
   const toggleTag = useCallback((id: string) => {
     setSelectedTagIds((prev) =>
@@ -414,9 +464,50 @@ export function ConversationList({
                 {value === 'mine'
                   ? t('mine')
                   : t(value === 'all' ? 'filterAll' : 'filterUnread')}
+                <small className="tabular-nums">
+                  {loading ? '–' : viewCounts[value]}
+                </small>
               </button>
             ))}
           </div>
+          {sales.available && (
+            <div
+              className="crm-queue-action-views"
+              role="group"
+              aria-label={t('actionQueues')}
+            >
+              {(['needs_reply', 'followup_today'] as const).map((value) => (
+                <button
+                  type="button"
+                  key={value}
+                  aria-pressed={filter === value}
+                  onClick={() => setFilter(value)}
+                >
+                  <span>{t(`salesViews.${value}`)}</span>
+                  <strong>{viewCounts[value]}</strong>
+                </button>
+              ))}
+            </div>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger className="crm-queue-sort">
+              <ArrowDownUp size={14} aria-hidden />
+              <span>{t(`sorting.${sort}`)}</span>
+              <ChevronDown size={13} aria-hidden />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="min-w-52">
+              <DropdownMenuRadioGroup
+                value={sort}
+                onValueChange={(value) => setSort(value as typeof sort)}
+              >
+                {(['priority', 'newest', 'oldest'] as const).map((value) => (
+                  <DropdownMenuRadioItem key={value} value={value}>
+                    {t(`sorting.${value}`)}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <details className="crm-queue-filter-panel">
             <summary>
               <SlidersHorizontal size={16} aria-hidden />
@@ -436,27 +527,50 @@ export function ConversationList({
                   aria-label={`${t('view')}: ${activeFilter?.label ?? t('filterAll')}`}
                 >
                   <SlidersHorizontal size={15} aria-hidden />
-                  <span>{advancedView ? activeFilter?.label : t('view')}</span>
+                  <span>{activeFilter?.label ?? t('view')}</span>
                   <ChevronDown className="h-3 w-3" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="start"
-                  className="border-border bg-popover"
+                  className="crm-view-menu border-border bg-popover"
                 >
-                  {FILTER_OPTIONS.map((opt) => (
-                    <DropdownMenuItem
-                      key={opt.value}
-                      onClick={() => setFilter(opt.value)}
-                      className={cn(
-                        'text-sm',
-                        filter === opt.value
-                          ? 'text-primary'
-                          : 'text-popover-foreground'
-                      )}
-                    >
-                      {opt.label}
-                    </DropdownMenuItem>
-                  ))}
+                  <DropdownMenuRadioGroup
+                    value={filter}
+                    onValueChange={(value) => setFilter(value as InboxFilter)}
+                  >
+                    {[
+                      {
+                        label: 'actionQueues',
+                        values: ['priority', ...SALES_VIEWS],
+                      },
+                      {
+                        label: 'ownership',
+                        values: ['all', 'unread', 'mine', 'unassigned'],
+                      },
+                      {
+                        label: 'conversationStatus',
+                        values: ['open', 'pending', 'closed'],
+                      },
+                    ].map((group) => (
+                      <DropdownMenuGroup key={group.label}>
+                        <DropdownMenuLabel>{t(group.label)}</DropdownMenuLabel>
+                        {FILTER_OPTIONS.filter((opt) =>
+                          group.values.includes(opt.value)
+                        ).map((opt) => (
+                          <DropdownMenuRadioItem
+                            key={opt.value}
+                            value={opt.value}
+                            className="crm-view-option"
+                          >
+                            <span>{opt.label}</span>
+                            <small>
+                              {loading ? '–' : viewCounts[opt.value]}
+                            </small>
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuGroup>
+                    ))}
+                  </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
 
@@ -717,18 +831,28 @@ export function ConversationList({
               <p className="text-muted-foreground text-sm">
                 {t('noConversations')}
               </p>
+              {(search || filter !== 'all' || hasContactFilters) && (
+                <button
+                  type="button"
+                  className="text-primary mt-3 text-sm underline"
+                  onClick={() => {
+                    setSearch('');
+                    setFilter('all');
+                    clearContactFilters();
+                  }}
+                >
+                  {t('clearAll')}
+                </button>
+              )}
             </div>
           ) : (
             <div className="flex flex-col">
-              {TRIAGE_GROUPS.map((group) => {
-                const items = sortTriage(filtered).filter(
-                  (conv) => triageGroup(conv) === group
-                );
+              {sections.map(({ key, label, items }) => {
                 if (!items.length) return null;
                 return (
-                  <section key={group} aria-label={t(`groups.${group}`)}>
+                  <section key={key} aria-label={label}>
                     <h3 className="crm-triage-group">
-                      <span>{t(`groups.${group}`)}</span>
+                      <span>{label}</span>
                       <span>{items.length}</span>
                     </h3>
                     {items.map((conv) => (
@@ -835,7 +959,7 @@ function ConversationItem({
             )}
             {conversation.ai_priority === 'high' && (
               <span title={t('aiPriorityHigh')}>
-                <ArrowUpCircle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                <ArrowUpCircle className="text-warning h-3.5 w-3.5 shrink-0" />
               </span>
             )}
           </span>

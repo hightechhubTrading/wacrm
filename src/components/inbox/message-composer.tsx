@@ -668,12 +668,12 @@ export function MessageComposer({
         </div>
       )}
       {sessionExpired && (
-        <div className="crm-session-notice mb-2 flex items-center justify-between rounded-lg bg-amber-500/10 px-3 py-2">
-          <p className="text-xs text-amber-400">{t('sessionExpiredHint')}</p>
+        <div className="crm-session-notice mb-2 flex items-center justify-between rounded-lg bg-warning/10 px-3 py-2">
+          <p className="text-xs text-warning">{t('sessionExpiredHint')}</p>
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 text-xs text-amber-400 hover:text-amber-300"
+            className="h-7 text-xs text-warning hover:text-warning"
             onClick={onOpenTemplates}
           >
             <LayoutTemplate className="me-1 h-3 w-3" />
@@ -727,7 +727,7 @@ export function MessageComposer({
       ) : recording ? (
         // Recording bar — replaces the composer while the mic is live.
         <div className="border-border bg-muted flex items-center gap-3 rounded-xl border px-4 py-2.5">
-          <span className="flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-red-500" />
+          <span className="flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-destructive" />
           <span className="text-foreground flex-1 text-sm">
             {t('recording', {
               current: formatDuration(recordSeconds),

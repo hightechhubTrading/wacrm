@@ -38,13 +38,13 @@ function StatusIcon({ status }: { status: Message["status"] }) {
     case "sending":
       return <Clock className="text-muted-foreground h-3 w-3" />;
     case "sent":
-      return <Check className="text-muted-foreground h-3 w-3" />;
+      return <Check className="text-info h-3 w-3" />;
     case "delivered":
-      return <CheckCheck className="text-muted-foreground h-3 w-3" />;
+      return <CheckCheck className="text-success h-3 w-3" />;
     case "read":
-      return <CheckCheck className="h-3 w-3 text-blue-400" />;
+      return <CheckCheck className="h-3 w-3 text-success" />;
     case "failed":
-      return <XCircle className="h-3 w-3 text-red-400" />;
+      return <XCircle className="h-3 w-3 text-destructive" />;
     default:
       return null;
   }

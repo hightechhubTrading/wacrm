@@ -20,7 +20,6 @@ import type {
 } from '@/types';
 import {
   Flame,
-  MessageSquare,
   ChevronDown,
   UserPlus,
   Check,
@@ -35,6 +34,7 @@ import {
 } from 'lucide-react';
 import { format, isToday, isYesterday, differenceInHours } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
+import { QuotationAttachment } from '@/components/quotations/quotation-attachment';
 import { isMessageContinuation } from '@/lib/inbox/message-groups';
 import { useLocale, useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
@@ -65,6 +65,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { NextSalesAction } from './sales-workspace';
 import { AiFollowups } from './ai-followups';
+import { Agenda } from '@/components/dashboard/agenda';
 import { buildReplyPreview } from './reply-quote';
 import { toast } from 'sonner';
 
@@ -164,9 +165,9 @@ const STATUS_OPTIONS: {
   value: ConversationStatus;
   color: string;
 }[] = [
-  { label: 'Open', value: 'open', color: 'text-primary' },
-  { label: 'Pending', value: 'pending', color: 'text-amber-400' },
-  { label: 'Closed', value: 'closed', color: 'text-muted-foreground' },
+  { label: 'Open', value: 'open', color: 'text-info' },
+  { label: 'Pending', value: 'pending', color: 'text-warning' },
+  { label: 'Closed', value: 'closed', color: 'text-success' },
 ];
 
 export function MessageThread({
@@ -194,7 +195,10 @@ export function MessageThread({
   } | null>(null);
   const t = useTranslations('Inbox.messageThread');
   const locale = useLocale();
-  const followupTarget = useSearchParams().get('followup');
+  const searchParams = useSearchParams();
+  const followupTarget = searchParams.get('followup');
+  const quotationTarget = searchParams.get('quotation');
+  const quotationDocument = searchParams.get('document');
   const aiPaused =
     aiOverride && aiOverride.id === conversation?.id
       ? aiOverride.paused
@@ -914,27 +918,12 @@ export function MessageThread({
 
   if (!conversation || !contact) {
     return (
-      <div className="crm-thread crm-empty-inbox">
-        <div className="crm-empty-inbox-art" aria-hidden="true" dir="ltr">
-          <div className="crm-empty-chat-preview">
-            <span className="crm-empty-avatar">
-              <MessageSquare size={22} />
-            </span>
-            <div>
-              <i />
-              <i />
-            </div>
-          </div>
-          <div className="crm-empty-chat-bubble">
-            <i />
-            <i />
-          </div>
-          <span className="crm-empty-chat-check">
-            <Check size={18} />
-          </span>
+      <div className="crm-thread crm-inbox-overview">
+        <div className="crm-inbox-overview-heading">
+          <h2>{t('welcomeTitle')}</h2>
+          <p>{t('welcomeHint')}</p>
         </div>
-        <h2>{t('selectConversation')}</h2>
-        <p>{t('selectConversationHint')}</p>
+        <Agenda />
       </div>
     );
   }
@@ -1004,7 +993,7 @@ export function MessageThread({
             variant="outline"
             className={cn(
               'border-border ms-1 hidden gap-1 text-[10px] sm:ms-2 sm:inline-flex',
-              sessionInfo.expired ? 'text-red-400' : 'text-primary'
+              sessionInfo.expired ? 'text-destructive' : 'text-primary'
             )}
           >
             <Clock className="h-3 w-3" />
@@ -1195,143 +1184,152 @@ export function MessageThread({
         </SheetContent>
       </Sheet>
 
-      {/* Messages Area */}
-      <AiConversationNote
-        key={conversation.id}
+      <AiFollowups
+        key={`overview-${conversation.id}`}
         conversationId={conversation.id}
-        contextSummary={conversation.ai_context_summary}
-        handoffSummary={conversation.ai_handoff_summary}
-        paused={aiPaused}
-        priorityReason={
-          conversation.status !== 'closed' &&
-          ['urgent', 'high'].includes(conversation.ai_priority ?? '')
-            ? conversation.ai_priority_reason
-            : null
-        }
-        refreshToken={resyncToken}
-        onOpenTools={() => setToolsView('assistant')}
-        sessionExpired={sessionInfo.expired}
-        onPrepareReply={() => {
-          if (sessionInfo.expired) handleOpenTemplates();
-          else
-            window.dispatchEvent(
-              new CustomEvent('draft-sales-reply', {
-                detail: { conversationId: conversation.id },
-              })
-            );
-        }}
+        preview
+        onOpen={() => setToolsView('followups')}
       />
-      <div
-        ref={scrollRef}
-        className="crm-message-scroll min-h-0 flex-1 overflow-y-auto px-4 py-4"
-      >
-        {loading ? (
-          <div
-            className="crm-message-skeleton"
-            role="status"
-            aria-label={t('loadingMessages')}
-          >
-            {Array.from({ length: 6 }, (_, index) => (
-              <div
-                key={index}
-                aria-hidden
-                className={index % 2 ? 'crm-skeleton-outgoing' : ''}
-              />
-            ))}
-          </div>
-        ) : messageFetchError ? (
-          <div className="crm-thread-state" role="status">
-            <p>{t('loadError')}</p>
-            <button onClick={onRefresh} className="text-primary">
-              {t('retryMessages')}
-            </button>
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground text-sm">
-              {t('noMessagesYet')}
-            </p>
-            <p className="text-muted-foreground text-xs">
-              {t('sendTemplateHint')}
-            </p>
-          </div>
-        ) : (
-          <div className="crm-message-column space-y-4">
-            {messageGroups.map((group) => (
-              <div key={group.date}>
-                {/* Date separator */}
-                <div className="crm-message-date mb-4 flex items-center justify-center">
-                  <span className="bg-muted text-muted-foreground rounded-full px-3 py-1 text-[10px] font-medium">
-                    {formatDateSeparator(group.date, t, locale)}
-                  </span>
-                </div>
-                {/* Messages */}
-                <div className="space-y-2">
-                  {group.messages.map((msg, index) => {
-                    const continuation = isMessageContinuation(
-                      group.messages[index - 1],
-                      msg
-                    );
-                    const parent = msg.reply_to_message_id
-                      ? messagesById.get(msg.reply_to_message_id)
-                      : null;
-                    const reply = parent
-                      ? {
-                          authorLabel:
-                            parent.sender_type === 'agent' ||
-                            parent.sender_type === 'bot'
-                              ? t('me')
-                              : contact?.name || contact?.phone || 'Unknown',
-                          preview: buildReplyPreview(parent, tQuote),
-                        }
-                      : null;
-                    const msgReactions = reactionsByMessageId.get(msg.id);
-                    // Toggle is computed at the call site — `msgReactions`
-                    // and `user?.id` are already in scope, no extra hook.
-                    const handlePillToggle = (emoji: string) => {
-                      const own = msgReactions?.find(
-                        (r) =>
-                          r.actor_type === 'agent' && r.actor_id === user?.id
+      {/* Messages Area */}
+
+      <div className="crm-transcript">
+        <AiConversationNote
+          key={conversation.id}
+          conversationId={conversation.id}
+          contextSummary={conversation.ai_context_summary}
+          handoffSummary={conversation.ai_handoff_summary}
+          paused={aiPaused}
+          priorityReason={
+            conversation.status !== 'closed' &&
+            ['urgent', 'high'].includes(conversation.ai_priority ?? '')
+              ? conversation.ai_priority_reason
+              : null
+          }
+          refreshToken={resyncToken}
+          onOpenTools={() => setToolsView('assistant')}
+          sessionExpired={sessionInfo.expired}
+          onPrepareReply={() => {
+            if (sessionInfo.expired) handleOpenTemplates();
+            else
+              window.dispatchEvent(
+                new CustomEvent('draft-sales-reply', {
+                  detail: { conversationId: conversation.id },
+                })
+              );
+          }}
+        />
+        <div
+          ref={scrollRef}
+          className="crm-message-scroll min-h-0 flex-1 overflow-y-auto px-4 py-4"
+        >
+          {loading ? (
+            <div
+              className="crm-message-skeleton"
+              role="status"
+              aria-label={t('loadingMessages')}
+            >
+              {Array.from({ length: 6 }, (_, index) => (
+                <div
+                  key={index}
+                  aria-hidden
+                  className={index % 2 ? 'crm-skeleton-outgoing' : ''}
+                />
+              ))}
+            </div>
+          ) : messageFetchError ? (
+            <div className="crm-thread-state" role="status">
+              <p>{t('loadError')}</p>
+              <button onClick={onRefresh} className="text-primary">
+                {t('retryMessages')}
+              </button>
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <p className="text-muted-foreground text-sm">
+                {t('noMessagesYet')}
+              </p>
+              <p className="text-muted-foreground text-xs">
+                {t('sendTemplateHint')}
+              </p>
+            </div>
+          ) : (
+            <div className="crm-message-column space-y-4">
+              {messageGroups.map((group) => (
+                <div key={group.date}>
+                  {/* Date separator */}
+                  <div className="crm-message-date mb-4 flex items-center justify-center">
+                    <span className="bg-muted text-muted-foreground rounded-full px-3 py-1 text-[10px] font-medium">
+                      {formatDateSeparator(group.date, t, locale)}
+                    </span>
+                  </div>
+                  {/* Messages */}
+                  <div className="space-y-2">
+                    {group.messages.map((msg, index) => {
+                      const continuation = isMessageContinuation(
+                        group.messages[index - 1],
+                        msg
                       );
-                      const next = own?.emoji === emoji ? '' : emoji;
-                      void postReaction(msg.id, next);
-                    };
-                    return (
-                      <MessageActions
-                        key={msg.id}
-                        message={msg}
-                        continuation={continuation}
-                        onReply={() => handleStartReply(msg)}
-                        onReact={(emoji) => {
-                          if (emoji) void postReaction(msg.id, emoji);
-                        }}
-                      >
-                        <MessageBubble
-                          message={msg}
-                          authorLabel={
-                            continuation
-                              ? undefined
-                              : msg.sender_type === 'customer'
-                                ? displayName
-                                : msg.ai_generated
-                                  ? t('aiAuthor')
-                                  : msg.sender_type === 'bot'
-                                    ? t('automationAuthor')
-                                    : t('you')
+                      const parent = msg.reply_to_message_id
+                        ? messagesById.get(msg.reply_to_message_id)
+                        : null;
+                      const reply = parent
+                        ? {
+                            authorLabel:
+                              parent.sender_type === 'agent' ||
+                              parent.sender_type === 'bot'
+                                ? t('me')
+                                : contact?.name || contact?.phone || 'Unknown',
+                            preview: buildReplyPreview(parent, tQuote),
                           }
-                          reply={reply}
-                          reactions={msgReactions}
-                          currentUserId={user?.id}
-                          onToggleReaction={handlePillToggle}
-                        />
-                      </MessageActions>
-                    );
-                  })}
+                        : null;
+                      const msgReactions = reactionsByMessageId.get(msg.id);
+                      // Toggle is computed at the call site — `msgReactions`
+                      // and `user?.id` are already in scope, no extra hook.
+                      const handlePillToggle = (emoji: string) => {
+                        const own = msgReactions?.find(
+                          (r) =>
+                            r.actor_type === 'agent' && r.actor_id === user?.id
+                        );
+                        const next = own?.emoji === emoji ? '' : emoji;
+                        void postReaction(msg.id, next);
+                      };
+                      return (
+                        <MessageActions
+                          key={msg.id}
+                          message={msg}
+                          continuation={continuation}
+                          onReply={() => handleStartReply(msg)}
+                          onReact={(emoji) => {
+                            if (emoji) void postReaction(msg.id, emoji);
+                          }}
+                        >
+                          <MessageBubble
+                            message={msg}
+                            authorLabel={
+                              continuation
+                                ? undefined
+                                : msg.sender_type === 'customer'
+                                  ? displayName
+                                  : msg.ai_generated
+                                    ? t('aiAuthor')
+                                    : msg.sender_type === 'bot'
+                                      ? t('automationAuthor')
+                                      : t('you')
+                            }
+                            reply={reply}
+                            reactions={msgReactions}
+                            currentUserId={user?.id}
+                            onToggleReaction={handlePillToggle}
+                          />
+                        </MessageActions>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <nav className="crm-reply-toolbar" aria-label={t('replyTools')}>
@@ -1465,6 +1463,16 @@ export function MessageThread({
           </Tabs>
         </SheetContent>
       </Sheet>
+      {quotationTarget && quotationDocument && (
+        <QuotationAttachment
+          key={`${conversation.id}:${quotationDocument}`}
+          quotationId={quotationTarget}
+          documentId={quotationDocument}
+          conversationId={conversation.id}
+          sessionExpired={sessionInfo.expired}
+          onSent={onNewMessage}
+        />
+      )}
       {/* Composer */}
       <MessageComposer
         conversationId={conversation.id}

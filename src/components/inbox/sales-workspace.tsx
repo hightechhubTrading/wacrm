@@ -1,4 +1,6 @@
 'use client';
+
+import { statusClasses } from '@/lib/ui-colors';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useTranslations, useLocale } from 'next-intl';
@@ -247,7 +249,10 @@ export function DealSalesPanel({
                 <CircleDot size={14} aria-hidden />
                 {t('stage')}
               </dt>
-              <dd>{deal.stage?.name ?? t(`dealStatuses.${deal.status ?? 'unknown'}`)}</dd>
+              <dd>
+                {deal.stage?.name ??
+                  t(`dealStatuses.${deal.status ?? 'unknown'}`)}
+              </dd>
             </div>
             <div>
               <dt>
@@ -275,7 +280,9 @@ export function DealSalesPanel({
                       href={`/quotations/${current.quote.id}`}
                     >
                       {current.quote.reference} · rev {current.quote.revision} ·{' '}
-                      {t(`quotationStatuses.${current.quote.status}`)}
+                      <span className={statusClasses(current.quote.status)}>
+                        {t(`quotationStatuses.${current.quote.status}`)}
+                      </span>
                     </Link>
                   ) : (
                     t('noQuotation')
