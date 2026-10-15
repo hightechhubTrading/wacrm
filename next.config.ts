@@ -64,6 +64,11 @@ const SECURITY_HEADERS = [
 ] as const;
 
 const nextConfig: NextConfig = {
+  // The deployment builder shares a VPS with other applications. Limit build
+  // parallelism there; local development and normal CI keep their defaults.
+  ...(process.env.NEXT_BUILD_LOW_MEMORY === '1'
+    ? { experimental: { cpus: 1, webpackMemoryOptimizations: true } }
+    : {}),
   // Keep PDF workers and workbook readers on the native server module path.
   serverExternalPackages: ['pdf-parse', 'exceljs'],
   /**

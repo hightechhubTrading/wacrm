@@ -1,0 +1,11 @@
+.git
+.next
+node_modules
+.env*
+!.env.local.example
+!.env.production.example
+.codex
+.agents
+.worktrees
+supabase/.temp
+*.log
