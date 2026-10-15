@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useCallback, useEffect, useState } from 'react';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
 import {
   derivePresence,
   type PresenceRow,
   type PresenceStatus,
   type StoredPresence,
-} from "@/lib/presence";
+} from '@/lib/presence';
 
 // How often the viewer re-derives presence locally. The online→offline
 // transition fires NO database event (it's just the clock passing the
@@ -80,18 +80,22 @@ export function usePresence(enabled = true): UsePresenceResult {
     // Realtime has already delivered (keeping the newer last_seen_at)
     // rather than replacing the map — so an event that lands while the
     // fetch is in flight isn't clobbered by a staler snapshot row.
+    // The browser client reuses channels by topic. Each reader needs its
+    // own topic so concurrent consumers (and Strict Mode remounts while
+    // unsubscribe is pending) never register callbacks on a joined channel.
     const channel: RealtimeChannel = supabase
-      .channel(`presence:${accountId}`)
+      .channel(`presence:${accountId}:${crypto.randomUUID()}`)
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "*",
-          schema: "public",
-          table: "member_presence",
+          event: '*',
+          schema: 'public',
+          table: 'member_presence',
           filter: `account_id=eq.${accountId}`,
         },
         (payload) => {
-          if (payload.eventType === "DELETE") {
+          if (cancelled) return;
+          if (payload.eventType === 'DELETE') {
             const old = payload.old as { user_id?: string };
             if (!old.user_id) return;
             setRows((prev) => {
@@ -107,20 +111,20 @@ export function usePresence(enabled = true): UsePresenceResult {
               user_id: string;
               status: StoredPresence;
               last_seen_at: string;
-            },
+            }
           );
-        },
+        }
       )
       .subscribe();
 
     supabase
-      .from("member_presence")
-      .select("user_id, status, last_seen_at")
-      .eq("account_id", accountId)
+      .from('member_presence')
+      .select('user_id, status, last_seen_at')
+      .eq('account_id', accountId)
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) {
-          console.error("[usePresence] initial fetch error:", error.message);
+          console.error('[usePresence] initial fetch error:', error.message);
           return;
         }
         setRows((prev) => {
@@ -156,7 +160,7 @@ export function usePresence(enabled = true): UsePresenceResult {
 
   const getRow = useCallback(
     (userId: string): PresenceRow | undefined => rows.get(userId),
-    [rows],
+    [rows]
   );
 
   const getPresence = useCallback(
@@ -164,7 +168,7 @@ export function usePresence(enabled = true): UsePresenceResult {
       const row = rows.get(userId);
       return derivePresence(row?.status, row?.last_seen_at, now);
     },
-    [rows, now],
+    [rows, now]
   );
 
   return { getPresence, getRow, now };
