@@ -16,7 +16,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export const OPT_OUT_KEYWORDS = ['stop', 'unsubscribe', 'cancel', 'end', 'quit'];
+export const OPT_OUT_KEYWORDS = ['stop', 'unsubscribe', 'cancel', 'end', 'quit', 'إيقاف المتابعة'];
 export const OPT_IN_KEYWORDS = ['start', 'unstop'];
 
 function matchesKeyword(text: string, keywords: string[]): boolean {

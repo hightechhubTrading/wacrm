@@ -79,6 +79,30 @@ describe('submitMessageTemplate', () => {
     ).rejects.toThrow(/Rate limit/);
   });
 
+  it('preserves actionable Meta parameter error details without exposing the raw response', async () => {
+    fetchMock.mockResolvedValueOnce(errorResponse(400, {
+      error: {
+        message: 'Invalid parameter', code: 100, error_subcode: 2388040,
+        error_user_title: 'Invalid template',
+        error_user_msg: 'Choose a supported language.',
+        error_data: { details: 'language is invalid' },
+        fbtrace_id: 'internal-trace',
+      },
+    }));
+    await expect(submitMessageTemplate({
+      wabaId: 'W', accessToken: 't',
+      payload: { name: 'n', category: 'MARKETING', language: 'en_US', components: [] },
+    })).rejects.toThrow('Invalid parameter — Invalid template — Choose a supported language. — language is invalid (Meta 100/2388040)');
+  });
+
+  it('keeps a useful HTTP fallback for non-JSON Meta errors', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('Bad Gateway', { status: 502 }));
+    await expect(submitMessageTemplate({
+      wabaId: 'W', accessToken: 't',
+      payload: { name: 'n', category: 'MARKETING', language: 'ar', components: [] },
+    })).rejects.toThrow('Meta API error: 502');
+  });
+
   it('throws if Meta accepts but returns no id (data integrity guard)', async () => {
     fetchMock.mockResolvedValueOnce(okResponse({ status: 'PENDING' }));
     await expect(

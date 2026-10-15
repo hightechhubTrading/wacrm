@@ -4,6 +4,7 @@ import type { CallWebhookValue } from '@/lib/whatsapp/calling/types';
 import { dispatchSalesAssistance } from '@/lib/ai/sales-assistance';
 import { extractDocument, supportedDocument } from '@/lib/ai/documents';
 import { recordReplyEvent } from '@/lib/ai/followups';
+import { templateButtonReply, handleEnquiryReply, closeEnquiryReminders } from '@/lib/whatsapp/enquiry-reply';
 import { NextResponse, after } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption';
@@ -63,6 +64,7 @@ interface WhatsAppMessage {
   timestamp: string;
   type: string;
   text?: { body: string };
+  button?: { text?: string; payload?: string };
   image?: { id: string; mime_type: string; caption?: string };
   video?: { id: string; mime_type: string; caption?: string };
   document?: {
@@ -890,6 +892,7 @@ async function processMessage(
       'keyword'
     );
     if (error) console.error('[webhook] opt-out record failed:', error);
+    await closeEnquiryReminders(supabaseAdmin(), accountId, conversation.id);
   } else if (isOptInKeyword(inboundText)) {
     isControlMessage = true;
     const { error } = await recordOptOutState(
@@ -899,6 +902,14 @@ async function processMessage(
       'keyword'
     );
     if (error) console.error('[webhook] opt-in record failed:', error);
+  }
+
+  if (!isControlMessage && (message.type === 'button' || message.interactive?.button_reply)) {
+    isControlMessage = await handleEnquiryReply(supabaseAdmin(), {
+      accountId, conversationId: conversation.id, text: inboundText,
+      parentMessageId: message.context?.id, messageId: message.id,
+      ownerId: conversation.assigned_agent_id ?? null,
+    });
   }
 
   // Resolve swipe-reply context if present. A missing parent is fine —
@@ -1230,6 +1241,12 @@ async function parseMessageContent(
   };
 
   switch (message.type) {
+    case 'button': {
+      const reply = templateButtonReply(message.button);
+      return reply
+        ? { ...empty, contentText: reply.text, interactiveReplyId: reply.id }
+        : empty;
+    }
     case 'text':
       return { ...empty, contentText: message.text?.body || null };
 
