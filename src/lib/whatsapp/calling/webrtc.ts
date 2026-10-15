@@ -1,7 +1,7 @@
 // Meta exchanges one complete SDP, without a separate trickle-ICE endpoint.
 export function waitForIce(
   peer: RTCPeerConnection,
-  timeoutMs = 12_000
+  timeoutMs = 45_000
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const finish = () => {

@@ -22,6 +22,18 @@ describe('non-trickle WebRTC signaling', () => {
     await result;
     expect(ready).toHaveBeenCalledWith('complete-audio-sdp');
   });
+  it('allows slow ICE server checks to finish before the default deadline', async () => {
+    vi.useFakeTimers();
+    const peer = new Peer();
+    const ready = vi.fn();
+    const result = waitForIce(peer.asRtc()).then(ready);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(ready).not.toHaveBeenCalled();
+    peer.iceGatheringState = 'complete';
+    peer.dispatchEvent(new Event('icegatheringstatechange'));
+    await result;
+    expect(ready).toHaveBeenCalledWith('complete-audio-sdp');
+  });
   it('times out gathering without submitting an incomplete offer', async () => {
     vi.useFakeTimers();
     const result = expect(waitForIce(new Peer().asRtc(), 100)).rejects.toThrow(

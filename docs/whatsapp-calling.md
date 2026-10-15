@@ -70,8 +70,10 @@ WHATSAPP_CALLING_ICE_SERVERS_JSON=[{"urls":"stun:your-stun.example:3478"},{"urls
 ```
 
 The authenticated audio-config endpoint intentionally delivers these ICE
-credentials to agents' browsers; use restricted credentials and rotate them, or
-extend it with your relay provider's short-lived credential service. A TURN
+credentials to agents' browsers. For coturn, configure `WHATSAPP_CALLING_TURN_URLS_JSON`
+(an array of `turn:`/`turns:` URLs) and server-only `WHATSAPP_CALLING_TURN_SECRET`.
+The endpoint generates user-specific HMAC credentials valid for one hour; it never
+returns the shared secret. Partial/invalid relay settings fail closed. A TURN
 relay's availability and cost are deployment concerns. Microphone access needs
 HTTPS (localhost is allowed). The existing Permissions-Policy permits the
 same-origin microphone and denies camera use.
@@ -96,7 +98,7 @@ reducer serializes duplicate events, correlates early outbound webhooks using
 the local UUID and never revives completed calls on late connect/ringing events.
 
 Incoming audio stays muted during pre-accept and is enabled after Meta accepts.
-The browser waits for complete ICE gathering before submitting SDP and waits
+The browser allows up to 45 seconds for complete ICE gathering before submitting SDP and waits
 for media connection before accepting an incoming call. Polling every four
 seconds supplements Realtime, including missed updates after reconnect.
 
@@ -217,3 +219,24 @@ Compose backup at
 `/docker/wacrm/backups/calling-placement-20261014T234318Z/docker-compose.yml`.
 Temporary deployment SSH access was removed. Refresh the CRM to load the new
 notification layout. Actual two-way audio remains pending the user's device test.
+
+## Callback audio-route repair, 2026-10-15
+
+The reported error was the browser's 12-second ICE gathering deadline, before
+an outgoing call was submitted to Meta. Production had no TURN configuration.
+A local Chrome probe reached the original Google STUN server in 0.4 seconds;
+this does not establish which route failed on the reporting browser/network.
+
+The fix adds temporary coturn credentials and a 45-second gathering deadline
+while retaining complete SDP signaling. The relay runs separately on the existing
+VPS, with authenticated UDP/TCP 3478, TLS 5349 and UDP media 49160–49260.
+It is limited to 128 MB, 0.5 CPU, 100 allocations and 8 per credential, and denies
+private/multicast peer destinations. The current image is pinned by digest.
+The existing CRM certificate is copied from Traefik, with a daily systemd timer
+that refreshes it and restarts the relay only when the certificate changes.
+
+Infrastructure files are under `/docker/wacrm/turn/`; the shared secret and
+private certificate material are root-only and must not be committed. The relay
+uses its own Compose project `wacrm-turn`. Stopping it leaves direct ICE routes
+available. Networks allowing only TLS on port 443 may still require an additional
+443 TURN endpoint; the existing HTTPS listener remains in use by Traefik.
