@@ -17,7 +17,8 @@ build:
 
 The previous `calling-artifacts/...` build context is obsolete. Do not restore it
 for routine updates. The repository Dockerfile compiles the source at the chosen
-Git revision and installs Linux dependencies from the lockfile.
+Git revision and installs Linux dependencies from the lockfile. The Debian runtime
+includes headless Chromium and its system libraries for quotation PDFs.
 
 On the configured VPS, update with:
 
