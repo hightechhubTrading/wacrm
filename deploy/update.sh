@@ -9,6 +9,13 @@ repo=https://github.com/hightechhubTrading/wacrm.git
 revision=$(git ls-remote --exit-code "$repo" "refs/heads/$branch" | cut -f1)
 [[ $revision =~ ^[a-f0-9]{40}$ ]] || { echo 'Could not resolve deployment branch.' >&2; exit 1; }
 export WACRM_GIT_REF=$revision
+# Save the running version before a build can replace its image tag.
+previous=$(docker inspect --format '{{.Image}}' wacrm)
+if ! docker image inspect "$previous" >/dev/null 2>&1; then
+  previous=$(docker commit wacrm wacrm:rollback)
+else
+  docker tag "$previous" wacrm:rollback
+fi
 echo "Building $branch at $revision"
 docker compose build --builder wacrm-builder --pull --build-arg SOURCE_COMMIT="$revision" wacrm
 candidate="wacrm-candidate-$$"
@@ -28,13 +35,11 @@ JS
 }
 check_container "$candidate"
 cleanup
-previous=$(docker inspect --format '{{.Image}}' wacrm)
 backup="backups/update-$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$backup"
 chmod 700 "$backup"
 cp docker-compose.yml "$backup/docker-compose.yml"
 chmod 600 "$backup/docker-compose.yml"
-docker tag "$previous" wacrm:rollback
 # Calls must finish before replacing the app that owns their signaling.
 docker exec -i wacrm node <<'JS'
 (async()=>{const r=await fetch(process.env.NEXT_PUBLIC_SUPABASE_URL+'/rest/v1/whatsapp_calls?select=id&state=in.(connecting,active)&limit=1',{headers:{apikey:process.env.SUPABASE_SERVICE_ROLE_KEY,Authorization:'Bearer '+process.env.SUPABASE_SERVICE_ROLE_KEY},signal:AbortSignal.timeout(15000)});const calls=await r.json();if(!r.ok||!Array.isArray(calls))throw Error('Unable to check active calls');if(calls.length)throw Error('A call is active. Retry deployment after it ends.');})().catch(e=>{console.error(e.message);process.exit(1)});
