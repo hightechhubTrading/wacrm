@@ -12,7 +12,14 @@ export WACRM_GIT_REF=$revision
 # Save the running version before a build can replace its image tag.
 previous=$(docker inspect --format '{{.Image}}' wacrm)
 if ! docker image inspect "$previous" >/dev/null 2>&1; then
-  previous=$(docker commit wacrm wacrm:rollback)
+  # A manual rebuild/prune may have removed the running image's old digest.
+  # Accept its replacement only when the compiled build IDs match exactly.
+  reference=$(docker inspect --format '{{.Config.Image}}' wacrm)
+  running_build=$(docker exec wacrm cat /app/.next/BUILD_ID)
+  image_build=$(docker run --rm --entrypoint cat "$reference" /app/.next/BUILD_ID)
+  [[ $running_build == "$image_build" ]] || { echo 'Running image unavailable; cannot prepare a verified rollback.' >&2; exit 1; }
+  previous=$(docker image inspect --format '{{.Id}}' "$reference")
+  docker tag "$previous" wacrm:rollback
 else
   docker tag "$previous" wacrm:rollback
 fi
