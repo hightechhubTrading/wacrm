@@ -1,5 +1,7 @@
 'use client';
 
+import { areaForPath } from '@/lib/ui-colors';
+
 import Link from 'next/link';
 import { ModeToggle } from './mode-toggle';
 import { usePathname } from 'next/navigation';
@@ -43,7 +45,7 @@ const ROLE_CHIP: Record<
     icon: Crown,
     labelKey: 'roleOwner',
     // Amber: scarce, immutable, "the boss" — gets visual emphasis.
-    className: 'border-amber-500/40 bg-amber-500/10 text-amber-300',
+    className: 'border-primary-soft-2 bg-primary-soft text-primary',
   },
   admin: {
     icon: Shield,
@@ -266,6 +268,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    data-ui-area={areaForPath(item.href)}
                     title={t(item.labelKey as string)}
                     aria-current={isActive ? 'page' : undefined}
                     className={cn(
@@ -281,7 +284,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     {item.beta && (
                       <span
                         aria-label={t('beta')}
-                        className="crm-nav-beta rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-amber-300 uppercase"
+                        className="crm-nav-beta rounded-full border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-warning uppercase"
                       >
                         {t('beta')}
                       </span>
@@ -321,6 +324,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    data-ui-area={areaForPath(item.href)}
                     title={t(item.labelKey as string)}
                     aria-current={isActive ? 'page' : undefined}
                     className={cn(

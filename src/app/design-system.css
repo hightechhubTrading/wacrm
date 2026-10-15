@@ -146,13 +146,22 @@ html[data-theme='navy-gold'] {
   font-size: 14px;
   line-height: 1.6;
 }
+.crm-main [data-slot='tabs'],
+.crm-main [data-slot='tabs-content'] {
+  min-width: 0;
+}
 .crm-main [data-slot='tabs-list'] {
   background: var(--muted);
   padding: 4px;
   height: auto;
   border-radius: 10px;
+  max-width: 100%;
+  flex-shrink: 0;
+  overflow-x: auto;
+  justify-content: flex-start;
 }
 .crm-main [data-slot='tabs-trigger'] {
+  flex-shrink: 0;
   min-height: 34px;
   border-radius: 7px;
 }
@@ -426,11 +435,12 @@ html[data-theme='navy-gold'] {
   font-size: 12px;
   font-weight: 500;
 }
-.crm-quotation-status[data-status='sent'],
-.crm-quotation-status[data-status='won'] {
-  background: var(--primary-soft);
-  color: var(--primary);
-}
+/* Status meaning is shared with inbox, broadcasts and pipeline cards. */
+.crm-quotation-status { --status-color: var(--ui-neutral); color: var(--status-color); background: color-mix(in srgb, var(--status-color) 10%, var(--card)); border: 1px solid color-mix(in srgb, var(--status-color) 30%, var(--card)); }
+.crm-quotation-status[data-status='sent'] { --status-color: var(--ui-info); }
+.crm-quotation-status[data-status='won'] { --status-color: var(--ui-success); }
+.crm-quotation-status[data-status='lost'] { --status-color: var(--ui-danger); }
+.crm-quotation-status[data-status='expired'] { --status-color: var(--ui-warning); }
 .crm-quotation-detail > div:first-child {
   padding: 20px;
   border-radius: 16px;
@@ -510,9 +520,9 @@ html[data-theme='navy-gold'] {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .crm-workspace *,
-  .crm-workspace *::before,
-  .crm-workspace *::after {
+  .crm-workspace *:not(:where(.crm-dashboard, .crm-dashboard *)),
+  .crm-workspace *:not(:where(.crm-dashboard, .crm-dashboard *))::before,
+  .crm-workspace *:not(:where(.crm-dashboard, .crm-dashboard *))::after {
     scroll-behavior: auto !important;
     transition-duration: 0s !important;
     animation-duration: 0s !important;
@@ -682,3 +692,8 @@ html:has(.crm-workspace) [data-slot='dialog-content'] {
 .crm-assistance-tag-menu[data-slot='select-content'] {
   max-height: min(20rem, var(--available-height, 20rem));
 }
+.crm-job-status.ui-tone { color: var(--ui-tone); background: color-mix(in srgb, var(--ui-tone) 10%, var(--card)); }
+.crm-sales-quotation .ui-tone { display: inline-block; color: var(--ui-tone); padding: 2px 6px; border-radius: 5px; font-size: 11px; }
+/* Area accents are restrained to icons and section cues; state badges keep their meaning. */
+.crm-workspace [data-ui-area] > svg { color: var(--ui-area); }
+.crm-workspace .crm-page-mark { background: color-mix(in srgb, var(--ui-area, var(--primary)) 12%, var(--card)); color: var(--ui-area, var(--primary)); }

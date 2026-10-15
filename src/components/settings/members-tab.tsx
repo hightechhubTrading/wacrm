@@ -523,7 +523,7 @@ export function MembersTab() {
                         size="sm"
                         onClick={() => setRemovingMember(member)}
                         disabled={isBusy}
-                        className="border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20 hover:border-red-500/60 hover:text-red-200"
+                        className="border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 hover:border-destructive/60 hover:text-destructive"
                       >
                         <Trash2 className="size-4" />
                       </Button>
@@ -608,7 +608,7 @@ export function MembersTab() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleRevoke(inv)}
-                        className="border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20 hover:border-red-500/60 hover:text-red-200"
+                        className="border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 hover:border-destructive/60 hover:text-destructive"
                       >
                         <MailX className="size-4" />
                         {t('revoke')}
@@ -638,7 +638,7 @@ export function MembersTab() {
         <DialogContent className="bg-popover border-border sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-popover-foreground">
-              <AlertTriangle className="size-4 text-amber-400" />
+              <AlertTriangle className="size-4 text-warning" />
               {t('removeDialogTitle')}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
@@ -659,7 +659,7 @@ export function MembersTab() {
             <Button
               onClick={handleRemove}
               disabled={!!pendingMemberAction}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="ui-danger-solid  text-white"
             >
               {pendingMemberAction ? (
                 <>

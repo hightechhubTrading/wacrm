@@ -422,7 +422,7 @@ export function ContactDetailView({
                       {contact.name || t('unnamed')}
                     </SheetTitle>
                     {contact.opted_out && (
-                      <Badge className="border-amber-500/40 bg-amber-500/10 text-amber-300 shrink-0">
+                      <Badge className="border-warning/40 bg-warning/10 text-warning shrink-0">
                         {t('optedOutBadge')}
                       </Badge>
                     )}
@@ -523,7 +523,7 @@ export function ContactDetailView({
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-muted-foreground text-xs">
-                      {t('phone')} <span className="text-red-400">*</span>
+                      {t('phone')} <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       value={editPhone}
@@ -661,7 +661,7 @@ export function ContactDetailView({
                           </p>
                           <button
                             onClick={() => deleteNote(note.id)}
-                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all cursor-pointer shrink-0"
+                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all cursor-pointer shrink-0"
                           >
                             <Trash2 className="size-3.5" />
                           </button>
@@ -772,7 +772,7 @@ export function ContactDetailView({
                               className={
                                 deal.status === 'won'
                                   ? 'text-primary'
-                                  : 'text-red-400'
+                                  : 'text-destructive'
                               }
                             >
                               {deal.status}

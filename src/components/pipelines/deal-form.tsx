@@ -431,7 +431,7 @@ export function DealForm({
                     type="button"
                     onClick={() => handleStatusChange("lost")}
                     disabled={!!statusAction || deal.status === "lost"}
-                    className="flex-1 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                    className="flex-1 ui-danger-solid text-white  disabled:opacity-50"
                   >
                     {statusAction === "lost" ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -478,8 +478,8 @@ export function DealForm({
 
             {deal &&
               (confirmDelete ? (
-                <div className="mt-3 flex items-center justify-between gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs">
-                  <span className="text-red-300">{t("deletePrompt")}</span>
+                <div className="mt-3 flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs">
+                  <span className="text-destructive">{t("deletePrompt")}</span>
                   <div className="flex gap-1">
                     <button
                       type="button"
@@ -493,7 +493,7 @@ export function DealForm({
                       type="button"
                       onClick={handleDelete}
                       disabled={deleting}
-                      className="rounded bg-red-600 px-2 py-1 font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                      className="rounded ui-danger-solid px-2 py-1 font-medium text-white  disabled:opacity-50"
                     >
                       {deleting ? t("deleting") : t("confirm")}
                     </button>
@@ -503,7 +503,7 @@ export function DealForm({
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(true)}
-                  className="mt-3 flex w-full items-center justify-center gap-1 text-xs text-red-400 hover:text-red-300"
+                  className="mt-3 flex w-full items-center justify-center gap-1 text-xs text-destructive hover:text-destructive"
                 >
                   <Trash2 className="h-3 w-3" />
                   {t("deleteDeal")}

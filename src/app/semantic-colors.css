@@ -1,0 +1,147 @@
+/* Semantic colors are independent of brand/accent themes. Pair color with a label or icon. */
+:root {
+  --ui-info: #93c5fd;
+  --ui-info-fill: #93c5fd;
+  --ui-info-on-fill: #102a43;
+  --ui-success: #6ee7b7;
+  --ui-success-fill: #6ee7b7;
+  --ui-success-on-fill: #052e16;
+  --ui-warning: #fcd34d;
+  --ui-warning-fill: #fcd34d;
+  --ui-warning-on-fill: #422006;
+  --ui-danger: #fda4af;
+  --ui-danger-fill: #fda4af;
+  --ui-danger-on-fill: #4c0519;
+  --ui-optional: #c4b5fd;
+  --ui-optional-fill: #c4b5fd;
+  --ui-optional-on-fill: #2e1065;
+  --ui-neutral: #cbd5e1;
+  --ui-neutral-fill: #cbd5e1;
+  --ui-neutral-on-fill: #202534;
+}
+html[data-mode='light'] {
+  --ui-info: #075cb3;
+  --ui-info-fill: #075cb3;
+  --ui-info-on-fill: #fff;
+  --ui-success: #08734f;
+  --ui-success-fill: #08734f;
+  --ui-success-on-fill: #fff;
+  --ui-warning: #854d0e;
+  --ui-warning-fill: #854d0e;
+  --ui-warning-on-fill: #fff;
+  --ui-danger: #b42332;
+  --ui-danger-fill: #b42332;
+  --ui-danger-on-fill: #fff;
+  --ui-optional: #6331b9;
+  --ui-optional-fill: #6331b9;
+  --ui-optional-on-fill: #fff;
+  --ui-neutral: #555d70;
+  --ui-neutral-fill: #555d70;
+  --ui-neutral-on-fill: #fff;
+}
+.ui-tone-info {
+  --ui-tone: var(--ui-info);
+  --ui-tone-fill: var(--ui-info-fill);
+  --ui-tone-on-fill: var(--ui-info-on-fill);
+}
+.ui-tone-success {
+  --ui-tone: var(--ui-success);
+  --ui-tone-fill: var(--ui-success-fill);
+  --ui-tone-on-fill: var(--ui-success-on-fill);
+}
+.ui-tone-warning {
+  --ui-tone: var(--ui-warning);
+  --ui-tone-fill: var(--ui-warning-fill);
+  --ui-tone-on-fill: var(--ui-warning-on-fill);
+}
+.ui-tone-danger {
+  --ui-tone: var(--ui-danger);
+  --ui-tone-fill: var(--ui-danger-fill);
+  --ui-tone-on-fill: var(--ui-danger-on-fill);
+}
+.ui-tone-optional {
+  --ui-tone: var(--ui-optional);
+  --ui-tone-fill: var(--ui-optional-fill);
+  --ui-tone-on-fill: var(--ui-optional-on-fill);
+}
+.ui-tone-neutral {
+  --ui-tone: var(--ui-neutral);
+  --ui-tone-fill: var(--ui-neutral-fill);
+  --ui-tone-on-fill: var(--ui-neutral-on-fill);
+}
+
+.ui-tone {
+  color: var(--ui-tone);
+  background: color-mix(in srgb, var(--ui-tone) 10%, var(--card));
+  border-color: color-mix(in srgb, var(--ui-tone) 35%, var(--card));
+}
+.ui-tone-text {
+  color: var(--ui-tone);
+}
+.ui-tone-dot {
+  background: var(--ui-tone);
+}
+.ui-tone-button {
+  color: var(--ui-tone-on-fill);
+  background: var(--ui-tone-fill);
+}
+.ui-tone-button:hover {
+  background: color-mix(in srgb, var(--ui-tone-fill) 90%, var(--background));
+}
+.ui-danger-action {
+  color: var(--ui-danger);
+}
+.ui-danger-action:hover {
+  background: color-mix(in srgb, var(--ui-danger) 12%, var(--card));
+  color: var(--ui-danger);
+}
+.ui-tone :is([data-slot='alert-description'], [data-slot='alert-title']) {
+  color: inherit;
+}
+.ui-tone :is(button, a):focus-visible,
+.ui-tone-button:focus-visible,
+.ui-danger-action:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+/* Do not animate semantic feedback if the user requests reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .ui-tone:not(:where(.crm-dashboard, .crm-dashboard *)),
+  .ui-tone-button:not(:where(.crm-dashboard, .crm-dashboard *)) {
+    animation: none;
+    transition: none;
+  }
+}
+@media (forced-colors: active) {
+  .ui-tone {
+    border: 1px solid CanvasText;
+  }
+}
+.ui-danger-solid {
+  background: var(--ui-danger-fill);
+  color: var(--ui-danger-on-fill);
+}
+.ui-danger-solid:hover {
+  background: color-mix(in srgb, var(--ui-danger-fill) 90%, var(--background));
+}
+:root {
+  --ui-sales: #67e8f9;
+}
+html[data-mode='light'] {
+  --ui-sales: #096b76;
+}
+[data-ui-area='people'] {
+  --ui-area: var(--ui-info);
+}
+[data-ui-area='sales'] {
+  --ui-area: var(--ui-sales);
+}
+[data-ui-area='documents'] {
+  --ui-area: var(--ui-optional);
+}
+[data-ui-area='operations'] {
+  --ui-area: var(--ui-warning);
+}
+[data-ui-area='settings'] {
+  --ui-area: var(--ui-neutral);
+}

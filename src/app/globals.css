@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
+@import './semantic-colors.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -26,7 +27,11 @@
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
-  --color-destructive: var(--destructive);
+  --color-destructive: var(--ui-danger);
+  --color-info: var(--ui-info);
+  --color-success: var(--ui-success);
+  --color-warning: var(--ui-warning);
+  --color-optional: var(--ui-optional);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -331,13 +336,13 @@ html[data-theme='navy-gold'][data-mode='light'] {
   html {
     @apply font-sans;
   }
-  /* Respect the OS-level "reduce motion" preference everywhere —
+  /* Respect the OS-level "reduce motion" preference outside the dashboard —
    * covers Tailwind's animate-* utilities (e.g. animate-ping on the
    * inbox unread dot) and any transition, not just hand-picked spots. */
   @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
+    *:not(:where(.crm-dashboard, .crm-dashboard *)),
+    *:not(:where(.crm-dashboard, .crm-dashboard *))::before,
+    *:not(:where(.crm-dashboard, .crm-dashboard *))::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;

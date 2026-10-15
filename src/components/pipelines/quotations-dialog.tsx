@@ -52,6 +52,7 @@ export function QuotationsDialog({
   contactId,
 }: QuotationsDialogProps) {
   const t = useTranslations("Pipelines.quotationsDialog");
+  const tStatus = useTranslations('QuotationWorkspace');
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -160,8 +161,8 @@ export function QuotationsDialog({
                 <span className="flex min-w-0 items-center gap-2 text-foreground">
                   <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="truncate font-medium">{q.reference}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {q.status}
+                  <span className="crm-quotation-status shrink-0 text-xs" data-status={q.status}>
+                    {tStatus.has(q.status) ? tStatus(q.status) : q.status}
                   </span>
                 </span>
                 <span className="shrink-0 font-medium text-foreground">

@@ -77,9 +77,9 @@ export function OrderInfoDialog({
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {missing.size > 0 && (
-              <Alert className="border-red-500/40 bg-red-500/10">
-                <AlertTriangle className="size-4 text-red-400" />
-                <AlertDescription className="text-red-200">
+              <Alert className="border-destructive/40 bg-destructive/10">
+                <AlertTriangle className="size-4 text-destructive" />
+                <AlertDescription className="text-destructive">
                   {t("missingFieldsBanner")}
                 </AlertDescription>
               </Alert>
@@ -89,13 +89,13 @@ export function OrderInfoDialog({
               className={cn(
                 "space-y-1.5 rounded-lg border border-border bg-muted/50 p-3",
                 (missing.has("contact_name") || missing.has("contact_phone")) &&
-                  "border-red-500/60",
+                  "border-destructive/60",
               )}
             >
               <div className="flex items-center gap-2 text-sm text-foreground">
                 <User2 className="h-3.5 w-3.5 text-muted-foreground" />
                 {deal.contact?.name || (
-                  <span className={missing.has("contact_name") ? "text-red-300" : ""}>
+                  <span className={missing.has("contact_name") ? "text-destructive" : ""}>
                     {t("noName")}
                   </span>
                 )}
@@ -103,7 +103,7 @@ export function OrderInfoDialog({
               <div className="flex items-center gap-2 text-sm text-foreground">
                 <Phone className="h-3.5 w-3.5 text-muted-foreground" />
                 {deal.contact?.phone || (
-                  <span className={missing.has("contact_phone") ? "text-red-300" : ""}>
+                  <span className={missing.has("contact_phone") ? "text-destructive" : ""}>
                     {t("noPhone")}
                   </span>
                 )}

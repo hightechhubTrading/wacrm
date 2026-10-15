@@ -77,13 +77,13 @@ export function DealCard({
             {deal.title}
           </h4>
           {deal.status === 'won' && (
-            <span className="bg-primary/15 text-primary inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+            <span className="ui-tone ui-tone-success inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold">
               <Check className="h-3 w-3" />
               {t('won')}
             </span>
           )}
           {deal.status === 'lost' && (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-400">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full ui-tone ui-tone-danger px-2 py-0.5 text-[10px] font-semibold">
               <X className="h-3 w-3" />
               {t('lost')}
             </span>

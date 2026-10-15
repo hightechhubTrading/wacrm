@@ -10,6 +10,7 @@ import { ThemeSync } from '@/components/theme-sync';
 import '../workspace.css';
 import '../design-system.css';
 import '../inbox-workspace.css';
+import { areaForPath } from '@/lib/ui-colors';
 import { useTheme } from '@/hooks/use-theme';
 import { LocaleSync } from '@/components/locale-sync';
 import { CallingProvider } from '@/components/calling/calling-provider';
@@ -52,6 +53,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     <div
       className="crm-workspace bg-background flex overflow-hidden"
       data-mode={mode}
+      data-ui-area={areaForPath(pathname)}
     >
       {/* Reports this tab's online/away presence once we know a user is
           signed in. Headless — renders nothing. */}

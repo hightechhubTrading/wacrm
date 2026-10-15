@@ -1,4 +1,6 @@
 'use client';
+
+import { statusClasses } from '@/lib/ui-colors';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
@@ -312,7 +314,9 @@ function WorkRecord({
         <h3 className="font-semibold">
           HTH-{work.reference} · {t(`kinds.${work.kind}`)}
         </h3>
-        <span className="crm-job-status">{t(`statuses.${work.status}`)}</span>
+        <span className={`crm-job-status ${statusClasses(work.status)}`}>
+          {t(`statuses.${work.status}`)}
+        </span>
       </div>
       {work.quotation_snapshot && (
         <p className="text-sm">
@@ -487,7 +491,9 @@ export function WaitingWorkQueue() {
                   {t(`kinds.${row.kind}`)}
                 </span>
                 <span>
-                  {t(`statuses.${row.status}`)}{' '}
+                  <span className={statusClasses(row.status)}>
+                    {t(`statuses.${row.status}`)}
+                  </span>{' '}
                   {row.due_at && (
                     <span
                       className={

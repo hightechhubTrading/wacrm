@@ -1,3 +1,4 @@
+import { statusClasses } from './ui-colors';
 /**
  * Shared status badge config for broadcasts + recipients.
  *
@@ -5,13 +6,10 @@
  * /broadcasts/page.tsx and /broadcasts/[id]/page.tsx with slight
  * drift risk. One source of truth now.
  *
- * Badge shape: bg-*-500/10 + text-*-400 + border-*-500/20. The
- * translucent fills sit fine on both light and dark surfaces; neutral
- * statuses use text-muted-foreground so the label stays legible in
- * light mode (a solid slate-400 would be too faint on white).
+ * Colors come from the shared semantic palette, independent of accent theme.
  */
 
-import type { BroadcastStatus, RecipientStatus } from "@/types";
+import type { BroadcastStatus, RecipientStatus } from '@/types';
 
 export interface StatusDisplay {
   label: string;
@@ -25,52 +23,52 @@ export interface StatusDisplay {
 
 export const broadcastStatusConfig: Record<BroadcastStatus, StatusDisplay> = {
   draft: {
-    label: "draft",
-    classes: "bg-slate-500/10 text-muted-foreground border-slate-500/20",
+    label: 'draft',
+    classes: statusClasses('draft'),
   },
   scheduled: {
-    label: "scheduled",
-    classes: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    label: 'scheduled',
+    classes: statusClasses('scheduled'),
   },
   sending: {
-    label: "sending",
-    classes: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+    label: 'sending',
+    classes: statusClasses('sending'),
     pulse: true,
   },
   sent: {
-    label: "sent",
-    classes: "bg-primary/10 text-primary border-primary/20",
+    label: 'sent',
+    classes: statusClasses('sent'),
   },
   failed: {
-    label: "failed",
-    classes: "bg-red-500/10 text-red-400 border-red-500/20",
+    label: 'failed',
+    classes: statusClasses('failed'),
   },
 };
 
 export const recipientStatusConfig: Record<RecipientStatus, StatusDisplay> = {
   pending: {
-    label: "pending",
-    classes: "bg-slate-500/10 text-muted-foreground border-slate-500/20",
+    label: 'pending',
+    classes: statusClasses('pending'),
   },
   sent: {
-    label: "sent",
-    classes: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    label: 'sent',
+    classes: statusClasses('sent'),
   },
   delivered: {
-    label: "delivered",
-    classes: "bg-primary/10 text-primary border-primary/20",
+    label: 'delivered',
+    classes: statusClasses('delivered'),
   },
   read: {
-    label: "read",
-    classes: "bg-primary/10 text-primary border-primary/20",
+    label: 'read',
+    classes: statusClasses('read'),
   },
   replied: {
-    label: "replied",
-    classes: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+    label: 'replied',
+    classes: statusClasses('replied'),
   },
   failed: {
-    label: "failed",
-    classes: "bg-red-500/10 text-red-400 border-red-500/20",
+    label: 'failed',
+    classes: statusClasses('failed'),
   },
 };
 

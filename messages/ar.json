@@ -2203,7 +2203,9 @@
     "sendTest": "إرسال رسالة اختبار",
     "notConfigured": "أكمل الإعداد قبل اختبار مساعدك.",
     "replyError": "تعذر الحصول على رد.",
-    "networkError": "تعذر الوصول إلى المساعد."
+    "networkError": "تعذر الوصول إلى المساعد.",
+    "searchQuotations": "ابحث بالمرجع أو العميل أو المشروع…",
+    "validUntil": "صالح حتى"
   },
   "SalesAssistance": {
     "title": "مساعدة فريق المبيعات",

@@ -132,7 +132,7 @@ export function PipelineAnalytics({ stages, deals }: PipelineAnalyticsProps) {
           t={t}
         />
         <Metric
-          icon={<XCircle className="h-4 w-4 text-red-400" />}
+          icon={<XCircle className="h-4 w-4 text-destructive" />}
           label={t("lostThisMonth")}
           value={String(stats.lostThisMonth)}
           tooltip={t("lostThisMonthTooltip")}

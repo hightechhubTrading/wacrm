@@ -2203,7 +2203,9 @@
     "sendTest": "Send test message",
     "notConfigured": "Finish Setup before testing your assistant.",
     "replyError": "Couldn’t get a reply.",
-    "networkError": "Couldn’t reach the assistant."
+    "networkError": "Couldn’t reach the assistant.",
+    "searchQuotations": "Search reference, customer or project…",
+    "validUntil": "Valid until"
   },
   "SalesAssistance": {
     "title": "Sales assistance",

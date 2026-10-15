@@ -510,7 +510,7 @@ function SortableGroupRow({
           variant="ghost"
           size="icon-xs"
           onClick={onDelete}
-          className="text-muted-foreground hover:text-red-400"
+          className="text-muted-foreground hover:text-destructive"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
@@ -654,7 +654,7 @@ function SortableFieldRow({
         variant="ghost"
         size="icon-xs"
         onClick={onDelete}
-        className="ms-auto shrink-0 text-muted-foreground hover:text-red-400"
+        className="ms-auto shrink-0 text-muted-foreground hover:text-destructive"
       >
         <Trash2 className="h-3 w-3" />
       </Button>
@@ -688,7 +688,7 @@ function LegacyFieldRow({
         variant="ghost"
         size="icon-sm"
         onClick={onDelete}
-        className="shrink-0 text-muted-foreground hover:text-red-400"
+        className="shrink-0 text-muted-foreground hover:text-destructive"
       >
         <Trash2 className="size-4" />
       </Button>

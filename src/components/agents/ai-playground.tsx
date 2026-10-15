@@ -89,10 +89,10 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
   };
 
   return (
-    <div className="crm-ai-transcript border-border bg-card flex h-[60vh] min-h-[420px] flex-col rounded-xl border">
+    <div className="crm-ai-transcript border-border bg-card flex h-[60dvh] min-h-[420px] min-w-0 flex-col overflow-hidden rounded-xl border">
       {/* Header */}
-      <div className="border-border flex items-center justify-between border-b px-4 py-3">
-        <div className="flex items-center gap-2">
+      <div className="border-border flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Bot className="text-primary h-4 w-4" />
           <span className="text-foreground text-sm font-medium">
             {copy('playground')}
@@ -108,14 +108,14 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
           disabled={turns.length === 0 || sending}
           className="text-muted-foreground"
         >
-          <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> {copy('reset')}
+          <RotateCcw className="h-3.5 w-3.5" /> {copy('reset')}
         </Button>
       </div>
 
       {/* Transcript */}
       <div
         ref={scrollRef}
-        className="crm-ai-transcript-scroll flex-1 space-y-4 overflow-y-auto p-4"
+        className="crm-ai-transcript-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-4"
         dir="ltr"
       >
         {turns.length === 0 && (
@@ -130,7 +130,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
                 onClick={onGoToSetup}
                 className="mt-1 h-auto p-0 text-xs"
               >
-                {copy('goToSetup')} <ArrowRight className="ml-1 h-3 w-3" />
+                {copy('goToSetup')} <ArrowRight className="h-3 w-3 rtl:rotate-180" />
               </Button>
             )}
           </div>
@@ -149,7 +149,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
             )}
             <div
               className={cn(
-                'max-w-[80%] rounded-2xl px-3.5 py-2 text-sm',
+                'min-w-0 max-w-[80%] rounded-2xl px-3.5 py-2 text-sm [overflow-wrap:anywhere]',
                 t.role === 'user'
                   ? 'bg-primary text-primary-foreground rounded-br-sm'
                   : 'bg-muted text-foreground rounded-bl-sm'
@@ -163,7 +163,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
               {t.role === 'assistant' && t.handoff && (
                 <p
                   className={cn(
-                    'flex items-center gap-1 text-xs text-amber-500',
+                    'flex items-center gap-1 text-xs text-warning',
                     t.content && 'border-border/50 mt-1.5 border-t pt-1.5'
                   )}
                 >
@@ -187,7 +187,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
       </div>
 
       {/* Composer */}
-      <div className="border-border flex items-end gap-2 border-t p-3">
+      <div className="border-border flex shrink-0 items-center gap-2 border-t p-3">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -196,7 +196,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
           aria-label={copy('testMessage')}
           dir="auto"
           rows={1}
-          className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 flex-1 resize-none rounded-xl border px-4 py-2.5 text-sm outline-none"
+          className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 min-w-0 flex-1 resize-none rounded-xl border px-4 py-2.5 text-sm outline-none"
         />
         <Button
           size="sm"

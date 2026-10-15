@@ -65,32 +65,32 @@ const STATUS_META: Record<
 > = {
   active: {
     label: "Active",
-    classes: "border-emerald-600/40 bg-emerald-500/10 text-emerald-300",
+    classes: "ui-tone ui-tone-success",
     icon: PlayCircle,
   },
   completed: {
     label: "Completed",
-    classes: "border-border bg-muted text-muted-foreground",
+    classes: "ui-tone ui-tone-success",
     icon: CircleCheck,
   },
   handed_off: {
     label: "Handed off",
-    classes: "border-amber-600/40 bg-amber-500/10 text-amber-300",
+    classes: "ui-tone ui-tone-warning",
     icon: UserPlus,
   },
   timed_out: {
     label: "Timed out",
-    classes: "border-border bg-muted/60 text-muted-foreground",
+    classes: "ui-tone ui-tone-warning",
     icon: Clock,
   },
   paused_by_agent: {
     label: "Paused by agent",
-    classes: "border-border bg-muted text-muted-foreground",
+    classes: "ui-tone ui-tone-warning",
     icon: PauseCircle,
   },
   failed: {
     label: "Failed",
-    classes: "border-red-600/40 bg-red-500/10 text-red-300",
+    classes: "ui-tone ui-tone-danger",
     icon: CircleAlert,
   },
 };
