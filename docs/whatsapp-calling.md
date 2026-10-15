@@ -240,3 +240,17 @@ private certificate material are root-only and must not be committed. The relay
 uses its own Compose project `wacrm-turn`. Stopping it leaves direct ICE routes
 available. Networks allowing only TLS on port 443 may still require an additional
 443 TURN endpoint; the existing HTTPS listener remains in use by Traefik.
+
+Verification: typecheck, targeted lint, production build and 42 calling/send/webhook
+tests passed. Chrome obtained authenticated relay candidates in under 1.1 seconds
+on UDP, TCP and TLS; forced-relay synthetic data and two-way audio RTP passed on
+each transport. These tests do not place a customer call or prove audible sound
+on the user's device. Candidate runtime checks passed for authentication,
+webhook signatures, database/Meta configuration and all relay environment values.
+
+Live revision: `ec7952019fea91368587fee9e9fc8f8274ba54a9`, build
+`afPheWEDALwYC_DpFDnKU`; image `wacrm-calling:ec7952019fea`.
+Rollback image: `wacrm-rollback:before-audio-route-20261015t092548z`;
+Compose backup: `/docker/wacrm/backups/calling-audio-20261015T092548Z/docker-compose.yml`.
+Restore the previous Compose configuration to roll back the app and its relay
+environment together. Release evidence is in `/docker/wacrm/calling.audio-state.json`.
