@@ -1,4 +1,6 @@
 import { SALES_ASSISTANCE_CONTENT_TYPES } from '@/lib/ai/sales-assistance-types';
+import { handleCallWebhook, recordCallPermissionReply } from '@/lib/whatsapp/calling/webhook';
+import type { CallWebhookValue } from '@/lib/whatsapp/calling/types';
 import { dispatchSalesAssistance } from '@/lib/ai/sales-assistance';
 import { extractDocument, supportedDocument } from '@/lib/ai/documents';
 import { recordReplyEvent } from '@/lib/ai/followups';
@@ -85,9 +87,10 @@ interface WhatsAppMessage {
    * to advance the per-contact run.
    */
   interactive?: {
-    type: 'button_reply' | 'list_reply';
+    type: 'button_reply' | 'list_reply' | 'call_permission_reply';
     button_reply?: { id: string; title: string };
     list_reply?: { id: string; title: string; description?: string };
+    call_permission_reply?: { response: string; is_permanent?: boolean; expiration_timestamp?: string };
   };
   /** Present when the customer swipe-replies to one of our messages. */
   context?: { id: string };
@@ -229,6 +232,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
+  // Calls are time-sensitive and must be durable before acknowledgment. This
+  // path does no AI/media processing; failed writes return 500 for Meta retry.
+  try {
+    for (const entry of body.entry || []) {
+      for (const change of entry.changes) {
+        if (change.field === 'calls') {
+          await handleCallWebhook(change.value as unknown as CallWebhookValue, supabaseAdmin());
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error persisting call webhook:', error);
+    return NextResponse.json({ error: 'Call event persistence failed' }, { status: 500 });
+  }
+
   // Process AFTER the response so we ack Meta within their ~20s timeout
   // (a slow ack triggers Meta retries + duplicate inserts), while still
   // guaranteeing the work runs to completion.
@@ -259,6 +277,9 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
 
   for (const entry of body.entry) {
     for (const change of entry.changes) {
+      if (change.field === 'calls') {
+        continue;
+      }
       // Template-lifecycle events (status / quality / components
       // updates from Meta) come in on a different change.field and
       // have a different value shape — route them through the
@@ -699,6 +720,17 @@ async function processMessage(
   // Done before parseMessageContent so the media-URL fetch is skipped.
   if (message.type === 'reaction') {
     await handleReaction(message, conversation.id, contactRecord.id);
+    return;
+  }
+
+  // A calling permission decision is a control event, not a customer question.
+  // Show it in the transcript without dispatching sales AI, flows or keywords.
+  // Outbound dialing always rechecks the live Meta permission endpoint.
+  if (message.interactive?.type === 'call_permission_reply') {
+    await recordCallPermissionReply(supabaseAdmin(), {
+      conversationId: conversation.id, accountId, unreadCount: conversation.unread_count || 0,
+      messageId: message.id, accepted: message.interactive.call_permission_reply?.response === 'accept',
+    });
     return;
   }
 

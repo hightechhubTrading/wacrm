@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { ConversationCalling } from '@/components/calling/conversation-calling';
 import { usePresence } from '@/hooks/use-presence';
 import { PresenceDot } from '@/components/presence/presence-dot';
 import { presenceLabel } from '@/lib/presence';
@@ -1012,6 +1013,7 @@ export function MessageThread({
         </div>
 
         <div className="flex items-center gap-2">
+          <ConversationCalling key={conversation.id} conversationId={conversation.id} name={displayName} />
           {/* Contact-panel toggle — desktop only. The contact sidebar
               eats a chunk of horizontal width that crowds the thread on
               smaller laptops; this lets agents reclaim it when they just
