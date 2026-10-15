@@ -44,7 +44,7 @@ describe('agenda loader', () => {
     const { db, calls } = database([
       { data: [priority], count: 12 },
       { data: [priority, conversation('unread')], count: 24 },
-      { data: [], error: null },
+      { data: [], count: 18, error: null },
       { data: [{ user_id: 'u', full_name: 'Alex' }] },
     ]);
     const result = await loadAgenda(db, 'account', 'user');
@@ -55,6 +55,8 @@ describe('agenda loader', () => {
     expect(result.priorityCount).toBe(12);
     expect(result.unreadCount).toBe(24);
     expect(result.tasksAvailable).toBe(true);
+    expect(result.taskCount).toBe(18);
+    expect(result.tasks).toHaveLength(0);
     expect(
       calls.filter(
         ([, method, args]) => method === 'eq' && args[0] === 'account_id'

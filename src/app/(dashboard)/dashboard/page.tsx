@@ -21,7 +21,12 @@ import type {
   ResponseTimeSummary,
 } from '@/lib/dashboard/types';
 
+import { DashboardGreeting } from '@/components/dashboard/dashboard-greeting';
+import dashboardStyles from '@/components/dashboard/dashboard-design.module.css';
 import { Agenda } from '@/components/dashboard/agenda';
+import { WeatherWidget } from '@/components/dashboard/weather-widget';
+import { WorkdayWidget } from '@/components/dashboard/workday-widget';
+import widgetStyles from '@/components/dashboard/workday-widget.module.css';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { SkeletonCard } from '@/components/dashboard/skeleton';
 import { QuickActions } from '@/components/dashboard/quick-actions';
@@ -122,121 +127,149 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="crm-dashboard space-y-5">
+    <div
+      className={`crm-dashboard space-y-5 ${widgetStyles.dashboard} ${dashboardStyles.surface}`}
+    >
+      <DashboardGreeting />
       <Agenda />
-
-      {/* Metric cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {metricsLoading ? (
-          Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
-        ) : !metrics ? (
-          <p
-            role="status"
-            className="text-muted-foreground col-span-full text-sm"
-          >
-            {t('unavailable')}{' '}
-            <button onClick={loadAll} className="text-primary underline">
-              {t('retry')}
-            </button>
-          </p>
-        ) : (
-          <>
-            <MetricCard
-              title={t('activeConversations')}
-              value={metrics.activeConversations.current.toLocaleString()}
-              icon={MessageSquare}
-              delta={{
-                sign: metrics.activeConversations.previous,
-                label: deltaLabel(
-                  metrics.activeConversations.previous,
-                  t('newTodayVsYesterday'),
-                  t('noChange', { suffix: t('newTodayVsYesterday') })
-                ),
-              }}
-            />
-            <MetricCard
-              title={t('newContactsToday')}
-              value={metrics.newContactsToday.current.toLocaleString()}
-              icon={UserPlus}
-              delta={{
-                sign:
-                  metrics.newContactsToday.current -
-                  metrics.newContactsToday.previous,
-                label: deltaLabel(
-                  metrics.newContactsToday.current -
-                    metrics.newContactsToday.previous,
-                  t('vsYesterday'),
-                  t('noChange', { suffix: t('vsYesterday') })
-                ),
-              }}
-            />
-            <MetricCard
-              title={t('openDealsValue')}
-              value={formatCurrency(metrics.openDealsValue, defaultCurrency)}
-              icon={DollarSign}
-              subtitle={t('openDeals', { count: metrics.openDealsCount })}
-            />
-            <MetricCard
-              title={t('messagesSentToday')}
-              value={metrics.messagesSentToday.current.toLocaleString()}
-              icon={Send}
-              delta={{
-                sign:
-                  metrics.messagesSentToday.current -
-                  metrics.messagesSentToday.previous,
-                label: deltaLabel(
-                  metrics.messagesSentToday.current -
-                    metrics.messagesSentToday.previous,
-                  t('vsYesterday'),
-                  t('noChange', { suffix: t('vsYesterday') })
-                ),
-              }}
-            />
-          </>
-        )}
+      <QuickActions />
+      <div className={widgetStyles.widgets}>
+        <div className={widgetStyles.weatherSlot}>
+          <WeatherWidget />
+        </div>
+        <WorkdayWidget />
       </div>
 
-      {/* Quick actions */}
-      <QuickActions />
-
-      <details className="crm-analytics">
-        <summary>{t('analytics')}</summary>
-        <div className="space-y-5">
-          {/* Charts row */}
-          {/* items-stretch (the grid default) stretches the two columns to
-          match the tallest sibling; adding h-full on each wrapper and
-          on the inner panels makes both cards actually fill that
-          stretched height so their rounded borders line up. Without
-          this, the pipeline card rendered at its natural (shorter)
-          height while the line chart drove the row height. */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-            <div className="h-full lg:col-span-3">
-              <ConversationsChart
-                series={series}
-                loading={seriesLoading}
-                range={range}
-                onRangeChange={handleRangeChange}
-              />
-            </div>
-            <div className="h-full lg:col-span-2">
-              <PipelineDonut
-                data={pipeline}
-                loading={pipelineLoading}
-                currency={defaultCurrency}
-              />
-            </div>
+      <section aria-labelledby="dashboard-overview">
+        <div className="crm-dashboard-section-heading">
+          <div>
+            <p>{t('overviewEyebrow')}</p>
+            <h2 id="dashboard-overview">{t('overviewTitle')}</h2>
           </div>
+          <span>{t('overviewHint')}</span>
+        </div>
+        <div className="crm-dashboard-metrics">
+          {metricsLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonCard key={i} className="crm-dashboard-metric-skeleton" />
+            ))
+          ) : !metrics ? (
+            <p
+              role="status"
+              className="text-muted-foreground col-span-full text-sm"
+            >
+              {t('unavailable')}{' '}
+              <button onClick={loadAll} className="text-primary underline">
+                {t('retry')}
+              </button>
+            </p>
+          ) : (
+            <>
+              <MetricCard
+                href="/inbox"
+                tone="sage"
+                title={t('activeConversations')}
+                value={metrics.activeConversations.current.toLocaleString()}
+                icon={MessageSquare}
+                delta={{
+                  sign: metrics.activeConversations.previous,
+                  label: deltaLabel(
+                    metrics.activeConversations.previous,
+                    t('newTodayVsYesterday'),
+                    t('noChange', { suffix: t('newTodayVsYesterday') })
+                  ),
+                }}
+              />
+              <MetricCard
+                href="/contacts"
+                tone="sky"
+                comparison={{
+                  current: metrics.newContactsToday.current,
+                  previous: metrics.newContactsToday.previous,
+                  currentLabel: t('today'),
+                  previousLabel: t('yesterday'),
+                }}
+                title={t('newContactsToday')}
+                value={metrics.newContactsToday.current.toLocaleString()}
+                icon={UserPlus}
+                delta={{
+                  sign:
+                    metrics.newContactsToday.current -
+                    metrics.newContactsToday.previous,
+                  label: deltaLabel(
+                    metrics.newContactsToday.current -
+                      metrics.newContactsToday.previous,
+                    t('vsYesterday'),
+                    t('noChange', { suffix: t('vsYesterday') })
+                  ),
+                }}
+              />
+              <MetricCard
+                href="/pipelines"
+                tone="sand"
+                title={t('openDealsValue')}
+                value={formatCurrency(metrics.openDealsValue, defaultCurrency)}
+                icon={DollarSign}
+                subtitle={t('openDeals', { count: metrics.openDealsCount })}
+              />
+              <MetricCard
+                href="/inbox"
+                tone="rose"
+                comparison={{
+                  current: metrics.messagesSentToday.current,
+                  previous: metrics.messagesSentToday.previous,
+                  currentLabel: t('today'),
+                  previousLabel: t('yesterday'),
+                }}
+                title={t('messagesSentToday')}
+                value={metrics.messagesSentToday.current.toLocaleString()}
+                icon={Send}
+                delta={{
+                  sign:
+                    metrics.messagesSentToday.current -
+                    metrics.messagesSentToday.previous,
+                  label: deltaLabel(
+                    metrics.messagesSentToday.current -
+                      metrics.messagesSentToday.previous,
+                    t('vsYesterday'),
+                    t('noChange', { suffix: t('vsYesterday') })
+                  ),
+                }}
+              />
+            </>
+          )}
+        </div>
+      </section>
 
-          {/* Response time */}
-          <ResponseTimeChart
-            data={responseTime}
-            loading={responseTimeLoading}
+      <section
+        className="crm-dashboard-insights"
+        aria-labelledby="dashboard-insights"
+      >
+        <div className="crm-dashboard-section-heading">
+          <div>
+            <p>{t('insightsEyebrow')}</p>
+            <h2 id="dashboard-insights">{t('insightsTitle')}</h2>
+          </div>
+          <span>{t('insightsHint')}</span>
+        </div>
+        <div className="crm-dashboard-charts">
+          <ConversationsChart
+            series={series}
+            loading={seriesLoading}
+            range={range}
+            onRangeChange={handleRangeChange}
+          />
+          <PipelineDonut
+            data={pipeline}
+            loading={pipelineLoading}
+            currency={defaultCurrency}
           />
         </div>
-      </details>
-
-      {/* Activity feed */}
-      <ActivityFeed items={activity} loading={activityLoading} />
+      </section>
+      <div className="crm-dashboard-bottom">
+        <ResponseTimeChart data={responseTime} loading={responseTimeLoading} />
+        <ActivityFeed items={activity} loading={activityLoading} />
+      </div>
     </div>
   );
 }

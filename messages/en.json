@@ -67,7 +67,69 @@
     "switchMode": "Switch to {mode} mode"
   },
   "Dashboard": {
+    "workday": {
+      "title": "Workday buddy",
+      "chooseBuddy": "Choose your workday buddy",
+      "buddies": {
+        "cat": "Office cat",
+        "robot": "Tiny robot",
+        "coffee": "Coffee pal"
+      },
+      "working": "On the clock",
+      "upcoming": "Before opening",
+      "finished": "Day complete",
+      "off": "Day off",
+      "unconfigured": "Set your hours",
+      "invalid": "Check your schedule",
+      "unavailable": "Schedule unavailable",
+      "loading": "Loading schedule…",
+      "remaining": "Until the end of the workday",
+      "takeABreath": "A little room to breathe",
+      "timeRemaining": "{hours} hours, {minutes} minutes, {seconds} seconds remaining",
+      "hours": "hrs",
+      "minutes": "min",
+      "seconds": "sec",
+      "closesAt": "Closing at {time}",
+      "finishedHint": "The workday is over. Time to recharge.",
+      "offHint": "No working hours scheduled today.",
+      "unconfiguredHint": "Set business hours to start your countdown.",
+      "invalidHint": "Check working hours and timezone in AI agents → Setup.",
+      "unavailableHint": "Could not load your working hours.",
+      "loadingHint": "Using your account’s working hours.",
+      "accountSchedule": "Account schedule",
+      "businessHours": "Business hours",
+      "retry": "Retry"
+    },
+    "weather": {
+      "title": "Weather",
+      "location": "Doha, Qatar",
+      "outlook": "The next three days",
+      "clear": "Clear skies",
+      "partlyCloudy": "Partly cloudy",
+      "cloudy": "Overcast",
+      "fog": "Foggy",
+      "storm": "Thunderstorms",
+      "snow": "Snow",
+      "rain": "Rain",
+      "feelsLike": "Feels like {value}°",
+      "wind": "{value} km/h",
+      "humidity": "{value}% humidity",
+      "refresh": "Refresh weather",
+      "unavailable": "Weather is unavailable. Try refreshing.",
+      "loading": "Getting the latest weather…",
+      "forecastHint": "Your forecast will appear here.",
+      "stale": "Could not refresh · Showing last update",
+      "updated": "Refreshes every 15 min"
+    },
     "page": {
+      "overviewEyebrow": "Your workspace",
+      "overviewTitle": "Today in numbers",
+      "overviewHint": "A snapshot of your CRM",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "insightsEyebrow": "The bigger picture",
+      "insightsTitle": "Conversations & opportunities",
+      "insightsHint": "Explore the activity behind the numbers",
       "title": "Dashboard",
       "description": "Live analytics across conversations, contacts, deals, broadcasts, and automations.",
       "activeConversations": "Active Conversations",
@@ -83,6 +145,7 @@
       "retry": "Try again"
     },
     "quickActions": {
+      "title": "Quick actions",
       "newContact": "New Contact",
       "newDeal": "New Deal",
       "newBroadcast": "New Broadcast",
@@ -153,7 +216,11 @@
       "team": "Your team",
       "online": "Online",
       "away": "Away",
-      "offline": "Offline"
+      "offline": "Offline",
+      "actionHint": "Priority conversations and upcoming follow-ups, ready to act on.",
+      "openInbox": "Open inbox",
+      "taskTaken": "Task assigned to you",
+      "saving": "Saving…"
     }
   },
   "Inbox": {

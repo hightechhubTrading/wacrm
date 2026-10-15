@@ -2,21 +2,35 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
-import { ArrowUpRight, MessageSquare, CalendarDays } from 'lucide-react';
+import {
+  ArrowUpRight,
+  MessageSquare,
+  CalendarDays,
+  CheckCheck,
+  Inbox,
+} from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { usePresence } from '@/hooks/use-presence';
 import { createClient } from '@/lib/supabase/client';
-import { loadAgenda, type AgendaData } from '@/lib/dashboard/agenda';
+import {
+  loadAgenda,
+  type AgendaData,
+  type AgendaTask,
+} from '@/lib/dashboard/agenda';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 export function Agenda() {
   const t = useTranslations('Dashboard.agenda');
   const kinds = useTranslations('Inbox.followups.kinds');
   const locale = useLocale();
-  const { user, profile, accountId } = useAuth();
+  const { user, accountId, canSendMessages } = useAuth();
+  const ft = useTranslations('Inbox.followups');
+  const [busyTask, setBusyTask] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const { getPresence } = usePresence();
   const [data, setData] = useState<AgendaData | null>(null);
   const [failed, setFailed] = useState(false);
   const [revision, setRevision] = useState(0);
-  const [today, setToday] = useState('');
   useEffect(() => {
     if (!user || !accountId) return;
     let cancelled = false;
@@ -25,19 +39,15 @@ export function Agenda() {
         const next = await loadAgenda(createClient(), accountId, user.id);
         if (!cancelled) {
           setData(next);
+          setNow(Date.now());
           setFailed(false);
-          setToday(
-            new Intl.DateTimeFormat(locale, {
-              weekday: 'long',
-              month: 'long',
-              day: 'numeric',
-            }).format(new Date())
-          );
         }
       } catch {
         if (!cancelled) setFailed(true);
       }
     };
+    const updated = () => void refresh();
+    window.addEventListener('sales-followups-updated', updated);
     void refresh();
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') void refresh();
@@ -45,8 +55,30 @@ export function Agenda() {
     return () => {
       cancelled = true;
       clearInterval(timer);
+      window.removeEventListener('sales-followups-updated', updated);
     };
   }, [user, accountId, locale, revision]);
+  async function takeTask(task: AgendaTask) {
+    setBusyTask(task.id);
+    try {
+      const response = await fetch(
+        `/api/ai/followups/${encodeURIComponent(task.conversation_id)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: task.id, status: 'acknowledged' }),
+        }
+      );
+      if (!response.ok) throw new Error('update');
+      setRevision((r) => r + 1);
+      window.dispatchEvent(new Event('sales-followups-updated'));
+      toast.success(t('taskTaken'));
+    } catch {
+      toast.error(ft('error'));
+    } finally {
+      setBusyTask(null);
+    }
+  }
   const unavailable = (
     <div className="crm-agenda-empty">
       {t('unavailable')}{' '}
@@ -63,19 +95,35 @@ export function Agenda() {
       {t('loading')}
     </div>
   );
-  const name = profile?.full_name?.split(' ')[0];
   return (
-    <section aria-label={t('title')}>
-      <div className="crm-agenda-heading">
+    <section className="crm-day-overview" aria-label={t('title')}>
+      <div className="crm-day-overview-heading">
         <div>
-          <h1>{name ? t('greeting', { name }) : t('title')}</h1>
-          <p>{t('subtitle')}</p>
+          <h2>{t('title')}</h2>
+          <p>{t('actionHint')}</p>
         </div>
-        <time className="crm-agenda-date">{today}</time>
+        <Link href="/inbox" className="text-primary text-sm">
+          {t('openInbox')}{' '}
+          <ArrowUpRight
+            size={14}
+            className="inline rtl:-scale-x-100"
+            aria-hidden
+          />
+        </Link>
       </div>
       <div className="crm-agenda-grid">
         <section className="crm-agenda-panel crm-attention-panel">
-          <h2>{t('attention')}</h2>
+          <div className="crm-panel-heading">
+            <span className="crm-panel-symbol">
+              <Inbox aria-hidden="true" />
+            </span>
+            <h2>{t('attention')}</h2>
+            {data?.attentionAvailable && (
+              <span className="crm-panel-count">
+                {data.conversations.length.toLocaleString(locale)}
+              </span>
+            )}
+          </div>
           <p>{t('attentionHint')}</p>
           {failed ? (
             unavailable
@@ -110,7 +158,10 @@ export function Agenda() {
               ))}
             </ul>
           ) : (
-            <div className="crm-agenda-empty">{t('clear')}</div>
+            <div className="crm-agenda-empty crm-agenda-clear">
+              <CheckCheck aria-hidden="true" />
+              <span>{t('clear')}</span>
+            </div>
           )}
           {data?.attentionAvailable && (
             <Link className="crm-agenda-brief" href="/inbox">
@@ -125,7 +176,17 @@ export function Agenda() {
           )}
         </section>
         <section className="crm-agenda-panel crm-schedule-panel">
-          <h2>{t('followups')}</h2>
+          <div className="crm-panel-heading">
+            <span className="crm-panel-symbol">
+              <CalendarDays aria-hidden="true" />
+            </span>
+            <h2>{t('followups')}</h2>
+            {data?.tasksAvailable && (
+              <span className="crm-panel-count">
+                {data.taskCount.toLocaleString(locale)}
+              </span>
+            )}
+          </div>
           <p>{t('followupsHint')}</p>
           {failed ? (
             unavailable
@@ -136,7 +197,7 @@ export function Agenda() {
           ) : data.tasks.length ? (
             <ul>
               {data.tasks.map((task) => (
-                <li key={task.id}>
+                <li key={task.id} className="crm-agenda-task">
                   <Link
                     className="crm-agenda-row"
                     href={`/inbox?c=${encodeURIComponent(task.conversation_id)}&followup=${encodeURIComponent(task.id)}`}
@@ -145,7 +206,19 @@ export function Agenda() {
                       <CalendarDays />
                     </span>
                     <span>
-                      <strong>{kinds(task.kind)}</strong>
+                      <strong>
+                        {kinds(task.kind)}
+                        <span
+                          className="crm-agenda-task-status"
+                          data-overdue={
+                            Date.parse(task.due_at) < now || undefined
+                          }
+                        >
+                          {Date.parse(task.due_at) < now
+                            ? ft('overdue')
+                            : ft(`statuses.${task.status}`)}
+                        </span>
+                      </strong>
                       <small>
                         {task.conversation?.contact?.name ||
                           task.conversation?.contact?.phone}{' '}
@@ -162,27 +235,50 @@ export function Agenda() {
                     </span>
                     <ArrowUpRight className="rtl:-scale-x-100" />
                   </Link>
+                  <div className="crm-agenda-task-actions">
+                    {canSendMessages &&
+                      task.status === 'open' &&
+                      (!task.owner_id || task.owner_id === user?.id) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busyTask !== null}
+                          onClick={() => void takeTask(task)}
+                        >
+                          {busyTask === task.id ? t('saving') : ft('take')}
+                        </Button>
+                      )}
+                    <Link
+                      href={`/inbox?c=${encodeURIComponent(task.conversation_id)}&followup=${encodeURIComponent(task.id)}`}
+                      className="crm-agenda-task-manage"
+                    >
+                      {ft('update')}
+                    </Link>
+                  </div>
                 </li>
               ))}
             </ul>
           ) : (
-            <div className="crm-agenda-empty">{t('noFollowups')}</div>
+            <div className="crm-agenda-empty crm-agenda-clear">
+              <CalendarDays aria-hidden="true" />
+              <span>{t('noFollowups')}</span>
+            </div>
           )}
         </section>
       </div>
       {data?.membersAvailable && data.members.length > 0 && (
-        <div className="text-muted-foreground mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 px-1 text-xs">
+        <div className="crm-dashboard-team">
           <span>{t('team')}</span>
           {data.members.map((member) => {
             const status = getPresence(member.user_id);
             return (
-              <span
-                key={member.user_id}
-                className="inline-flex items-center gap-2"
-              >
+              <span key={member.user_id} className="crm-dashboard-member">
+                <span className="crm-member-avatar" aria-hidden="true">
+                  {member.full_name?.slice(0, 1) || '?'}
+                </span>
                 <span
                   aria-hidden
-                  className={`h-1.5 w-1.5 rounded-full ${status === 'online' ? 'bg-emerald-500' : status === 'away' ? 'bg-amber-500' : 'bg-muted-foreground'}`}
+                  className={`h-1.5 w-1.5 rounded-full ${status === 'online' ? 'bg-success' : status === 'away' ? 'bg-warning' : 'bg-muted-foreground'}`}
                 />
                 {member.full_name}
                 <span className="sr-only">{t(status)}</span>

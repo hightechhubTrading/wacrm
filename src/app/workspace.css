@@ -358,3 +358,54 @@
     min-height: 68px;
   }
 }
+
+.crm-day-overview-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.crm-day-overview-heading h2 {
+  font-size: 20px;
+  font-weight: 600;
+}
+.crm-day-overview-heading p {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  margin-top: 5px;
+}
+.crm-day-overview-heading > a {
+  flex-shrink: 0;
+}
+.crm-agenda-task-status {
+  display: inline-block;
+  margin-inline-start: 8px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+.crm-agenda-task-status[data-overdue] {
+  color: var(--warning);
+}
+.crm-agenda-task-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px 10px;
+  padding-inline-start: 58px;
+}
+.crm-agenda-task-manage {
+  color: var(--primary);
+  font-size: 12px;
+}
+.crm-agenda-task-manage:hover {
+  text-decoration: underline;
+}
+@media (max-width: 639px) {
+  .crm-day-overview-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+}

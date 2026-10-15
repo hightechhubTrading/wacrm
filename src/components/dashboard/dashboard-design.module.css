@@ -1,0 +1,513 @@
+.surface {
+  color: var(--foreground);
+  --dashboard-sage: #6d9385;
+  --dashboard-sky: #7e9baa;
+  --dashboard-sand: #bd9a64;
+  --dashboard-rose: #b48c88;
+  gap: 28px;
+  padding-block: 8px 32px;
+}
+.surface :global(.crm-dashboard-bottom .recharts-cartesian-axis-tick-value) {
+  fill: var(--muted-foreground);
+}
+.surface :global(.crm-dashboard-bottom .recharts-bar-rectangle rect),
+.surface :global(.crm-dashboard-bottom .recharts-bar-rectangle path) {
+  fill: var(--dashboard-sage);
+}
+.surface :global(.crm-dashboard-welcome) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding-block: 0 2px;
+}
+.surface :global(.crm-dashboard-eyebrow) {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  margin-bottom: 10px;
+}
+.surface :global(.crm-dashboard-welcome h1) {
+  font-size: clamp(26px, 3.5cqw, 38px);
+  line-height: 1.15;
+  font-weight: 550;
+  letter-spacing: -0.045em;
+}
+.surface :global(.crm-dashboard-subtitle) {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  margin-top: 8px;
+}
+.surface :global(.crm-dashboard-calendar) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 15px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 12px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.surface :global(.crm-dashboard-section-heading) {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+.surface :global(.crm-dashboard-section-heading p) {
+  font-size: 10px;
+  color: var(--muted-foreground);
+  margin-bottom: 5px;
+}
+.surface :global(.crm-dashboard-section-heading h2) {
+  font-size: 20px;
+  line-height: 1.25;
+  font-weight: 550;
+  letter-spacing: -0.03em;
+}
+.surface :global(.crm-dashboard-section-heading > span) {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.surface :global(.crm-dashboard-metrics) {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.surface :global(.crm-dashboard-metric-skeleton) {
+  min-height: 190px;
+  border-radius: 22px;
+}
+.surface :global(.crm-metric) {
+  --metric-tone: var(--dashboard-sage);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 190px;
+  padding: 20px;
+  background: color-mix(in srgb, var(--metric-tone) 7%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--metric-tone) 15%, var(--border));
+  border-radius: 22px;
+  box-shadow: none;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+.surface :global(.crm-metric[data-tone='sky']) {
+  --metric-tone: var(--dashboard-sky);
+}
+.surface :global(.crm-metric[data-tone='sand']) {
+  --metric-tone: var(--dashboard-sand);
+}
+.surface :global(.crm-metric[data-tone='rose']) {
+  --metric-tone: var(--dashboard-rose);
+}
+.surface :global(.crm-metric[data-tone]:first-child) {
+  background: color-mix(in srgb, var(--metric-tone) 7%, var(--card));
+  color: var(--foreground);
+}
+.surface :global(.crm-metric:first-child p),
+.surface :global(.crm-metric:first-child > div) {
+  color: var(--foreground);
+}
+.surface :global(.crm-metric:first-child .crm-metric-icon) {
+  background: color-mix(in srgb, var(--metric-tone) 14%, var(--card));
+  color: var(--foreground);
+}
+.surface :global(.crm-metric > div:first-child) {
+  align-items: center;
+  gap: 6px;
+}
+.surface :global(.crm-metric > div:first-child > p) {
+  font-size: 11px;
+  line-height: 1.4;
+  max-width: 16ch;
+  color: var(--foreground);
+}
+.surface :global(.crm-metric-icon) {
+  background: color-mix(in srgb, var(--metric-tone) 14%, var(--card));
+  color: var(--foreground);
+  border-radius: 11px;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+}
+.surface :global(.crm-metric > p:nth-of-type(1)) {
+  font-size: clamp(25px, 3cqw, 36px);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  margin-top: 15px;
+  overflow-wrap: anywhere;
+}
+.surface :global(.crm-metric > p:nth-of-type(2)),
+.surface
+  :global(.crm-metric > div:nth-last-child(2):not(.crm-metric-comparison)) {
+  font-size: 10px;
+}
+.surface :global(.crm-metric-watermark) {
+  position: absolute;
+  bottom: 12px;
+  inset-inline-end: 12px;
+  width: 68px;
+  height: 68px;
+  color: var(--metric-tone);
+  opacity: 0.08;
+  z-index: -1;
+  stroke-width: 1;
+}
+.surface :global(.crm-metric-link) {
+  width: 13px;
+  height: 13px;
+  color: var(--muted-foreground);
+  position: absolute;
+  bottom: 18px;
+  inset-inline-end: 18px;
+}
+.surface :global(.crm-metric-comparison) {
+  padding-inline-end: 16px;
+  margin-top: auto;
+  padding-top: 14px;
+}
+.surface :global(.crm-metric-comparison > div) {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted-foreground);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  margin-top: 5px;
+}
+.surface :global(.crm-metric-track) {
+  height: 4px;
+  background: color-mix(in srgb, var(--metric-tone) 12%, var(--card));
+  overflow: hidden;
+  border-radius: 2px;
+}
+.surface :global(.crm-metric-track > span) {
+  display: block;
+  height: 100%;
+  background: var(--metric-tone);
+  transform-origin: left;
+}
+.surface :global(.crm-metric-comparison > div + div .crm-metric-track > span) {
+  opacity: 0.4;
+}
+.surface :global(.crm-quick-actions) {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--card);
+}
+.surface :global(.crm-quick-action) {
+  border: 0;
+  padding: 12px;
+  border-radius: 12px;
+  gap: 10px;
+  background: transparent;
+}
+.surface :global(.crm-action-symbol) {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+.surface :global(.crm-quick-action > span) {
+  font-size: 11px;
+}
+.surface :global(.crm-action-arrow) {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  margin-inline-start: auto;
+  color: var(--muted-foreground);
+}
+.surface :global(.crm-agenda-grid) {
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+}
+.surface :global(.crm-agenda-panel) {
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 22px;
+  background: var(--card);
+}
+.surface :global(.crm-attention-panel) {
+  --panel-tone: var(--dashboard-sand);
+  border-top: 1px solid var(--border);
+}
+.surface :global(.crm-schedule-panel) {
+  --panel-tone: var(--dashboard-sage);
+}
+.surface :global(.crm-panel-heading) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.surface :global(.crm-panel-heading h2) {
+  font-size: 15px;
+  font-weight: 550;
+}
+.surface :global(.crm-panel-symbol) {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--panel-tone) 13%, var(--card));
+  color: var(--foreground);
+}
+.surface :global(.crm-panel-symbol svg) {
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.5;
+}
+.surface :global(.crm-panel-count) {
+  margin-inline-start: auto;
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.surface :global(.crm-agenda-panel > p) {
+  font-size: 11px;
+  margin-top: 12px;
+}
+.surface :global(.crm-agenda-avatar) {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-tone) 11%, var(--card));
+  color: var(--foreground);
+}
+.surface :global(.crm-agenda-row) {
+  padding: 12px 4px;
+}
+.surface :global(.crm-agenda-row strong) {
+  font-size: 12px;
+}
+.surface :global(.crm-agenda-row small) {
+  font-size: 11px;
+  line-height: 1.5;
+}
+.surface :global(.crm-agenda-brief) {
+  margin-top: 14px;
+  padding: 12px 14px;
+  font-size: 11px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-tone) 10%, var(--card));
+}
+.surface :global(.crm-agenda-brief svg) {
+  color: var(--muted-foreground);
+  width: 15px;
+}
+.surface :global(.crm-agenda-clear) {
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 12px;
+  text-align: center;
+}
+.surface :global(.crm-agenda-clear > svg) {
+  width: 48px;
+  height: 48px;
+  padding: 12px;
+  box-sizing: content-box;
+  border: 1px solid color-mix(in srgb, var(--panel-tone) 20%, var(--border));
+  background: color-mix(in srgb, var(--panel-tone) 8%, var(--card));
+  border-radius: 22px;
+  color: var(--panel-tone);
+  stroke-width: 1.2;
+}
+.surface :global(.crm-dashboard-team) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 20px;
+  margin-top: 18px;
+  padding-inline: 4px;
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+.surface :global(.crm-dashboard-member) {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.surface :global(.crm-member-avatar) {
+  display: grid;
+  place-items: center;
+  height: 25px;
+  width: 25px;
+  border-radius: 8px;
+  font-size: 10px;
+  color: var(--foreground);
+  background: var(--muted);
+}
+.surface :global(.crm-dashboard-charts) {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+.surface :global(.crm-dashboard-bottom) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 18px;
+  align-items: start;
+}
+.surface :global(.crm-dashboard-charts > section),
+.surface :global(.crm-dashboard-bottom > section) {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: none;
+}
+.surface :global(.crm-dashboard-charts > section > header),
+.surface :global(.crm-dashboard-bottom > section > header) {
+  border-color: transparent;
+  padding: 22px 22px 12px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.surface :global(.crm-dashboard-charts > section > footer),
+.surface :global(.crm-dashboard-bottom > section > footer) {
+  border-color: var(--border);
+  font-size: 10px;
+}
+.surface :global(.crm-dashboard-charts h2),
+.surface :global(.crm-dashboard-bottom h2) {
+  font-size: 13px;
+  font-weight: 550;
+}
+.surface :global(.crm-dashboard-charts header p),
+.surface :global(.crm-dashboard-bottom header p) {
+  font-size: 10px;
+  line-height: 1.5;
+}
+.surface :global(.crm-activity-row) {
+  position: relative;
+  padding: 14px 22px;
+  align-items: start;
+}
+.surface :global(.crm-dashboard-activity li) {
+  border-color: transparent;
+}
+.surface
+  :global(
+    .crm-dashboard-activity li:not(:last-child) .crm-activity-row::after
+  ) {
+  content: '';
+  position: absolute;
+  inset-inline-start: 35px;
+  top: 42px;
+  bottom: -8px;
+  width: 1px;
+  background: var(--border);
+}
+.surface :global(.crm-activity-row > span:first-child) {
+  border-radius: 9px;
+  width: 28px;
+  height: 28px;
+}
+.surface :global(.crm-activity-row > span:nth-child(2)) {
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.surface :global(.crm-activity-row > span:last-child) {
+  font-size: 9px;
+  padding-top: 2px;
+}
+.surface :global(a:focus-visible),
+.surface :global(button:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .surface :global(.crm-metric:hover) {
+    border-color: var(--metric-tone);
+    background: color-mix(in srgb, var(--metric-tone) 11%, var(--card));
+  }
+  .surface :global(.crm-quick-action:hover) {
+    background: var(--muted);
+  }
+}
+@container dashboard-widgets (max-width: 900px) {
+  .surface :global(.crm-dashboard-metrics) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .surface :global(.crm-dashboard-charts),
+  .surface :global(.crm-dashboard-bottom) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@container dashboard-widgets (max-width: 680px) {
+  .surface :global(.crm-dashboard-calendar) {
+    display: none;
+  }
+  .surface :global(.crm-dashboard-section-heading > span) {
+    display: none;
+  }
+  .surface :global(.crm-agenda-grid) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .surface :global(.crm-quick-actions) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .surface :global(.crm-dashboard-charts > section > header) {
+    align-items: start;
+  }
+}
+@container dashboard-widgets (max-width: 380px) {
+  .surface :global(.crm-metric) {
+    padding: 15px;
+  }
+  .surface :global(.crm-metric > div:first-child) {
+    align-items: start;
+  }
+  .surface :global(.crm-metric-icon) {
+    width: 26px;
+    height: 26px;
+  }
+  .surface :global(.crm-action-symbol) {
+    width: 26px;
+    height: 26px;
+  }
+  .surface :global(.crm-quick-action) {
+    padding: 10px 6px;
+    gap: 6px;
+  }
+  .surface :global(.crm-action-arrow) {
+    display: none;
+  }
+  .surface :global(.crm-metric-comparison > div) {
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    font-size: 8px;
+  }
+}
+:global([dir='rtl']) .surface :global(.crm-metric-track > span) {
+  transform-origin: right;
+}

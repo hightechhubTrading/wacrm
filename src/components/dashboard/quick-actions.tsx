@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { UserPlus, Briefcase, Radio, Zap } from 'lucide-react';
+import { UserPlus, Briefcase, Radio, Zap, ArrowUpRight } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 import { useTranslations } from 'next-intl';
@@ -48,7 +48,7 @@ export function QuickActions() {
   const t = useTranslations('Dashboard.quickActions');
 
   return (
-    <div className="crm-quick-actions">
+    <nav aria-label={t('title')} className="crm-quick-actions">
       {ACTIONS.map((a) => {
         const Icon = a.icon;
         return (
@@ -58,16 +58,20 @@ export function QuickActions() {
             className="crm-quick-action group bg-card hover:bg-muted/60 flex items-center gap-3 transition-colors"
           >
             <div
-              className={`flex h-5 w-5 items-center justify-center ${a.tint}`}
+              className={`crm-action-symbol flex h-5 w-5 items-center justify-center ${a.tint}`}
             >
               <Icon className="h-4 w-4" />
             </div>
             <span className="text-foreground text-sm font-medium">
               {t(a.labelKey as string)}
             </span>
+            <ArrowUpRight
+              className="crm-action-arrow rtl:-scale-x-100"
+              aria-hidden="true"
+            />
           </Link>
         );
       })}
-    </div>
+    </nav>
   );
 }

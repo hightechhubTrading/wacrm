@@ -67,7 +67,69 @@
     "switchMode": "التبديل إلى وضع {mode}"
   },
   "Dashboard": {
+    "workday": {
+      "title": "رفيق يوم العمل",
+      "chooseBuddy": "اختر رفيق يوم العمل",
+      "buddies": {
+        "cat": "قط المكتب",
+        "robot": "روبوت صغير",
+        "coffee": "رفيق القهوة"
+      },
+      "working": "وقت العمل",
+      "upcoming": "قبل بدء العمل",
+      "finished": "انتهى يوم العمل",
+      "off": "يوم راحة",
+      "unconfigured": "حدّد ساعات العمل",
+      "invalid": "تحقّق من الجدول",
+      "unavailable": "الجدول غير متاح",
+      "loading": "جارٍ تحميل الجدول…",
+      "remaining": "حتى نهاية يوم العمل",
+      "takeABreath": "وقت لالتقاط الأنفاس",
+      "timeRemaining": "متبقٍ {hours} ساعة و{minutes} دقيقة و{seconds} ثانية",
+      "hours": "ساعة",
+      "minutes": "دقيقة",
+      "seconds": "ثانية",
+      "closesAt": "ينتهي العمل عند {time}",
+      "finishedHint": "انتهى يوم العمل. حان وقت الراحة.",
+      "offHint": "لا توجد ساعات عمل مقرّرة اليوم.",
+      "unconfiguredHint": "حدّد ساعات العمل لبدء العدّ التنازلي.",
+      "invalidHint": "تحقّق من ساعات العمل والمنطقة الزمنية في وكلاء الذكاء الاصطناعي ← الإعداد.",
+      "unavailableHint": "تعذّر تحميل ساعات العمل.",
+      "loadingHint": "حسب ساعات العمل لحسابك.",
+      "accountSchedule": "جدول الحساب",
+      "businessHours": "ساعات العمل",
+      "retry": "إعادة المحاولة"
+    },
+    "weather": {
+      "title": "الطقس",
+      "location": "الدوحة، قطر",
+      "outlook": "الأيام الثلاثة القادمة",
+      "clear": "سماء صافية",
+      "partlyCloudy": "غائم جزئياً",
+      "cloudy": "غائم",
+      "fog": "ضباب",
+      "storm": "عواصف رعدية",
+      "snow": "ثلوج",
+      "rain": "أمطار",
+      "feelsLike": "المحسوسة {value}°",
+      "wind": "{value} كم/س",
+      "humidity": "الرطوبة {value}%",
+      "refresh": "تحديث الطقس",
+      "unavailable": "الطقس غير متاح. حاول التحديث.",
+      "loading": "جارٍ تحديث الطقس…",
+      "forecastHint": "ستظهر توقعات الطقس هنا.",
+      "stale": "تعذّر التحديث · عرض آخر تحديث",
+      "updated": "يتحدّث كل ١٥ دقيقة"
+    },
     "page": {
+      "overviewEyebrow": "مساحة عملك",
+      "overviewTitle": "اليوم بالأرقام",
+      "overviewHint": "لمحة عن نشاط حسابك",
+      "today": "اليوم",
+      "yesterday": "أمس",
+      "insightsEyebrow": "الصورة الأوسع",
+      "insightsTitle": "المحادثات والفرص",
+      "insightsHint": "اكتشف النشاط وراء الأرقام",
       "title": "لوحة التحكم",
       "description": "تحليلات مباشرة للمحادثات وجهات الاتصال والصفقات والرسائل الجماعية والأتمتة.",
       "activeConversations": "المحادثات النشطة",
@@ -83,6 +145,7 @@
       "retry": "حاول مجدداً"
     },
     "quickActions": {
+      "title": "إجراءات سريعة",
       "newContact": "جهة اتصال جديدة",
       "newDeal": "صفقة جديدة",
       "newBroadcast": "رسالة جماعية جديدة",
@@ -153,7 +216,11 @@
       "team": "فريقك",
       "online": "متصل",
       "away": "بعيد",
-      "offline": "غير متصل"
+      "offline": "غير متصل",
+      "actionHint": "المحادثات المهمة والمتابعات القادمة في مكان واحد.",
+      "openInbox": "فتح الوارد",
+      "taskTaken": "تم استلام المهمة",
+      "saving": "جارٍ الحفظ…"
     }
   },
   "Inbox": {

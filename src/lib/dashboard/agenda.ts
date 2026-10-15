@@ -9,6 +9,8 @@ import type { FollowupKind } from '@/lib/ai/followups';
 export interface AgendaTask {
   id: string;
   kind: FollowupKind;
+  status: 'open' | 'acknowledged' | 'deferred';
+  owner_id: string | null;
   due_at: string;
   conversation_id: string;
   conversation: { contact: { name?: string; phone: string } | null };
@@ -19,6 +21,7 @@ export interface AgendaData {
   unreadCount: number;
   attentionAvailable: boolean;
   tasks: AgendaTask[];
+  taskCount: number;
   tasksAvailable: boolean;
   members: { user_id: string; full_name: string }[];
   membersAvailable: boolean;
@@ -49,7 +52,8 @@ export async function loadAgenda(
     db
       .from('ai_followups')
       .select(
-        'id,kind,due_at,conversation_id,conversation:conversations!inner(contact:contacts(name,phone),status)'
+        'id,kind,status,owner_id,due_at,conversation_id,conversation:conversations!inner(contact:contacts(name,phone),status)',
+        { count: 'exact' }
       )
       .eq('account_id', accountId)
       .in('status', ['open', 'acknowledged', 'deferred'])
@@ -78,6 +82,7 @@ export async function loadAgenda(
     unreadCount: unread.count ?? 0,
     attentionAvailable: !priority.error && !unread.error,
     tasks: (tasks.data ?? []) as unknown as AgendaTask[],
+    taskCount: tasks.count ?? 0,
     tasksAvailable: !tasks.error,
     members: members.data ?? [],
     membersAvailable: !members.error,
