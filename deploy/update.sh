@@ -24,7 +24,11 @@ else
   docker tag "$previous" wacrm:rollback
 fi
 echo "Building $branch at $revision"
-docker compose build --builder wacrm-builder --pull --build-arg SOURCE_COMMIT="$revision" wacrm
+if ! docker compose build --builder wacrm-builder --pull --build-arg SOURCE_COMMIT="$revision" wacrm; then
+  docker buildx stop wacrm-builder
+  exit 1
+fi
+docker buildx stop wacrm-builder
 candidate="wacrm-candidate-$$"
 envfile=$(mktemp .candidate-env.XXXXXX)
 chmod 600 "$envfile"
@@ -34,10 +38,10 @@ cleanup() {
 }
 trap cleanup EXIT
 docker inspect wacrm | python3 -c 'import sys,json; print("\n".join(json.load(sys.stdin)[0]["Config"]["Env"]))' > "$envfile"
-docker run -d --name "$candidate" --network hth_default --memory 512m --cpus 1 --env-file "$envfile" wacrm:latest >/dev/null
+docker run -d --name "$candidate" --network hth_default --memory 768m --cpus 1 --env-file "$envfile" wacrm:latest >/dev/null
 check_container() {
   docker exec -i "$1" node <<'JS'
-(async()=>{for(let i=0;i<45;i++){try{const r=await fetch('http://127.0.0.1:3000/login',{signal:AbortSignal.timeout(3000)});if(r.status===200){for(const path of ['/api/whatsapp/calls','/api/whatsapp/calls/audio-config']){const response=await fetch('http://127.0.0.1:3000'+path,{signal:AbortSignal.timeout(5000)});if(response.status!==401)throw Error(path+' auth check failed');}return;}}catch{}await new Promise(r=>setTimeout(r,1000));}throw Error('Application did not become healthy');})().catch(e=>{console.error(e.message);process.exit(1)});
+(async()=>{for(let i=0;i<45;i++){try{const r=await fetch('http://127.0.0.1:3000/login',{signal:AbortSignal.timeout(3000)});if(r.status===200){for(const path of ['/api/whatsapp/calls','/api/whatsapp/calls/audio-config']){const response=await fetch('http://127.0.0.1:3000'+path,{signal:AbortSignal.timeout(5000)});if(response.status!==401)throw Error(path+' auth check failed');}const browser=await require('playwright').chromium.launch();try{const page=await browser.newPage();await page.setContent('<p>Deployment PDF check</p>');const pdf=await page.pdf();if(pdf.subarray(0,4).toString()!=='%PDF')throw Error('PDF check failed');}finally{await browser.close();}return;}}catch{}await new Promise(r=>setTimeout(r,1000));}throw Error('Application did not become healthy');})().catch(e=>{console.error(e.message);process.exit(1)});
 JS
 }
 check_container "$candidate"
