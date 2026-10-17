@@ -57,3 +57,46 @@ Manual `docker compose build --pull wacrm` now fetches the configured branch, to
 Use `./update.sh` for the resource cap, revision recording, candidate check and
 rollback. Building alone does not restart the running app. Pushing a commit to
 GitHub does not automatically deploy it.
+
+## Reverse-proxy network requirement
+
+The app's internal health check does not prove the public reverse proxy can
+reach it. On the current VPS, Traefik is `chatwoot-traefik-1` and must share
+`hth_hth_default` with `wacrm`. Keep this connection in the proxy's Compose
+configuration, not just in a one-time `docker network connect` command:
+
+```yaml
+# /root/chatwoot/docker-compose.yml — merge with existing settings
+services:
+  traefik:
+    networks:
+      - chatwoot-net
+      - wacrm_proxy
+networks:
+  wacrm_proxy:
+    external: true
+    name: hth_hth_default
+```
+
+The app's server-owned Compose file must also include this label:
+
+```yaml
+services:
+  wacrm:
+    labels:
+      - traefik.docker.network=hth_hth_default
+```
+
+On 2026-10-17, the current application revision responded internally while
+public requests returned Gateway Timeout: the proxy only belonged to
+`chatwoot_chatwoot-net`, and logged timeouts dialing the app's `172.16.6.4:3000`
+address. The proxy was attached to the shared network, both Compose files were
+updated, and only the app was recreated after checking that no calls were active.
+The deployed app remained at `ab046e9d009c45f74eae7585dd53cd8b5b127e32`.
+Backups are in `/docker/wacrm/backups/network-recovery-20261017T092156Z`.
+Public checks returned login 200, unauthenticated inbox redirect 307 and
+protected calls endpoint 401. Temporary recovery SSH access was removed.
+
+The updater now checks the public `/login` URL from `NEXT_PUBLIC_SITE_URL`
+before declaring promotion successful. An unreachable public route fails the
+update and invokes its existing rollback path.

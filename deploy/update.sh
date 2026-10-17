@@ -63,6 +63,11 @@ rollback() {
 trap rollback ERR
 docker compose up -d --no-build --no-deps --force-recreate wacrm
 check_container wacrm
+# A healthy localhost response does not verify Traefik can reach the app.
+# Keep the rollback trap active until the public HTTPS route responds, too.
+public_login=$(docker exec wacrm node -e 'const url = new URL("/login", process.env.NEXT_PUBLIC_SITE_URL); if (url.protocol !== "https:") throw Error("Expected an HTTPS public site URL"); console.log(url.href)')
+public_status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --connect-timeout 5 --max-time 15 --retry 2 --retry-delay 1 "$public_login")
+[[ $public_status == 200 ]] || { echo "Public login health check failed (HTTP $public_status). Check the proxy Docker network." >&2; false; }
 actual=$(docker exec wacrm cat /app/.next/REVISION)
 [[ $actual == "$revision" ]]
 trap - ERR
