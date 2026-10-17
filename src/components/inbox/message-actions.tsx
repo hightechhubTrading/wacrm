@@ -56,6 +56,7 @@ export function MessageActions({
   // it, suppress the native menu, and pin the toolbar open until the user
   // interacts elsewhere.
   const [touchOpen, setTouchOpen] = useState(false);
+  const [interactive, setInteractive] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [translateOpen, setTranslateOpen] = useState(false);
   const [targetLanguage, setTargetLanguage] = useState(defaultTargetLanguage);
@@ -131,21 +132,44 @@ export function MessageActions({
       // the interface language. Content keeps its own text direction.
       dir="ltr"
       id={`message-${message.id}`}
-      tabIndex={-1}
+      tabIndex={0}
       data-continuation={continuation || undefined}
       className={cn(
         'crm-message-row flex w-full',
         isAgent ? 'justify-end' : 'justify-start'
       )}
       onContextMenu={handleContextMenu}
-      onBlur={() => setTouchOpen(false)}
+      onFocusCapture={() => setInteractive(true)}
+      onBlur={(event) => {
+        setTouchOpen(false);
+        if (
+          !event.currentTarget.contains(event.relatedTarget) &&
+          !pickerOpen &&
+          !translateOpen
+        )
+          setInteractive(false);
+      }}
     >
       {/* `min-w-0` lets this flex child actually respect the 75% cap.
        *  Default `min-width: auto` lets content (a long quote preview,
        *  an unbroken URL) push past the cap and shove the row past
        *  100%, which used to bleed across into the contact-sidebar
        *  area. See issue #165. */}
-      <div className="crm-message-content group/actions relative max-w-[75%] min-w-0">
+      <div
+        className="crm-message-content group/actions relative max-w-[75%] min-w-0"
+        onPointerEnter={() => setInteractive(true)}
+        onPointerLeave={() => {
+          if (
+            !pickerOpen &&
+            !translateOpen &&
+            !touchOpen &&
+            !document.activeElement?.closest(
+              `#message-${CSS.escape(message.id)}`
+            )
+          )
+            setInteractive(false);
+        }}
+      >
         {children}
         {translation && (
           <div className="border-border bg-muted/50 mt-1 rounded-lg border px-3 py-2 text-sm">
@@ -157,87 +181,89 @@ export function MessageActions({
             </p>
           </div>
         )}
-        <div
-          data-touch-open={touchOpen || pickerOpen ? 'true' : undefined}
-          className={cn(
-            'border-border bg-popover/95 absolute -top-3 z-10 flex h-7 items-center gap-0.5 rounded-full border px-1 shadow-md backdrop-blur-sm transition-opacity',
-            'opacity-0 group-focus-within/actions:opacity-100 group-hover/actions:opacity-100',
-            'data-[touch-open=true]:opacity-100',
-            isAgent ? 'end-3' : 'start-3'
-          )}
-        >
-          <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-            <PopoverTrigger
-              className="text-popover-foreground hover:bg-muted hover:text-foreground flex h-5 w-5 items-center justify-center rounded-full"
-              aria-label={t('react')}
-            >
-              <SmilePlus className="h-3.5 w-3.5" />
-            </PopoverTrigger>
-            <PopoverContent
-              className="flex w-auto flex-row gap-1 p-1.5"
-              sideOffset={6}
-            >
-              {QUICK_EMOJIS.map((e) => (
-                <button
-                  key={e}
-                  type="button"
-                  onClick={() => handlePickEmoji(e)}
-                  className="hover:bg-muted flex h-8 w-8 items-center justify-center rounded-full text-lg leading-none transition-transform hover:scale-125"
-                  aria-label={t('reactWith', { emoji: e })}
-                >
-                  {e}
-                </button>
-              ))}
-            </PopoverContent>
-          </Popover>
-          <button
-            type="button"
-            onClick={handleReply}
-            className="text-popover-foreground hover:bg-muted hover:text-foreground flex h-5 w-5 items-center justify-center rounded-full"
-            aria-label={t('reply')}
+        {(interactive || touchOpen || pickerOpen || translateOpen) && (
+          <div
+            data-touch-open={touchOpen || pickerOpen ? 'true' : undefined}
+            className={cn(
+              'border-border bg-popover/95 absolute -top-3 z-10 flex h-7 items-center gap-0.5 rounded-full border px-1 shadow-md backdrop-blur-sm transition-opacity',
+              'opacity-0 group-focus-within/actions:opacity-100 group-hover/actions:opacity-100',
+              'data-[touch-open=true]:opacity-100',
+              isAgent ? 'end-3' : 'start-3'
+            )}
           >
-            <CornerUpLeft className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="text-popover-foreground hover:bg-muted hover:text-foreground flex h-5 w-5 items-center justify-center rounded-full"
-            aria-label={t('copyText')}
-          >
-            <Copy className="h-3.5 w-3.5" />
-          </button>
-          <Popover open={translateOpen} onOpenChange={setTranslateOpen}>
-            <PopoverTrigger
-              className="text-popover-foreground hover:bg-muted hover:text-foreground flex h-5 w-5 items-center justify-center rounded-full"
-              aria-label={t('translate')}
-            >
-              <Languages className="h-3.5 w-3.5" />
-            </PopoverTrigger>
-            <PopoverContent className="w-56 space-y-2 p-2" sideOffset={6}>
-              <Input
-                value={targetLanguage}
-                onChange={(e) => setTargetLanguage(e.target.value)}
-                placeholder={t('targetLanguagePlaceholder')}
-                className="h-8 text-sm"
-              />
-              <Button
-                size="sm"
-                className="w-full"
-                disabled={translating || !targetLanguage.trim()}
-                onClick={async () => {
-                  await handleTranslate();
-                  setTranslateOpen(false);
-                }}
+            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+              <PopoverTrigger
+                className="text-popover-foreground hover:bg-muted hover:text-foreground flex h-5 w-5 items-center justify-center rounded-full"
+                aria-label={t('react')}
               >
-                {translating ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  t('translate')
-                )}
-              </Button>
-            </PopoverContent>
-          </Popover>
-        </div>
+                <SmilePlus className="h-3.5 w-3.5" />
+              </PopoverTrigger>
+              <PopoverContent
+                className="flex w-auto flex-row gap-1 p-1.5"
+                sideOffset={6}
+              >
+                {QUICK_EMOJIS.map((e) => (
+                  <button
+                    key={e}
+                    type="button"
+                    onClick={() => handlePickEmoji(e)}
+                    className="hover:bg-muted flex h-8 w-8 items-center justify-center rounded-full text-lg leading-none transition-transform hover:scale-125"
+                    aria-label={t('reactWith', { emoji: e })}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+            <button
+              type="button"
+              onClick={handleReply}
+              className="text-popover-foreground hover:bg-muted hover:text-foreground flex h-5 w-5 items-center justify-center rounded-full"
+              aria-label={t('reply')}
+            >
+              <CornerUpLeft className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="text-popover-foreground hover:bg-muted hover:text-foreground flex h-5 w-5 items-center justify-center rounded-full"
+              aria-label={t('copyText')}
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </button>
+            <Popover open={translateOpen} onOpenChange={setTranslateOpen}>
+              <PopoverTrigger
+                className="text-popover-foreground hover:bg-muted hover:text-foreground flex h-5 w-5 items-center justify-center rounded-full"
+                aria-label={t('translate')}
+              >
+                <Languages className="h-3.5 w-3.5" />
+              </PopoverTrigger>
+              <PopoverContent className="w-56 space-y-2 p-2" sideOffset={6}>
+                <Input
+                  value={targetLanguage}
+                  onChange={(e) => setTargetLanguage(e.target.value)}
+                  placeholder={t('targetLanguagePlaceholder')}
+                  className="h-8 text-sm"
+                />
+                <Button
+                  size="sm"
+                  className="w-full"
+                  disabled={translating || !targetLanguage.trim()}
+                  onClick={async () => {
+                    await handleTranslate();
+                    setTranslateOpen(false);
+                  }}
+                >
+                  {translating ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    t('translate')
+                  )}
+                </Button>
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
       </div>
     </div>
   );

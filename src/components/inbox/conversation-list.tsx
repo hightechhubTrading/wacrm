@@ -48,11 +48,12 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { VirtualConversationList } from './virtual-conversation-list';
 
 interface ConversationListProps {
   activeConversationId: string | null;
   onSelect: (conversation: Conversation) => void;
+  onPrefetch?: (conversation: Conversation | null) => void;
   conversations: Conversation[];
   onConversationsLoaded: (conversations: Conversation[]) => void;
   /**
@@ -86,6 +87,7 @@ const UNASSIGNED_AGENT = '__unassigned__';
 export function ConversationList({
   activeConversationId,
   onSelect,
+  onPrefetch,
   conversations,
   onConversationsLoaded,
   resyncToken = 0,
@@ -808,7 +810,7 @@ export function ConversationList({
           every conversation instead of shrinking to the remaining
           space — the list then overflows and gets clipped by the
           parent's overflow-hidden with no scrollbar (issue #229). */}
-        <ScrollArea className="min-h-0 flex-1">
+        <div className="flex min-h-0 flex-1 flex-col">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
@@ -846,31 +848,29 @@ export function ConversationList({
               )}
             </div>
           ) : (
-            <div className="flex flex-col">
-              {sections.map(({ key, label, items }) => {
-                if (!items.length) return null;
-                return (
-                  <section key={key} aria-label={label}>
-                    <h3 className="crm-triage-group">
-                      <span>{label}</span>
-                      <span>{items.length}</span>
-                    </h3>
-                    {items.map((conv) => (
-                      <ConversationItem
-                        key={conv.id}
-                        conversation={conv}
-                        isActive={conv.id === activeConversationId}
-                        onSelect={handleSelect}
-                        t={t}
-                        profilesById={profilesById}
-                      />
-                    ))}
-                  </section>
-                );
-              })}
-            </div>
+            <VirtualConversationList
+              key={JSON.stringify([
+                search,
+                filter,
+                selectedTagIds,
+                selectedCompany,
+                selectedAgentId,
+                sort,
+              ])}
+              sections={sections}
+              renderItem={(conv) => (
+                <ConversationItem
+                  conversation={conv}
+                  isActive={conv.id === activeConversationId}
+                  onSelect={handleSelect}
+                  onPrefetch={onPrefetch}
+                  t={t}
+                  profilesById={profilesById}
+                />
+              )}
+            />
           )}
-        </ScrollArea>
+        </div>
       </div>
     </DirectionProvider>
   );
@@ -880,6 +880,7 @@ interface ConversationItemProps {
   conversation: Conversation;
   isActive: boolean;
   onSelect: (conversation: Conversation) => void;
+  onPrefetch?: (conversation: Conversation | null) => void;
   t: ReturnType<typeof useTranslations>;
   profilesById: Map<string, Profile>;
 }
@@ -888,6 +889,7 @@ function ConversationItem({
   conversation,
   isActive,
   onSelect,
+  onPrefetch,
   t,
   profilesById,
 }: ConversationItemProps) {
@@ -913,6 +915,10 @@ function ConversationItem({
   return (
     <button
       aria-current={isActive ? 'true' : undefined}
+      onPointerEnter={() => onPrefetch?.(conversation)}
+      onPointerLeave={() => onPrefetch?.(null)}
+      onFocus={() => onPrefetch?.(conversation)}
+      onBlur={() => onPrefetch?.(null)}
       onClick={handleClick}
       className={cn(
         'crm-conversation hover:bg-muted/50 flex items-start gap-3 transition-colors',

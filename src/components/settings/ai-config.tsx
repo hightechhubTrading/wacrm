@@ -11,6 +11,12 @@ import {
   EyeOff,
   AlertTriangle,
   ImageIcon,
+  PlugZap,
+  MessageSquare,
+  BookOpen,
+  Clock,
+  AudioLines,
+  ChevronRight,
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { formatDistanceToNow } from 'date-fns';
@@ -37,6 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { SalesAssistanceSettings } from './sales-assistance-settings';
+import { cn } from '@/lib/utils';
 import { SettingsPanelHead } from './settings-panel-head';
 import { AiKnowledgeCard } from './ai-knowledge';
 import { BusinessHoursCard } from './business-hours-card';
@@ -47,6 +54,23 @@ import type { AccountMember } from '@/types';
 import { fetchAccountMembers, memberLabel } from '@/lib/account/members';
 import { useLocale, useTranslations } from 'next-intl';
 import { DirectionProvider } from '@base-ui/react/direction-provider';
+
+type SetupSection =
+  | 'connection'
+  | 'behaviour'
+  | 'knowledge'
+  | 'capabilities'
+  | 'schedule'
+  | 'assistance';
+
+const SETUP_SECTIONS = [
+  { id: 'connection', icon: PlugZap },
+  { id: 'behaviour', icon: MessageSquare },
+  { id: 'knowledge', icon: BookOpen },
+  { id: 'capabilities', icon: AudioLines },
+  { id: 'schedule', icon: Clock },
+  { id: 'assistance', icon: Sparkles },
+] as const;
 
 const MASKED_KEY = '••••••••••••••••';
 
@@ -74,6 +98,7 @@ export function AiConfig() {
   const { accountId, accountRole, profileLoading } = useAuth();
   const canEdit = accountRole ? canEditSettings(accountRole) : false;
   const t = useTranslations('Settings.aiConfig');
+  const [section, setSection] = useState<SetupSection>('connection');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -229,7 +254,8 @@ export function AiConfig() {
       const data = await res.json();
       if (res.ok) {
         toast.success(t('testSuccess'));
-        await fetchConfig();
+        setLastKeyError(null);
+        setLastKeyErrorAt(null);
       } else {
         toast.error(data.error ?? t('testRejected'));
       }
@@ -298,10 +324,11 @@ export function AiConfig() {
 
   if (loading || profileLoading) {
     return (
-      <div className="text-muted-foreground flex items-center justify-center py-16">
-        <Loader2 className="me-2 h-4 w-4 animate-spin" /> {t('loadFailed')}{' '}
-        {/* Re-using label or a global one, wait, loading is better. Let's use useTranslations from overview or just hardcode Loading... actually I should add loading to aiConfig */}
-        {/* Wait, I didn't add loading to aiConfig. I'll just use loading. */}
+      <div
+        role="status"
+        className="text-muted-foreground flex items-center justify-center py-16"
+      >
+        <Loader2 className="me-2 h-4 w-4 animate-spin" /> {t('layout.loading')}
       </div>
     );
   }
@@ -312,8 +339,6 @@ export function AiConfig() {
     <DirectionProvider direction={locale === 'ar' ? 'rtl' : 'ltr'}>
       <div className="crm-ai-config">
         <SettingsPanelHead title={t('title')} description={t('description')} />
-
-        <SalesAssistanceSettings />
 
         {!canEdit && (
           <p className="border-border bg-muted/40 text-muted-foreground mb-4 rounded-md border px-3 py-2 text-sm">
@@ -341,413 +366,541 @@ export function AiConfig() {
           </Alert>
         )}
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Sparkles className="text-primary h-4 w-4" />{' '}
-                {t('providerAndKey')}
-              </CardTitle>
-              <CardDescription>{t('encryptionNotice')}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>{t('provider')}</Label>
-                  <Select
-                    value={provider}
-                    onValueChange={(v) => handleProviderChange(v as AiProvider)}
-                    disabled={disabled}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent align="start" alignItemWithTrigger={false}>
-                      <SelectItem value="openai">
-                        {PROVIDER_LABEL.openai}
-                      </SelectItem>
-                      <SelectItem value="anthropic">
-                        {PROVIDER_LABEL.anthropic}
-                      </SelectItem>
-                      <SelectItem value="gemini">
-                        {PROVIDER_LABEL.gemini}
-                      </SelectItem>
-                      <SelectItem value="deepseek">
-                        {PROVIDER_LABEL.deepseek}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+        <div className="crm-agent-setup-grid">
+          <label className="crm-agent-mobile-category space-y-2 text-sm font-medium">
+            {t('layout.navigation')}
+            <select
+              value={section}
+              onChange={(event) =>
+                setSection(event.target.value as SetupSection)
+              }
+              className="border-border bg-card text-foreground focus-visible:outline-ring block min-h-12 w-full rounded-lg border px-3 focus-visible:outline-2"
+            >
+              {SETUP_SECTIONS.map(({ id }) => (
+                <option key={id} value={id}>
+                  {t(`layout.${id}`)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <nav
+            aria-label={t('layout.navigation')}
+            className="crm-agent-setup-nav"
+          >
+            {SETUP_SECTIONS.map(({ id, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setSection(id)}
+                aria-current={section === id ? 'page' : undefined}
+                aria-controls={`agent-setup-${id}`}
+                className={cn(
+                  'crm-agent-setup-link',
+                  section === id && 'is-active'
+                )}
+              >
+                <Icon className="size-4 shrink-0" />
+                <span>{t(`layout.${id}`)}</span>
+                <ChevronRight className="ms-auto size-3.5 shrink-0 rtl:rotate-180" />
+              </button>
+            ))}
+          </nav>
+          <div className="min-w-0">
+            <div className="mb-6">
+              <h3 className="text-foreground text-lg font-semibold">
+                {t(`layout.${section}`)}
+              </h3>
+              <p className="text-muted-foreground mt-1 max-w-[62ch] text-sm leading-relaxed">
+                {t(`layout.${section}Hint`)}
+              </p>
+            </div>
+            <div
+              id="agent-setup-connection"
+              hidden={section !== 'connection'}
+              className="space-y-6"
+            >
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Sparkles className="text-primary h-4 w-4" />{' '}
+                    {t('providerAndKey')}
+                  </CardTitle>
+                  <CardDescription>{t('encryptionNotice')}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="ai-provider">{t('provider')}</Label>
+                      <Select
+                        items={Object.entries(PROVIDER_LABEL).map(
+                          ([value, label]) => ({ value, label })
+                        )}
+                        value={provider}
+                        onValueChange={(v) =>
+                          handleProviderChange(v as AiProvider)
+                        }
+                        disabled={disabled}
+                      >
+                        <SelectTrigger id="ai-provider" className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent
+                          align="start"
+                          alignItemWithTrigger={false}
+                        >
+                          <SelectItem value="openai">
+                            {PROVIDER_LABEL.openai}
+                          </SelectItem>
+                          <SelectItem value="anthropic">
+                            {PROVIDER_LABEL.anthropic}
+                          </SelectItem>
+                          <SelectItem value="gemini">
+                            {PROVIDER_LABEL.gemini}
+                          </SelectItem>
+                          <SelectItem value="deepseek">
+                            {PROVIDER_LABEL.deepseek}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="ai-model">{t('model')}</Label>
-                  <Input
-                    id="ai-model"
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    placeholder={AI_PROVIDER_DEFAULT_MODEL[provider]}
-                    disabled={disabled}
-                  />
-                </div>
-              </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ai-model">{t('model')}</Label>
+                      <Input
+                        id="ai-model"
+                        value={model}
+                        onChange={(e) => setModel(e.target.value)}
+                        placeholder={AI_PROVIDER_DEFAULT_MODEL[provider]}
+                        disabled={disabled}
+                      />
+                    </div>
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="ai-key">{t('apiKey')}</Label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
+                  <div className="space-y-2">
+                    <Label htmlFor="ai-key">{t('apiKey')}</Label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Input
+                          id="ai-key"
+                          type={showKey ? 'text' : 'password'}
+                          value={apiKey}
+                          onChange={(e) => {
+                            setApiKey(e.target.value);
+                            setKeyEdited(true);
+                          }}
+                          onFocus={() => {
+                            if (!keyEdited && hasStoredKey) {
+                              setApiKey('');
+                              setKeyEdited(true);
+                            }
+                          }}
+                          placeholder={KEY_PLACEHOLDER[provider]}
+                          disabled={disabled}
+                          autoComplete="off"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowKey((s) => !s)}
+                          className="text-muted-foreground hover:text-foreground absolute end-2 top-1/2 -translate-y-1/2"
+                          aria-label={t(
+                            showKey ? 'layout.hideKey' : 'layout.showKey'
+                          )}
+                        >
+                          {showKey ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={handleTest}
+                        disabled={disabled || testing}
+                      >
+                        {testing ? (
+                          <Loader2 className="me-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="me-2 h-4 w-4" />
+                        )}
+                        {t('testKey')}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            <div
+              id="agent-setup-behaviour"
+              hidden={section !== 'behaviour'}
+              className="space-y-6"
+            >
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">{t('behaviour')}</CardTitle>
+                  <CardDescription>{t('behaviourDesc')}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="ai-prompt">{t('businessContext')}</Label>
+                    <Textarea
+                      id="ai-prompt"
+                      dir="auto"
+                      value={systemPrompt}
+                      onChange={(e) => setSystemPrompt(e.target.value)}
+                      placeholder={t('promptPlaceholder')}
+                      rows={8}
+                      disabled={disabled}
+                    />
+                  </div>
+
+                  <div className="border-border flex items-center justify-between gap-6 border-b py-5 last:border-b-0">
+                    <div>
+                      <p className="text-foreground text-sm font-medium">
+                        {t('enableAssistant')}
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        {t('enableAssistantDesc')}
+                      </p>
+                    </div>
+                    <Switch
+                      aria-label={t('enableAssistant')}
+                      checked={isActive}
+                      onCheckedChange={setIsActive}
+                      disabled={disabled}
+                    />
+                  </div>
+
+                  <div className="border-border flex items-center justify-between gap-6 border-b py-5 last:border-b-0">
+                    <div>
+                      <p className="text-foreground text-sm font-medium">
+                        {t('autoReply')}
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        {t('autoReplyDesc')}
+                      </p>
+                    </div>
+                    <Switch
+                      aria-label={t('autoReply')}
+                      checked={autoReplyEnabled}
+                      onCheckedChange={setAutoReplyEnabled}
+                      disabled={disabled || !isActive}
+                    />
+                  </div>
+
+                  <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+                    <div>
+                      <Label htmlFor="ai-max">{t('maxAutoReplies')}</Label>
+                      <p className="text-muted-foreground text-xs">
+                        {t('maxAutoRepliesDesc')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <label className="text-muted-foreground flex items-center gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={unlimitedReplies}
+                          onChange={(e) =>
+                            setUnlimitedReplies(e.target.checked)
+                          }
+                          disabled={disabled || !autoReplyEnabled}
+                        />
+                        {t('layout.unlimited')}
+                      </label>
+                      <Input
+                        id="ai-max"
+                        type="number"
+                        min={1}
+                        value={maxPerConversation}
+                        onChange={(e) =>
+                          setMaxPerConversation(
+                            Math.max(1, Number(e.target.value) || 1)
+                          )
+                        }
+                        disabled={
+                          disabled || !autoReplyEnabled || unlimitedReplies
+                        }
+                        className="w-20"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="ai-handoff">{t('handoffTo')}</Label>
+                    <p className="text-muted-foreground text-xs">
+                      {t('handoffToDesc')}
+                    </p>
+                    <Select
+                      items={[
+                        { value: HANDOFF_QUEUE, label: t('handoffQueue') },
+                        ...members.map((m) => ({
+                          value: m.user_id,
+                          label: memberLabel(m),
+                        })),
+                      ]}
+                      value={handoffAgentId || HANDOFF_QUEUE}
+                      onValueChange={(v) =>
+                        setHandoffAgentId(!v || v === HANDOFF_QUEUE ? '' : v)
+                      }
+                      disabled={disabled || !autoReplyEnabled}
+                    >
+                      <SelectTrigger id="ai-handoff" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent align="start" alignItemWithTrigger={false}>
+                        <SelectItem value={HANDOFF_QUEUE}>
+                          {t('handoffQueue')}
+                        </SelectItem>
+                        {members.map((m) => (
+                          <SelectItem key={m.user_id} value={m.user_id}>
+                            {memberLabel(m)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            <div
+              id="agent-setup-knowledge"
+              hidden={section !== 'knowledge'}
+              className="space-y-6"
+            >
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t('embeddingsKey')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <Label htmlFor="ai-embeddings-key">
+                      {t('embeddingsKey')}{' '}
+                      <span className="text-muted-foreground font-normal">
+                        {t('optionalSemanticSearch')}
+                      </span>
+                    </Label>
                     <Input
-                      id="ai-key"
-                      type={showKey ? 'text' : 'password'}
-                      value={apiKey}
+                      id="ai-embeddings-key"
+                      type="password"
+                      value={embeddingsKey}
                       onChange={(e) => {
-                        setApiKey(e.target.value);
-                        setKeyEdited(true);
+                        setEmbeddingsKey(e.target.value);
+                        setEmbeddingsKeyEdited(true);
                       }}
                       onFocus={() => {
-                        if (!keyEdited && hasStoredKey) {
-                          setApiKey('');
-                          setKeyEdited(true);
+                        if (!embeddingsKeyEdited && hasStoredEmbeddingsKey) {
+                          setEmbeddingsKey('');
+                          setEmbeddingsKeyEdited(true);
                         }
                       }}
-                      placeholder={KEY_PLACEHOLDER[provider]}
+                      placeholder="sk-... (OpenAI)"
                       disabled={disabled}
                       autoComplete="off"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowKey((s) => !s)}
-                      className="text-muted-foreground hover:text-foreground absolute end-2 top-1/2 -translate-y-1/2"
-                      tabIndex={-1}
-                    >
-                      {showKey ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
+                    <p className="text-muted-foreground text-xs">
+                      {t('embeddingsHint', {
+                        sameKeyText:
+                          provider === 'openai' ? t('sameKeyText') : '',
+                      })}
+                    </p>
                   </div>
+                </CardContent>
+              </Card>
+              <AiKnowledgeCard
+                accountId={accountId}
+                canEdit={canEdit}
+                hasEmbeddingsKey={
+                  embeddingsKeyEdited
+                    ? embeddingsKey.trim().length > 0
+                    : hasStoredEmbeddingsKey
+                }
+              />
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <ImageIcon className="text-primary h-4 w-4" /> Product
+                    catalog
+                  </CardTitle>
+                  <CardDescription>
+                    Product photos and catalog files have moved to their own
+                    settings page, with a proper photo grid, batch upload, and
+                    AI-generated descriptions per photo.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
                   <Button
+                    type="button"
                     variant="outline"
-                    onClick={handleTest}
-                    disabled={disabled || testing}
+                    size="sm"
+                    onClick={() => router.push('/settings?tab=products')}
                   >
-                    {testing ? (
-                      <Loader2 className="me-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <CheckCircle2 className="me-2 h-4 w-4" />
-                    )}
-                    {t('testKey')}
+                    Open product catalog
                   </Button>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
 
-              <div className="space-y-2">
-                <Label htmlFor="ai-embeddings-key">
-                  {t('embeddingsKey')}{' '}
-                  <span className="text-muted-foreground font-normal">
-                    {t('optionalSemanticSearch')}
-                  </span>
-                </Label>
-                <Input
-                  id="ai-embeddings-key"
-                  type="password"
-                  value={embeddingsKey}
-                  onChange={(e) => {
-                    setEmbeddingsKey(e.target.value);
-                    setEmbeddingsKeyEdited(true);
-                  }}
-                  onFocus={() => {
-                    if (!embeddingsKeyEdited && hasStoredEmbeddingsKey) {
-                      setEmbeddingsKey('');
-                      setEmbeddingsKeyEdited(true);
-                    }
-                  }}
-                  placeholder="sk-... (OpenAI)"
-                  disabled={disabled}
-                  autoComplete="off"
-                />
-                <p className="text-muted-foreground text-xs">
-                  {t('embeddingsHint', {
-                    sameKeyText: provider === 'openai' ? t('sameKeyText') : '',
-                  })}
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label>
-                  {t('imageAnalysisKey')}{' '}
-                  <span className="text-muted-foreground font-normal">
-                    {t('optionalImageAnalysis')}
-                  </span>
-                </Label>
-                <div className="grid gap-2 sm:grid-cols-[auto_1fr]">
-                  <Select
-                    value={imageAnalysisProvider}
-                    onValueChange={(v) =>
-                      setImageAnalysisProvider(v as 'openai' | 'gemini')
-                    }
-                    disabled={disabled}
-                  >
-                    <SelectTrigger className="sm:w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent align="start" alignItemWithTrigger={false}>
-                      <SelectItem value="openai">
-                        {PROVIDER_LABEL.openai}
-                      </SelectItem>
-                      <SelectItem value="gemini">
-                        {PROVIDER_LABEL.gemini}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    id="ai-image-analysis-key"
-                    type="password"
-                    value={imageAnalysisKey}
-                    onChange={(e) => {
-                      setImageAnalysisKey(e.target.value);
-                      setImageAnalysisKeyEdited(true);
-                    }}
-                    onFocus={() => {
-                      if (
-                        !imageAnalysisKeyEdited &&
-                        hasStoredImageAnalysisKey
-                      ) {
-                        setImageAnalysisKey('');
-                        setImageAnalysisKeyEdited(true);
-                      }
-                    }}
-                    placeholder={KEY_PLACEHOLDER[imageAnalysisProvider]}
-                    disabled={disabled}
-                    autoComplete="off"
-                  />
-                </div>
-                <p className="text-muted-foreground text-xs">
-                  {t('imageAnalysisHint')}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{t('behaviour')}</CardTitle>
-              <CardDescription>{t('behaviourDesc')}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="ai-prompt">{t('businessContext')}</Label>
-                <Textarea
-                  id="ai-prompt"
-                  value={systemPrompt}
-                  onChange={(e) => setSystemPrompt(e.target.value)}
-                  placeholder={t('promptPlaceholder')}
-                  rows={5}
-                  disabled={disabled}
-                />
-              </div>
-
-              <div className="border-border flex items-center justify-between gap-4 rounded-md border p-3">
-                <div>
-                  <p className="text-foreground text-sm font-medium">
-                    {t('enableAssistant')}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {t('enableAssistantDesc')}
-                  </p>
-                </div>
-                <Switch
-                  checked={isActive}
-                  onCheckedChange={setIsActive}
-                  disabled={disabled}
-                />
-              </div>
-
-              <div className="border-border flex items-center justify-between gap-4 rounded-md border p-3">
-                <div>
-                  <p className="text-foreground text-sm font-medium">
-                    {t('autoReply')}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {t('autoReplyDesc')}
-                  </p>
-                </div>
-                <Switch
-                  checked={autoReplyEnabled}
-                  onCheckedChange={setAutoReplyEnabled}
-                  disabled={disabled || !isActive}
-                />
-              </div>
-
-              <div className="border-border flex items-center justify-between gap-4 rounded-md border p-3">
-                <div>
-                  <p className="text-foreground text-sm font-medium">
-                    {t('transcribeVoice')}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {hasStoredEmbeddingsKey
-                      ? t('transcribeVoiceDesc')
-                      : t('transcribeVoiceNeedsKey')}
-                  </p>
-                </div>
-                <Switch
-                  checked={transcribeVoiceMessages}
-                  onCheckedChange={setTranscribeVoiceMessages}
-                  disabled={disabled || !hasStoredEmbeddingsKey}
-                />
-              </div>
-
-              <div className="border-border flex items-center justify-between gap-4 rounded-md border p-3">
-                <div>
-                  <p className="text-foreground text-sm font-medium">
-                    {t('analyzeImages')}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {hasStoredImageAnalysisKey
-                      ? t('analyzeImagesDesc')
-                      : t('analyzeImagesNeedsKey')}
-                  </p>
-                </div>
-                <Switch
-                  checked={imageAnalysisEnabled}
-                  onCheckedChange={setImageAnalysisEnabled}
-                  disabled={disabled || !hasStoredImageAnalysisKey}
-                />
-              </div>
-
-              <div className="border-border flex items-center justify-between gap-4 rounded-md border p-3">
-                <div>
-                  <p className="text-foreground text-sm font-medium">
-                    {t('afterHoursTakeover')}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {t('afterHoursTakeoverDesc')}
-                  </p>
-                </div>
-                <Switch
-                  checked={afterHoursTakeoverEnabled}
-                  onCheckedChange={setAfterHoursTakeoverEnabled}
-                  disabled={disabled || !autoReplyEnabled}
-                />
-              </div>
-
-              <div className="border-border flex items-center justify-between gap-4 rounded-md border p-3">
-                <div>
-                  <p className="text-foreground text-sm font-medium">
-                    {t('pauseDuringBusinessHours')}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {t('pauseDuringBusinessHoursDesc')}
-                  </p>
-                </div>
-                <Switch
-                  checked={pauseDuringBusinessHours}
-                  onCheckedChange={setPauseDuringBusinessHours}
-                  disabled={disabled || !autoReplyEnabled}
-                />
-              </div>
-
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <Label htmlFor="ai-max">{t('maxAutoReplies')}</Label>
-                  <p className="text-muted-foreground text-xs">
-                    {t('maxAutoRepliesDesc')}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <label className="text-muted-foreground flex items-center gap-2 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={unlimitedReplies}
-                      onChange={(e) => setUnlimitedReplies(e.target.checked)}
+              <SocialLinksCard />
+            </div>
+            <div
+              id="agent-setup-capabilities"
+              hidden={section !== 'capabilities'}
+              className="space-y-6"
+            >
+              <Card>
+                <CardContent className="space-y-6 pt-2">
+                  <div className="space-y-2">
+                    <Label>
+                      {t('imageAnalysisKey')}{' '}
+                      <span className="text-muted-foreground font-normal">
+                        {t('optionalImageAnalysis')}
+                      </span>
+                    </Label>
+                    <div className="grid gap-2 sm:grid-cols-[auto_1fr]">
+                      <Select
+                        items={['openai', 'gemini'].map((value) => ({
+                          value,
+                          label: PROVIDER_LABEL[value as AiProvider],
+                        }))}
+                        value={imageAnalysisProvider}
+                        onValueChange={(v) =>
+                          setImageAnalysisProvider(v as 'openai' | 'gemini')
+                        }
+                        disabled={disabled}
+                      >
+                        <SelectTrigger className="sm:w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent
+                          align="start"
+                          alignItemWithTrigger={false}
+                        >
+                          <SelectItem value="openai">
+                            {PROVIDER_LABEL.openai}
+                          </SelectItem>
+                          <SelectItem value="gemini">
+                            {PROVIDER_LABEL.gemini}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        id="ai-image-analysis-key"
+                        type="password"
+                        value={imageAnalysisKey}
+                        onChange={(e) => {
+                          setImageAnalysisKey(e.target.value);
+                          setImageAnalysisKeyEdited(true);
+                        }}
+                        onFocus={() => {
+                          if (
+                            !imageAnalysisKeyEdited &&
+                            hasStoredImageAnalysisKey
+                          ) {
+                            setImageAnalysisKey('');
+                            setImageAnalysisKeyEdited(true);
+                          }
+                        }}
+                        placeholder={KEY_PLACEHOLDER[imageAnalysisProvider]}
+                        disabled={disabled}
+                        autoComplete="off"
+                      />
+                    </div>
+                    <p className="text-muted-foreground text-xs">
+                      {t('imageAnalysisHint')}
+                    </p>
+                  </div>
+                  <div className="border-border flex items-center justify-between gap-6 border-b py-5 last:border-b-0">
+                    <div>
+                      <p className="text-foreground text-sm font-medium">
+                        {t('transcribeVoice')}
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        {hasStoredEmbeddingsKey
+                          ? t('transcribeVoiceDesc')
+                          : t('transcribeVoiceNeedsKey')}
+                      </p>
+                    </div>
+                    <Switch
+                      aria-label={t('transcribeVoice')}
+                      checked={transcribeVoiceMessages}
+                      onCheckedChange={setTranscribeVoiceMessages}
+                      disabled={disabled || !hasStoredEmbeddingsKey}
+                    />
+                  </div>
+                  <div className="border-border flex items-center justify-between gap-6 border-b py-5 last:border-b-0">
+                    <div>
+                      <p className="text-foreground text-sm font-medium">
+                        {t('analyzeImages')}
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        {hasStoredImageAnalysisKey
+                          ? t('analyzeImagesDesc')
+                          : t('analyzeImagesNeedsKey')}
+                      </p>
+                    </div>
+                    <Switch
+                      aria-label={t('analyzeImages')}
+                      checked={imageAnalysisEnabled}
+                      onCheckedChange={setImageAnalysisEnabled}
+                      disabled={disabled || !hasStoredImageAnalysisKey}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            <div
+              id="agent-setup-schedule"
+              hidden={section !== 'schedule'}
+              className="space-y-6"
+            >
+              <Card>
+                <CardContent className="space-y-2 pt-2">
+                  <div className="border-border flex items-center justify-between gap-6 border-b py-5 last:border-b-0">
+                    <div>
+                      <p className="text-foreground text-sm font-medium">
+                        {t('afterHoursTakeover')}
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        {t('afterHoursTakeoverDesc')}
+                      </p>
+                    </div>
+                    <Switch
+                      aria-label={t('afterHoursTakeover')}
+                      checked={afterHoursTakeoverEnabled}
+                      onCheckedChange={setAfterHoursTakeoverEnabled}
                       disabled={disabled || !autoReplyEnabled}
                     />
-                    Unlimited
-                  </label>
-                  <Input
-                    id="ai-max"
-                    type="number"
-                    min={1}
-                    value={maxPerConversation}
-                    onChange={(e) =>
-                      setMaxPerConversation(
-                        Math.max(1, Number(e.target.value) || 1)
-                      )
-                    }
-                    disabled={disabled || !autoReplyEnabled || unlimitedReplies}
-                    className="w-20"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="ai-handoff">{t('handoffTo')}</Label>
-                <p className="text-muted-foreground text-xs">
-                  {t('handoffToDesc')}
-                </p>
-                <Select
-                  value={handoffAgentId || HANDOFF_QUEUE}
-                  onValueChange={(v) =>
-                    setHandoffAgentId(!v || v === HANDOFF_QUEUE ? '' : v)
-                  }
-                  disabled={disabled || !autoReplyEnabled}
-                >
-                  <SelectTrigger id="ai-handoff" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent align="start" alignItemWithTrigger={false}>
-                    <SelectItem value={HANDOFF_QUEUE}>
-                      {t('handoffQueue')}
-                    </SelectItem>
-                    {members.map((m) => (
-                      <SelectItem key={m.user_id} value={m.user_id}>
-                        {memberLabel(m)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          <AiKnowledgeCard
-            accountId={accountId}
-            canEdit={canEdit}
-            hasEmbeddingsKey={
-              embeddingsKeyEdited
-                ? embeddingsKey.trim().length > 0
-                : hasStoredEmbeddingsKey
-            }
-          />
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <ImageIcon className="text-primary h-4 w-4" /> Product catalog
-              </CardTitle>
-              <CardDescription>
-                Product photos and catalog files have moved to their own
-                settings page, with a proper photo grid, batch upload, and
-                AI-generated descriptions per photo.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => router.push('/settings?tab=products')}
-              >
-                Open product catalog
-              </Button>
-            </CardContent>
-          </Card>
-
-          <BusinessHoursCard />
-
-          <SocialLinksCard />
-
-          <div className="flex items-center justify-between">
+                  </div>
+                  <div className="border-border flex items-center justify-between gap-6 border-b py-5 last:border-b-0">
+                    <div>
+                      <p className="text-foreground text-sm font-medium">
+                        {t('pauseDuringBusinessHours')}
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        {t('pauseDuringBusinessHoursDesc')}
+                      </p>
+                    </div>
+                    <Switch
+                      aria-label={t('pauseDuringBusinessHours')}
+                      checked={pauseDuringBusinessHours}
+                      onCheckedChange={setPauseDuringBusinessHours}
+                      disabled={disabled || !autoReplyEnabled}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+              <BusinessHoursCard />
+            </div>
+            <div id="agent-setup-assistance" hidden={section !== 'assistance'}>
+              <SalesAssistanceSettings />
+            </div>
+          </div>
+        </div>
+        <div className="crm-agent-savebar">
+          <p className="text-muted-foreground max-w-[55ch] text-xs leading-relaxed">
+            {t('layout.saveHint')}
+          </p>
+          <div className="flex shrink-0 items-center gap-2">
             {configured ? (
               <Button
                 variant="ghost"

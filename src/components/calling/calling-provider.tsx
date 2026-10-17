@@ -5,6 +5,7 @@ import {
   useContext,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -16,6 +17,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { waitForIce, waitForConnection } from '@/lib/whatsapp/calling/webrtc';
+import { sameCalls } from '@/lib/whatsapp/calling/snapshots';
 import { isActiveCall, type CallRecord } from '@/lib/whatsapp/calling/types';
 import './calling.css';
 
@@ -114,7 +116,9 @@ export function CallingProvider({ children }: { children: ReactNode }) {
     try {
       const result = await callingFetch<{ calls: CallRecord[] }>('');
       if (generation !== requestGenerationRef.current) return;
-      setCalls(result.calls);
+      setCalls((previous) =>
+        sameCalls(previous, result.calls) ? previous : result.calls
+      );
       const owned = ownedRef.current;
       if (owned) {
         const updated = result.calls.find((call) => call.id === owned.id);
@@ -123,7 +127,9 @@ export function CallingProvider({ children }: { children: ReactNode }) {
           return;
         }
         ownedRef.current = updated;
-        setCurrent(updated);
+        setCurrent((previous) =>
+          previous && sameCalls([previous], [updated]) ? previous : updated
+        );
         const peer = peerRef.current;
         if (
           updated.direction === 'outbound' &&
@@ -434,17 +440,20 @@ export function CallingProvider({ children }: { children: ReactNode }) {
       )
     : undefined;
   const shown = current || incoming || stranded;
+  const callingBusy = busy || !!current || !!stranded;
+  const contextValue = useMemo(
+    () => ({
+      enabled,
+      busy: callingBusy,
+      start,
+      refreshSettings,
+      enableSound,
+      soundEnabled,
+    }),
+    [enabled, callingBusy, start, refreshSettings, enableSound, soundEnabled]
+  );
   return (
-    <CallingContext.Provider
-      value={{
-        enabled,
-        busy: busy || !!current || !!stranded,
-        start,
-        refreshSettings,
-        enableSound,
-        soundEnabled,
-      }}
-    >
+    <CallingContext.Provider value={contextValue}>
       {children}
       <audio ref={audioRef} autoPlay className="hidden" />
       {canSendMessages && shown && (

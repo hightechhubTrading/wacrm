@@ -1,5 +1,5 @@
-import type { AccountRole } from "@/lib/auth/roles";
-import type { InteractiveMessagePayload } from "@/lib/whatsapp/interactive";
+import type { AccountRole } from '@/lib/auth/roles';
+import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive';
 
 export type {
   InteractiveMessagePayload,
@@ -8,7 +8,7 @@ export type {
   InteractiveButton,
   InteractiveListRow,
   InteractiveListSection,
-} from "@/lib/whatsapp/interactive";
+} from '@/lib/whatsapp/interactive';
 
 export interface Profile {
   id: string;
@@ -97,7 +97,7 @@ export interface AccountInvitation {
   id: string;
   account_id: string;
   /** Roles offered via invite — owner is never offered. */
-  role: Exclude<AccountRole, "owner">;
+  role: Exclude<AccountRole, 'owner'>;
   created_by_user_id: string | null;
   label: string | null;
   created_at: string;
@@ -153,7 +153,7 @@ export interface ContactTag {
 /** The set of `field_type` values the DB CHECK constraint allows
  *  (migration 046). Kept in sync with
  *  `src/lib/custom-fields/field-types.ts`'s `CUSTOM_FIELD_TYPES`. */
-export type CustomFieldType = "text" | "textarea" | "number" | "date" | "url";
+export type CustomFieldType = 'text' | 'textarea' | 'number' | 'date' | 'url';
 
 export interface CustomField {
   id: string;
@@ -193,7 +193,7 @@ export interface CustomFieldGroup {
   id: string;
   account_id: string;
   name: string;
-  scope: "contact" | "deal";
+  scope: 'contact' | 'deal';
   is_active: boolean;
   position: number;
   created_at: string;
@@ -297,7 +297,8 @@ export interface Conversation {
 // Notifications (migration 027)
 // ============================================================
 
-export type NotificationType = 'conversation_assigned' | 'ai_key_invalid' | 'urgent_lead' | 'ai_handoff';
+export type NotificationType =
+  'conversation_assigned' | 'ai_key_invalid' | 'urgent_lead' | 'ai_handoff';
 
 export interface Notification {
   id: string;
@@ -326,7 +327,8 @@ export type ContentType =
   | 'template'
   /** Customer tapped a reply button or list row on a message we sent. */
   | 'interactive';
-export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+export type MessageStatus =
+  'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 export interface Message {
   id: string;
@@ -493,6 +495,23 @@ export interface StageExitRequirement {
 export type DealStatus = 'open' | 'won' | 'lost';
 
 export interface Deal {
+  /** Inbox ownership for the resolved conversation; separate from deal RLS ownership. */
+  conversationOwnerUnavailable?: boolean;
+  conversationOwner?: {
+    userId: string | null;
+    profileId: string | null;
+    fullName: string | null;
+    avatarUrl: string | null;
+  };
+  /** Visible customer conversation resolved for the pipeline conversation action. */
+  customerConversationId?: string;
+  /** Read-only saved conversation recap loaded for pipeline cards. */
+  aiSummary?: {
+    text: string;
+    at: string | null;
+    conversationId: string;
+  } | null;
+  aiSummaryUnavailable?: boolean;
   id: string;
   user_id: string;
   pipeline_id: string;
@@ -528,8 +547,10 @@ export interface Deal {
   assignee?: Profile;
 }
 
-export type BroadcastStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
-export type RecipientStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'replied' | 'failed';
+export type BroadcastStatus =
+  'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
+export type RecipientStatus =
+  'pending' | 'sent' | 'delivered' | 'read' | 'replied' | 'failed';
 
 export interface Broadcast {
   id: string;
@@ -690,10 +711,7 @@ export interface WaitStepConfig {
 }
 
 export type ConditionSubject =
-  | 'contact_field'
-  | 'tag_presence'
-  | 'message_content'
-  | 'time_of_day';
+  'contact_field' | 'tag_presence' | 'message_content' | 'time_of_day';
 
 export interface ConditionStepConfig {
   subject: ConditionSubject;

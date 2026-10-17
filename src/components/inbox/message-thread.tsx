@@ -1,6 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { ConversationCalling } from '@/components/calling/conversation-calling';
@@ -35,6 +42,8 @@ import {
 import { format, isToday, isYesterday, differenceInHours } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import { QuotationAttachment } from '@/components/quotations/quotation-attachment';
+import type { RecentMessagePage } from '@/lib/inbox/thread-previews';
+import { MESSAGE_PAGE_SIZE } from '@/lib/inbox/message-history';
 import { isMessageContinuation } from '@/lib/inbox/message-groups';
 import { useLocale, useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
@@ -86,7 +95,9 @@ interface MessageThreadProps {
   conversation: Conversation | null;
   contact: Contact | null;
   messages: Message[];
-  onMessagesLoaded: (messages: Message[]) => void;
+  messagesReady?: boolean;
+  getRecentMessages?: (id: string) => Promise<RecentMessagePage>;
+  onMessagesLoaded: (messages: Message[], merge?: boolean) => void;
   onNewMessage: (message: Message) => void;
   onUpdateMessage: (id: string, updates: Partial<Message>) => void;
   onStatusChange: (conversationId: string, status: ConversationStatus) => void;
@@ -174,6 +185,8 @@ export function MessageThread({
   conversation,
   contact,
   messages,
+  messagesReady = true,
+  getRecentMessages,
   onMessagesLoaded,
   onNewMessage,
   onUpdateMessage,
@@ -227,9 +240,33 @@ export function MessageThread({
   const tQuote = useTranslations('Inbox.replyQuote');
 
   const { user } = useAuth();
-  const { getPresence, getRow, now } = usePresence();
+  const { getPresence, getRow, now } = usePresence(!!conversation);
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [history, setHistory] = useState({
+    id: '',
+    hasMore: false,
+    loading: false,
+    error: false,
+  });
+  const historyRequest = useRef(0);
+  const loadedConversation = useRef<string | null>(null);
+  const latestKnownMessage = useRef<Message | undefined>(undefined);
+  useEffect(() => {
+    latestKnownMessage.current = messages
+      .filter((message) => !message.id.startsWith('temp-'))
+      .at(-1);
+  }, [messages]);
+  const [lastCustomer, setLastCustomer] = useState<{
+    id: string;
+    at: string | null;
+  } | null>(null);
+  const [replyParents, setReplyParents] = useState<Message[]>([]);
+  const olderInFlight = useRef(false);
+  const scrollAnchor = useRef<{ height: number; top: number } | null>(null);
+  const atBottom = useRef(true);
+  const lastScrolledMessage = useRef<string | null>(null);
+  const positionedConversation = useRef<string | undefined>(undefined);
   const [mobileJobOpen, setMobileJobOpen] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -256,8 +293,11 @@ export function MessageThread({
       refreshTimerRef.current = null;
     }, 700);
   }, [isRefreshing, onRefresh]);
-  const [messageFetchError, setMessageFetchError] = useState(false);
+  const [messageFetchError, setMessageFetchError] = useState<string | null>(
+    null
+  );
   const [replyTo, setReplyTo] = useState<ReplyDraft | null>(null);
+  useEffect(() => setReplyTo(null), [conversation?.id]);
 
   // Profiles are bounded by RLS to rows the current user is allowed to
   // see — `profiles_select` (migration 017) lets any account member read
@@ -294,17 +334,20 @@ export function MessageThread({
     if (!messages.length) return { expired: false, remaining: '' };
 
     // Find last customer message
-    const lastCustomerMsg = [...messages]
+    const loadedCustomer = [...messages]
       .reverse()
       .find((m) => m.sender_type === 'customer');
+    const fetchedAt =
+      lastCustomer?.id === conversation?.id ? lastCustomer?.at : null;
+    const lastCustomerAt = [loadedCustomer?.created_at, fetchedAt]
+      .filter((at): at is string => !!at)
+      .sort()
+      .at(-1);
 
-    if (!lastCustomerMsg)
+    if (!lastCustomerAt)
       return { expired: true, remaining: 'No customer messages' };
 
-    const hoursSince = differenceInHours(
-      new Date(),
-      new Date(lastCustomerMsg.created_at)
-    );
+    const hoursSince = differenceInHours(new Date(), new Date(lastCustomerAt));
     const expired = hoursSince >= 24;
 
     if (expired) {
@@ -318,7 +361,7 @@ export function MessageThread({
         : tTimer('xmRemaining', { minutes: Math.floor(hoursLeft * 60) });
 
     return { expired, remaining };
-  }, [messages, tTimer]);
+  }, [messages, tTimer, lastCustomer, conversation?.id]);
 
   // Store latest callback in a ref so fetchMessages doesn't need to
   // depend on `onMessagesLoaded` — otherwise parent re-renders cause
@@ -344,24 +387,81 @@ export function MessageThread({
 
     const supabase = createClient();
     let cancelled = false;
+    const request = ++historyRequest.current;
+    const switching = loadedConversation.current !== conversationId;
+    const knownLatest =
+      latestKnownMessage.current?.conversation_id === conversationId
+        ? latestKnownMessage.current
+        : undefined;
+    loadedConversation.current = conversationId;
+    olderInFlight.current = false;
+    scrollAnchor.current = null;
+    if (switching) {
+      atBottom.current = true;
+      lastScrolledMessage.current = null;
+    }
 
     (async () => {
-      setLoading(true);
+      if (switching) setLoading(true);
 
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
+      const { data, error } = getRecentMessages
+        ? await getRecentMessages(conversationId)
+        : await supabase
+            .from('messages')
+            .select('*')
+            .eq('conversation_id', conversationId)
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: false })
+            .limit(MESSAGE_PAGE_SIZE + 1);
 
       if (cancelled) return;
 
       if (error) {
-        setMessageFetchError(true);
+        setMessageFetchError(conversationId);
         console.error('Failed to fetch messages:', error);
       } else {
-        setMessageFetchError(false);
-        onMessagesLoadedRef.current(data ?? []);
+        setMessageFetchError(null);
+        const rows = (data ?? []) as Message[];
+        const collected = rows.slice(0, MESSAGE_PAGE_SIZE);
+        let page = rows;
+        // After a disconnect, catch up through every missed page rather than
+        // leaving a gap when more than 50 messages arrived while away.
+        while (knownLatest && page.length > MESSAGE_PAGE_SIZE) {
+          const cursor = collected.at(-1)!;
+          if (
+            collected.some((message) => message.id === knownLatest.id) ||
+            cursor.created_at < knownLatest.created_at
+          )
+            break;
+          const result = await supabase
+            .from('messages')
+            .select('*')
+            .eq('conversation_id', conversationId)
+            .or(
+              `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`
+            )
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: false })
+            .limit(MESSAGE_PAGE_SIZE + 1);
+          if (cancelled) return;
+          if (result.error) {
+            setMessageFetchError(conversationId);
+            setLoading(false);
+            return;
+          }
+          page = (result.data ?? []) as Message[];
+          collected.push(...page.slice(0, MESSAGE_PAGE_SIZE));
+        }
+        setHistory((previous) => ({
+          id: conversationId,
+          hasMore:
+            !switching && previous.id === conversationId
+              ? previous.hasMore
+              : rows.length > MESSAGE_PAGE_SIZE,
+          loading: false,
+          error: false,
+        }));
+        onMessagesLoadedRef.current(collected.reverse(), true);
       }
 
       if (!cancelled) setLoading(false);
@@ -369,12 +469,72 @@ export function MessageThread({
 
     return () => {
       cancelled = true;
+      historyRequest.current = request + 1;
     };
     // `resyncToken` is included so the parent can force a refetch when
     // the realtime channel reconnects or the tab regains focus —
     // realtime is best-effort and any message events sent while the WS
     // was disconnected or throttled are otherwise lost.
+  }, [conversationId, resyncToken, getRecentMessages]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    let cancelled = false;
+    void createClient()
+      .from('messages')
+      .select('created_at')
+      .eq('conversation_id', conversationId)
+      .eq('sender_type', 'customer')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .then(({ data, error }) => {
+        if (!cancelled && !error)
+          setLastCustomer({
+            id: conversationId,
+            at: data?.[0]?.created_at ?? null,
+          });
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [conversationId, resyncToken]);
+
+  // A reply can reference a message outside the loaded history page.
+  useEffect(() => {
+    if (!conversationId) return;
+    const loaded = new Set(messages.map((message) => message.id));
+    const ids = [
+      ...new Set(
+        messages.flatMap((message) =>
+          message.reply_to_message_id &&
+          !loaded.has(message.reply_to_message_id)
+            ? [message.reply_to_message_id]
+            : []
+        )
+      ),
+    ];
+    let cancelled = false;
+    if (!ids.length) {
+      setReplyParents([]);
+      return;
+    }
+    void (async () => {
+      const parents: Message[] = [];
+      for (let offset = 0; offset < ids.length; offset += 100) {
+        const { data } = await createClient()
+          .from('messages')
+          .select('*')
+          .eq('conversation_id', conversationId)
+          .in('id', ids.slice(offset, offset + 100));
+        if (cancelled) return;
+        parents.push(...((data as Message[]) ?? []));
+      }
+      setReplyParents(parents);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, messages]);
 
   // Reactions fetch — pulls the current state from the DB. Kept separate
   // from the channel subscription below so a `resyncToken` bump just
@@ -506,13 +666,113 @@ export function MessageThread({
       });
   }, [conversationId, hasUnread]);
 
-  // Auto-scroll to bottom on new messages
-  useEffect(() => {
-    if (scrollRef.current) {
-      const el = scrollRef.current;
-      el.scrollTop = el.scrollHeight;
+  const loadOlderMessages = useCallback(async () => {
+    if (
+      !conversationId ||
+      loading ||
+      history.id !== conversationId ||
+      !history.hasMore ||
+      olderInFlight.current ||
+      !messages.length
+    )
+      return;
+    olderInFlight.current = true;
+    const request = historyRequest.current;
+    const oldest = messages[0];
+    setHistory((previous) => ({ ...previous, loading: true, error: false }));
+    const { data, error } = await createClient()
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .or(
+        `created_at.lt.${oldest.created_at},and(created_at.eq.${oldest.created_at},id.lt.${oldest.id})`
+      )
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(MESSAGE_PAGE_SIZE + 1);
+    if (historyRequest.current !== request) return;
+    olderInFlight.current = false;
+    if (error) {
+      setHistory((previous) => ({ ...previous, loading: false, error: true }));
+      return;
     }
-  }, [messages]);
+    const element = scrollRef.current;
+    if (element)
+      scrollAnchor.current = {
+        height: element.scrollHeight,
+        top: element.scrollTop,
+      };
+    const rows = (data ?? []) as Message[];
+    setHistory({
+      id: conversationId,
+      hasMore: rows.length > MESSAGE_PAGE_SIZE,
+      loading: false,
+      error: false,
+    });
+    onMessagesLoadedRef.current(
+      rows.slice(0, MESSAGE_PAGE_SIZE).reverse(),
+      true
+    );
+  }, [conversationId, history, loading, messages]);
+
+  useEffect(() => {
+    // A reader can reach the top while a cached chat is refreshing. Resume
+    // history loading once that refresh finishes without requiring a second scroll.
+    if (
+      messagesReady &&
+      !loading &&
+      !history.loading &&
+      !history.error &&
+      (scrollRef.current?.scrollTop ?? Infinity) < 100
+    ) {
+      void loadOlderMessages();
+    }
+  }, [
+    messagesReady,
+    loading,
+    history.loading,
+    history.error,
+    loadOlderMessages,
+  ]);
+
+  // Prepending history preserves the visible content; incoming messages only
+  // follow the bottom when the reader was already there (or sent the message).
+  useLayoutEffect(() => {
+    const element = scrollRef.current;
+    if (!element || !messagesReady) return;
+    if (positionedConversation.current !== conversationId) {
+      positionedConversation.current = conversationId;
+      atBottom.current = true;
+      scrollAnchor.current = null;
+      lastScrolledMessage.current = null;
+    }
+    const latest = messages.at(-1);
+    if (scrollAnchor.current) {
+      const anchor = scrollAnchor.current;
+      element.scrollTop = anchor.top + element.scrollHeight - anchor.height;
+      scrollAnchor.current = null;
+    } else if (
+      atBottom.current ||
+      (latest?.id !== lastScrolledMessage.current &&
+        latest?.sender_type === 'agent')
+    ) {
+      element.scrollTop = element.scrollHeight;
+    }
+    lastScrolledMessage.current = latest?.id ?? null;
+    atBottom.current =
+      element.scrollHeight - element.scrollTop - element.clientHeight < 80;
+  }, [messages, messagesReady, replyParents, conversationId]);
+
+  useEffect(() => {
+    const element = scrollRef.current;
+    const content = element?.firstElementChild;
+    if (!element || !content || !messagesReady) return;
+    const observer = new ResizeObserver(() => {
+      if (atBottom.current) element.scrollTop = element.scrollHeight;
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [conversationId, messagesReady]);
 
   const handleSend = useCallback(
     async (text: string, replyToId?: string) => {
@@ -789,13 +1049,14 @@ export function MessageThread({
     [conversation, onNewMessage, onUpdateMessage]
   );
 
-  // Build a quick id → Message map so reply quotes can be rendered without
-  // an extra fetch — the thread already holds the full conversation.
+  // Include quoted parents fetched outside the visible history page.
   const messagesById = useMemo(() => {
     const map = new Map<string, Message>();
+    for (const m of replyParents)
+      if (m.conversation_id === conversationId) map.set(m.id, m);
     for (const m of messages) map.set(m.id, m);
     return map;
-  }, [messages]);
+  }, [messages, replyParents, conversationId]);
 
   // Bucket reactions by their target message_id for O(1) per-bubble lookup.
   const reactionsByMessageId = useMemo(() => {
@@ -1002,7 +1263,11 @@ export function MessageThread({
         </div>
 
         <div className="flex items-center gap-2">
-          <ConversationCalling key={conversation.id} conversationId={conversation.id} name={displayName} />
+          <ConversationCalling
+            key={conversation.id}
+            conversationId={conversation.id}
+            name={displayName}
+          />
           {/* Contact-panel toggle — desktop only. The contact sidebar
               eats a chunk of horizontal width that crowds the thread on
               smaller laptops; this lets agents reclaim it when they just
@@ -1220,9 +1485,18 @@ export function MessageThread({
         />
         <div
           ref={scrollRef}
+          onScroll={(event) => {
+            const element = event.currentTarget;
+            atBottom.current =
+              element.scrollHeight - element.scrollTop - element.clientHeight <
+              80;
+            if (element.scrollTop < 100 && !history.error)
+              void loadOlderMessages();
+          }}
           className="crm-message-scroll min-h-0 flex-1 overflow-y-auto px-4 py-4"
+          style={{ overflowAnchor: 'none' }}
         >
-          {loading ? (
+          {!messagesReady && messageFetchError !== conversationId ? (
             <div
               className="crm-message-skeleton"
               role="status"
@@ -1236,7 +1510,7 @@ export function MessageThread({
                 />
               ))}
             </div>
-          ) : messageFetchError ? (
+          ) : messageFetchError === conversationId && !messages.length ? (
             <div className="crm-thread-state" role="status">
               <p>{t('loadError')}</p>
               <button onClick={onRefresh} className="text-primary">
@@ -1254,6 +1528,22 @@ export function MessageThread({
             </div>
           ) : (
             <div className="crm-message-column space-y-4">
+              {history.id === conversationId && history.hasMore && (
+                <div className="text-center">
+                  <button
+                    type="button"
+                    disabled={history.loading}
+                    onClick={() => void loadOlderMessages()}
+                    className="text-primary rounded-md px-3 py-2 text-xs disabled:opacity-60"
+                  >
+                    {history.loading
+                      ? t('loadingMessages')
+                      : history.error
+                        ? t('retryMessages')
+                        : t('loadOlderMessages')}
+                  </button>
+                </div>
+              )}
               {messageGroups.map((group) => (
                 <div key={group.date}>
                   {/* Date separator */}

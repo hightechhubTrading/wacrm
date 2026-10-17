@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import type { Message, MessageReaction } from "@/types";
 import {
@@ -84,37 +84,40 @@ function MediaImage({
   // by the browser -- open it in a new tab instead.
   const isBlobSrc = src?.startsWith("blob:") ?? false;
 
-  const loadImage = useCallback(async () => {
-    if (!url) return;
-
-    // Proxy URLs need auth fetch to create blob URL
-    if (url.startsWith("/api/whatsapp/media/")) {
+  useEffect(() => {
+    const controller = new AbortController();
+    let disposed = false;
+    let blobUrl: string | undefined;
+    const loadImage = async () => {
+      setLoading(true);
+      setError(false);
+      if (!url.startsWith("/api/whatsapp/media/")) {
+        setSrc(url);
+        setLoading(false);
+        return;
+      }
       try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("Failed to load media");
-        const blob = await res.blob();
-        const blobUrl = URL.createObjectURL(blob);
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error("Failed to load media");
+        const blob = await response.blob();
+        if (disposed) return;
+        blobUrl = URL.createObjectURL(blob);
         setSrc(blobUrl);
       } catch {
-        setError(true);
+        if (!disposed) setError(true);
       } finally {
-        setLoading(false);
-      }
-    } else {
-      setSrc(url);
-      setLoading(false);
-    }
-  }, [url]);
-
-  useEffect(() => {
-    loadImage();
-    return () => {
-      if (src?.startsWith("blob:")) {
-        URL.revokeObjectURL(src);
+        if (!disposed) setLoading(false);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadImage]);
+    void loadImage();
+    return () => {
+      disposed = true;
+      controller.abort();
+      // Capture the URL created by this request, rather than the empty src
+      // from the render that started it. Also covers URL changes and unmounts.
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [url]);
 
   if (error) {
     return (
@@ -215,6 +218,7 @@ function MessageContent({
           {message.media_url ? (
             <video
               src={message.media_url}
+              preload="none"
               controls
               className="max-h-64 max-w-60 rounded-lg"
             />
@@ -233,7 +237,7 @@ function MessageContent({
       return (
         <div>
           {message.media_url ? (
-            <audio src={message.media_url} controls className="max-w-60" />
+            <audio src={message.media_url} preload="none" controls className="max-w-60" />
           ) : (
             <MediaUnavailable label={t("audio")} t={t} />
           )}

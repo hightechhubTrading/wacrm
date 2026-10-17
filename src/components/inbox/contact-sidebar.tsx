@@ -154,9 +154,16 @@ export function ContactSidebar({
   // setContactData/setTags run inside async Supabase callbacks, not
   // synchronously in the effect body.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchContactData();
-  }, [fetchContactData, refreshToken]);
+    // Load a newly selected customer immediately; coalesce message bursts so
+    // one chat does not start three database reads for every arriving message.
+    if (loadedContact.current !== (contact?.id ?? null) || !refreshToken) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void fetchContactData();
+      return;
+    }
+    const timer = setTimeout(() => void fetchContactData(), 350);
+    return () => clearTimeout(timer);
+  }, [fetchContactData, refreshToken, contact?.id]);
 
   useEffect(() => {
     const refresh = () => void fetchContactData();

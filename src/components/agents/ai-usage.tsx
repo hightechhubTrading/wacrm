@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/dashboard/skeleton';
 import { BarChart } from '@/components/tremor/bar-chart';
 import { formatCompactNumber } from '@/lib/currency';
@@ -58,6 +59,7 @@ const WINDOWS = [7, 30, 90] as const;
  */
 export function AiUsageCard() {
   const assistance = useTranslations('SalesAssistance');
+  const copy = useTranslations('Workspace');
   const { accountId, accountRole, profileLoading } = useAuth();
   const canView = accountRole ? canEditSettings(accountRole) : false;
 
@@ -108,7 +110,7 @@ export function AiUsageCard() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-6">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
               <BarChart3 className="text-primary h-4 w-4" /> Token usage
@@ -136,9 +138,18 @@ export function AiUsageCard() {
           </Select>
         </div>
       </CardHeader>
-      <CardContent className="space-y-5">
-        {loading || !data ? (
+      <CardContent className="space-y-8">
+        {loading ? (
           <Skeleton className="h-[220px] w-full" />
+        ) : !data ? (
+          <div role="alert" className="space-y-4 py-10 text-center">
+            <p className="text-muted-foreground text-sm">
+              {copy('agentGuide.usageError')}
+            </p>
+            <Button variant="outline" onClick={() => void fetchUsage(days)}>
+              {copy('retry')}
+            </Button>
+          </div>
         ) : !hasSpend ? (
           <div className="text-muted-foreground flex flex-col items-center justify-center gap-2 py-10 text-center text-sm">
             <BarChart3 className="h-8 w-8 opacity-40" />
@@ -149,7 +160,7 @@ export function AiUsageCard() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-8 xl:grid-cols-3">
               <Stat
                 label="Total tokens"
                 value={formatCompactNumber(data.totals.total_tokens)}
@@ -204,7 +215,7 @@ export function AiUsageCard() {
                   {data.by_model.map((m) => (
                     <li
                       key={`${m.provider}:${m.model}`}
-                      className="flex items-center justify-between px-3 py-2 text-sm"
+                      className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 text-sm"
                     >
                       <span className="min-w-0 truncate">
                         <span className="text-foreground">{m.model}</span>{' '}
@@ -245,12 +256,12 @@ function Stat({
   icon?: typeof Bot;
 }) {
   return (
-    <div className="border-border rounded-md border p-3">
+    <div className="border-border border-s-2 py-1 ps-4">
       <p className="text-muted-foreground flex items-center gap-1 text-xs">
         {Icon && <Icon className="h-3 w-3" />}
         {label}
       </p>
-      <p className="text-foreground mt-1 text-lg font-semibold tabular-nums">
+      <p className="text-foreground mt-2 text-2xl font-semibold tabular-nums">
         {value}
       </p>
     </div>

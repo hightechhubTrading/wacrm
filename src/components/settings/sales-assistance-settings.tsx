@@ -79,7 +79,7 @@ export function SalesAssistanceSettings() {
     }
   }
   return (
-    <Card className="crm-assistance-settings mt-6">
+    <Card className="crm-assistance-settings">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Sparkles size={20} />

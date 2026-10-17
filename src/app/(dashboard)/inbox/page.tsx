@@ -1,5 +1,16 @@
 "use client";
 
+import { useAuth } from "@/hooks/use-auth";
+import {
+  ThreadPreviewCache,
+  fetchRecentMessagePage,
+  type RecentMessagePage,
+} from "@/lib/inbox/thread-previews";
+import { DeferredContactPanel } from "@/components/inbox/deferred-contact-panel";
+import {
+  mergeMessageHistory,
+  MESSAGE_PAGE_SIZE,
+} from "@/lib/inbox/message-history";
 import { Suspense, useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -17,7 +28,6 @@ import type {
 import { useRealtime } from "@/hooks/use-realtime";
 import { ConversationList } from "@/components/inbox/conversation-list";
 import { MessageThread } from "@/components/inbox/message-thread";
-import { ContactSidebar } from "@/components/inbox/contact-sidebar";
 import { toast } from "sonner";
 import { WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -30,9 +40,10 @@ const CONTACT_PANEL_STORAGE_KEY = "wacrm:inbox:contact-panel-open";
 // boundary or the production build bails to CSR and errors out. Thin
 // wrapper supplies it; the inner component holds all the inbox state.
 export default function InboxPage() {
+  const { accountId, user } = useAuth();
   return (
     <Suspense fallback={null}>
-      <InboxPageInner />
+      <InboxPageInner key={`${accountId}:${user?.id}`} />
     </Suspense>
   );
 }
@@ -52,6 +63,49 @@ function InboxPageInner() {
     useState<Conversation | null>(null);
   const [activeContact, setActiveContact] = useState<Contact | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [messageCache] = useState(() => new ThreadPreviewCache());
+  const [readyConversationId, setReadyConversationId] = useState<string | null>(null);
+  const prefetched = useRef(
+    new Map<string, { at: number; page: Promise<RecentMessagePage> }>()
+  );
+  const prefetchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const prefetchBusy = useRef(false);
+  const getRecentMessages = useCallback((id: string) => {
+    const entry = prefetched.current.get(id);
+    prefetched.current.delete(id);
+    if (entry && Date.now() - entry.at < 5000) return entry.page;
+    return fetchRecentMessagePage(createClient(), id);
+  }, []);
+  const prefetchConversation = useCallback((conversation: Conversation | null) => {
+    clearTimeout(prefetchTimer.current);
+    if (!conversation || messageCache.get(conversation.id)) return;
+    const id = conversation.id;
+    prefetchTimer.current = setTimeout(() => {
+      if (prefetchBusy.current || prefetched.current.has(id)) return;
+      prefetchBusy.current = true;
+      const page = fetchRecentMessagePage(createClient(), id);
+      prefetched.current.set(id, { at: Date.now(), page });
+      while (prefetched.current.size > 3) {
+        prefetched.current.delete(prefetched.current.keys().next().value!);
+      }
+      void page.then(result => {
+        if (result.error) prefetched.current.delete(id);
+        else if (result.data) {
+          messageCache.set(id, result.data.slice(0, MESSAGE_PAGE_SIZE).reverse());
+        }
+      }).catch(() => {
+        prefetched.current.delete(id);
+      }).finally(() => {
+        prefetchBusy.current = false;
+      });
+    }, 150);
+  }, [messageCache]);
+  useEffect(() => () => clearTimeout(prefetchTimer.current), []);
+  useEffect(() => {
+    if (activeConversation && readyConversationId === activeConversation.id) {
+      messageCache.set(activeConversation.id, messages);
+    }
+  }, [activeConversation, readyConversationId, messages, messageCache]);
   const [whatsappConnected, setWhatsappConnected] = useState<boolean | null>(
     null
   );
@@ -441,7 +495,9 @@ function InboxPageInner() {
         if (match) {
           setActiveConversation(match);
           setActiveContact(match.contact ?? null);
-          setMessages([]);
+          const cached = messageCache.get(match.id);
+          setMessages(cached ?? []);
+          setReadyConversationId(cached ? match.id : null);
           // Mirror the optimistic unread reset that handleSelectConversation
           // does — the user just deep-linked into this conv, treat that the
           // same as a click. Leaves activeConversation.unread_count alone so
@@ -456,7 +512,7 @@ function InboxPageInner() {
         }
       }
     },
-    [deepLinkConvId, activeConversation?.id]
+    [deepLinkConvId, activeConversation?.id, messageCache]
   );
 
   const handleSelectConversation = useCallback(
@@ -468,7 +524,10 @@ function InboxPageInner() {
       if (activeConversation?.id === conv.id) return;
       setActiveConversation(conv);
       setActiveContact(conv.contact ?? null);
-      setMessages([]);
+      clearTimeout(prefetchTimer.current);
+      const cached = messageCache.get(conv.id);
+      setMessages(cached ?? []);
+      setReadyConversationId(cached ? conv.id : null);
       // Optimistically clear the unread badge for this conv. The
       // server-side reset is fired by the unread-reset effect inside
       // MessageThread (which reads activeConversation.unread_count, not
@@ -498,7 +557,7 @@ function InboxPageInner() {
         `${url.pathname}${url.search}${url.hash}`
       );
     },
-    [activeConversation?.id]
+    [activeConversation?.id, messageCache]
   );
 
   // Mobile "back" — deselect the conversation so the list pane comes
@@ -521,9 +580,10 @@ function InboxPageInner() {
     );
   }, []);
 
-  const handleMessagesLoaded = useCallback((loaded: Message[]) => {
-    setMessages(loaded);
-  }, []);
+  const handleMessagesLoaded = useCallback((loaded: Message[], merge = false) => {
+    setMessages((previous) => merge ? mergeMessageHistory(previous, loaded) : loaded);
+    setReadyConversationId(activeConversation?.id ?? null);
+  }, [activeConversation?.id]);
 
   const handleNewMessage = useCallback((msg: Message) => {
     setMessages((prev) => {
@@ -604,6 +664,7 @@ function InboxPageInner() {
           <ConversationList
             activeConversationId={activeConversation?.id ?? null}
             onSelect={handleSelectConversation}
+            onPrefetch={prefetchConversation}
             conversations={conversations}
             onConversationsLoaded={handleConversationsLoaded}
             resyncToken={resyncToken}
@@ -630,6 +691,8 @@ function InboxPageInner() {
             conversation={activeConversation}
             contact={activeContact}
             messages={messages}
+            messagesReady={readyConversationId === activeConversation?.id}
+            getRecentMessages={getRecentMessages}
             onMessagesLoaded={handleMessagesLoaded}
             onNewMessage={handleNewMessage}
             onUpdateMessage={handleUpdateMessage}
@@ -648,14 +711,14 @@ function InboxPageInner() {
             On mobile it's always hidden (the `lg:block` below), so the
             toggle — which is itself desktop-only — never affects it. */}
         {contactPanelOpen && activeConversation && activeContact && (
-          <div className="crm-details-pane hidden lg:block">
-            <ContactSidebar
-              contact={activeContact}
-              conversation={activeConversation}
-              sharedMessages={messages}
-              refreshToken={dealsRefreshToken}
-            />
-          </div>
+          <DeferredContactPanel
+            key={activeContact.id}
+            ready={readyConversationId === activeConversation.id}
+            contact={activeContact}
+            conversation={activeConversation}
+            sharedMessages={messages}
+            refreshToken={dealsRefreshToken}
+          />
         )}
       </div>
     </div>
