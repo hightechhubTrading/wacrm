@@ -1,3 +1,4 @@
+import { knowledgeQuery } from '@/lib/ai/query';
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import {
@@ -10,7 +11,6 @@ import { retrieveKnowledge } from '@/lib/ai/knowledge';
 import { listProductsForPrompt } from '@/lib/ai/media-library';
 import { generateReply } from '@/lib/ai/generate';
 import { buildSystemPrompt } from '@/lib/ai/defaults';
-import { latestUserMessage } from '@/lib/ai/query';
 import { AiError, type ChatMessage } from '@/lib/ai/types';
 import { assessSalesInput, verifySalesOutput } from '@/lib/ai/typesafe/sales';
 import { emotionalHandoffMessage } from '@/lib/ai/typesafe/emotion';
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
       supabase,
       accountId,
       config,
-      latestUserMessage(messages)
+      knowledgeQuery(messages)
     );
     const media = await listProductsForPrompt(supabase, accountId);
     const baseSystemPrompt = buildSystemPrompt({

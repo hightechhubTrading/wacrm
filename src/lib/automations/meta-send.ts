@@ -12,6 +12,7 @@ import {
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils'
 import { supabaseAdmin } from './admin-client'
+import { requireConversationScope } from '@/lib/whatsapp/conversation-scope'
 
 // ------------------------------------------------------------
 // Automation-side Meta sender.
@@ -131,6 +132,7 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
   if (contact.opted_out) {
     throw new Error('contact has opted out of automated messages')
   }
+  await requireConversationScope(db, input)
 
   const sanitized = sanitizePhoneForMeta(contact.phone)
   if (!isValidE164(sanitized)) {
@@ -225,6 +227,8 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
       updated_at: new Date().toISOString(),
     })
     .eq('id', input.conversationId)
+    .eq('account_id', input.accountId)
+    .eq('contact_id', input.contactId)
 
   return { whatsapp_message_id: waMessageId }
 }

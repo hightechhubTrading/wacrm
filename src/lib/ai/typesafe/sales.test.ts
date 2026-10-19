@@ -526,6 +526,12 @@ it('rewrites a rejected candidate once and verifies the replacement before allow
     repair
   );
   expect(repair).toHaveBeenCalledTimes(1);
+  expect(repair.mock.calls[0][0]).toContain(
+    'Business claims were not sufficiently supported'
+  );
+  expect(repair.mock.calls[0][0]).not.toContain(
+    'missed an independent request'
+  );
   expect(h.ask).toHaveBeenCalledTimes(2);
   expect(result).toMatchObject({
     handoff: false,
@@ -545,8 +551,10 @@ it('never loops or sends the second candidate if its claims still fail', async (
   expect(result.text).toBe('');
   expect(result.fields).toEqual([]);
 });
-it('does not retry a good candidate or an explicit model handoff', async () => {
-  h.ask.mockResolvedValue(output({ grounded: 0.99, responsive: 0.99 }));
+it('does not retry a good candidate or a justified human transfer', async () => {
+  h.ask.mockResolvedValue(
+    output({ grounded: 0.99, responsive: 0.99, handoff_needed: 0.99 })
+  );
   const repair = vi.fn();
   await verifySalesOutput(ctx, evidence, proposal, repair);
   await verifySalesOutput(
@@ -604,4 +612,105 @@ it('shadow mode never invokes paid regeneration for a rejected candidate', async
     proposal
   );
   expect(repair).not.toHaveBeenCalled();
+});
+
+it('gives recovery all enforced failures but excludes shadow-only failures', async () => {
+  const scores = {
+    grounded: 0.99,
+    responsive: 0.3,
+    documents: 0.2,
+    completion: 0.1,
+    scope: 0.4,
+    requests: 0.2,
+  };
+  vi.stubEnv('TYPESAFE_SALES_V2_MODE', 'enforce');
+  h.ask.mockResolvedValue(output(scores));
+  const repair = vi.fn().mockResolvedValue(proposal);
+  await verifySalesOutput(ctx, evidence, proposal, repair);
+  const guidance = repair.mock.calls[0][0];
+  expect(guidance).toContain('repeated an answered question');
+  expect(guidance).toContain('unavailable attachment content');
+  expect(guidance).toContain('unsupported completed operation');
+  expect(guidance).toContain('changed or omitted');
+  expect(guidance).toContain('missed an independent request');
+  vi.stubEnv('TYPESAFE_SALES_V2_MODE', 'shadow');
+  repair.mockClear();
+  await verifySalesOutput(ctx, evidence, proposal, repair);
+  expect(repair.mock.calls[0][0]).toContain('repeated an answered question');
+  expect(repair.mock.calls[0][0]).not.toContain(
+    'unsupported completed operation'
+  );
+});
+
+it('repairs an unjustified generated handoff for an ordinary product question', async () => {
+  h.ask
+    .mockResolvedValueOnce(
+      output({ grounded: 0.99, responsive: 0.99, handoff_needed: 0.05 })
+    )
+    .mockResolvedValueOnce(output({ grounded: 0.99, responsive: 0.99 }));
+  const repair = vi.fn().mockResolvedValue(proposal);
+  const result = await verifySalesOutput(
+    ctx,
+    evidence,
+    { ...proposal, text: '', handoff: true },
+    repair
+  );
+  expect(repair).toHaveBeenCalledOnce();
+  expect(result.handoff).toBe(false);
+  expect(result.routingDecision?.reason).toBe('verified_reply');
+});
+it('verifies a bounded clarification after two unresponsive shutter candidates', async () => {
+  const e = {
+    ...evidence,
+    messages: [
+      {
+        role: 'user' as const,
+        content: 'How much money do you meter for the work of Shatar?',
+      },
+    ],
+  };
+  h.ask
+    .mockResolvedValueOnce(output({ grounded: 0.99, responsive: 0.77 }))
+    .mockResolvedValueOnce(output({ grounded: 0.99, responsive: 0.81 }))
+    .mockResolvedValueOnce(output({ grounded: 0.99, responsive: 0.98 }));
+  const result = await verifySalesOutput(
+    ctx,
+    e,
+    proposal,
+    vi.fn().mockResolvedValue(proposal)
+  );
+  expect(result.handoff).toBe(false);
+  expect(result.text).toContain('window shutters');
+  expect(result.fields).toEqual([]);
+  expect(result.routingDecision?.attempt).toBe(2);
+});
+it('never sends even the narrow template if its verification fails', async () => {
+  h.ask.mockResolvedValue(output({ grounded: 0.99, responsive: 0.7 }));
+  const e = {
+    ...evidence,
+    messages: [{ role: 'user' as const, content: 'Shatar meter price?' }],
+  };
+  const result = await verifySalesOutput(
+    ctx,
+    e,
+    proposal,
+    vi.fn().mockResolvedValue(proposal)
+  );
+  expect(result.handoff).toBe(true);
+  expect(result.text).toBe('');
+  expect(h.ask).toHaveBeenCalledTimes(3);
+});
+it('repairs missing price evidence before the final sender backstop', async () => {
+  h.ask
+    .mockResolvedValueOnce(output({ grounded: 0.99, responsive: 0.99 }))
+    .mockResolvedValueOnce(output({ grounded: 0.99, responsive: 0.99 }));
+  const repair = vi.fn().mockResolvedValue(proposal);
+  const result = await verifySalesOutput(
+    ctx,
+    evidence,
+    { ...proposal, text: 'Estimate QAR 350–380 per metre.' },
+    repair
+  );
+  expect(repair.mock.calls[0][0]).toContain('same-reply product tag');
+  expect(result.handoff).toBe(false);
 });

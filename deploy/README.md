@@ -100,3 +100,19 @@ protected calls endpoint 401. Temporary recovery SSH access was removed.
 The updater now checks the public `/login` URL from `NEXT_PUBLIC_SITE_URL`
 before declaring promotion successful. An unreachable public route fails the
 update and invokes its existing rollback path.
+
+## Required database checks for the catalog/security release
+
+The new image runs `deploy/check-database.mjs` before starting Next.js. The updater
+also checks the candidate explicitly before promotion. Zero-row schema queries
+require migration 077; an identity-free conversion probe must be denied by the
+authenticated-only RPC added in migration 076. The probe uses no customer ID and
+cannot record a conversion. Missing schema/functions stop the candidate and leave
+the currently running website in place.
+
+Migration 077 is already recorded in the connected app database. Read-only release
+preflight on 19 October found migration 076's conversion RPC absent. Apply and
+validate **076 before deploying this revision**; Git push does not apply it. Do not
+remove the guard or restore service-role conversion writes to bypass that order.
+Refresh the installed `update.sh` from this repository when updating the deployment
+tooling. Test the guard locally with `node --test deploy/check-database.test.mjs`.

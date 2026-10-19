@@ -1,3 +1,4 @@
+import { knowledgeQuery } from '@/lib/ai/query';
 import {
   ensureFollowup,
   recordReplyEvent,
@@ -16,7 +17,6 @@ import {
   isArabicText,
   languageScript,
   containsPriceFigure,
-  containsPriceQuestion,
   isolatePhoneNumbers,
   aiReplyDebounceMs,
   HANDOFF_CLOSING_MESSAGE_EN,
@@ -24,11 +24,7 @@ import {
 } from './defaults';
 import { buildHandoffSummary, notifyAiHandoff } from './handoff';
 import { logAiUsage } from './usage';
-import {
-  latestUserMessage,
-  latestCustomerAuthoredMessage,
-  customerLanguageScript,
-} from './query';
+import { latestCustomerAuthoredMessage, customerLanguageScript } from './query';
 import { engineSendText, engineSendMedia } from '@/lib/flows/meta-send';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 import { addContactTagAndDispatch } from '@/lib/contacts/tag-events';
@@ -139,6 +135,7 @@ async function performHandoff(args: {
   followupKind?: FollowupKind;
   apologize?: boolean;
   handoffReason?: string;
+  routingDecision?: { reason: string; failures: string[]; attempt: number };
 }): Promise<void> {
   const {
     db,
@@ -188,7 +185,7 @@ async function performHandoff(args: {
   // photo's always-English auto-caption as the customer having
   // switched languages.
   const customerScript = customerLanguageScript(messages);
-  const closingMessage = args.apologize
+  const defaultClosingMessage = args.apologize
     ? emotionalHandoffMessage(messages)
     : (
           customerScript === 'mixed'
@@ -197,6 +194,12 @@ async function performHandoff(args: {
         )
       ? HANDOFF_CLOSING_MESSAGE_AR
       : HANDOFF_CLOSING_MESSAGE_EN;
+  const closingMessage =
+    !args.apologize && args.followupKind === 'inspection'
+      ? customerScript === 'arabic'
+        ? 'طلب المعاينة يحتاج تنسيق الفريق. الموعد غير مؤكد بعد.'
+        : 'Your inspection request needs team coordination. An appointment has not been confirmed yet.'
+      : defaultClosingMessage;
   // Stop auto-replying on this thread and hand it to a human. We (a)
   // pause the bot here (sticky until re-enabled), (b) route the
   // conversation to the configured handoff agent -- null leaves it in
@@ -216,7 +219,14 @@ async function performHandoff(args: {
   const summary = args.handoffReason ? `${recap} ${args.handoffReason}` : recap;
   const update: Record<string, unknown> = {
     ai_autoreply_disabled: true,
-    ai_handoff_summary: summary,
+    ai_handoff_summary: args.routingDecision
+      ? `${summary} Routing: ${args.routingDecision.reason}; failed checks: ${args.routingDecision.failures.join(', ') || 'none'}; attempt: ${args.routingDecision.attempt}.`
+      : summary,
+    ai_handoff_reason: args.routingDecision ?? {
+      reason: args.handoffReason ?? 'human_requested_or_reply_limit',
+      failures: [],
+      attempt: 0,
+    },
   };
   // Only set the assignee when a target is configured AND the thread
   // isn't already owned -- never stomp an existing human assignment.
@@ -242,7 +252,10 @@ async function performHandoff(args: {
       triggerMessageId: args.triggerMessageId,
       outcome: 'handoff',
       reason:
-        args.followupKind === 'document_review' ? 'document_review' : 'handoff',
+        args.routingDecision?.reason ??
+        (args.followupKind === 'document_review'
+          ? 'document_review'
+          : 'handoff'),
     });
 
     try {
@@ -256,6 +269,13 @@ async function performHandoff(args: {
       });
     } catch (err) {
       console.error('[ai auto-reply] handoff closing message failed:', err);
+      await recordReplyEvent(db, {
+        accountId,
+        conversationId,
+        triggerMessageId: args.triggerMessageId,
+        outcome: 'failed',
+        reason: 'handoff_closing_failed',
+      });
     }
   }
 
@@ -384,6 +404,8 @@ async function newerCustomerMessageArrived(
     .eq('conversation_id', conversationId)
     .eq('sender_type', 'customer')
     .order('created_at', { ascending: false })
+    .order('received_at', { ascending: false, nullsFirst: false })
+    .order('id', { ascending: false })
     .limit(1)
     .maybeSingle();
   return (
@@ -552,6 +574,7 @@ export async function dispatchInboundToAiReply(
           contactId,
           configOwnerUserId,
           messages: capMessages,
+          routingDecision: { reason: 'reply_limit', failures: [], attempt: 0 },
           replyCount: conv.ai_reply_count ?? 0,
           handoffAgentId: config.handoffAgentId,
           currentAssignedAgentId: conv.assigned_agent_id,
@@ -665,6 +688,11 @@ export async function dispatchInboundToAiReply(
         currentAssignedAgentId: conv.assigned_agent_id,
         triggerMessageId,
         followupKind: 'document_review',
+        routingDecision: {
+          reason: 'attachment_unavailable',
+          failures: [],
+          attempt: 0,
+        },
       });
       return;
     }
@@ -697,6 +725,13 @@ export async function dispatchInboundToAiReply(
         triggerMessageId,
         apologize: salesInput.apologize,
         handoffReason: salesInput.handoffReason,
+        routingDecision: {
+          reason: salesInput.apologize
+            ? 'input_complaint_or_emotion'
+            : 'explicit_human_request',
+          failures: [],
+          attempt: 0,
+        },
       });
       return;
     }
@@ -752,7 +787,7 @@ export async function dispatchInboundToAiReply(
       db,
       accountId,
       config,
-      latestUserMessage(messages)
+      knowledgeQuery(messages)
     );
 
     // Media library -- lets the model attach a product photo/catalog by
@@ -979,32 +1014,9 @@ export async function dispatchInboundToAiReply(
       );
     }
 
-    // Deterministic backstop for the system prompt's own "hand off after
-    // two price asks with nothing to offer" rule (see defaults.ts) --
-    // prose the model doesn't reliably follow once a conversation
-    // meanders. If the customer has asked about price 2+ times across
-    // the thread, the bot has already had at least one turn to answer,
-    // and this reply still isn't offering any figure (backed or not)
-    // and isn't handing off, force the handoff instead of deflecting
-    // yet again -- exactly the "stuck on repeat" pattern a long
-    // back-and-forth over price falls into.
-    const priceQuestionCount = messages.filter(
-      (m) => m.role === 'user' && containsPriceQuestion(m.content)
-    ).length;
-    const staleOnRepeatedPriceAsk =
-      !salesInput.suppressSales &&
-      !handoff &&
-      !!text &&
-      !containsPriceFigure(text) &&
-      priceQuestionCount >= 2 &&
-      (conv.ai_reply_count ?? 0) >= 1;
-    if (staleOnRepeatedPriceAsk) {
-      console.warn(
-        '[ai auto-reply] customer asked about price 2+ times with nothing offered -- forcing handoff instead of deflecting again.'
-      );
-    }
-
-    if (handoff || !text || quotesUnverifiedPrice || staleOnRepeatedPriceAsk) {
+    // Repeated requests are handled by evidence-aware response verification/recovery,
+    // not a counter that converts a necessary clarification into a sticky transfer.
+    if (handoff || !text || quotesUnverifiedPrice) {
       await performHandoff({
         db,
         accountId,
@@ -1017,6 +1029,17 @@ export async function dispatchInboundToAiReply(
         currentAssignedAgentId: conv.assigned_agent_id,
         triggerMessageId,
         followupKind: salesInput.followupKind,
+        routingDecision: quotesUnverifiedPrice
+          ? {
+              reason: 'unverified_price',
+              failures: ['price_evidence'],
+              attempt: verified.routingDecision?.attempt ?? 0,
+            }
+          : (verified.routingDecision ?? {
+              reason: handoff ? 'model_requested' : 'empty_reply',
+              failures: [],
+              attempt: 0,
+            }),
         fields,
         ...(jevMode() === 'enforce' ? { expectedDeal: currentDeal } : {}),
       });

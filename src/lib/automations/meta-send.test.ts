@@ -3,12 +3,14 @@ import { describe, it, expect, vi } from 'vitest'
 // Only the contact lookup matters here — the opt-out gate throws right
 // after it, before whatsapp_config is ever loaded or Meta is called.
 const h = vi.hoisted(() => ({
+  tables: [] as string[],
   contact: null as { id: string; phone: string; opted_out?: boolean } | null,
 }))
 
 vi.mock('./admin-client', () => ({
   supabaseAdmin: () => ({
     from: (table: string) => {
+      h.tables.push(table)
       const b: Record<string, unknown> = {
         select: () => b,
         eq: () => b,
@@ -54,4 +56,14 @@ describe('engineSendText — opt-out gate', () => {
       // assert it gets PAST the opt-out gate.
     ).rejects.not.toThrow(/opted out/)
   })
+})
+
+
+it('rejects a supplied conversation outside the contact scope before loading a token', async () => {
+  h.contact = { id: 'c1', phone: '+14155550123', opted_out: false }
+  h.tables = []
+  await expect(engineSendText({ accountId: 'acct-1', userId: 'user-1', conversationId: 'foreign-conversation', contactId: 'c1', text: 'private dummy marker' })).rejects.toThrow(/conversation not found/)
+  expect(h.tables).toContain('conversations')
+  expect(h.tables).not.toContain('whatsapp_config')
+  expect(h.tables).not.toContain('messages')
 })

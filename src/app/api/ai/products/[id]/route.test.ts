@@ -1,38 +1,42 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const h = vi.hoisted(() => ({
   getCurrentAccount: vi.fn(),
   requireRole: vi.fn(),
   resolveImportTagIds: vi.fn(),
-}))
+}));
 
 vi.mock('@/lib/auth/account', () => ({
   getCurrentAccount: h.getCurrentAccount,
   requireRole: h.requireRole,
   toErrorResponse: (err: unknown) =>
     new Response(JSON.stringify({ error: String(err) }), { status: 500 }),
-}))
+}));
 vi.mock('@/lib/contacts/resolve-import-tags', () => ({
   resolveImportTagIds: h.resolveImportTagIds,
-}))
+}));
 
-import { GET, PATCH, DELETE } from './route'
+import { GET, PATCH, DELETE } from './route';
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => vi.clearAllMocks());
 
 describe('DELETE /api/ai/products/[id]', () => {
   it('deletes the product and GCs its files from storage', async () => {
-    const remove = vi.fn().mockResolvedValue({ data: null, error: null })
+    const remove = vi.fn().mockResolvedValue({ data: null, error: null });
     const supabase = {
       from: (table: string) => {
         if (table === 'ai_product_media') {
           return {
             select: () => ({
               eq: () => ({
-                eq: () => Promise.resolve({ data: [{ storage_path: 'library/f-1.jpg' }], error: null }),
+                eq: () =>
+                  Promise.resolve({
+                    data: [{ storage_path: 'library/f-1.jpg' }],
+                    error: null,
+                  }),
               }),
             }),
-          }
+          };
         }
         return {
           delete: () => ({
@@ -40,16 +44,18 @@ describe('DELETE /api/ai/products/[id]', () => {
               eq: () => Promise.resolve({ error: null }),
             }),
           }),
-        }
+        };
       },
       storage: { from: () => ({ remove }) },
-    }
-    h.requireRole.mockResolvedValue({ supabase, accountId: 'acc-1' })
-    const res = await DELETE(new Request('http://x'), { params: Promise.resolve({ id: 'p-1' }) })
-    expect(res.status).toBe(200)
-    expect(remove).toHaveBeenCalledWith(['library/f-1.jpg'])
-  })
-})
+    };
+    h.requireRole.mockResolvedValue({ supabase, accountId: 'acc-1' });
+    const res = await DELETE(new Request('http://x'), {
+      params: Promise.resolve({ id: 'p-1' }),
+    });
+    expect(res.status).toBe(200);
+    expect(remove).toHaveBeenCalledWith(['library/f-1.jpg']);
+  });
+});
 
 describe('PATCH /api/ai/products/[id]', () => {
   it('returns 404 when the product is not in this account', async () => {
@@ -65,13 +71,22 @@ describe('PATCH /api/ai/products/[id]', () => {
           }),
         }),
       }),
-    }
-    h.requireRole.mockResolvedValue({ supabase, accountId: 'acc-1', userId: 'u-1' })
-    const req = new Request('http://x', { method: 'PATCH', body: JSON.stringify({ name: 'New name' }) })
-    const res = await PATCH(req, { params: Promise.resolve({ id: 'missing' }) })
-    expect(res.status).toBe(404)
-  })
-})
+    };
+    h.requireRole.mockResolvedValue({
+      supabase,
+      accountId: 'acc-1',
+      userId: 'u-1',
+    });
+    const req = new Request('http://x', {
+      method: 'PATCH',
+      body: JSON.stringify({ name: 'New name' }),
+    });
+    const res = await PATCH(req, {
+      params: Promise.resolve({ id: 'missing' }),
+    });
+    expect(res.status).toBe(404);
+  });
+});
 
 describe('GET /api/ai/products/[id]', () => {
   it('returns 404 when not found', async () => {
@@ -85,9 +100,45 @@ describe('GET /api/ai/products/[id]', () => {
           }),
         }),
       }),
-    }
-    h.getCurrentAccount.mockResolvedValue({ supabase, accountId: 'acc-1' })
-    const res = await GET(new Request('http://x'), { params: Promise.resolve({ id: 'missing' }) })
-    expect(res.status).toBe(404)
-  })
-})
+    };
+    h.getCurrentAccount.mockResolvedValue({ supabase, accountId: 'acc-1' });
+    const res = await GET(new Request('http://x'), {
+      params: Promise.resolve({ id: 'missing' }),
+    });
+    expect(res.status).toBe(404);
+  });
+});
+
+it('validates a partial price change against the saved other limit', async () => {
+  const supabase = {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            maybeSingle: () =>
+              Promise.resolve({
+                data: {
+                  price_min: 100,
+                  price_max: 200,
+                  price_unit: 'per_item',
+                  kind: 'product',
+                  parent_id: null,
+                },
+                error: null,
+              }),
+          }),
+        }),
+      }),
+    }),
+  };
+  h.requireRole.mockResolvedValue({ supabase, accountId: 'acc', userId: 'u' });
+  const res = await PATCH(
+    new Request('http://x', {
+      method: 'PATCH',
+      body: JSON.stringify({ price_min: 300 }),
+    }),
+    { params: Promise.resolve({ id: 'p' }) }
+  );
+  expect(res.status).toBe(400);
+  expect((await res.json()).error).toContain('maximum');
+});

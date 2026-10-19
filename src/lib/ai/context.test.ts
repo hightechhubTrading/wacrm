@@ -280,3 +280,62 @@ it('keeps an untranscribed voice note visible for human review', async () => {
     content: '[Audio received; not transcribed]',
   });
 });
+
+it('keeps same-second customer corrections in ingestion order with deterministic ties', async () => {
+  const rows = [
+    {
+      id: 'a',
+      created_at: '2026-10-17T08:00:00Z',
+      received_at: '2026-10-17T08:00:01Z',
+      sender_type: 'customer',
+      content_text: 'Four windows',
+    },
+    {
+      id: 'b',
+      created_at: '2026-10-17T08:00:00Z',
+      received_at: '2026-10-17T08:00:02Z',
+      sender_type: 'customer',
+      content_text: 'Actually five',
+    },
+    {
+      id: 'c',
+      created_at: '2026-10-17T08:00:00Z',
+      received_at: '2026-10-17T08:00:02Z',
+      sender_type: 'customer',
+      content_text: 'Including the stairs',
+    },
+  ];
+  const ordering: { column: string; ascending: boolean }[] = [];
+  const chain = {
+    from: () => chain,
+    select: () => chain,
+    eq: () => chain,
+    in: () => chain,
+    order: (column: string, options: { ascending: boolean }) => {
+      ordering.push({ column, ascending: options.ascending });
+      return chain;
+    },
+    limit: () =>
+      Promise.resolve({
+        data: [...rows].sort((a, b) => {
+          for (const { column, ascending } of ordering) {
+            const comparison = String(
+              a[column as keyof typeof a]
+            ).localeCompare(String(b[column as keyof typeof b]));
+            if (comparison) return ascending ? comparison : -comparison;
+          }
+          return 0;
+        }),
+        error: null,
+      }),
+  };
+  const context = await buildConversationContext(
+    chain as unknown as SupabaseClient,
+    'conversation'
+  );
+  expect(context.map((m) => m.content)).toEqual([
+    'Four windows',
+    'Actually five',
+    'Including the stairs',
+  ]);
+});

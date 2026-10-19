@@ -1,6 +1,12 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
-import { loadImageAnalysisKey } from './config'
-import { analyzeImage } from './vision'
+import {
+  CATALOG_FIELDS,
+  approvedCatalogRows,
+  catalogMetadata,
+  type CatalogMetadata,
+} from './catalog';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { loadImageAnalysisKey } from './config';
+import { analyzeImage } from './vision';
 
 // ============================================================
 // Product catalog: lets the autonomous auto-reply bot naturally
@@ -20,44 +26,46 @@ import { analyzeImage } from './vision'
 // ============================================================
 
 export interface ProductMediaFilePromptItem {
-  id: string
-  label: string | null
-  mediaKind: 'image' | 'document'
-  aiDescription: string | null
+  id: string;
+  label: string | null;
+  mediaKind: 'image' | 'document';
+  aiDescription: string | null;
 }
 
 export interface ProductPromptItem {
-  id: string
-  name: string
-  description: string
-  tagId: string | null
+  catalog?: CatalogMetadata;
+  parentName?: string | null;
+  id: string;
+  name: string;
+  description: string;
+  tagId: string | null;
   /** Price range, in the account's default currency (migration 053,
    * carried over unchanged). When BOTH are set, the assistant may
    * share this as a caveated estimate (see defaults.ts); when either
    * is null, pricing for this product stays reference-only under the
    * absolute no-pricing rule, exactly as before. */
-  priceMin: number | null
-  priceMax: number | null
+  priceMin: number | null;
+  priceMax: number | null;
   /** Free-form unit label paired with the range -- 'per_meter',
    * 'per_item', 'per_kg', etc. */
-  priceUnit: string | null
+  priceUnit: string | null;
   /** Free-text addon/option pricing not captured by the range (e.g.
    * "Automatic +$60, manual included; motor add-on +$50-80").
    * Only ever surfaced alongside a configured range. */
-  priceNotes: string | null
-  files: ProductMediaFilePromptItem[]
+  priceNotes: string | null;
+  files: ProductMediaFilePromptItem[];
 }
 
 export interface ProductMediaItem {
-  id: string
-  productId: string
+  id: string;
+  productId: string;
   /** Parent product's name -- used as the WhatsApp document filename
    * fallback when the file itself has no distinguishing label. */
-  productName: string
-  label: string | null
-  storagePath: string
-  mimeType: string
-  mediaKind: 'image' | 'document'
+  productName: string;
+  label: string | null;
+  storagePath: string;
+  mimeType: string;
+  mediaKind: 'image' | 'document';
 }
 
 /**
@@ -68,28 +76,41 @@ export interface ProductMediaItem {
  */
 export async function listProductsForPrompt(
   db: SupabaseClient,
-  accountId: string,
+  accountId: string
 ): Promise<ProductPromptItem[]> {
   try {
     const { data, error } = await db
       .from('ai_products')
       .select(
-        'id, name, description, tag_id, price_min, price_max, price_unit, price_notes, ai_product_media(id, label, media_kind, ai_description)',
+        `id, name, description, tag_id, price_min, price_max, price_unit, price_notes, ${CATALOG_FIELDS}, ai_product_media(id, label, media_kind, ai_description)`
       )
-      .eq('account_id', accountId)
-    if (error || !data) return []
-    return data.map((row) => ({
+      .eq('account_id', accountId);
+    if (error || !data) return [];
+    return approvedCatalogRows(data).map((row) => ({
+      catalog: catalogMetadata(row),
+      parentName: data.find((p) => p.id === row.parent_id)?.name ?? null,
       id: row.id as string,
       name: row.name as string,
       description: row.description as string,
       tagId: (row.tag_id as string | null) ?? null,
-      priceMin: (row.price_min as number | null) ?? null,
-      priceMax: (row.price_max as number | null) ?? null,
+      priceMin:
+        row.kind === 'family'
+          ? null
+          : ((row.price_min as number | null) ?? null),
+      priceMax:
+        row.kind === 'family'
+          ? null
+          : ((row.price_max as number | null) ?? null),
       priceUnit: (row.price_unit as string | null) ?? null,
       priceNotes: (row.price_notes as string | null) ?? null,
       files: (
         (row.ai_product_media as
-          | { id: string; label: string | null; media_kind: 'image' | 'document'; ai_description: string | null }[]
+          | {
+              id: string;
+              label: string | null;
+              media_kind: 'image' | 'document';
+              ai_description: string | null;
+            }[]
           | null) ?? []
       ).map((f) => ({
         id: f.id,
@@ -97,10 +118,10 @@ export async function listProductsForPrompt(
         mediaKind: f.media_kind,
         aiDescription: f.ai_description,
       })),
-    }))
+    }));
   } catch (err) {
-    console.error('[ai product catalog] listProductsForPrompt failed:', err)
-    return []
+    console.error('[ai product catalog] listProductsForPrompt failed:', err);
+    return [];
   }
 }
 
@@ -115,17 +136,19 @@ export async function listProductsForPrompt(
 export async function getProductMediaItem(
   db: SupabaseClient,
   accountId: string,
-  fileId: string,
+  fileId: string
 ): Promise<ProductMediaItem | null> {
   try {
     const { data, error } = await db
       .from('ai_product_media')
-      .select('id, product_id, label, storage_path, mime_type, media_kind, ai_products(name)')
+      .select(
+        'id, product_id, label, storage_path, mime_type, media_kind, ai_products(name)'
+      )
       .eq('account_id', accountId)
       .eq('id', fileId)
-      .maybeSingle()
-    if (error || !data) return null
-    const product = (data.ai_products as unknown) as { name: string } | null
+      .maybeSingle();
+    if (error || !data) return null;
+    const product = data.ai_products as unknown as { name: string } | null;
     return {
       id: data.id as string,
       productId: data.product_id as string,
@@ -134,10 +157,10 @@ export async function getProductMediaItem(
       storagePath: data.storage_path as string,
       mimeType: data.mime_type as string,
       mediaKind: data.media_kind as 'image' | 'document',
-    }
+    };
   } catch (err) {
-    console.error('[ai product catalog] getProductMediaItem failed:', err)
-    return null
+    console.error('[ai product catalog] getProductMediaItem failed:', err);
+    return null;
   }
 }
 
@@ -153,38 +176,46 @@ export async function getProductMediaItem(
 export async function captionProductMediaFile(
   db: SupabaseClient,
   accountId: string,
-  file: { id: string; storagePath: string; mimeType: string; mediaKind: 'image' | 'document' },
+  file: {
+    id: string;
+    storagePath: string;
+    mimeType: string;
+    mediaKind: 'image' | 'document';
+  }
 ): Promise<string | null> {
-  if (file.mediaKind !== 'image') return null
+  if (file.mediaKind !== 'image') return null;
   try {
-    const { provider, key } = await loadImageAnalysisKey(db, accountId)
-    if (!provider || !key) return null
+    const { provider, key } = await loadImageAnalysisKey(db, accountId);
+    if (!provider || !key) return null;
 
     const { data: blob, error: downloadError } = await db.storage
       .from('ai-media')
-      .download(file.storagePath)
-    if (downloadError || !blob) return null
+      .download(file.storagePath);
+    if (downloadError || !blob) return null;
 
-    const imageBuffer = Buffer.from(await blob.arrayBuffer())
+    const imageBuffer = Buffer.from(await blob.arrayBuffer());
     const description = await analyzeImage({
       provider,
       apiKey: key,
       imageBuffer,
       mimeType: file.mimeType,
-    })
+    });
 
     const { error: updateError } = await db
       .from('ai_product_media')
       .update({ ai_description: description })
       .eq('account_id', accountId)
-      .eq('id', file.id)
+      .eq('id', file.id);
     if (updateError) {
-      console.error('[ai product catalog] captionProductMediaFile update failed:', updateError)
-      return null
+      console.error(
+        '[ai product catalog] captionProductMediaFile update failed:',
+        updateError
+      );
+      return null;
     }
-    return description
+    return description;
   } catch (err) {
-    console.error('[ai product catalog] captionProductMediaFile failed:', err)
-    return null
+    console.error('[ai product catalog] captionProductMediaFile failed:', err);
+    return null;
   }
 }

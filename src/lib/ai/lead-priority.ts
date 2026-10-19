@@ -1,3 +1,4 @@
+import { resolveNotificationRecipients } from './notification-recipients'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
@@ -19,22 +20,7 @@ export async function notifyUrgentLead(
 ): Promise<void> {
   const { accountId, conversationId, contactId, assignedAgentId, reason } = args
 
-  let recipientIds: string[]
-  if (assignedAgentId) {
-    recipientIds = [assignedAgentId]
-  } else {
-    const { data: admins, error } = await db
-      .from('profiles')
-      .select('user_id')
-      .eq('account_id', accountId)
-      .in('account_role', ['owner', 'admin'])
-    if (error) {
-      console.error('[ai lead-priority] admin lookup for urgent-lead notice failed:', error)
-      return
-    }
-    if (!admins) return
-    recipientIds = admins.map((a: { user_id: string }) => a.user_id)
-  }
+  const recipientIds = await resolveNotificationRecipients(db, accountId, assignedAgentId)
   if (recipientIds.length === 0) return
 
   const rows = recipientIds.map((userId) => ({

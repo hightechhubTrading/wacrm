@@ -1,6 +1,5 @@
 import { NextResponse, after } from 'next/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
-import { supabaseAdmin } from '@/lib/automations/admin-client'
 import { kickConversionSender } from '@/lib/conversions/poller'
 import { isConversionStage } from '@/lib/conversions/stages'
 
@@ -12,18 +11,17 @@ import { isConversionStage } from '@/lib/conversions/stages'
  * Tags a conversation's lead-quality stage (CTWA conversions, migration
  * 065). Visibility is checked with the caller's RLS-scoped client, so an
  * agent can only tag conversations assigned to them. The outbox row is
- * written by enqueue_conversion() (service role); Meta is only called
+ * written atomically by record_conversation_conversion(); Meta is only called
  * after the response, by the sender.
  *
  * Won marks the conversation's latest deal won with the value in QAR --
- * the deals trigger enqueues Purchase too, and the explicit enqueue here
+ * the deals trigger enqueues Purchase too, and the RPC's explicit enqueue
  * is idempotent (event_id is unique), so an already-won deal still ends
  * up tagged exactly once.
  *
- * The deal is read/written with the service role, keyed by the
- * conversation the caller was just shown to be allowed to see: the lead
- * deal auto-created by migration 041 has no assigned_to, so an agent's
- * RLS client usually can't see it even on their own conversation.
+ * An authenticated RPC authorizes the conversation and deal under row locks.
+ * Unassigned auto-created leads remain writable by their conversation's
+ * assignee; a deal assigned to another agent requires administrator access.
  */
 export async function POST(request: Request) {
   try {
@@ -55,43 +53,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
     }
 
-    let dealId: string | null = null
-    if (stage === 'won') {
-      const { data: deal } = await supabaseAdmin()
-        .from('deals')
-        .select('id, status')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (!deal) {
-        return NextResponse.json(
-          { error: 'No deal is linked to this conversation. Create one in Pipelines first.' },
-          { status: 409 },
-        )
-      }
-      const { data: updated, error: updateError } = await supabaseAdmin()
-        .from('deals')
-        .update({ value, currency: 'QAR', status: 'won' })
-        .eq('id', deal.id)
-        .select('id')
-      if (updateError || !updated || updated.length === 0) {
-        return NextResponse.json({ error: 'Could not update the deal' }, { status: 500 })
-      }
-      dealId = deal.id
-    }
-
-    const { error: enqueueError } = await supabaseAdmin().rpc('enqueue_conversion', {
+    const { error: conversionError } = await ctx.supabase.rpc('record_conversation_conversion', {
       p_conversation_id: conversationId,
       p_stage: stage,
       p_value: value,
-      p_currency: stage === 'won' ? 'QAR' : null,
-      p_deal_id: dealId,
-      p_user_id: ctx.userId,
     })
-    if (enqueueError) {
-      console.error('[conversions] enqueue failed:', enqueueError.message)
-      return NextResponse.json({ error: 'Could not save the tag' }, { status: 500 })
+    if (conversionError) {
+      const status = conversionError.code === '42501' ? 403 : conversionError.code === 'P0002' ? (stage === 'won' ? 409 : 404) : 500
+      return NextResponse.json({ error: status === 403 ? 'Conversation or deal is not assigned to you' : 'Could not record conversion' }, { status })
     }
 
     after(() => kickConversionSender())

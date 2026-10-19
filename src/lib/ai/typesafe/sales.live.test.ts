@@ -235,12 +235,10 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
           },
         ],
       };
-      const repair = vi
-        .fn()
-        .mockResolvedValue({
-          ...proposed('Could you share the height so we can check the size?'),
-          productTagId: null,
-        });
+      const repair = vi.fn().mockResolvedValue({
+        ...proposed('Could you share the height so we can check the size?'),
+        productTagId: null,
+      });
       const result = await verifySalesOutput(
         ctx,
         evidence,
@@ -389,5 +387,86 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
       },
       20000
     );
+  }
+);
+
+describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
+  'Catalog audit regression',
+  () => {
+    it.each([
+      {
+        name: 'Shatar per metre clarification',
+        customer: 'How much money do you meter for the work of Shatar?',
+        reply:
+          'Do you mean window shutters, or a shutter door for a garage or shop? ',
+        blocked: false,
+      },
+      {
+        name: 'Arabic shutter price clarification',
+        customer: 'الشتر بكم المتر؟',
+        reply: 'هل تقصد شتر النوافذ أم باب شتر لكراج أو محل؟',
+        blocked: false,
+      },
+      {
+        name: 'approved per-unit estimate without dimensions',
+        customer:
+          'What is the price per square metre of the automatic aluminium window shutters?',
+        reply:
+          'The estimate is QAR 350–380 per square metre. The team confirms the final quotation.',
+        blocked: false,
+        tag: true,
+      },
+      {
+        name: 'garage cannot borrow window price',
+        customer: 'What is your garage shutter door price?',
+        reply: 'The garage shutter estimate is QAR 350–380 per square metre.',
+        blocked: true,
+        tag: true,
+      },
+    ])(
+      '$name',
+      async ({ customer, reply, blocked, tag }) => {
+        const e = {
+          ...base,
+          products: [
+            {
+              ...product,
+              name: 'Automatic aluminium window shutters',
+              description: 'Window shutters only. Not garage or shop doors.',
+            },
+          ],
+          messages: [{ role: 'user' as const, content: customer }],
+        };
+        const result = await verifySalesOutput(ctx, e, {
+          ...proposed(reply),
+          productTagId: tag ? 'shutter' : null,
+        });
+        expect(result.handoff, JSON.stringify(h.audit.mock.lastCall?.[1])).toBe(
+          blocked
+        );
+      },
+      20000
+    );
+    it('repairs an unwarranted model transfer for a neutral price question', async () => {
+      const result = await verifySalesOutput(
+        ctx,
+        {
+          ...base,
+          messages: [
+            { role: 'user', content: 'How much per meter for Shatar?' },
+          ],
+        },
+        { ...proposed(''), productTagId: null, handoff: true },
+        async () => ({
+          ...proposed(
+            'Do you mean window shutters or a garage/shop shutter door?'
+          ),
+          productTagId: null,
+        })
+      );
+      expect(result.handoff, JSON.stringify(h.audit.mock.lastCall?.[1])).toBe(
+        false
+      );
+    }, 20000);
   }
 );

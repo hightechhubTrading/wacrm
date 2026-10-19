@@ -336,7 +336,7 @@ export function buildQuotationHtml(
   if (details.shopDrawingDays !== undefined)
     html = html.replaceAll(
       '<span class="todo">__</span>',
-      () => `<span>${details.shopDrawingDays}</span>`
+      () => `<span>${esc(String(details.shopDrawingDays))}</span>`
     );
   else html = html.replace(/<div class="next">[\s\S]*?<\/div>/, '');
   if (details.notes?.trim())

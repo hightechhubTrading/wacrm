@@ -1,3 +1,4 @@
+import { resolveNotificationRecipients } from './notification-recipients'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ChatMessage } from './types'
 
@@ -84,22 +85,7 @@ export async function notifyAiHandoff(
 ): Promise<void> {
   const { accountId, conversationId, contactId, assignedAgentId, summary } = args
 
-  let recipientIds: string[]
-  if (assignedAgentId) {
-    recipientIds = [assignedAgentId]
-  } else {
-    const { data: admins, error } = await db
-      .from('profiles')
-      .select('user_id')
-      .eq('account_id', accountId)
-      .in('account_role', ['owner', 'admin'])
-    if (error) {
-      console.error('[ai handoff] admin lookup for handoff notice failed:', error)
-      return
-    }
-    if (!admins) return
-    recipientIds = admins.map((a: { user_id: string }) => a.user_id)
-  }
+  const recipientIds = await resolveNotificationRecipients(db, accountId, assignedAgentId)
   if (recipientIds.length === 0) return
 
   const rows = recipientIds.map((userId) => ({

@@ -5,23 +5,21 @@ import { notifyUrgentLead } from './lead-priority'
 function fakeDb(opts: {
   admins?: { user_id: string }[] | null
   adminsError?: unknown
+  member?: { user_id: string } | null
 }): { db: SupabaseClient; inserts: unknown[] } {
   const inserts: unknown[] = []
 
   const db = {
     from: (table: string) => {
       if (table === 'profiles') {
-        return {
-          select: () => ({
-            eq: () => ({
-              in: () =>
-                Promise.resolve({
-                  data: opts.admins ?? null,
-                  error: opts.adminsError ?? null,
-                }),
-            }),
-          }),
+        const query = {
+          select: () => query,
+          eq: () => query,
+          in: () => query,
+          maybeSingle: async () => ({ data: opts.member === undefined ? { user_id: 'agent-1' } : opts.member, error: null }),
+          then: (resolve: (value: unknown) => void) => resolve({ data: opts.admins ?? null, error: opts.adminsError ?? null }),
         }
+        return query
       }
       if (table === 'notifications') {
         return {
@@ -113,3 +111,12 @@ describe('notifyUrgentLead', () => {
     expect(inserts).toHaveLength(0)
   })
 })
+
+
+it('never notifies a removed saved recipient and falls back to current admins', async () => {
+  const { db, inserts } = fakeDb({ member: null, admins: [{ user_id: 'current-admin' }] });
+  await notifyUrgentLead(db, { accountId: 'acc-1', conversationId: 'conv-1', contactId: 'contact-1', assignedAgentId: 'former-member', reason: 'private marker' });
+  expect(inserts).toHaveLength(1);
+  expect(inserts[0]).toMatchObject({ user_id: 'current-admin' });
+  expect(inserts).not.toEqual(expect.arrayContaining([expect.objectContaining({ user_id: 'former-member' })]));
+});

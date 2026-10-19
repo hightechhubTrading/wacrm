@@ -328,3 +328,23 @@ it('defaults the new workflow to preview without weakening existing reply checks
   vi.stubEnv('TYPESAFE_MODE', 'off');
   expect(salesAssistanceMode()).toBe('off');
 });
+
+it('shares saved details with verification without allowing them as new field sources', async () => {
+  const knownFields = [{ name: 'Quantity', value: '8' }];
+  const result = await verifyAssistance(
+    {
+      ...proposal,
+      summary: 'Saved quantity is 8.',
+      fields: [{ id: field, value: '8', source: 'saved' }],
+    },
+    tags,
+    fields,
+    statements,
+    undefined,
+    [],
+    knownFields
+  );
+  expect(h.ask.mock.calls[0][0]).toMatchObject({ knownFields });
+  expect(result.summary).toBe('Saved quantity is 8.');
+  expect(result.fields).toEqual([]);
+});

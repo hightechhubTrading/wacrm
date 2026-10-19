@@ -48,3 +48,15 @@ describe('isDeliverableUrl', () => {
     expect(await isDeliverableUrl('https://8.8.8.8/hook')).toBe(true);
   });
 });
+
+
+describe('mapped IPv6 normalization regressions', () => {
+  it.each(['::ffff:7f00:1', '0:0:0:0:0:ffff:7f00:1', '::ffff:a00:1', '::ffff:a9fe:a9fe', '::ffff:c0a8:1', '::ffff:127.0.0.1'])('denies private mapped address %s', async (ip) => {
+    expect(isPrivateOrReservedIp(ip)).toBe(true);
+    expect(await isDeliverableUrl(`http://[${ip}]/marker`)).toBe(false);
+  });
+  it('preserves public mapped destinations and rejects non-HTTP schemes', async () => {
+    expect(isPrivateOrReservedIp('::ffff:808:808')).toBe(false);
+    expect(await isDeliverableUrl('ftp://8.8.8.8/file')).toBe(false);
+  });
+});

@@ -1,5 +1,5 @@
-import type { ChatMessage } from './types'
-import { languageScript } from './defaults'
+import type { ChatMessage } from './types';
+import { languageScript } from './defaults';
 
 /**
  * The text to retrieve knowledge against: the most recent customer
@@ -9,16 +9,16 @@ import { languageScript } from './defaults'
  */
 export function latestUserMessage(messages: ChatMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === 'user') return messages[i].content
+    if (messages[i].role === 'user') return messages[i].content;
   }
-  return messages.length > 0 ? messages[messages.length - 1].content : ''
+  return messages.length > 0 ? messages[messages.length - 1].content : '';
 }
 
 /** Strips a trailing auto-generated `[Image: ...]` caption, if present
  * (see context.ts's message formatting: `"caption\n[Image: ...]"` for a
  * captioned photo, or bare `"[Image: ...]"` for an uncaptioned one). */
 function stripTrailingImageCaption(content: string): string {
-  return content.replace(/(?:^|\n)\[Image: [\s\S]*\]$/, '').trim()
+  return content.replace(/(?:^|\n)\[Image: [\s\S]*\]$/, '').trim();
 }
 
 /**
@@ -41,11 +41,11 @@ function stripTrailingImageCaption(content: string): string {
  */
 export function latestCustomerAuthoredMessage(messages: ChatMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role !== 'user') continue
-    const authored = stripTrailingImageCaption(messages[i].content)
-    if (authored) return authored
+    if (messages[i].role !== 'user') continue;
+    const authored = stripTrailingImageCaption(messages[i].content);
+    if (authored) return authored;
   }
-  return latestUserMessage(messages)
+  return latestUserMessage(messages);
 }
 
 /**
@@ -58,11 +58,24 @@ export function latestCustomerAuthoredMessage(messages: ChatMessage[]): string {
  * into English mid-thread. 'mixed' only when no customer turn in the
  * window carries a signal at all.
  */
-export function customerLanguageScript(messages: ChatMessage[]): 'arabic' | 'latin' | 'mixed' {
+export function customerLanguageScript(
+  messages: ChatMessage[]
+): 'arabic' | 'latin' | 'mixed' {
   for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role !== 'user') continue
-    const script = languageScript(messages[i].content)
-    if (script !== 'mixed') return script
+    if (messages[i].role !== 'user') continue;
+    const script = languageScript(messages[i].content);
+    if (script !== 'mixed') return script;
   }
-  return 'mixed'
+  return 'mixed';
+}
+
+/** Recent customer context resolves short follow-ups without indexing assistant guesses. */
+export function knowledgeQuery(messages: ChatMessage[]): string {
+  return messages
+    .filter((m) => m.role === 'user')
+    .slice(-4)
+    .map((m) => stripTrailingImageCaption(m.content))
+    .filter(Boolean)
+    .join('\n')
+    .slice(-2400);
 }

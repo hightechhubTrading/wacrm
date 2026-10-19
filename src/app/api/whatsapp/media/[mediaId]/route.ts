@@ -10,7 +10,7 @@ export async function GET(
   try {
     const { mediaId } = await params
 
-    if (!mediaId) {
+    if (!/^\d{1,128}$/.test(mediaId)) {
       return NextResponse.json(
         { error: 'Media ID is required' },
         { status: 400 }
@@ -48,6 +48,17 @@ export async function GET(
       )
     }
 
+    // Query through caller RLS: retaining an ID must not bypass reassignment.
+    const { data: message, error: messageError } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('media_url', `/api/whatsapp/media/${mediaId}`)
+      .limit(1)
+      .maybeSingle()
+    if (messageError || !message) {
+      return NextResponse.json({ error: 'Media not found' }, { status: 404 })
+    }
+
     // Fetch and decrypt WhatsApp config
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')
@@ -77,7 +88,7 @@ export async function GET(
       status: 200,
       headers: {
         'Content-Type': contentType || mediaInfo.mimeType || 'application/octet-stream',
-        'Cache-Control': 'public, max-age=86400',
+        'Cache-Control': 'private, no-store',
       },
     })
   } catch (error) {

@@ -8,7 +8,10 @@ import { chromium } from 'playwright';
 export async function renderHtmlToPdf(html: string): Promise<Buffer> {
   const browser = await chromium.launch();
   try {
-    const page = await browser.newPage();
+    const page = await browser.newPage({ javaScriptEnabled: false, serviceWorkers: 'block' });
+    // The template is self-contained (including fonts). Reject all network
+    // requests even if a future field escapes validation/HTML encoding.
+    await page.route('**/*', (route) => route.abort());
     // Fonts are self-hosted as embedded base64 data: URIs in the template
     // (final-review fix wave 3) — there is no external network activity to
     // wait for anymore, so 'networkidle' no longer serves a purpose and is

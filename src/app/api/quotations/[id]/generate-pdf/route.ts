@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { generateQuotationPdf } from '@/lib/quotations/pdf';
 import { mapQuotationRow, mapQuotationItemRow } from '@/lib/quotations/types';
+import { draftFromQuotation, validateDraft } from '@/lib/quotations/workspace';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -37,6 +38,8 @@ export async function POST(_request: Request, { params }: Params) {
     const { quotation_items, ...quotationRow } = row as Record<string, any>;
     const quotation = mapQuotationRow(quotationRow);
     const items = (quotation_items ?? []).map(mapQuotationItemRow);
+    const invalid = validateDraft(draftFromQuotation({ ...quotation, items }, false), true, quotation.currency);
+    if (invalid) return NextResponse.json({ error: invalid }, { status: 400 });
 
     // A quotation that's already been sent gets a bumped revision on
     // every re-generate, so a re-sent PDF is visibly distinct from the

@@ -23,28 +23,35 @@ import { isIP } from 'node:net';
 
 /** True for loopback / private / link-local / reserved IPv4 or IPv6. */
 export function isPrivateOrReservedIp(ip: string): boolean {
-  const v4 = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (v4) {
-    const a = Number(v4[1]);
-    const b = Number(v4[2]);
-    if (a === 0) return true; // "this" network
-    if (a === 10) return true; // private
-    if (a === 127) return true; // loopback
-    if (a === 169 && b === 254) return true; // link-local + cloud metadata
-    if (a === 172 && b >= 16 && b <= 31) return true; // private
-    if (a === 192 && b === 168) return true; // private
-    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
-    return false;
+  const value = ip.toLowerCase().replace(/^\[|\]$/g, '');
+  const version = isIP(value);
+  if (version === 4) {
+    const [a, b, c] = value.split('.').map(Number);
+    return a === 0 || a === 10 || a === 127 || a >= 224 ||
+      (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && (b === 168 || (b === 0 && (c === 0 || c === 2)))) ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
+      (a === 203 && b === 0 && c === 113);
   }
-
-  const v6 = ip.toLowerCase().replace(/^\[|\]$/g, '');
-  if (v6 === '::1' || v6 === '::') return true; // loopback / unspecified
-  if (v6.startsWith('fe8') || v6.startsWith('fe9') || v6.startsWith('fea') || v6.startsWith('feb'))
-    return true; // fe80::/10 link-local
-  if (v6.startsWith('fc') || v6.startsWith('fd')) return true; // fc00::/7 ULA
-  const mapped = v6.match(/::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
-  if (mapped) return isPrivateOrReservedIp(mapped[1]); // IPv4-mapped
-  return false;
+  if (version !== 6) return true;
+  // WHATWG URL canonicalizes dotted mapped addresses to hexadecimal. Expand
+  // that canonical form before deciding whether the embedded IPv4 is public.
+  let canonical: string;
+  try { canonical = new URL(`http://[${value}]/`).hostname.slice(1, -1); } catch { return true; }
+  const halves = canonical.split('::');
+  const left = halves[0] ? halves[0].split(':') : [];
+  const right = halves.length === 2 && halves[1] ? halves[1].split(':') : [];
+  const words = halves.length === 2
+    ? [...left, ...Array(8 - left.length - right.length).fill('0'), ...right].map((word) => parseInt(word, 16))
+    : left.map((word) => parseInt(word, 16));
+  if (words.slice(0, 5).every((word) => word === 0) && words[5] === 0xffff) {
+    return isPrivateOrReservedIp(`${words[6] >> 8}.${words[6] & 255}.${words[7] >> 8}.${words[7] & 255}`);
+  }
+  // Only global unicast is a public destination. This also rejects IPv4
+  // compatible, link-local, ULA, multicast and local translation prefixes.
+  return (words[0] & 0xe000) !== 0x2000 ||
+    (words[0] === 0x2001 && words[1] === 0x0db8);
 }
 
 /**
@@ -56,7 +63,9 @@ export function isPrivateOrReservedIp(ip: string): boolean {
 export async function isDeliverableUrl(rawUrl: string): Promise<boolean> {
   let host: string;
   try {
-    host = new URL(rawUrl).hostname.replace(/^\[|\]$/g, '');
+    const url = new URL(rawUrl);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+    host = url.hostname.replace(/^\[|\]$/g, '');
   } catch {
     return false;
   }

@@ -32,6 +32,8 @@ const rawQuotationRow = {
   project_name: 'Villa 12',
   subject: 'sliding doors',
   currency: 'QAR',
+  delivery_terms: 'Delivery agreed',
+  payment_terms: 'Payment agreed',
   contact_id: null,
   deal_id: null,
   assigned_to: null,
@@ -40,11 +42,12 @@ const rawQuotationRow = {
   subtotal: 100,
   discount_amount: 0,
   total: 100,
-  valid_until: null,
+  valid_until: '2027-10-17',
+  created_at: '2026-10-17T10:00:00Z',
   pdf_storage_path: null,
   quotation_items: [
     {
-      id: 'item-1',
+      id: '00000000-0000-4000-8000-000000000001',
       quotation_id: 'q-1',
       parent_item_id: null,
       product_id: null,
@@ -109,7 +112,7 @@ describe('POST /api/quotations/[id]/generate-pdf', () => {
       }),
       [
         expect.objectContaining({
-          id: 'item-1',
+          id: '00000000-0000-4000-8000-000000000001',
           itemType: 'line',
           itemCode: 'X1',
           unitPrice: 100,
@@ -160,4 +163,18 @@ describe('POST /api/quotations/[id]/generate-pdf', () => {
     const res = await POST(req, { params: Promise.resolve({ id: 'q-1' }) });
     expect(res.status).toBe(404);
   });
+});
+
+
+it('rejects stored HTML in document details before starting the renderer', async () => {
+  const supabase = makeSupabase({ selectResult: { data: { ...rawQuotationRow, document_details: { shopDrawingDays: '<iframe src="http://127.0.0.1/marker"></iframe>' } }, error: null } });
+  h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase });
+  expect((await POST(new Request('http://test', { method: 'POST' }), { params: Promise.resolve({ id: 'q-1' }) })).status).toBe(400);
+  expect(h.generateQuotationPdf).not.toHaveBeenCalled();
+});
+it('does not validate synthesized defaults while exporting missing saved terms', async () => {
+  const supabase = makeSupabase({ selectResult: { data: { ...rawQuotationRow, valid_until: null, delivery_terms: null, payment_terms: null }, error: null } });
+  h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase });
+  expect((await POST(new Request('http://test', { method: 'POST' }), { params: Promise.resolve({ id: 'q-1' }) })).status).toBe(400);
+  expect(h.generateQuotationPdf).not.toHaveBeenCalled();
 });

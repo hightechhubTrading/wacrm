@@ -115,3 +115,11 @@ describe('buildQuotationHtml', () => {
     expect(html).toContain('@font-face');
   });
 });
+
+
+it('escapes untrusted numeric JSON at the HTML sink even if validation was bypassed', () => {
+  const poisoned = { ...quotation, documentDetails: { shopDrawingDays: '</span><iframe src="http://127.0.0.1/marker"></iframe>' as unknown as number } };
+  const html = buildQuotationHtml(poisoned, items);
+  expect(html).not.toContain('<iframe');
+  expect(html).toContain('&lt;iframe');
+});

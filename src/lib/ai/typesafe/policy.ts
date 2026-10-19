@@ -5,7 +5,7 @@ import type { ChatMessage } from '../types';
 export const SUPPORTED_MIN = 0.85;
 export const HANDOFF_MIN = 0.9;
 export const INTENT_MIN = 0.65;
-export const QUESTION_VERSION = 'sales-v4-recovery';
+export const QUESTION_VERSION = 'sales-v6-catalog-recovery';
 
 export const INTENTS = {
   product: 'Ask about products, options, suitability or examples.',
@@ -36,7 +36,7 @@ const GUIDANCE: Record<SalesIntent, string> = {
   repair:
     'Acknowledge the existing product and symptom. Ask only the next missing symptom or site detail; do not restart new-product qualification. The team must confirm visit times and fees.',
   supplier:
-    'Acknowledge briefly and route to the business team if needed; do not qualify this as a customer sale.',
+    'Treat this as a job/supplier enquiry, not a purchase lead. Acknowledge briefly; do not ask opening dimensions, quote products or offer a site visit. Never invent vacancies, an HR contact, or a promise that a CV has been reviewed. If a CV was supplied, acknowledge receipt only. Use an approved non-sales contact if provided; otherwise explain that hiring/supplier decisions need the business team without creating a sales quotation or inspection task.',
   wrong_contact:
     'Acknowledge briefly. Do not upsell, collect measurements or create sales follow-up work.',
   deferred:

@@ -44,6 +44,7 @@ check_container() {
 (async()=>{for(let i=0;i<45;i++){try{const r=await fetch('http://127.0.0.1:3000/login',{signal:AbortSignal.timeout(3000)});if(r.status===200){for(const path of ['/api/whatsapp/calls','/api/whatsapp/calls/audio-config']){const response=await fetch('http://127.0.0.1:3000'+path,{signal:AbortSignal.timeout(5000)});if(response.status!==401)throw Error(path+' auth check failed');}const browser=await require('playwright').chromium.launch();try{const page=await browser.newPage();await page.setContent('<p>Deployment PDF check</p>');const pdf=await page.pdf();if(pdf.subarray(0,4).toString()!=='%PDF')throw Error('PDF check failed');}finally{await browser.close();}return;}}catch{}await new Promise(r=>setTimeout(r,1000));}throw Error('Application did not become healthy');})().catch(e=>{console.error(e.message);process.exit(1)});
 JS
 }
+docker exec "$candidate" node deploy/check-database.mjs
 check_container "$candidate"
 cleanup
 backup="backups/update-$(date -u +%Y%m%dT%H%M%SZ)"

@@ -1,3 +1,5 @@
+import { listProductsForPrompt } from '@/lib/ai/media-library';
+import { knowledgeQuery } from '@/lib/ai/query';
 import { loadConversationMemory, memoryPrompt } from '@/lib/ai/memory';
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
@@ -11,7 +13,6 @@ import { buildConversationContext } from '@/lib/ai/context';
 import { retrieveKnowledge } from '@/lib/ai/knowledge';
 import { generateReply } from '@/lib/ai/generate';
 import { buildSystemPrompt } from '@/lib/ai/defaults';
-import { latestUserMessage } from '@/lib/ai/query';
 import { logAiUsage } from '@/lib/ai/usage';
 import { supabaseAdmin } from '@/lib/ai/admin-client';
 import { AiError } from '@/lib/ai/types';
@@ -141,13 +142,15 @@ export async function POST(request: Request) {
       supabase,
       accountId,
       config,
-      latestUserMessage(messages)
+      knowledgeQuery(messages)
     );
 
+    const products = await listProductsForPrompt(supabase, accountId);
     const baseSystemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'draft',
       knowledge,
+      media: products,
     });
 
     const groundedSystemPrompt = `${baseSystemPrompt}\n\n${memoryPrompt(memory)}`;
@@ -182,7 +185,7 @@ export async function POST(request: Request) {
       {
         messages,
         knowledge,
-        products: [],
+        products,
         collectFields: [],
         businessContext: config.systemPrompt,
         memory,

@@ -16,6 +16,7 @@ import {
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils'
 import { supabaseAdmin } from './admin-client'
+import { requireConversationScope } from '@/lib/whatsapp/conversation-scope'
 
 // ------------------------------------------------------------
 // Flows-side Meta sender (interactive variants).
@@ -81,6 +82,7 @@ export async function engineSendText(
   if (contact.opted_out) {
     throw new Error('contact has opted out of automated messages')
   }
+  await requireConversationScope(db, args)
 
   const sanitized = sanitizePhoneForMeta(contact.phone)
   if (!isValidE164(sanitized)) {
@@ -151,6 +153,8 @@ export async function engineSendText(
       updated_at: new Date().toISOString(),
     })
     .eq('id', args.conversationId)
+    .eq('account_id', args.accountId)
+    .eq('contact_id', args.contactId)
 
   return { whatsapp_message_id: waMessageId }
 }
@@ -196,6 +200,7 @@ export async function engineSendMedia(
   if (contact.opted_out) {
     throw new Error('contact has opted out of automated messages')
   }
+  await requireConversationScope(db, args)
 
   const sanitized = sanitizePhoneForMeta(contact.phone)
   if (!isValidE164(sanitized)) {
@@ -273,6 +278,8 @@ export async function engineSendMedia(
       updated_at: new Date().toISOString(),
     })
     .eq('id', args.conversationId)
+    .eq('account_id', args.accountId)
+    .eq('contact_id', args.contactId)
 
   return { whatsapp_message_id: waMessageId }
 }
@@ -353,6 +360,7 @@ async function sendInteractiveViaMeta(
   if (contact.opted_out) {
     throw new Error('contact has opted out of automated messages')
   }
+  await requireConversationScope(db, input)
 
   const sanitized = sanitizePhoneForMeta(contact.phone)
   if (!isValidE164(sanitized)) {
@@ -471,6 +479,8 @@ async function sendInteractiveViaMeta(
       updated_at: new Date().toISOString(),
     })
     .eq('id', input.conversationId)
+    .eq('account_id', input.accountId)
+    .eq('contact_id', input.contactId)
 
   return { whatsapp_message_id: waMessageId }
 }

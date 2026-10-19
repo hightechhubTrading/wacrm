@@ -91,7 +91,14 @@ vi.mock('./admin-client', () => ({
         const chain = {
           select: () => chain,
           eq: () => chain,
-          in: () => Promise.resolve({ data: h.state.admins, error: null }),
+          in: () =>
+            Object.assign(
+              Promise.resolve({ data: h.state.admins, error: null }),
+              {
+                maybeSingle: () =>
+                  Promise.resolve({ data: h.state.agentProfile, error: null }),
+              }
+            ),
           maybeSingle: () =>
             Promise.resolve({ data: h.state.agentProfile, error: null }),
         };
@@ -502,6 +509,7 @@ describe('dispatchInboundToAiReply — handoff', () => {
   });
 
   it('explicitly notifies the newly-assigned agent, not just the generic assignment trigger', async () => {
+    h.state.agentProfile = { user_id: 'agent-7' };
     h.loadAiConfig.mockResolvedValue(aiConfig({ handoffAgentId: 'agent-7' }));
     h.generateReply.mockResolvedValue({ text: '', handoff: true });
     await dispatchInboundToAiReply(ARGS);
@@ -675,6 +683,7 @@ describe('dispatchInboundToAiReply — AI priority', () => {
   });
 
   it('notifies the assigned agent on a transition into urgent', async () => {
+    h.state.agentProfile = { user_id: 'human-1' };
     h.loadAiConfig.mockResolvedValue(
       aiConfig({ afterHoursTakeoverEnabled: true })
     );
@@ -1004,37 +1013,26 @@ describe('dispatchInboundToAiReply — unverified price backstop', () => {
 });
 
 describe('dispatchInboundToAiReply — repeated price ask backstop', () => {
-  it('hands off when the customer asked about price 2+ times and this reply still offers nothing', async () => {
+  it('does not force transfer merely because a price question is repeated', async () => {
     h.state.conv = { ...h.state.conv, ai_reply_count: 2 };
     h.buildConversationContext.mockResolvedValue([
-      { role: 'user', content: 'كم سعر الباب؟' },
-      {
-        role: 'assistant',
-        content: 'يعتمد على النوع والمقاس، ممكن ترسل التفاصيل؟',
-      },
-      { role: 'user', content: 'طيب سعره كام بالظبط؟' },
+      { role: 'user', content: 'How much for shutters?' },
+      { role: 'assistant', content: 'What dimensions?' },
+      { role: 'user', content: 'How much per meter?' },
     ]);
     h.generateReply.mockResolvedValue({
-      text: 'السعر يعتمد على النوع والمقاس، ما أقدر أأكد رقم نهائي الآن.',
+      text: 'Do you mean window shutters or a garage/shop door?',
       handoff: false,
       mediaId: null,
       productTagId: null,
     });
-    h.state.admins = [{ user_id: 'admin-1' }];
-
     await dispatchInboundToAiReply(ARGS);
-
-    expect(h.state.rpcCalls).toHaveLength(0); // never claimed a reply slot -- no send attempted
-    expect(h.engineSendText).toHaveBeenCalledTimes(1);
-    // Arabic closing message -- the customer's own messages here are
-    // Arabic, unlike the other backstop tests above which default to
-    // the beforeEach's English "hi" and so get the English closing text.
-    expect(h.engineSendText.mock.calls[0][0]).toMatchObject({
-      text: expect.stringContaining('يحتاج مراجعة'),
-    });
-    expect(h.state.updatePayload).toMatchObject({
-      ai_autoreply_disabled: true,
-    });
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: 'Do you mean window shutters or a garage/shop door?',
+      })
+    );
+    expect(h.state.updatePayload?.ai_autoreply_disabled).not.toBe(true);
   });
 
   it('does NOT hand off on the very first reply, even with two price questions already in the burst', async () => {

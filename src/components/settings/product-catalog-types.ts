@@ -1,3 +1,4 @@
+import type { CatalogMetadata } from '@/lib/ai/catalog';
 import { createClient } from '@/lib/supabase/client';
 
 export interface ProductFile {
@@ -9,7 +10,7 @@ export interface ProductFile {
   storage_path: string;
 }
 
-export interface Product {
+export interface Product extends CatalogMetadata {
   id: string;
   name: string;
   description: string;
@@ -25,5 +26,6 @@ export interface Product {
 /** Public URL for a file in the `ai-media` bucket (already public --
  * this is a pure client-side string construction, no network call). */
 export function productMediaPublicUrl(storagePath: string): string {
-  return createClient().storage.from('ai-media').getPublicUrl(storagePath).data.publicUrl;
+  return createClient().storage.from('ai-media').getPublicUrl(storagePath).data
+    .publicUrl;
 }

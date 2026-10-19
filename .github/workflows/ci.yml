@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: [main, feat/ctwa-conversions]
 
 # Cancel older CI runs for the same branch when a new commit arrives —
 # saves minutes when someone pushes a stack of fixes to one PR.
@@ -48,6 +48,9 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Deployment database preflight tests
+        run: node --test deploy/check-database.test.mjs
 
       - name: Build
         run: npm run build

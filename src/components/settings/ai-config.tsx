@@ -10,7 +10,6 @@ import {
   Eye,
   EyeOff,
   AlertTriangle,
-  ImageIcon,
   PlugZap,
   MessageSquare,
   BookOpen,
@@ -20,7 +19,6 @@ import {
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { formatDistanceToNow } from 'date-fns';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { canEditSettings } from '@/lib/auth/roles';
 import { Button } from '@/components/ui/button';
@@ -45,7 +43,7 @@ import {
 import { SalesAssistanceSettings } from './sales-assistance-settings';
 import { cn } from '@/lib/utils';
 import { SettingsPanelHead } from './settings-panel-head';
-import { AiKnowledgeCard } from './ai-knowledge';
+import { ProductCatalogPanel } from './product-catalog-panel';
 import { BusinessHoursCard } from './business-hours-card';
 import { SocialLinksCard } from './social-links-card';
 import { AI_PROVIDER_DEFAULT_MODEL } from '@/lib/ai/defaults';
@@ -93,7 +91,6 @@ const KEY_PLACEHOLDER: Record<AiProvider, string> = {
 };
 
 export function AiConfig() {
-  const router = useRouter();
   const locale = useLocale();
   const { accountId, accountRole, profileLoading } = useAuth();
   const canEdit = accountRole ? canEditSettings(accountRole) : false;
@@ -191,7 +188,7 @@ export function AiConfig() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!accountId || loadedAccountIdRef.current === accountId) return;
@@ -706,39 +703,7 @@ export function AiConfig() {
                   </div>
                 </CardContent>
               </Card>
-              <AiKnowledgeCard
-                accountId={accountId}
-                canEdit={canEdit}
-                hasEmbeddingsKey={
-                  embeddingsKeyEdited
-                    ? embeddingsKey.trim().length > 0
-                    : hasStoredEmbeddingsKey
-                }
-              />
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <ImageIcon className="text-primary h-4 w-4" /> Product
-                    catalog
-                  </CardTitle>
-                  <CardDescription>
-                    Product photos and catalog files have moved to their own
-                    settings page, with a proper photo grid, batch upload, and
-                    AI-generated descriptions per photo.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push('/settings?tab=products')}
-                  >
-                    Open product catalog
-                  </Button>
-                </CardContent>
-              </Card>
+              <ProductCatalogPanel />
 
               <SocialLinksCard />
             </div>

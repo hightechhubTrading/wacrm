@@ -350,7 +350,7 @@
       "document": "Document",
       "voiceNote": "Voice note",
       "catalog": "Product photos & files",
-      "catalogEmpty": "Your team hasn’t added product photos or files yet. Ask an admin to add them in AI agents → Setup → Product catalog.",
+      "catalogEmpty": "Your team hasn’t added product photos or files yet. Ask an admin to add them in Settings → Knowledge & products.",
       "catalogBack": "Back",
       "catalogNoFiles": "No files for this product yet.",
       "sendTemplate": "Send template",
@@ -2064,7 +2064,7 @@
       "quick-replies": "Quick replies",
       "fields": "Fields & tags",
       "deals": "Deals & currency",
-      "products": "Product catalog",
+      "products": "Knowledge & products",
       "members": "Team members",
       "api": "API keys",
       "quotation-product-codes": "Quotation product codes"

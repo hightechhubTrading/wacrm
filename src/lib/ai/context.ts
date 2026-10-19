@@ -50,6 +50,8 @@ export async function buildConversationContext(
       'video',
     ])
     .order('created_at', { ascending: false })
+    .order('received_at', { ascending: false, nullsFirst: false })
+    .order('id', { ascending: false })
     .limit(limit);
 
   if (error) throw error;

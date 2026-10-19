@@ -286,3 +286,57 @@ auto-reply ownership/pause. Its own mode defaults to shadow. Code applies
 verified internal writes atomically after freshness/scope checks; Jev remains
 a decision/verifier layer. See [sales-assistance.md](sales-assistance.md) for
 activation, tag automation behavior, source limits and verification.
+
+## Review fixes, October 17, 2026
+
+Local question version `sales-v5-evidence-recovery` aligns internal assistance
+verification with the saved fields supplied to its generator. Saved values can
+support a recap/next-action recommendation, but do not establish a completed
+business operation or replace the customer source required for new field capture.
+Latest customer corrections still take precedence.
+
+Conversation context and auto-reply freshness now use `received_at` followed by
+`id` to break equal `created_at` timestamps, matching the internal assistance
+ordering. This keeps same-second message bursts deterministic.
+
+The single rewrite receives specific guidance for each failed enforced check:
+grounding, responsiveness, empathy, price range and, when v2 is enforced,
+document access, completed operations, scope and independent requests. Shadow-only
+failures do not become rewrite instructions. Service unavailability is distinguished
+from a content rejection. Thresholds, the one-rewrite limit and full replacement
+verification remain unchanged.
+
+Verification: 1,373 unit tests passed (30 paid fixtures skipped in normal tests),
+TypeScript and scoped lint passed. The explicit live synthetic suite passed all
+30 cases on the post-change run. The pre-change run passed 29/30, falsely rejecting
+an inspection clarification at a completion score of 0.84. That question/threshold
+was not changed; a passing rerun does not resolve the observed model variability.
+Production accuracy still needs held-out bilingual calibration and post-deployment
+measurement. No deployment, account switch, threshold change or customer send was
+performed during this work.
+
+## Catalog and recovery update, 2026-10-18
+
+Local policy `sales-v6-catalog-recovery` implements the conversation-audit fixes:
+reviewed family/product/variant evidence, catalog-backed draft suggestions,
+contextual/source-labelled knowledge retrieval, repair of premature generated
+handoffs, price/tag correction before transfer, and a fully verified narrow
+clarification fallback for ambiguous shutter pricing. Repeated pricing questions
+no longer force handoff through a simple counter. Support thresholds remain
+unchanged. Questions and conditional next steps are explicitly distinguished from
+unsupported claims and completed operations; independent known-answer requests
+are checked separately from primary response relevance.
+
+Migration 077 adds catalog structure/review/source fields, approved-only retrieval,
+atomic research-draft import and structured final handoff reasons. Apply it before
+the new application; import drafts only after the approved-only runtime is active.
+Existing catalog rows remain approved. The HTH research map includes ten families,
+24 products and five variants from the vault/company site, with no new prices or
+unverified technical guarantees. Full editor, evidence rules, source conflicts,
+validation and deployment order: [Knowledge and catalog guide](ai-knowledge-catalog.md).
+These local changes do not constitute a production deployment.
+
+Preview follow-up: migration 077 was subsequently applied to the connected database
+as `20261018190000` to fix the local editor's missing-column error. Product and
+knowledge queries passed; three existing products and their numeric price amounts
+were preserved. Research import and application deployment remain separate.
