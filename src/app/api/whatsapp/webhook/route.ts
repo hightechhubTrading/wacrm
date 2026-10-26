@@ -1,3 +1,4 @@
+import { formatSharedContacts, type SharedContact } from '@/lib/whatsapp/shared-contacts';
 import { SALES_ASSISTANCE_CONTENT_TYPES } from '@/lib/ai/sales-assistance-types';
 import { handleCallWebhook, recordCallPermissionReply } from '@/lib/whatsapp/calling/webhook';
 import type { CallWebhookValue } from '@/lib/whatsapp/calling/types';
@@ -64,6 +65,7 @@ interface WhatsAppMessage {
   timestamp: string;
   type: string;
   text?: { body: string };
+  contacts?: SharedContact[];
   button?: { text?: string; payload?: string };
   image?: { id: string; mime_type: string; caption?: string };
   video?: { id: string; mime_type: string; caption?: string };
@@ -1247,6 +1249,9 @@ async function parseMessageContent(
         ? { ...empty, contentText: reply.text, interactiveReplyId: reply.id }
         : empty;
     }
+    case 'contacts':
+      return { ...empty, contentText: formatSharedContacts(message.contacts) };
+
     case 'text':
       return { ...empty, contentText: message.text?.body || null };
 

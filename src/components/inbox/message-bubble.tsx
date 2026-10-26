@@ -17,6 +17,7 @@ import {
   Download,
 } from "lucide-react";
 import { format } from "date-fns";
+import { MessageText } from "./message-text";
 import { ReplyQuote } from "./reply-quote";
 import { MessageReactions } from "./message-reactions";
 import { InteractivePreview } from "@/components/interactive/interactive-preview";
@@ -186,7 +187,7 @@ function MessageContent({
     case "text":
       return (
         <p dir="auto" className="text-sm break-words whitespace-pre-wrap">
-          {message.content_text}
+          <MessageText text={message.content_text} />
         </p>
       );
 
@@ -200,7 +201,7 @@ function MessageContent({
           )}
           {message.content_text && (
             <p dir="auto" className="mt-1 text-sm break-words whitespace-pre-wrap">
-              {message.content_text}
+              <MessageText text={message.content_text} />
             </p>
           )}
           {message.image_description && (
@@ -227,7 +228,7 @@ function MessageContent({
           )}
           {message.content_text && (
             <p dir="auto" className="mt-1 text-sm break-words whitespace-pre-wrap">
-              {message.content_text}
+              <MessageText text={message.content_text} />
             </p>
           )}
         </div>
@@ -281,7 +282,7 @@ function MessageContent({
           </span>
           {message.content_text && (
             <p dir="auto" className="mt-1 text-sm break-words whitespace-pre-wrap">
-              {message.content_text}
+              <MessageText text={message.content_text} />
             </p>
           )}
         </div>
