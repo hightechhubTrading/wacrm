@@ -15,7 +15,7 @@ import {
   PackagePlus,
 } from 'lucide-react';
 import {
-  SPECIFICATION_PRESETS,
+  specificationPresetsForItem,
   applySpecificationPreset,
   changeComponentKind,
 } from '@/lib/quotations/company-presets';
@@ -652,6 +652,7 @@ export function WorkspaceItems({
   }
   function line(item: QuotationItemToSave, index: number, child = false) {
     const parent = items.find((i) => i.id === item.parentItemId);
+    const specificationPresets = specificationPresetsForItem(item);
     const codeLike = /^[A-Z]{1,3}\d{1,4}$/i.test(
       item.description?.trim() ?? ''
     );
@@ -833,20 +834,32 @@ export function WorkspaceItems({
                   <WorkspaceSelect
                     aria-label={t('specificationTemplate')}
                     value=""
-                    disabled={disabled}
+                    disabled={disabled || specificationPresets.length === 0}
                     onValueChange={(value) =>
                       onChange(applySpecificationPreset(items, item.id, value))
                     }
                   >
-                    <option value="">{t('chooseSpecification')}</option>
-                    {SPECIFICATION_PRESETS.map((preset) => (
+                    <option value="">
+                      {t(
+                        specificationPresets.length
+                          ? 'chooseSpecification'
+                          : 'noMatchingSpecifications'
+                      )}
+                    </option>
+                    {specificationPresets.map((preset) => (
                       <option key={preset.key} value={preset.key}>
                         {t(preset.key)}
                       </option>
                     ))}
                   </WorkspaceSelect>
                 </label>
-                <p>{t('specificationReviewHint')}</p>
+                <p>
+                  {t(
+                    specificationPresets.length
+                      ? 'specificationReviewHint'
+                      : 'noMatchingSpecificationsHint'
+                  )}
+                </p>
               </div>
             )}
             {!child && (

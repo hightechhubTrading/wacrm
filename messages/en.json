@@ -861,7 +861,13 @@
       "toastDeleteFieldFailed": "Could not delete field."
     },
     "fields": {
-      "openLink": "Open link"
+      "openLink": "Open link",
+      "customerDetails": "Customer details",
+      "loading": "Loading details…",
+      "loadFailed": "Could not load details.",
+      "saveFailed": "Could not save this detail. Please try again.",
+      "retry": "Retry",
+      "noFields": "No fields configured. Manage fields from Contacts → Custom fields."
     }
   },
   "Pipelines": {
@@ -2719,7 +2725,9 @@
     "notInTotal": "Optional — not in quotation total",
     "acceptUpgrade": "Add upgrade to quotation total",
     "specificationTemplate": "Reuse example specifications",
-    "chooseSpecification": "Choose a previous quotation example…",
+    "chooseSpecification": "Choose an example for this product…",
+    "noMatchingSpecifications": "No matching examples for this product",
+    "noMatchingSpecificationsHint": "Enter the specifications below. Catalog products also load their own saved description when selected.",
     "shutterExample": "Shutter package · motor, button, 3 remotes included",
     "pivotExample": "Pivot door · 7 cm construction, optional lock / handle",
     "steelExample": "Steel door · selected design, three-stage painting",

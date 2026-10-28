@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   applySpecificationPreset,
+  specificationPresetsForItem,
   applyCommercialPreset,
   changeComponentKind,
 } from './company-presets';
@@ -246,5 +247,85 @@ describe('HTH quotation packages and terms', () => {
       computeQuotationTotals([{ ...product, kind: 'Included', unitPrice: 999 }])
         .total
     ).toBe(0);
+  });
+});
+
+describe('product-specific specification examples', () => {
+  it.each([
+    ['Pivot door', 'pivotExample'],
+    ['PIVOT DOOR – exterior', 'pivotExample'],
+    ['باب محوري', 'pivotExample'],
+    ['أبواب محورية', 'pivotExample'],
+    ['Roll-up shutter', 'shutterExample'],
+    ['Roller shutter', 'shutterExample'],
+    ['باب رول', 'shutterExample'],
+    ['Swing gate automation', 'gateExample'],
+    ['نظام تشغيل بوابة مفصلية', 'gateExample'],
+    ['Steel door', 'steelExample'],
+    ['باب حديد', 'steelExample'],
+  ])('shows only the appropriate example for %s', (description, key) => {
+    expect(
+      specificationPresetsForItem({ ...product, description }).map((p) => p.key)
+    ).toEqual([key]);
+  });
+  it.each([
+    'UPVC door / window',
+    'Door',
+    'Sliding gate',
+    'Steel side frame',
+    '',
+    'Custom product',
+  ])('does not offer unrelated examples for %s', (description) => {
+    expect(specificationPresetsForItem({ ...product, description })).toEqual(
+      []
+    );
+  });
+  it('handles Arabic-only names and rejects conflicting bilingual names', () => {
+    expect(
+      specificationPresetsForItem({
+        ...product,
+        description: '',
+        descriptionAr: 'باب محوري',
+      }).map((p) => p.key)
+    ).toEqual(['pivotExample']);
+    expect(
+      specificationPresetsForItem({
+        ...product,
+        description: 'Pivot door',
+        descriptionAr: 'باب رول',
+      })
+    ).toEqual([]);
+  });
+  it('updates the examples when the product changes', () => {
+    const item = { ...product, description: 'Pivot door' };
+    expect(specificationPresetsForItem(item).map((p) => p.key)).toEqual([
+      'pivotExample',
+    ]);
+    expect(
+      specificationPresetsForItem({ ...item, description: 'Steel door' }).map(
+        (p) => p.key
+      )
+    ).toEqual(['steelExample']);
+  });
+  it('rejects an unrelated selection without changing specifications or adding components', () => {
+    const items = [
+      {
+        ...product,
+        description: 'Pivot door',
+        specification: 'Custom specification',
+      },
+    ];
+    expect(applySpecificationPreset(items, id, 'shutterExample')).toBe(items);
+    expect(items[0].specification).toBe('Custom specification');
+  });
+  it('does not offer or apply product presets to services or accessories', () => {
+    for (const item of [
+      { ...product, kind: 'Service' as const },
+      { ...product, parentItemId: 'parent' },
+    ]) {
+      expect(specificationPresetsForItem(item)).toEqual([]);
+      const items = [item];
+      expect(applySpecificationPreset(items, id, 'shutterExample')).toBe(items);
+    }
   });
 });

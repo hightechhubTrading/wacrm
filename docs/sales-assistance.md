@@ -158,3 +158,18 @@ production build. Scoped lint reports no errors and one existing native-avatar
 image warning. Artifacts: `/tmp/location-sidebar-unit.txt`,
 `/tmp/location-sidebar-browser.txt`, `/tmp/location-sidebar-types.txt`,
 `/tmp/location-sidebar-lint.txt`, `/tmp/location-sidebar-build.txt`.
+
+## Customer details display
+
+The customer inspector displays both standalone contact fields (including older
+AI-collectible fields such as Additional Notes from Conversation) and active
+contact field groups. Deal fields remain in the sales workspace. Existing saved
+values need no migration or backfill to become visible.
+
+The field panel refreshes after sales-assistance events, on window focus and every
+15 seconds while the tab is visible. Refresh pauses during editing or while a
+changed field remains unsaved; failed writes show an error. Field collection still
+requires its existing account opt-in and runtime mode. A paused reply assistant
+does not disable the separate internal sales-assistance workflow. Shared contact
+messages are readable conversation text; they are not automatically copied into
+the sender's customer profile because they may describe another person.

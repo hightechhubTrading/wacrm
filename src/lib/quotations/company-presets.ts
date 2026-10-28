@@ -52,15 +52,49 @@ export const SPECIFICATION_PRESETS = [
     optional: [],
   },
 ] as const;
+type SpecificationPresetKey = (typeof SPECIFICATION_PRESETS)[number]['key'];
+
+// These legacy examples have no catalog product IDs. Match only explicit product
+// names; a generic door or an unknown product must not inherit another package.
+const PRESET_PRODUCT_NAMES: Record<SpecificationPresetKey, RegExp> = {
+  pivotExample:
+    /\bpivot\s+doors?\b|(?:^|\s)(?:باب|ابواب)\s+(?:محوري|محورية|بيفوت|بيفت)(?:\s|$)/u,
+  shutterExample:
+    /\b(?:roll\s*(?:up|er)?\s+(?:shutters?|doors?)|roller\s+shutters?|shutters?)\b|(?:^|\s)(?:باب|ابواب)\s+(?:رول|شتر|شاتر)(?:\s|$)/u,
+  gateExample:
+    /\bswing\s+gate(?:s)?\s+(?:automation|motors?|operators?)\b|(?:^|\s)(?:نظام\s+تشغيل|محرك|موتور|مكينة)\s+(?:بوابة|بوابات)\s+مفصلية(?:\s|$)/u,
+  steelExample:
+    /\b(?:steel|iron)\s+doors?\b|(?:^|\s)(?:باب|ابواب)\s+(?:حديد|حديدية|فولاذ|فولاذية)(?:\s|$)/u,
+};
+
+export function specificationPresetsForItem(item: QuotationItemToSave) {
+  if (item.itemType !== 'line' || item.parentItemId || item.kind === 'Service')
+    return [];
+  const names = [item.description, item.descriptionAr].map((name) =>
+    (name ?? '')
+      .normalize('NFKC')
+      .toLowerCase()
+      .replace(/[\u064B-\u065F\u0670\u0640]/gu, '')
+      .replace(/[أإآ]/gu, 'ا')
+      .replace(/[^\p{L}\p{N}]+/gu, ' ')
+      .trim()
+  );
+  const matches = SPECIFICATION_PRESETS.filter((preset) =>
+    names.some((name) => PRESET_PRODUCT_NAMES[preset.key].test(name))
+  );
+  // Conflicting names are ambiguous: require the product to be clarified first.
+  return matches.length === 1 ? matches : [];
+}
+
 export function applySpecificationPreset(
   items: QuotationItemToSave[],
   id: string,
   key: string
 ): QuotationItemToSave[] {
-  const preset = SPECIFICATION_PRESETS.find((p) => p.key === key);
   const parent = items.find((i) => i.id === id);
-  if (!preset || !parent || parent.parentItemId || parent.itemType !== 'line')
-    return items;
+  if (!parent) return items;
+  const preset = specificationPresetsForItem(parent).find((p) => p.key === key);
+  if (!preset) return items;
   const result = items.map((i) =>
     i.id === id ? { ...i, specification: preset.specification } : i
   );

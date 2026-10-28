@@ -139,3 +139,10 @@ The user authorized migration, consolidation and deployment after reviewing the 
 Private before/after snapshots, migration result and consolidation plans are under `~/.local/state/wacrm/releases/catalog-20261028/`; no decrypted credential was stored there. Server deployment log and prior updater are in `/docker/wacrm/backups/catalog-20261028/`. Temporary release SSH access was removed after verification. No customer messages, emails or calls were sent.
 
 Open **Settings → Knowledge & products → Collect information** to work through the client questions and export a fresh workbook. Prices and warranty terms still need the company answers already identified; deployment does not approve those missing facts.
+
+
+## Working-source intake approach — user clarification, 28 October 2026
+
+The user clarified that the company’s working documents are imperfect and the task is to understand, filter and organize how HTH currently builds and offers products. Treat supplied recent quotations as evidence of current observed practice, preserving the source/date and separating the worked project example from reusable construction and commercial options. Clerical filename differences belong in provenance; they should not become blocking product questions. The pivot quotation’s 30% after-supply and after-fixing milestones are available offer options, per the user, rather than a conflict requiring one universal replacement. Expired validity belongs to the individual offer’s metadata and does not invalidate its product details.
+
+For the pivot source, current construction and the observed QAR 3,600/m² base calculation are recorded on the draft ACP variant; a separate draft policy records the two 60/30/10 payment schedules. Six questions remain about missing dimensions/installation requirements, material grades/finishes, mechanism selection, billing/options, timing interpretation and warranty. Publishing evidence to the assistant remains separate from collecting and organizing it; no test ratings, hardware models or missing warranty terms are inferred.
