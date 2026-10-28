@@ -58,7 +58,7 @@ function output(probabilities: Record<string, number>) {
     model: 'jev-test',
     usage: { input_tokens: 5, output_tokens: 3 },
     answers: Object.fromEntries(
-      Object.entries(probabilities).map(([id, p]) => [
+      Object.entries({ education: 0.99, ...probabilities }).map(([id, p]) => [
         id,
         { type: 'noul', noul: p },
       ])
@@ -527,7 +527,7 @@ it('rewrites a rejected candidate once and verifies the replacement before allow
   );
   expect(repair).toHaveBeenCalledTimes(1);
   expect(repair.mock.calls[0][0]).toContain(
-    'Business claims were not sufficiently supported'
+    'Keep company-specific claims supported'
   );
   expect(repair.mock.calls[0][0]).not.toContain(
     'missed an independent request'
@@ -713,4 +713,31 @@ it('repairs missing price evidence before the final sender backstop', async () =
   );
   expect(repair.mock.calls[0][0]).toContain('same-reply product tag');
   expect(result.handoff).toBe(false);
+});
+
+it('blocks a false general explanation even when no company evidence rule fails', async () => {
+  h.ask.mockResolvedValue(
+    output({ grounded: 0.99, education: 0.1, responsive: 0.99 })
+  );
+  const result = await verifySalesOutput(
+    ctx,
+    {
+      ...evidence,
+      messages: [{ role: 'user', content: 'What is a perforated shutter?' }],
+    },
+    { ...proposal, text: 'Perforated shutters have no openings.' }
+  );
+  expect(result.handoff).toBe(true);
+  expect(result.routingDecision?.failures).toContain('education');
+});
+it('blocks invented company specifications even when the general explanation passes', async () => {
+  h.ask.mockResolvedValue(
+    output({ grounded: 0.1, education: 0.99, responsive: 0.99 })
+  );
+  const result = await verifySalesOutput(ctx, evidence, {
+    ...proposal,
+    text: 'Solid shutters block views. Ours are fire-rated for two hours.',
+  });
+  expect(result.handoff).toBe(true);
+  expect(result.routingDecision?.failures).toContain('grounded');
 });

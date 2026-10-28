@@ -132,3 +132,10 @@ Live status, 28 October 2026: migration 078 is recorded as `20261028141920`;
 completed, and all 10 approved product passages have vectors. The server updater
 now includes the candidate database preflight. Release evidence and recovery
 locations are in `docs/ai-knowledge-catalog.md`, “Live rollout”.
+
+The local customer-guide revision also requires migration
+`079_customer_guides.sql` before promotion. Preflight probes `document_type` and
+`guide_sections`. After deployment, **Knowledge library → Prepare customer guides**
+creates review-only educational drafts without overwriting existing guides. Guide
+approval remains separate from company-product approval. See the “Customer guides
+across the catalog” section of `docs/ai-knowledge-catalog.md`; 079 is not yet applied.

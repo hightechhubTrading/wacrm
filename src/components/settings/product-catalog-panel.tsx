@@ -23,6 +23,7 @@ import { approvedCatalogRows } from '@/lib/ai/catalog';
 import { HTH_RESEARCH } from '@/lib/ai/hth-research';
 import { ProductCatalogForm } from './product-catalog-form';
 import { ProductMediaGrid } from './product-media-grid';
+import { CustomerGuideEditor } from './customer-guide-editor';
 import { AiKnowledgeCard } from './ai-knowledge';
 import { CatalogCollectionPanel } from './catalog-collection-panel';
 import type { Product } from './product-catalog-types';
@@ -476,6 +477,15 @@ export function ProductCatalogPanel() {
                     }}
                     onCancel={() => setSelection(null)}
                   />
+                  {selected && (
+                    <div className="border-border mt-7 border-t pt-5">
+                      <CustomerGuideEditor
+                        key={`${accountId}-${selected.id}`}
+                        productId={selected.id}
+                        canEdit={canEdit}
+                      />
+                    </div>
+                  )}
                   {selected && (
                     <div className="border-border mt-7 border-t pt-5">
                       <ProductMediaGrid

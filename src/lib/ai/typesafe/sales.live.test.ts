@@ -228,10 +228,19 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
     it('verifies a safe rewrite after rejecting an invented booking', async () => {
       const evidence = {
         ...base,
+        products: [
+          {
+            ...product,
+            name: 'Motorized window shutter',
+            priceMin: null,
+            priceMax: null,
+          },
+        ],
         messages: [
           {
             role: 'user' as const,
-            content: 'My shutter is 3 metres wide. Can I get an estimate?',
+            content:
+              'I need a motorized window shutter, 3 metres wide. Can I get an estimate?',
           },
         ],
       };
@@ -466,6 +475,175 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
       );
       expect(result.handoff, JSON.stringify(h.audit.mock.lastCall?.[1])).toBe(
         false
+      );
+    }, 20000);
+  }
+);
+
+const shopComparison: SalesEvidence = {
+  messages: [
+    { role: 'user', content: 'هل لديكم شترات؟' },
+    { role: 'assistant', content: 'هل تحتاجها للنوافذ أو الكراج أو المحل؟' },
+    { role: 'user', content: 'محل' },
+    {
+      role: 'assistant',
+      content: 'للمحل يتوفر مصمت ومخرم وبولي كربونات شفاف. كم مقاس الفتحة؟',
+    },
+    { role: 'user', content: 'وش الفرق؟' },
+  ],
+  products: [
+    'Solid steel shop shutter',
+    'Perforated steel shop shutter',
+    'Transparent polycarbonate shop shutter',
+  ].map((name, i) => ({
+    id: `shop-${i}`,
+    name,
+    description: 'Shop shutter option.',
+    tagId: null,
+    priceMin: null,
+    priceMax: null,
+    priceUnit: null,
+    priceNotes: null,
+    files: [],
+  })),
+  knowledge: [],
+  collectFields: [],
+  businessContext: 'The team confirms exact specifications and quotations.',
+};
+const educationProposal = (text: string): GenerateResult => ({
+  ...proposed(text),
+  productTagId: null,
+});
+
+describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
+  'general product education',
+  () => {
+    it.each([
+      {
+        name: 'Gulf Arabic shop comparison',
+        text: 'بشكل عام، المصمت بدون فتحات ويوفر خصوصية أكثر. المخرّم فيه فتحات تسمح برؤية جزئية. البولي كربونات الشفاف يسمح برؤية واجهة المحل وهو مقفل. تفضل الخصوصية أو ظهور المعروضات؟',
+        blocked: false,
+      },
+      {
+        name: 'English shop comparison',
+        text: 'Generally, solid shutters block the view for privacy. Perforated shutters have openings for partial visibility. Transparent polycarbonate shutters let people see the display while the shutter is closed. Is privacy or displaying the goods more important to you?',
+        blocked: false,
+        english: true,
+      },
+      {
+        name: 'conditional suitability',
+        text: 'إذا تبي المعروضات تبين والمحل مقفل، فالنوع الشفاف قد يناسبك. وإذا الأولوية للخصوصية، فالمصمت يحجب الرؤية. المخرّم فيه فتحات تعطي رؤية جزئية. الاختيار النهائي يعتمد على تفاصيل الموقع.',
+        blocked: false,
+      },
+      {
+        name: 'unsupported company rating and warranty',
+        text: 'المصمت عندنا مقاوم للحريق ساعتين وضمانه خمس سنوات، والمخرم عندنا سماكته 2 ملم ومحركه إيطالي.',
+        blocked: true,
+      },
+      {
+        name: 'generally qualifier cannot authorize company claims',
+        text: 'بشكل عام شتراتنا الشفافة ضد الكسر بالكامل وتوفر حماية أعلى من الحديد وتجي بضمان خمس سنوات.',
+        blocked: true,
+      },
+      {
+        name: 'false category explanation',
+        text: 'الفرق أن الشتر المخرم ما فيه أي فتحات ولا يسمح بأي رؤية، بينما المصمت كله فتحات.',
+        blocked: true,
+      },
+      {
+        name: 'measurements instead of requested explanation',
+        text: 'كم عرض وارتفاع الفتحة؟',
+        blocked: true,
+      },
+    ])(
+      '$name',
+      async ({ text, blocked, english }) => {
+        const e = english
+          ? {
+              ...shopComparison,
+              messages: [
+                {
+                  role: 'user' as const,
+                  content:
+                    'What is the difference between solid, perforated and transparent polycarbonate shop shutters?',
+                },
+              ],
+            }
+          : shopComparison;
+        const result = await verifySalesOutput(ctx, e, educationProposal(text));
+        expect(result.handoff, JSON.stringify(h.audit.mock.lastCall?.[1])).toBe(
+          blocked
+        );
+      },
+      20000
+    );
+    it('explains pivot terminology without asserting an exact HTH construction', async () => {
+      const result = await verifySalesOutput(
+        ctx,
+        {
+          ...shopComparison,
+          products: [],
+          messages: [
+            {
+              role: 'user',
+              content:
+                'What is the difference between a pivot door and a hinged door?',
+            },
+          ],
+        },
+        educationProposal(
+          'In general, a pivot door rotates around a pivot axis at the top and bottom, while a conventional hinged door swings on hinges along its side. The actual hardware and construction depend on the selected door.'
+        )
+      );
+      expect(result.handoff, JSON.stringify(h.audit.mock.lastCall?.[1])).toBe(
+        false
+      );
+    }, 20000);
+  }
+);
+
+describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
+  'customer guide evidence scope',
+  () => {
+    it('uses an educational guide without asserting company supply', async () => {
+      const result = await verifySalesOutput(
+        ctx,
+        {
+          ...shopComparison,
+          products: [],
+          messages: [{ role: 'user', content: 'What is a pivot door?' }],
+          knowledge: [
+            '[source document=guide chunk=one] [knowledge_type=customer_guide] GENERAL EDUCATION ONLY; not company availability or exact specifications. A pivot door rotates around top and bottom pivot hardware.',
+          ],
+        },
+        educationProposal(
+          'A pivot door rotates around pivot hardware at the top and bottom. That describes the opening mechanism; the material and hardware depend on the selected design.'
+        )
+      );
+      expect(result.handoff, JSON.stringify(h.audit.mock.lastCall?.[1])).toBe(
+        false
+      );
+    }, 20000);
+    it('does not let a general guide approve an HTH warranty', async () => {
+      const result = await verifySalesOutput(
+        ctx,
+        {
+          ...shopComparison,
+          products: [],
+          messages: [
+            {
+              role: 'user',
+              content: 'What warranty do your pivot doors have?',
+            },
+          ],
+          knowledge: [
+            '[source document=guide chunk=one] [knowledge_type=customer_guide] GENERAL EDUCATION ONLY; not company availability or exact specifications. This educational article mentions a five-year warranty as an example; it is not an approved HTH warranty policy.',
+          ],
+        },
+        educationProposal('Our pivot doors come with a five-year warranty.')
+      );
+      expect(result.handoff, JSON.stringify(h.audit.mock.lastCall?.[1])).toBe(
+        true
       );
     }, 20000);
   }

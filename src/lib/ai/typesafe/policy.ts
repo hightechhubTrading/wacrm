@@ -5,7 +5,7 @@ import type { ChatMessage } from '../types';
 export const SUPPORTED_MIN = 0.85;
 export const HANDOFF_MIN = 0.9;
 export const INTENT_MIN = 0.65;
-export const QUESTION_VERSION = 'sales-v6-catalog-recovery';
+export const QUESTION_VERSION = 'sales-v7-product-education';
 
 export const INTENTS = {
   product: 'Ask about products, options, suitability or examples.',
@@ -32,7 +32,7 @@ export type SalesIntent = keyof typeof INTENTS;
 
 const GUIDANCE: Record<SalesIntent, string> = {
   product:
-    'Answer the product question first. Offer a relevant known option; ask at most one missing detail needed to advise.',
+    'Answer the product question first. Explain accurate general category differences and conditional tradeoffs; keep exact company claims grounded in approved evidence. A basic comparison does not require dimensions. Offer a relevant known option and ask at most one useful unanswered preference or necessary detail.',
   repair:
     'Acknowledge the existing product and symptom. Ask only the next missing symptom or site detail; do not restart new-product qualification. The team must confirm visit times and fees.',
   supplier:

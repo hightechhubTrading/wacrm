@@ -25,8 +25,8 @@ export async function checkDeploymentDatabase({
     ],
     [
       'ai_knowledge_documents',
-      'collection_only,status,topic,product_id,source_url,source_notes',
-      '078',
+      'document_type,guide_sections,collection_only,status,topic,product_id,source_url,source_notes',
+      '079',
     ],
     ['conversations', 'ai_handoff_reason', '077'],
     [

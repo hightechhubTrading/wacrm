@@ -85,6 +85,6 @@ export function emotionalHandoffMessage(messages: ChatMessage[]): string {
     (script === 'mixed' &&
       isArabicText(latestCustomerAuthoredMessage(messages)));
   return arabic
-    ? 'نعتذر عن هذه التجربة. طلبك يحتاج متابعة من أحد أعضاء الفريق، وسأترك له المحادثة لمساعدتك.'
-    : 'I’m sorry about this experience. Your request needs a team member’s attention, so I’ll leave the conversation with them to help you.';
+    ? 'آسفين على هالتجربة. طلبك يحتاج متابعة من الفريق، وبخليهم يكملون معك.'
+    : 'I’m sorry about this. Your request needs the team’s attention, so I’ll leave the conversation with them.';
 }

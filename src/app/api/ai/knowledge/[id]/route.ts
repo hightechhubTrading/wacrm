@@ -28,7 +28,9 @@ export async function GET(_request: Request, { params }: Params) {
     const { id } = await params;
     const { data, error } = await supabase
       .from('ai_knowledge_documents')
-      .select(`id, title, content, updated_at, ${KNOWLEDGE_FIELDS}`)
+      .select(
+        `id, title, content, updated_at, guide_sections, ${KNOWLEDGE_FIELDS}`
+      )
       .eq('account_id', accountId)
       .eq('id', id)
       .maybeSingle();
@@ -92,6 +94,23 @@ export async function PATCH(request: Request, { params }: Params) {
       );
     }
 
+    const { data: current, error: typeError } = await supabase
+      .from('ai_knowledge_documents')
+      .select('document_type')
+      .eq('account_id', accountId)
+      .eq('id', id)
+      .maybeSingle();
+    if (typeError) throw typeError;
+    if (!current)
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (current.document_type === 'customer_guide')
+      return NextResponse.json(
+        {
+          error:
+            'Edit structured customer guides in the Customer guide editor.',
+        },
+        { status: 409 }
+      );
     const update: Record<string, string | null> = { ...metadata };
     if (title !== undefined) update.title = title;
     if (content !== undefined) update.content = content;

@@ -1145,11 +1145,11 @@ describe('dispatchInboundToAiReply — Jev integration', () => {
   it.each([
     {
       customer: 'I am fed up with this service!',
-      apology: 'I’m sorry about this experience.',
+      apology: 'I’m sorry about this.',
     },
     {
       customer: 'خلاص تعبت منكم، الخدمة سيئة!',
-      apology: 'نعتذر عن هذه التجربة.',
+      apology: 'آسفين على هالتجربة.',
     },
   ])(
     'apologizes and hands off emotional escalation: $customer',

@@ -30,6 +30,6 @@ export function shutterClarification(evidence: SalesEvidence): string | null {
   if (/(?:windows?.*(?:or|\/).*garage|نوافذ.*(?:أم|او|أو).*كراج)/i.test(prior))
     return null;
   return customerLanguageScript(evidence.messages) === 'arabic'
-    ? 'هل تقصد شتر النوافذ أم باب شتر لكراج أو محل؟'
+    ? 'تقصد شتر للنوافذ أو باب شتر لكراج أو محل؟'
     : 'Do you mean window shutters, or a shutter door for a garage or shop?';
 }

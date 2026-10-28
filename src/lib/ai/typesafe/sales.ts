@@ -1,4 +1,9 @@
+import { CUSTOMER_TONE_POLICY } from '../customer-tone';
 import { containsPriceFigure } from '../defaults';
+import {
+  PRODUCT_EDUCATION_RULES,
+  PRODUCT_EDUCATION_REFERENCE,
+} from '../product-education';
 import { shutterClarification } from '../recovery';
 import type { ConversationMemory } from '../memory';
 import type { FollowupKind } from '../followups';
@@ -268,8 +273,13 @@ export function outputQuestions(
     grounded: noul(
       {
         question:
-          'Is proposal.text free of unsupported affirmative business claims?',
+          'Are all company-specific claims in proposal.text explicitly supported by the approved business evidence?',
         instructions: [
+          'generalProductKnowledge provides category meanings and basic visual distinctions, including relative privacy. They may be explained in Arabic or English, even when discussing the catalog. Definite category nouns such as المصمت or المخرم do not turn an ordinary explanation of those words into a company-specific specification. Only explicit claims about the business or an exact configuration require company evidence.',
+          'Judge company-specific assertions only. A correct general definition, broad qualitative category comparison or conditional preference suggestion is not a company-specific assertion and does not require a catalog passage. General explanation accuracy is checked separately. Do not treat the absence of a general definition from evidence as an unsupported company claim.',
+          PRODUCT_EDUCATION_RULES[0],
+          PRODUCT_EDUCATION_RULES[2],
+          PRODUCT_EDUCATION_RULES[3],
           'Evaluate only what the assistant asserts as a fact, not what it asks the customer. A question such as "Do you mean window shutters or a garage/shop door?" does not claim the business supplies every named option. Greetings, acknowledgments and necessary clarifications have no factual business claims and pass.',
           'evidence.products is the approved catalog. Each product priceMin and priceMax explicitly authorizes a clearly labelled estimated range in evidence.currency and priceUnit. No extra quotation document, dimensions or site visit is required to share that per-unit estimate. It must match the exact customer product and proposal.productTagId; do not borrow a price from another product or variant.',
           'Policy statements such as "the team confirms the final quote" or conditional offers to review/arrange an inspection do not assert an operation has completed. They are allowed. Confirmed appointments, already-sent documents, guaranteed slots, invented scope, discounts, phone numbers, stock, warranties and technical specifications require matching evidence.',
@@ -277,13 +287,47 @@ export function outputQuestions(
         ],
       },
       {
-        true: 'Every affirmative business claim is explicitly supported, or the reply contains only questions, acknowledgments or conditional next steps.',
+        true: 'All company-specific assertions are explicitly supported, or there are no company-specific assertions. General definitions, qualitative category comparisons and conditional preference suggestions pass this company-evidence check without a catalog passage.',
         false:
-          'At least one affirmative business claim contradicts or goes beyond the provided evidence; for example an unsupported garage price or a falsely confirmed visit.',
+          'At least one assertion about this business or an exact offered configuration lacks or contradicts approved evidence, such as an invented price, material thickness, stock claim, warranty, fire rating or confirmed visit.',
+      }
+    ),
+    education: noul(
+      {
+        question:
+          'If proposal.text gives general product education, are its category definitions, qualitative distinctions and conditional suggestions accurate and appropriately limited?',
+        instructions: [
+          PRODUCT_EDUCATION_RULES[0],
+          PRODUCT_EDUCATION_RULES[1],
+          PRODUCT_EDUCATION_RULES[3],
+          'Use generalProductKnowledge as a general educational reference. Visual privacy and display visibility comparisons are allowed category meanings, not security rankings. This reference does not establish availability or an exact offered configuration.',
+          'Evaluate common product concepts using ordinary domain knowledge, even when the catalog does not spell them out. For example, المصمت blocks views, المخرم has openings for partial visibility, and البولي كربونات الشفاف permits views through it. Explaining this is ordinary education, not a technical guarantee about the installed system.',
+          'Do not require a manufacturer datasheet for basic terminology or visual category differences. False definitions, unsupported broad performance guarantees and confident technical or safety conclusions inferred from the category alone fail. Exact company facts are evaluated separately by the business-evidence question. If there is no general product explanation, answer yes.',
+        ],
+      },
+      {
+        true: 'No general explanation is given, or it is accurate basic education or a conditional selection suggestion without unsupported performance guarantees.',
+        false:
+          'The general explanation is false, reverses basic category meanings, or turns a category into an unsupported guarantee or confident technical conclusion.',
       }
     ),
     responsive: noul(
-      'Does `proposal.text` address the latest customer request or ask one necessary unanswered clarification, without repeating an answered question? Use customer-authored statements to establish what is answered, not earlier assistant assumptions. For a price-per-unit question, an approved matching estimate answers directly without needing dimensions. When the product or variant is ambiguous (including shutter/Shatar), asking windows versus garage/shop is useful progress. If no estimate is approved, a plain explanation and one essential missing detail is valid. Questions and conditional offers need no business-claim evidence. An empty handoff response is acceptable.'
+      {
+        question:
+          'Does proposal.text make useful progress on the latest customer request without repeating an answered question?',
+        instructions: [
+          'Use the latest customer message and recent turns to identify the request. Earlier assistant text can identify the referent of a short follow-up, but customer-authored statements establish the selected product and answered details.',
+          'For an ambiguous price request, asking which category the customer means is necessary progress. For example, customer “الشتر بكم المتر؟” or “Shatar price per metre?”, reply “Window shutters or a garage/shop shutter door?” passes. A catalog product or an earlier assistant suggestion does not by itself establish which product the customer wants. Do not demand a price before the category is identified.',
+          'For an identified product with an approved matching per-unit estimate, share that estimate without demanding dimensions. If its price is not approved, a brief explanation plus one essential missing clarification is valid. Questions and conditional next steps need no factual business evidence.',
+          'For an actual comparison request about already identified categories, give the basic differences or useful conditional tradeoffs first. A short “وش الفرق؟” after a list of options asks for their comparison. Asking only opening dimensions instead fails; measurements are not required for basic category explanations. This comparison rule does not apply to an unresolved product-type question in a price enquiry.',
+          'Do not ask again for information the customer already supplied. A concise reply need not repeat every past detail. Empty handoff text is acceptable here; a separate question decides whether handoff is justified.',
+        ],
+      },
+      {
+        true: 'The reply answers the request or asks one necessary unanswered clarification. This includes category clarification for an ambiguous price enquiry and a useful general explanation of requested differences.',
+        false:
+          'The reply ignores the actual request, repeats an answered question, or replaces an answerable category comparison with unnecessary measurement collection.',
+      }
     ),
   };
   if (proposal.handoff)
@@ -291,7 +335,7 @@ export function outputQuestions(
       question:
         'Does the actual customer request require human authority or an explicit human transfer now?',
       instructions:
-        'Judge the customer request in evidence.messages, not the assistant decision. Explicit human requests, final negotiated quotes, confirmed bookings, unresolved serious complaints and genuinely unavailable technical authority justify transfer. A routine ad opener, known product question, ambiguous spelling, missing measurement, first price request, unapproved price range, or an earlier rejected candidate alone do not. One necessary clarification or a supported partial answer should continue.',
+        'Judge the customer request in evidence.messages, not the assistant decision. Explicit human requests, final negotiated quotes, confirmed bookings, unresolved serious complaints and genuinely unavailable technical authority justify transfer. A routine ad opener, known product question, basic category comparison or general product explanation, ambiguous spelling, missing measurement, first price request, unapproved price range, or an earlier rejected candidate alone do not. One necessary clarification or a supported partial answer should continue.',
     });
   if (needsEmotionCare(evidence.emotion)) {
     questions.empathy = noul({
@@ -367,6 +411,7 @@ async function checkSalesOutput(
       {
         evidence,
         proposal,
+        generalProductKnowledge: PRODUCT_EDUCATION_REFERENCE,
         customerStatements: [
           ...customerStatements(evidence.messages),
           ...(evidence.memory?.statements.map((s) => s.text) ?? []),
@@ -382,6 +427,7 @@ async function checkSalesOutput(
     };
     const grounded = supported('grounded');
     const responsive = supported('responsive');
+    const education = supported('education');
     const empathetic = !questions.empathy || supported('empathy');
     // Existence/allowlist checks stay in code; semantic judgments never grant access.
     const mediaAllowed =
@@ -404,6 +450,7 @@ async function checkSalesOutput(
     // Evaluate each enforced dimension so recovery receives every failed check.
     const checks: Record<string, boolean> = {
       grounded,
+      education,
       responsive,
       empathy: empathetic,
       price_evidence:
@@ -543,7 +590,9 @@ export async function verifySalesOutput(
       price_evidence:
         'A price needs the exact approved product with both range limits and a same-reply product tag. Use its unit and conditions. If product match is unclear, ask which type rather than guess a price.',
       grounded:
-        'Business claims were not sufficiently supported. Use only explicit business/catalog/knowledge evidence; customer wishes and prior assistant promises do not prove business facts.',
+        'Keep company-specific claims supported by approved business/catalog/knowledge evidence. Accurate general product education and conditional selection advice are permitted without a catalog passage. Remove invented exact specifications and performance guarantees; customer wishes and prior assistant promises do not prove business facts.',
+      education:
+        'The general explanation was inaccurate or made an unsupported performance guarantee. Give only correct basic category differences and conditional advice; omit exact technical or safety conclusions without evidence.',
       responsive:
         'The reply did not sufficiently address the latest request or repeated an answered question. Check the recent turns and older customer statements before asking anything.',
       empathy:
@@ -562,9 +611,11 @@ export async function verifySalesOutput(
         'Verification was unavailable; this is not evidence of a content error. Keep the reply conservative and fully supported; the replacement still requires verification.',
     };
     const revised = await repair(
-      failures.map((id) => corrections[id]).join('\n') +
+      CUSTOMER_TONE_POLICY +
         '\n\n' +
-        'The previous candidate did not pass reply verification. Write a fresh, brief reply to the latest customer using only the supplied evidence. Remove unsupported claims, promises of completed work, appointments, prices or attachment interpretation. Answer supported parts; if a fact is missing, ask one specific unanswered clarification. Acknowledge any concern respectfully. Do not transfer just because the previous wording failed or a detail is missing. Use the handoff marker only if the actual request requires human authority or an explicit human request. All normal evidence, language, field and media rules still apply.'
+        failures.map((id) => corrections[id]).join('\n') +
+        '\n\n' +
+        'The previous candidate did not pass reply verification. Write a fresh, brief reply to the latest customer. Use approved evidence for company-specific facts and accurate general product education for basic explanations. Remove unsupported claims, promises of completed work, appointments, prices or attachment interpretation. Answer supported parts; if a fact is missing, ask one specific unanswered clarification. Acknowledge any concern respectfully. Do not transfer just because the previous wording failed or a detail is missing. Use the handoff marker only if the actual request requires human authority or an explicit human request. All normal evidence, language, field and media rules still apply.'
     );
     const recovered = await checkSalesOutput(ctx, evidence, revised, 1);
     if (

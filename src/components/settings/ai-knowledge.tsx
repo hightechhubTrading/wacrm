@@ -17,10 +17,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { HTH_COMPANY_RESEARCH } from '@/lib/ai/hth-research';
+import { CustomerGuideEditor } from './customer-guide-editor';
 import { CatalogSelect } from './catalog-select';
 
 interface KnowledgeDoc {
   id: string;
+  document_type?: 'reference' | 'customer_guide';
   title: string;
   content?: string;
   updated_at?: string;
@@ -61,6 +63,31 @@ export function AiKnowledgeCard({
   const [error, setError] = useState('');
   const [opening, setOpening] = useState(false);
   const [reindexing, setReindexing] = useState(false);
+  const [preparingGuides, setPreparingGuides] = useState(false);
+  const prepareGuides = async () => {
+    setPreparingGuides(true);
+    setError('');
+    try {
+      const r = await fetch('/api/ai/customer-guides/import', {
+        method: 'POST',
+      });
+      const d = await r.json();
+      if (!r.ok) throw Error(d.error);
+      toast.success(
+        l(
+          `${d.added} guide drafts prepared. Existing guides kept.`,
+          `تم تجهيز ${d.added} مسودة دليل مع الاحتفاظ بالأدلة الحالية.`
+        )
+      );
+      await fetchDocs();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Could not prepare guides.'
+      );
+    } finally {
+      setPreparingGuides(false);
+    }
+  };
   const [deleting, setDeleting] = useState(false);
   const [searchStatus, setSearchStatus] = useState<{
     semanticConfigured: boolean;
@@ -231,6 +258,24 @@ export function AiKnowledgeCard({
           </Button>
         )}
       </header>
+      {canEdit && (
+        <div className="border-border flex flex-wrap items-center justify-between gap-3 border-b pb-4">
+          <p className="text-muted-foreground max-w-lg text-sm">
+            {l(
+              'Prepare editable buying-guide drafts for the product families already in your catalog. They start as review-only education.',
+              'جهّز مسودات أدلة اختيار قابلة للتعديل للعائلات الموجودة في الكتالوج. تبدأ كشرح عام للمراجعة فقط.'
+            )}
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={preparingGuides}
+            onClick={() => void prepareGuides()}
+          >
+            {l('Prepare customer guides', 'تجهيز أدلة العملاء')}
+          </Button>
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="relative min-w-0 flex-1">
           <Search className="text-muted-foreground absolute start-3 top-3 size-4" />
@@ -291,7 +336,10 @@ export function AiKnowledgeCard({
                     {d.title}
                   </span>
                   <span className="text-muted-foreground mt-1 block text-xs">
-                    {d.topic ?? 'company'} ·{' '}
+                    {d.document_type === 'customer_guide'
+                      ? l('Customer guide', 'دليل العميل')
+                      : (d.topic ?? 'company')}{' '}
+                    ·{' '}
                     {d.status === 'draft'
                       ? l(
                           'Draft · hidden from assistant',
@@ -351,7 +399,18 @@ export function AiKnowledgeCard({
           {l('Opening document…', 'جارٍ فتح المستند…')}
         </p>
       )}
-      {editing && (
+      {editing?.document_type === 'customer_guide' && editing.product_id && (
+        <div className="border-border rounded-xl border p-5">
+          <CustomerGuideEditor
+            key={editing.id}
+            productId={editing.product_id}
+            canEdit={canEdit}
+            onSaved={() => void fetchDocs()}
+            onClose={() => setEditing(null)}
+          />
+        </div>
+      )}
+      {editing && editing.document_type !== 'customer_guide' && (
         <form
           className="border-border bg-card space-y-5 rounded-2xl border p-5"
           onSubmit={(e) => {

@@ -12,6 +12,7 @@ import {
 import { loadEmbeddingsKey } from '@/lib/ai/config';
 import { ingestDocument } from '@/lib/ai/knowledge';
 import { indexProductSearch } from '@/lib/ai/product-search';
+import { guideProductChain } from '@/lib/ai/customer-guides';
 import { approvedCatalogRows } from '@/lib/ai/catalog';
 import { AiError } from '@/lib/ai/types';
 
@@ -34,7 +35,7 @@ export async function POST() {
 
     const { data: docs, error } = await supabase
       .from('ai_knowledge_documents')
-      .select('id, content, product_id')
+      .select('id, content, product_id, document_type')
       .eq('account_id', accountId)
       .eq('status', 'approved')
       .eq('collection_only', false);
@@ -67,14 +68,17 @@ export async function POST() {
 
     const { data: catalog, error: catalogError } = await supabase
       .from('ai_products')
-      .select('id,parent_id,status,superseded_by')
+      .select('id,name,kind,parent_id,status,superseded_by')
       .eq('account_id', accountId);
     if (catalogError) throw catalogError;
     const approved = new Set(
       approvedCatalogRows(catalog ?? []).map((p) => p.id)
     );
-    const eligibleDocs = (docs ?? []).filter(
-      (d) => !d.product_id || approved.has(d.product_id)
+    const eligibleDocs = (docs ?? []).filter((d) =>
+      d.document_type === 'customer_guide'
+        ? !!d.product_id &&
+          guideProductChain(catalog ?? [], d.product_id).length > 0
+        : !d.product_id || approved.has(d.product_id)
     );
     let reindexed = 0;
     const failures: { id: string; error: string }[] = [];
@@ -134,7 +138,7 @@ export async function GET() {
     const { supabase, accountId } = await getCurrentAccount();
     const { data: catalog, error } = await supabase
       .from('ai_products')
-      .select('id,parent_id,status,superseded_by')
+      .select('id,name,kind,parent_id,status,superseded_by')
       .eq('account_id', accountId);
     if (error) throw error;
     const ids = approvedCatalogRows(catalog ?? []).map((p) => p.id);

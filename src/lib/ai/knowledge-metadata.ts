@@ -1,6 +1,6 @@
 import { validSourceUrl } from './catalog';
 export const KNOWLEDGE_FIELDS =
-  'status, topic, product_id, source_url, source_notes';
+  'document_type, status, topic, product_id, source_url, source_notes';
 export function parseKnowledgeMetadata(
   body: Record<string, unknown>
 ): Record<string, string | null> {

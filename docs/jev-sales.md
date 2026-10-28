@@ -340,3 +340,16 @@ Preview follow-up: migration 077 was subsequently applied to the connected datab
 as `20261018190000` to fix the local editor's missing-column error. Product and
 knowledge queries passed; three existing products and their numeric price amounts
 were preserved. Research import and application deployment remain separate.
+
+## General product education — 28 October 2026
+
+Policy `sales-v7-product-education` is implemented locally. General category
+explanations and conditional selection guidance are permitted without an exact
+company catalog passage. Company-specific facts still require approved evidence.
+A new batched `education` check verifies general explanation accuracy separately
+from company-claim grounding; both retain the existing support cutoff. Shared
+category meanings go to generation and verification, and a comparison is answered
+before collecting measurements. An ambiguous price question may still need a
+product-type clarification. See [implementation and evaluation](product-education.md).
+This local change is not yet deployed and changes no product approval or customer
+conversation state.

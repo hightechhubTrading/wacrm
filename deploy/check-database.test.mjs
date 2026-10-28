@@ -55,3 +55,16 @@ test('rejects unexpectedly authorized probes or malformed provider responses', a
     /migration 076/
   );
 });
+
+test('rejects missing structured guide columns before promotion', async () => {
+  let requests = 0;
+  await assert.rejects(
+    checkDeploymentDatabase({
+      ...options,
+      fetchImpl: async () =>
+        new Response('[]', { status: ++requests === 2 ? 400 : 200 }),
+    }),
+    /migration 079/
+  );
+  assert.equal(requests, 2);
+});
