@@ -38,7 +38,9 @@ Compose file. It never changes database migrations automatically.
 The dedicated `wacrm-builder` caps builds at 2 GB RAM, 4 GB RAM plus swap and one
 CPU. The VPS has a 4 GB swap file at `/swap-wacrm-build` as additional headroom.
 The Dockerfile enables the installed Next.js low-memory webpack option and one
-build worker. Keep these limits when replacing the builder.
+build worker. Its Node heap is capped at 1536 MB: the previous 1024 MB cap
+exhausted the TypeScript worker heap during the customer-guide release. The
+builder retains its 2 GB RAM limit. Keep these limits when replacing the builder.
 
 Inspect the running revision:
 

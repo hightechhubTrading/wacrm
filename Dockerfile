@@ -16,7 +16,7 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
     NEXT_TELEMETRY_DISABLED=1 \
     NEXT_BUILD_LOW_MEMORY=1 \
-    NODE_OPTIONS=--max-old-space-size=1024
+    NODE_OPTIONS=--max-old-space-size=1536
 RUN npm run build -- --webpack
 RUN printf '%s\n' "$SOURCE_COMMIT" > .next/REVISION
 
