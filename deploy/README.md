@@ -116,3 +116,12 @@ validate **076 before deploying this revision**; Git push does not apply it. Do 
 remove the guard or restore service-role conversion writes to bypass that order.
 Refresh the installed `update.sh` from this repository when updating the deployment
 tooling. Test the guard locally with `node --test deploy/check-database.test.mjs`.
+
+Catalog collection/search update (28 October 2026): this revision also requires
+`078_catalog_collection_search.sql` before application promotion. It adds collection
+records, product-search passages, supersession metadata and atomic document-index
+replacement. The deployment preflight probes its columns/tables. Apply only reviewed
+migrations through the timestamped linked-database process; do not push the numeric
+migration directory wholesale. The HTH consolidation is a separate dry-run-by-default
+script, documented in `docs/ai-knowledge-catalog.md`; neither it nor migration 078 has
+been applied as part of local implementation.

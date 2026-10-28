@@ -62,6 +62,22 @@ export function AiKnowledgeCard({
   const [opening, setOpening] = useState(false);
   const [reindexing, setReindexing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [searchStatus, setSearchStatus] = useState<{
+    semanticConfigured: boolean;
+    corrupt: boolean;
+    productChunks: number;
+    productVectors: number;
+    pending: number;
+  } | null>(null);
+  const loadSearchStatus = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const r = await fetch('/api/ai/knowledge/reindex', { signal });
+      const d = await r.json();
+      if (r.ok && !signal?.aborted) setSearchStatus(d);
+    } catch {
+      /* Readiness is optional; document editing remains available. */
+    }
+  }, []);
   const fetchDocs = useCallback(async (signal?: AbortSignal) => {
     try {
       const res = await fetch('/api/ai/knowledge', { signal });
@@ -84,6 +100,8 @@ export function AiKnowledgeCard({
     setDocs([]);
     setEditing(null);
     setLoading(true);
+    setSearchStatus(null);
+    void loadSearchStatus(c.signal);
     void fetchDocs(c.signal);
     void fetch('/api/ai/products', { signal: c.signal })
       .then((r) => r.json())
@@ -92,7 +110,7 @@ export function AiKnowledgeCard({
       })
       .catch(() => {});
     return () => c.abort();
-  }, [accountId, fetchDocs]);
+  }, [accountId, fetchDocs, loadSearchStatus]);
   const open = async (id: string) => {
     setOpening(true);
     setError('');
@@ -160,8 +178,20 @@ export function AiKnowledgeCard({
     try {
       const r = await fetch('/api/ai/knowledge/reindex', { method: 'POST' });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error);
-      toast.success(l('Search index refreshed.', 'تم تحديث فهرس البحث.'));
+      if (!r.ok || d.success === false)
+        throw new Error(d.error || 'Some entries could not be indexed.');
+      await loadSearchStatus();
+      toast.success(
+        d.mode === 'keyword'
+          ? l(
+              'Keyword search refreshed. Add an embeddings key to enable semantic search.',
+              'تم تحديث بحث الكلمات. أضف مفتاح التضمين لتفعيل البحث الدلالي.'
+            )
+          : l(
+              'Search index refreshed, including approved products.',
+              'تم تحديث فهرس البحث بما فيه المنتجات المعتمدة.'
+            )
+      );
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -494,7 +524,25 @@ export function AiKnowledgeCard({
           </div>
         </form>
       )}
-      {hasEmbeddingsKey && (
+      {searchStatus && (
+        <p role="status" className="text-muted-foreground text-sm">
+          {searchStatus.corrupt
+            ? l(
+                'The embeddings key needs attention. Re-enter it in AI settings.',
+                'مفتاح التضمين يحتاج مراجعة. أعد إدخاله في إعدادات المساعد.'
+              )
+            : searchStatus.semanticConfigured
+              ? l(
+                  `${searchStatus.productVectors} / ${searchStatus.productChunks} approved product search passages have vectors. ${searchStatus.pending} pending; refresh search to index the next batch.`,
+                  `${searchStatus.productVectors} من ${searchStatus.productChunks} مقطع بحث لمنتجات معتمدة مفهرس دلالياً. ${searchStatus.pending} بانتظار الفهرسة؛ حدّث البحث لفهرسة الدفعة التالية.`
+                )
+              : l(
+                  'Product keyword search is available. Add an embeddings key in AI settings to enable semantic search.',
+                  'بحث الكلمات للمنتجات متاح. أضف مفتاح التضمين في إعدادات المساعد لتفعيل البحث الدلالي.'
+                )}{' '}
+        </p>
+      )}
+      {!searchStatus && hasEmbeddingsKey && (
         <p className="text-muted-foreground text-xs">
           {l(
             'Semantic search is configured for this account.',

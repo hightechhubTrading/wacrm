@@ -27,7 +27,7 @@ export async function GET() {
     const { supabase, accountId } = await getCurrentAccount();
     const { data, error } = await supabase
       .from('ai_knowledge_documents')
-      .select(`id, title, updated_at, ${KNOWLEDGE_FIELDS}`)
+      .select(`id, title, updated_at, collection_only, ${KNOWLEDGE_FIELDS}`)
       .eq('account_id', accountId)
       .order('updated_at', { ascending: false });
     if (error) {
@@ -37,7 +37,9 @@ export async function GET() {
         { status: 500 }
       );
     }
-    return NextResponse.json({ documents: data ?? [] });
+    return NextResponse.json({
+      documents: (data ?? []).filter((d) => !d.collection_only),
+    });
   } catch (err) {
     return toErrorResponse(err);
   }
@@ -98,6 +100,9 @@ export async function POST(request: Request) {
       );
     }
 
+    if (metadata.status !== 'approved')
+      return NextResponse.json({ success: true, id: doc.id });
+
     const { key: embeddingsApiKey, corrupt } = await loadEmbeddingsKey(
       supabase,
       accountId
@@ -117,7 +122,7 @@ export async function POST(request: Request) {
         {
           success: true,
           id: doc.id,
-          warning: `Saved, but semantic indexing failed (${message}). Lexical search still works; use Reindex to retry.`,
+          warning: `Saved, but search indexing needs attention (${message}). Refresh search to retry.`,
         },
         { status: 200 }
       );

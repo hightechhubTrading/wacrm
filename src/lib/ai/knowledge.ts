@@ -15,14 +15,13 @@ interface MatchRow {
 }
 
 /**
- * (Re)build the chunks for one document. Deletes the document's
- * existing chunks, re-chunks the content, and — when the account has an
- * embeddings key — embeds each chunk. Runs under whatever client the
+ * Build and atomically replace an approved document’s current chunks.
+ * The database rejects stale content and drafts. With an embeddings key,
+ * embed each chunk. Runs under whatever client the
  * caller passes (service-role for ingest routes).
  *
  * Throws on embedding failure so the ingest route can report it; the
- * chunks are only written once embedding (if attempted) succeeds, so a
- * failed embed never leaves half-indexed rows.
+ * Complete lexical chunks are retained when embedding fails.
  */
 export async function ingestDocument(
   db: SupabaseClient,
@@ -33,15 +32,6 @@ export async function ingestDocument(
 ): Promise<void> {
   const chunks = chunkText(content);
 
-  // Replace, don't append — re-ingest must be idempotent.
-  const { error: delErr } = await db
-    .from('ai_knowledge_chunks')
-    .delete()
-    .eq('document_id', documentId);
-  if (delErr) throw delErr;
-
-  if (chunks.length === 0) return;
-
   // Embed if a key is set, but DON'T let an embedding failure stop the
   // chunks from being stored: a failed embed must still leave the
   // document searchable lexically. We record the error and rethrow it
@@ -50,7 +40,7 @@ export async function ingestDocument(
   // search really does still work.
   let embeddings: number[][] | null = null;
   let embedError: unknown = null;
-  if (config.embeddingsApiKey) {
+  if (config.embeddingsApiKey && chunks.length) {
     try {
       embeddings = await embedTexts(config.embeddingsApiKey, chunks);
     } catch (err) {
@@ -59,15 +49,23 @@ export async function ingestDocument(
   }
 
   const rows = chunks.map((content, i) => ({
-    document_id: documentId,
-    account_id: accountId,
-    chunk_index: i,
     content,
     embedding: embeddings ? toVectorLiteral(embeddings[i]) : null,
   }));
-
-  const { error: insErr } = await db.from('ai_knowledge_chunks').insert(rows);
-  if (insErr) throw insErr;
+  const { data: replaced, error } = await db.rpc(
+    'replace_ai_knowledge_chunks',
+    {
+      p_account_id: accountId,
+      p_document_id: documentId,
+      p_content: content,
+      p_chunks: rows,
+    }
+  );
+  if (error) throw error;
+  if (!replaced)
+    throw new Error(
+      'Document changed or is no longer approved; refresh before indexing again.'
+    );
 
   if (embedError) throw embedError;
 }
@@ -96,11 +94,17 @@ export async function retrieveKnowledge(
   // just to get []. One cheap indexed COUNT (head, no rows) instead of a
   // paid embeddings call on the hot path.
   try {
-    const { count, error } = await db
-      .from('ai_knowledge_chunks')
-      .select('id', { count: 'exact', head: true })
-      .eq('account_id', accountId);
-    if (error || !count) return [];
+    const counts = await Promise.all([
+      db
+        .from('ai_knowledge_chunks')
+        .select('id', { count: 'exact', head: true })
+        .eq('account_id', accountId),
+      db
+        .from('ai_product_search_chunks')
+        .select('id', { count: 'exact', head: true })
+        .eq('account_id', accountId),
+    ]);
+    if (counts.every((r) => r.error || !r.count)) return [];
   } catch {
     return [];
   }
@@ -115,6 +119,7 @@ export async function retrieveKnowledge(
       .eq('account_id', accountId)
       .eq('status', 'approved')
       .eq('topic', 'company')
+      .eq('collection_only', false)
       .is('product_id', null)
       .order('updated_at', { ascending: false })
       .limit(2);

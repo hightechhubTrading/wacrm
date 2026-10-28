@@ -17,16 +17,24 @@ export async function checkDeploymentDatabase({
     apikey: serviceRoleKey,
     Authorization: `Bearer ${serviceRoleKey}`,
   };
-  for (const [table, columns] of [
+  for (const [table, columns, migration] of [
     [
       'ai_products',
-      'parent_id,kind,status,aliases,specifications,limitations,source_url,source_notes',
+      'superseded_by,parent_id,kind,status,aliases,specifications,limitations,source_url,source_notes',
+      '078',
     ],
     [
       'ai_knowledge_documents',
-      'status,topic,product_id,source_url,source_notes',
+      'collection_only,status,topic,product_id,source_url,source_notes',
+      '078',
     ],
-    ['conversations', 'ai_handoff_reason'],
+    ['conversations', 'ai_handoff_reason', '077'],
+    [
+      'ai_catalog_questions',
+      'id,product_id,question,answer,evidence,confirmed_by,confirmed_on,status',
+      '078',
+    ],
+    ['ai_product_search_chunks', 'id,product_id,content,embedding', '078'],
   ]) {
     const endpoint = new URL(`/rest/v1/${table}`, url);
     endpoint.searchParams.set('select', columns);
@@ -37,7 +45,7 @@ export async function checkDeploymentDatabase({
     });
     if (!response.ok)
       throw new Error(
-        `Database preflight failed for ${table}. Apply migration 077 before deploying this revision.`
+        `Database preflight failed for ${table}. Apply migration ${migration} before deploying this revision.`
       );
   }
   const response = await fetchImpl(

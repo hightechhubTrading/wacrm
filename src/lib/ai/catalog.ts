@@ -1,9 +1,10 @@
 /** Shared catalog contracts. No prices/specifications are inherited across entries. */
 export const CATALOG_FIELDS =
-  'parent_id, kind, status, aliases, specifications, limitations, source_url, source_notes';
+  'superseded_by, parent_id, kind, status, aliases, specifications, limitations, source_url, source_notes';
 export type CatalogKind = 'family' | 'product' | 'variant';
 export type ReviewStatus = 'draft' | 'approved';
 export interface CatalogMetadata {
+  superseded_by?: string | null;
   parent_id: string | null;
   kind: CatalogKind;
   status: ReviewStatus;
@@ -18,6 +19,7 @@ export function catalogMetadata(
   row: Partial<CatalogMetadata>
 ): CatalogMetadata {
   return {
+    superseded_by: row.superseded_by ?? null,
     parent_id: row.parent_id ?? null,
     kind: row.kind ?? 'product',
     status: row.status ?? 'approved',
@@ -130,14 +132,23 @@ export function catalogPriceError(row: {
 
 /** Unreviewed ancestors disable the whole branch. Cycles/missing parents fail closed. */
 export function approvedCatalogRows<
-  T extends { id: string; parent_id?: string | null; status?: string },
+  T extends {
+    id: string;
+    parent_id?: string | null;
+    status?: string;
+    superseded_by?: string | null;
+  },
 >(rows: T[]): T[] {
   const byId = new Map(rows.map((r) => [r.id, r]));
   return rows.filter((row) => {
     const seen = new Set<string>();
     let current: T | undefined = row;
     while (current) {
-      if (seen.has(current.id) || (current.status ?? 'approved') !== 'approved')
+      if (
+        seen.has(current.id) ||
+        current.superseded_by ||
+        (current.status ?? 'approved') !== 'approved'
+      )
         return false;
       seen.add(current.id);
       if (!current.parent_id) return true;

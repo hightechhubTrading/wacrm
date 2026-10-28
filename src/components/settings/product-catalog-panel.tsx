@@ -24,6 +24,7 @@ import { HTH_RESEARCH } from '@/lib/ai/hth-research';
 import { ProductCatalogForm } from './product-catalog-form';
 import { ProductMediaGrid } from './product-media-grid';
 import { AiKnowledgeCard } from './ai-knowledge';
+import { CatalogCollectionPanel } from './catalog-collection-panel';
 import type { Product } from './product-catalog-types';
 
 export function ProductCatalogPanel() {
@@ -42,7 +43,7 @@ export function ProductCatalogPanel() {
   }, [selection]);
   const [newParent, setNewParent] = useState('');
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState('approved');
   const [section, setSection] = useState('products');
   const [importing, setImporting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -175,7 +176,8 @@ export function ProductCatalogPanel() {
       >
         {[
           ['products', l('Products', 'المنتجات')],
-          ['company', l('Company & policies', 'الشركة والسياسات')],
+          ['company', l('Knowledge library', 'مكتبة المعرفة')],
+          ['collection', l('Collect information', 'استكمال المعلومات')],
           ['research', l('HTH research', 'مراجع هاي تك')],
         ].map(([id, label]) => (
           <Button
@@ -189,6 +191,14 @@ export function ProductCatalogPanel() {
           </Button>
         ))}
       </nav>
+      {section === 'collection' && (
+        <CatalogCollectionPanel
+          key={accountId}
+          accountId={accountId}
+          products={items}
+          canEdit={canEdit}
+        />
+      )}
       {section === 'company' && (
         <AiKnowledgeCard
           accountId={accountId}

@@ -92,3 +92,34 @@ customer identifiers and transcript excerpts; detailed evidence remains private.
 The new Docker/update preflight requires migrations 076 and 077 before promotion.
 Only 077 is currently applied to the connected database; application deployment
 and 076 remain separate from committing/pushing the feature branch.
+
+## Catalog structure and collection — 28 October 2026
+
+Implemented locally; migration 078, consolidation and application deployment have **not** been applied to the shared database. The 28 October read-only snapshot contains 51 records: 12 approved (2 families, 3 products, 7 variants) and 39 research drafts. There are 23 existing unanswered company questions. The earlier three-record database notes above are historical.
+
+Three owners now stay separate:
+
+- **Products:** exact product/variant facts, aliases, prices and attached files remain authoritative. The editor initially shows approved entries. A `superseded_by` pointer allows duplicate drafts to remain recoverable history while disappearing from the current catalog and assistant context.
+- **Knowledge library:** focused company/policy/service explanations. The original checklist is retained as `collection_only` history, hidden from the normal library and excluded from retrieval even if its status changes.
+- **Collect information:** `ai_catalog_questions` stores product links, questions, answers, evidence references, confirmer/date and open/answered/closed status. Any member can read; admin+ can write. Answers are never indexed or automatically promoted to product facts. Review and explicitly update the exact product or a focused approved document. The client Excel workbook separates recorded products, proposals to confirm and questions/answers; it is a downloadable collection file, not an automatic reimport mechanism.
+
+Migration `078_catalog_collection_search.sql` copies the original 23 questions without deleting their source. Section-specific questions link to the existing garage/shop/window product where found; shared questions remain unassigned. It adds account-scoped RLS, same-account product links and a lexical product-search projection. Search chunks contain only approved record fields (name/aliases, overview, recorded estimate/unit/notes, specifications and limitations), never internal source notes, collection answers or inferred attachment specifications. Family prices and sibling facts are not inherited. Parent context remains in the structured catalog rather than being copied into variants.
+
+Product edits atomically replace their derived passages and clear their vectors. Draft, superseded and draft-ancestor products are filtered at retrieval time, including after a parent-status change. Approved product passages join existing document passages in both keyword and semantic RPCs, carrying their source product/chunk IDs. Exact prices and actions still use the structured catalog; a nearest-vector result is not independent approval or a substitute for exact configuration selection.
+
+**Knowledge library → Refresh search** embeds up to 96 pending eligible product passages per request with the existing account embeddings key. Repeat if the displayed pending count is nonzero. Without a key, keyword search works and the UI says so. Failed embeddings leave product lexical evidence available. Product chunk IDs/content are checked before vector writes; an edit during embedding discards the stale result. Document edits invalidate their old chunks, and `replace_ai_knowledge_chunks` atomically accepts a complete replacement only when the source content still matches and the document remains approved and outside collection history. An approved document becoming draft immediately loses its chunks. Reindex excludes drafts, collection-only documents and documents linked beneath unapproved product ancestry.
+
+### Consolidation and rollout
+
+1. Review/apply migration 078 through the existing timestamped migration process. Do not blindly push other pending local migrations. The deployment preflight now requires 078's columns/tables in addition to the existing conversion authorization prerequisite.
+2. Run `node scripts/consolidate-hth-catalog.mjs` for a fresh, account-scoped dry run. It proposes 9 duplicate draft supersessions, keeps manual/motorized window proposals as 2 draft variants under the existing window product, and shortens the 3 original product names while retaining their former names as aliases. It deletes no record and changes no price, tag or file association.
+3. `node scripts/consolidate-hth-catalog.mjs --apply` performs the reviewed plan in one transaction, with source/target timestamp checks, linked-project validation and a private recovery snapshot. It is repeatable after completion. Once applied, 42 current entries remain (12 approved, 30 draft) plus 9 retained historical entries. This script has only been dry-run during this change.
+4. Deploy the application after the schema is present. Refresh search and inspect readiness. No paid live embedding call or production AI-send test was performed during implementation.
+5. Review the existing broad company profile editorially before treating it as a focused knowledge library. In particular, reconcile its 400-day doors/frames/coating warranty statement with the product notes' one-year-from-installation statement. This work does not silently resolve either claim or blanket-approve researched products.
+
+### Verification
+
+- Production webpack build succeeded in an isolated temporary checkout (the working checkout uses a build-cache symlink). TypeScript passes. Existing middleware/Edge warnings remain.
+- Full normal suite: 1,431 passing tests, 35 opt-in live tests skipped. Targeted post-refinement collection/search tests and the four deployment-preflight checks pass.
+- Exact migrations 077/078 executed in disposable PGlite PostgreSQL with pgvector: 23-question import, lexical/semantic product search, tenant boundaries, viewer write denial, private-note/collection-answer exclusion, draft/ancestor/supersession filters, product vector invalidation, stale result rejection, atomic document replacement and draft invalidation pass.
+- Browser component fixtures: desktop/mobile English/Arabic, light/dark, no viewport overflow or page errors, viewer read-only, answering/saving, draft proposal view, vector readiness, and an actual Excel download. Fixtures use mocked transport/auth and the proposed consolidation; they are not a deployed integration session. Artifacts: `/tmp/hth-catalog-preview/`.

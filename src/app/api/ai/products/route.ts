@@ -41,19 +41,21 @@ export async function GET() {
         { status: 500 }
       );
     }
-    const items = (data ?? []).map((row) => ({
-      ...catalogMetadata(row),
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      tag_label: row.tag_label,
-      price_min: row.price_min,
-      price_max: row.price_max,
-      price_unit: row.price_unit,
-      price_notes: row.price_notes,
-      updated_at: row.updated_at,
-      files: row.ai_product_media ?? [],
-    }));
+    const items = (data ?? [])
+      .filter((row) => !row.superseded_by)
+      .map((row) => ({
+        ...catalogMetadata(row),
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        tag_label: row.tag_label,
+        price_min: row.price_min,
+        price_max: row.price_max,
+        price_unit: row.price_unit,
+        price_notes: row.price_notes,
+        updated_at: row.updated_at,
+        files: row.ai_product_media ?? [],
+      }));
     return NextResponse.json({ items });
   } catch (err) {
     return toErrorResponse(err);

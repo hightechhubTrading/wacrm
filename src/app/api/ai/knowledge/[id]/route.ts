@@ -101,7 +101,7 @@ export async function PATCH(request: Request, { params }: Params) {
       .update(update)
       .eq('account_id', accountId)
       .eq('id', id)
-      .select('id')
+      .select('id,content,status')
       .maybeSingle();
     if (error) {
       console.error('[ai/knowledge/[id] PATCH] error:', error);
@@ -113,7 +113,10 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!updated)
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    if (content !== undefined) {
+    if (
+      updated.status === 'approved' &&
+      (content !== undefined || metadata.status === 'approved')
+    ) {
       const { key: embeddingsApiKey, corrupt } = await loadEmbeddingsKey(
         supabase,
         accountId
@@ -124,7 +127,7 @@ export async function PATCH(request: Request, { params }: Params) {
           accountId,
           { embeddingsApiKey },
           id,
-          content
+          updated.content
         );
       } catch (err) {
         const message =
@@ -133,7 +136,7 @@ export async function PATCH(request: Request, { params }: Params) {
         return NextResponse.json(
           {
             success: true,
-            warning: `Updated, but semantic indexing failed (${message}). Lexical search still works; use Reindex to retry.`,
+            warning: `Updated, but search indexing needs attention (${message}). Refresh search to retry.`,
           },
           { status: 200 }
         );
