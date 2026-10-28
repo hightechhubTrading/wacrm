@@ -125,3 +125,10 @@ migrations through the timestamped linked-database process; do not push the nume
 migration directory wholesale. The HTH consolidation is a separate dry-run-by-default
 script, documented in `docs/ai-knowledge-catalog.md`; neither it nor migration 078 has
 been applied as part of local implementation.
+
+Live status, 28 October 2026: migration 078 is recorded as `20261028141920`;
+076/077 were verified present. The scoped catalog release
+`bb770f8e299409c932a920fe419c666e5b34ad2e` is deployed, the separate consolidation
+completed, and all 10 approved product passages have vectors. The server updater
+now includes the candidate database preflight. Release evidence and recovery
+locations are in `docs/ai-knowledge-catalog.md`, “Live rollout”.
