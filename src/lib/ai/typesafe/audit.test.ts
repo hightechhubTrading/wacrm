@@ -22,7 +22,7 @@ it('persists only judgment metadata and never logs failed database error bodies'
   );
   expect(insert.mock.calls[0][0]).toMatchObject({
     account_id: 'acct',
-    question_version: 'sales-v9-dialogue-references',
+    question_version: 'sales-v10-approved-evidence',
     judgments: { grounded: 0.98 },
   });
   expect(JSON.stringify([info.mock.calls, warn.mock.calls])).not.toContain(

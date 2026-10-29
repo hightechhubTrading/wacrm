@@ -17,43 +17,40 @@ export async function judgeSalesOutput(
     ...(evidence.memory?.statements.map((s) => s.text) ?? []),
   ];
   const full = {
-    evidence: evidence.behaviorV2Enabled
-      ? {
-          ...evidence,
-          knowledge: evidence.knowledge.filter(
-            (k) => !k.includes('[knowledge_type=customer_guide]')
-          ),
-          products: evidence.products.map((p) => ({
-            id: p.id,
-            name: p.name,
-            description: p.description,
-            priceMin: p.priceMin,
-            priceMax: p.priceMax,
-            priceUnit: p.priceUnit,
-            priceNotes: p.priceNotes,
-            files: p.files,
-            ...(p.catalog
-              ? {
-                  catalog: {
-                    kind: p.catalog.kind,
-                    aliases: p.catalog.aliases,
-                    specifications: p.catalog.specifications,
-                    limitations: p.catalog.limitations,
-                    status: p.catalog.status,
-                  },
-                }
-              : {}),
-          })),
-        }
-      : evidence,
+    evidence: {
+      ...evidence,
+      knowledge: evidence.knowledge.filter(
+        (k) => !k.includes('[knowledge_type=customer_guide]')
+      ),
+      products: evidence.products.map((p) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        priceMin: p.priceMin,
+        priceMax: p.priceMax,
+        priceUnit: p.priceUnit,
+        priceNotes: p.priceNotes,
+        files: p.files,
+        ...(p.catalog
+          ? {
+              catalog: {
+                parent_id: p.catalog.parent_id,
+                kind: p.catalog.kind,
+                aliases: p.catalog.aliases,
+                specifications: p.catalog.specifications,
+                limitations: p.catalog.limitations,
+                status: p.catalog.status,
+              },
+            }
+          : {}),
+      })),
+    },
     proposal,
     generalProductKnowledge: {
       ...PRODUCT_EDUCATION_REFERENCE,
-      guideExcerpts: evidence.behaviorV2Enabled
-        ? evidence.knowledge.filter((k) =>
-            k.includes('[knowledge_type=customer_guide]')
-          )
-        : [],
+      guideExcerpts: evidence.knowledge.filter((k) =>
+        k.includes('[knowledge_type=customer_guide]')
+      ),
     },
     customerStatements: statements,
   };

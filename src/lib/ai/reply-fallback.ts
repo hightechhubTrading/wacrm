@@ -123,6 +123,16 @@ export async function selectReplyFallback(
         m[0].replace(/[.,]$/, ''),
     };
   for (const [i, p] of evidence.products.entries()) {
+    const parts = p.name.split('·').map((part) => part.trim());
+    const localName = parts.find((part) =>
+      ar ? /[\u0600-\u06ff]/.test(part) : /^[^\u0600-\u06ff]*[a-z]/i.test(part)
+    );
+    if (localName && (!p.catalog || p.catalog.status === 'approved'))
+      candidates['availability_' + i] = {
+        text: ar
+          ? `نعم، نوفر ${localName}. وش تبي تعرف؟`
+          : `Yes, we offer ${localName}. What would you like to know?`,
+      };
     candidates['unknown_price_' + i] = {
       text: ar
         ? 'السعر الخاص بهالنوع يحتاج تأكيد من الفريق.'
@@ -158,6 +168,10 @@ export async function selectReplyFallback(
       if (text) candidates[`guide_${i}_${heading}`] = { text };
     }
   }
+  if (evidence.intent === 'product')
+    for (const id of Object.keys(candidates))
+      if (id.startsWith('price_') || id.startsWith('unknown_price_'))
+        delete candidates[id];
   if (evidence.intent === 'supplier')
     for (const id of Object.keys(candidates))
       if (
@@ -195,7 +209,7 @@ export async function selectReplyFallback(
           question:
             'Select the candidate that best helps with currentCustomerRequest now. Earlier dialogue only resolves its references. Do not answer an older ad opener instead of the latest real request. Choose none if no candidate is useful and accurate in context.',
           instructions:
-            'For a short comparison follow-up, resolve the exact alternatives from the preceding assistant/customer turn; never choose a guide comparing different categories. An explicit entrance-door request has already answered entrance versus internal: do not choose door_type again. Use unclear for garbled or ambiguous trade/worker messages; never guess shutters from an old advertisement. A company-profile document request requires a matching document candidate or missing_document, not an office fact. A question about an unconfirmed overseas branch requires exact_unknown, not the known local office address. A necessary unanswered clarification is useful. Do not repeat an answered question. Answer a known company question directly when a matching fact candidate exists. A general comparison must match the requested categories. A price candidate requires the exact customer product/variant and every condition; do not borrow a price for manual or another variant. An asset must match the requested product and kind. Acknowledge a genuine unknown when no approved answer exists. Choose transfer only for explicit human requests or actual human authority needed now. Choose none rather than force an unrelated answer.',
+            'For a basic availability question, prefer an availability candidate naming the matching approved product. Those candidates confirm an offering, not stock, an exact variant, or every family configuration. Do not answer a comparison, technical or price question with a generic availability statement. Do not use a price-unknown response when no price was requested. For a short comparison follow-up, resolve the exact alternatives from the preceding assistant/customer turn; never choose a guide comparing different categories. An explicit entrance-door request has already answered entrance versus internal: do not choose door_type again. Use unclear for garbled or ambiguous trade/worker messages; never guess shutters from an old advertisement. A company-profile document request requires a matching document candidate or missing_document, not an office fact. A question about an unconfirmed overseas branch requires exact_unknown, not the known local office address. A necessary unanswered clarification is useful. Do not repeat an answered question. Answer a known company question directly when a matching fact candidate exists. A general comparison must match the requested categories. A price candidate requires the exact customer product/variant and every condition; do not borrow a price for manual or another variant. An asset must match the requested product and kind. Acknowledge a genuine unknown when no approved answer exists. Choose transfer only for explicit human requests or actual human authority needed now. Choose none rather than force an unrelated answer.',
         },
         {
           none: 'No useful supported candidate',

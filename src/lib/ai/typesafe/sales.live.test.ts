@@ -712,3 +712,80 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
     }, 20000);
   }
 );
+
+// A catalog offering does not promise inventory or every possible configuration.
+describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
+  'approved product availability boundary',
+  () => {
+    it.each([
+      { text: 'نعم، نوفر نوافذ وأبواب UPVC. وش تبي تعرف؟', blocked: false },
+      {
+        text: 'Yes, we offer UPVC windows and doors. What would you like to know?',
+        blocked: false,
+      },
+      { text: 'نوافذ UPVC موجودة بالمخزن وجاهزة للتركيب بكرة.', blocked: true },
+      {
+        text: 'Our UPVC windows are certified fire resistant for two hours.',
+        blocked: true,
+      },
+      { text: 'نوفر نوافذ خشب.', blocked: true },
+    ])(
+      '$text',
+      async ({ text, blocked }) => {
+        const evidence: SalesEvidence = {
+          ...base,
+          behaviorV2Enabled: false,
+          businessContext: null,
+          messages: [
+            {
+              role: 'user',
+              content: /[\u0600-\u06ff]/.test(text)
+                ? 'عندكم نوافذ للبيت؟'
+                : 'Do you offer windows?',
+            },
+          ],
+          products: [
+            {
+              ...product,
+              id: 'upvc',
+              name: 'UPVC windows & doors · نوافذ وأبواب UPVC',
+              description:
+                'UPVC window and door systems configured for the site. Confirm opening style and glazing.',
+              priceMin: null,
+              priceMax: null,
+              catalog: {
+                parent_id: null,
+                kind: 'product',
+                status: 'approved',
+                aliases: [],
+                specifications: '',
+                limitations:
+                  'Confirm exact scope, warranty, motor, installation timing and pricing with the team. No price or technical rating is inherited from another entry.',
+                source_url: null,
+                source_notes:
+                  'Internal collection notes are not approved claims.',
+              },
+            },
+          ],
+        };
+        const firstCheck = h.audit.mock.calls.length;
+        const result = await verifySalesOutput(
+          ctx,
+          evidence,
+          educationProposal(text)
+        );
+        const failures =
+          h.audit.mock.calls[firstCheck]?.[1].judgments.enforcedFailures;
+        if (blocked) {
+          expect(failures).toContain('grounded');
+          expect(result.text).not.toBe(text);
+        } else {
+          expect(failures).toEqual([]);
+          expect(result.text).toBe(text);
+          expect(result.reviewRequired || result.handoff).toBeFalsy();
+        }
+      },
+      20000
+    );
+  }
+);

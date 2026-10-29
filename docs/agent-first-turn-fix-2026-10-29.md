@@ -20,3 +20,16 @@ The advanced flow additionally has narrow checks for comparing the wrong alterna
 The wider advanced rollout is still **off**. A newly frozen 24-case synthetic readiness set produced 16/24 outcomes matching its initial route/nonempty-reply criterion, including seven internal reviews and three transfers (two explicit human requests, one callback request). Manual review found four nonempty replies that missed part of the request or asked an unnecessary clarification. One callback gold label was too strict, but has not been changed to inflate the score. This does not meet the usefulness target and is not a historical/live improvement measurement. The holdout was not used to tune the correction afterward.
 
 Private replay drafts, before/after configuration, fixture hash and outputs are under `~/.local/state/wacrm/evaluations/doors-20261029/`. The live configuration correction and baseline failure/transfer distinction are separate from activation of the advanced policy.
+
+## Windows availability follow-up
+
+A user reported a brief verification error after “عندك شبابيك”. Read-only replays found an approved window reply scoring 0.84 against the unchanged 0.85 factual threshold; a repair could pass, but failure remained intermittent. The legacy verifier also received internal catalog source notes as part of its product evidence. Another simple approved availability fallback was rejected because exact-scope limitations were being interpreted as negating the offering itself.
+
+The correction now:
+
+- Curates verifier product evidence in both baseline and advanced modes: approved descriptions, prices and conditions, hierarchy, specifications, limitations and files remain; internal source notes are excluded. General customer guides remain separate from company-specific evidence.
+- Uses the same relevant approved product context in the playground, draft and live reply paths, preserving the existing full-catalog fallback when nothing matches.
+- Adds closed-set availability fallback wording copied from approved catalog names, with no customer product tag or unrequested price. It still requires ordinary output verification. The factual question explicitly distinguishes an approved offering from stock, suitability and exact configuration promises.
+- Shows playground errors persistently beside the composer, preserving the failed message for retry and clearing the error on retry/reset. Verification failures still do not imply a human handoff.
+
+Validation: 1,480 ordinary tests and 68 opt-in live semantic checks pass, including approved Arabic/English offerings and rejection of invented inventory, fire ratings and an unlisted material. TypeScript, production webpack build and lint pass (36 existing lint warnings). Browser checks cover persistent errors beyond the former toast lifetime, preserved text, clean retry history, reset and Arabic/English mobile layout. A bounded read-only DeepSeek replay passed the exact windows question, an Arabic home-window paraphrase and English equivalent; the latter needed the verified fallback. These are targeted regressions, not a claim of broad agent readiness. Advanced behavior remains disabled and no database migration is required for this correction.

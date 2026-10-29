@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { toast } from 'sonner';
 import {
   Bot,
   RotateCcw,
@@ -31,6 +30,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -45,6 +45,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
     setTurns(next);
     setInput('');
     setSending(true);
+    setError(null);
     try {
       const res = await fetch('/api/ai/playground', {
         method: 'POST',
@@ -57,9 +58,15 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (data.code === 'ai_not_configured') {
-          toast.error(copy('notConfigured'));
+          setError(copy('notConfigured'));
+        } else if (data.code === 'reply_needs_review') {
+          setError(
+            locale === 'ar'
+              ? 'ما قدرت أتأكد من الرد. رسالتك ما زالت في الخانة، وتقدر تعيد المحاولة.'
+              : 'Couldn’t verify the reply. Your message is still below so you can retry.'
+          );
         } else {
-          toast.error(data.error ?? copy('replyError'));
+          setError(data.error ?? copy('replyError'));
         }
         // Roll the unsent user turn back so the transcript stays clean.
         setTurns(turns);
@@ -79,7 +86,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
         },
       ]);
     } catch {
-      toast.error(copy('networkError'));
+      setError(copy('networkError'));
       setTurns(turns);
       setInput(text);
     } finally {
@@ -161,8 +168,11 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setTurns([])}
-            disabled={turns.length === 0 || sending}
+            onClick={() => {
+              setTurns([]);
+              setError(null);
+            }}
+            disabled={(turns.length === 0 && !error) || sending}
             className="text-muted-foreground"
           >
             <RotateCcw className="h-3.5 w-3.5" /> {copy('reset')}
@@ -255,6 +265,16 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
             </div>
           )}
         </div>
+
+        {error && (
+          <div
+            role="alert"
+            dir="auto"
+            className="border-border text-destructive shrink-0 border-t px-4 py-3 text-sm"
+          >
+            {error}
+          </div>
+        )}
 
         {/* Composer */}
         <div className="border-border flex shrink-0 items-center gap-3 border-t p-4">
