@@ -23,8 +23,6 @@ RUN printf '%s\n' "$SOURCE_COMMIT" > .next/REVISION
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
-ARG SOURCE_COMMIT=unknown
-LABEL org.opencontainers.image.revision=$SOURCE_COMMIT
 RUN groupadd --system nodejs && useradd --system --gid nodejs --create-home nextjs
 # Keep runtime dependencies independent of source/build artifacts so an app-only
 # release can reuse Chromium and its system libraries.
@@ -35,6 +33,8 @@ ARG DEBIAN_MIRROR=http://deb.debian.org/debian
 # Debian still verifies signed repository metadata and package checksums.
 RUN sed -i "s@^URIs: http://deb.debian.org/debian\$@URIs: ${DEBIAN_MIRROR}@" /etc/apt/sources.list.d/debian.sources \
     && npx playwright install --with-deps --only-shell chromium
+ARG SOURCE_COMMIT=unknown
+LABEL org.opencontainers.image.revision=$SOURCE_COMMIT
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/deploy/check-database.mjs ./deploy/check-database.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
