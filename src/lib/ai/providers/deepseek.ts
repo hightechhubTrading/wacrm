@@ -1,22 +1,22 @@
-import { AiError, type ProviderResult } from '../types'
-import { MAX_OUTPUT_TOKENS } from '../defaults'
+import { AiError, type ProviderResult } from '../types';
+import { MAX_OUTPUT_TOKENS } from '../defaults';
 import {
   mergeConsecutive,
   normalizeUsage,
   providerHttpError,
   toNetworkError,
   type ProviderArgs,
-} from './shared'
+} from './shared';
 
-const DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions'
+const DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions';
 
 interface DeepseekResponse {
-  choices?: { message?: { content?: string } }[]
+  choices?: { message?: { content?: string } }[];
   usage?: {
-    prompt_tokens?: number
-    completion_tokens?: number
-    total_tokens?: number
-  }
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
 }
 
 /**
@@ -24,10 +24,12 @@ interface DeepseekResponse {
  * the caller's own key. Returns the raw assistant text + token usage
  * (handoff parsing happens in `generateReply`).
  */
-export async function generateDeepseek(args: ProviderArgs): Promise<ProviderResult> {
-  const { apiKey, model, systemPrompt, messages, timeoutMs } = args
+export async function generateDeepseek(
+  args: ProviderArgs
+): Promise<ProviderResult> {
+  const { apiKey, model, systemPrompt, messages, timeoutMs } = args;
 
-  let res: Response
+  let res: Response;
   try {
     res = await fetch(DEEPSEEK_URL, {
       method: 'POST',
@@ -42,28 +44,30 @@ export async function generateDeepseek(args: ProviderArgs): Promise<ProviderResu
           ...mergeConsecutive(messages),
         ],
         max_tokens: MAX_OUTPUT_TOKENS,
+        // Customer replies use the shared bounded answer budget, not hidden reasoning.
+        thinking: { type: 'disabled' },
       }),
       signal: AbortSignal.timeout(timeoutMs),
-    })
+    });
   } catch (err) {
-    throw toNetworkError(err)
+    throw toNetworkError(err);
   }
 
   if (!res.ok) {
-    throw await providerHttpError('DeepSeek', res)
+    throw await providerHttpError('DeepSeek', res);
   }
 
-  const data = (await res.json().catch(() => null)) as DeepseekResponse | null
-  const text = data?.choices?.[0]?.message?.content
+  const data = (await res.json().catch(() => null)) as DeepseekResponse | null;
+  const text = data?.choices?.[0]?.message?.content;
   if (!text || typeof text !== 'string' || !text.trim()) {
     throw new AiError('DeepSeek returned an empty response.', {
       code: 'empty_response',
-    })
+    });
   }
   const usage = normalizeUsage({
     prompt: data?.usage?.prompt_tokens,
     completion: data?.usage?.completion_tokens,
     total: data?.usage?.total_tokens,
-  })
-  return { text, usage }
+  });
+  return { text, usage };
 }

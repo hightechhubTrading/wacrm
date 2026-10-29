@@ -2221,6 +2221,8 @@
       "encryptionNotice": "Your key is encrypted at rest (AES-256-GCM) and never shown again after saving.",
       "provider": "Provider",
       "model": "Model",
+      "modelOptions": "Suggested models",
+      "modelOptionsHint": "Choose a suggestion or enter a model ID supported by your provider.",
       "apiKey": "API key",
       "testKey": "Test key",
       "testSuccess": "Key works — the provider responded.",

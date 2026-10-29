@@ -20,8 +20,17 @@ export const AI_PROVIDER_DEFAULT_MODEL: Record<AiProvider, string> = {
   openai: 'gpt-5.4',
   anthropic: 'claude-sonnet-4-5-20250929',
   gemini: 'gemini-3.5-flash',
-  deepseek: 'deepseek-chat',
+  deepseek: 'deepseek-flash',
 };
+
+/** Suggested IDs, not an allowlist: accounts may still enter a custom model. */
+export const AI_PROVIDER_MODEL_OPTIONS: Record<AiProvider, readonly string[]> =
+  {
+    openai: [AI_PROVIDER_DEFAULT_MODEL.openai],
+    anthropic: [AI_PROVIDER_DEFAULT_MODEL.anthropic],
+    gemini: [AI_PROVIDER_DEFAULT_MODEL.gemini],
+    deepseek: ['deepseek-flash', 'deepseek-v4-pro'],
+  };
 
 /**
  * Sentinel the model is instructed to emit (in auto-reply mode) when it

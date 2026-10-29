@@ -1,10 +1,14 @@
-import { NextResponse } from 'next/server'
-import { requireRole, toErrorResponse } from '@/lib/auth/account'
-import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
-import { decrypt } from '@/lib/whatsapp/encryption'
-import { validateAiCredentials } from '@/lib/ai/validate'
-import { AiError, type AiProvider } from '@/lib/ai/types'
-import { clearKeyError } from '@/lib/ai/key-health'
+import { NextResponse } from 'next/server';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  RATE_LIMITS,
+} from '@/lib/rate-limit';
+import { decrypt } from '@/lib/whatsapp/encryption';
+import { validateAiCredentials } from '@/lib/ai/validate';
+import { AiError, type AiProvider } from '@/lib/ai/types';
+import { clearKeyError } from '@/lib/ai/key-health';
 
 /**
  * POST /api/ai/test  (admin+)
@@ -17,17 +21,20 @@ import { clearKeyError } from '@/lib/ai/key-health'
  */
 export async function POST(request: Request) {
   try {
-    const { supabase, accountId, userId } = await requireRole('admin')
+    const { supabase, accountId, userId } = await requireRole('admin');
 
-    const limit = checkRateLimit(`ai-test:${userId}`, RATE_LIMITS.adminAction)
-    if (!limit.success) return rateLimitResponse(limit)
+    const limit = checkRateLimit(`ai-test:${userId}`, RATE_LIMITS.adminAction);
+    if (!limit.success) return rateLimitResponse(limit);
 
-    const body = await request.json().catch(() => null)
+    const body = await request.json().catch(() => null);
     if (!body || typeof body !== 'object') {
-      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
     }
 
-    const provider = body.provider as AiProvider
+    const provider = body.provider as AiProvider;
     if (
       provider !== 'openai' &&
       provider !== 'anthropic' &&
@@ -35,36 +42,47 @@ export async function POST(request: Request) {
       provider !== 'deepseek'
     ) {
       return NextResponse.json(
-        { error: 'provider must be one of "openai", "anthropic", "gemini", "deepseek"' },
-        { status: 400 },
-      )
+        {
+          error:
+            'provider must be one of "openai", "anthropic", "gemini", "deepseek"',
+        },
+        { status: 400 }
+      );
     }
-    const model = typeof body.model === 'string' ? body.model.trim() : ''
+    const model = typeof body.model === 'string' ? body.model.trim() : '';
     if (!model) {
-      return NextResponse.json({ error: 'model is required' }, { status: 400 })
+      return NextResponse.json({ error: 'model is required' }, { status: 400 });
     }
 
-    const rawKey = typeof body.api_key === 'string' ? body.api_key.trim() : ''
-    let apiKeyPlain = rawKey
+    const rawKey = typeof body.api_key === 'string' ? body.api_key.trim() : '';
+    let apiKeyPlain = rawKey;
     if (!apiKeyPlain) {
       const { data: existing } = await supabase
         .from('ai_configs')
-        .select('api_key')
+        .select('provider, api_key')
         .eq('account_id', accountId)
-        .maybeSingle()
+        .maybeSingle();
       if (!existing?.api_key) {
         return NextResponse.json(
           { error: 'Enter an API key to test.' },
-          { status: 400 },
-        )
+          { status: 400 }
+        );
+      }
+      if (existing.provider !== provider) {
+        return NextResponse.json(
+          { error: 'Enter an API key for the selected provider.' },
+          { status: 400 }
+        );
       }
       try {
-        apiKeyPlain = decrypt(existing.api_key)
+        apiKeyPlain = decrypt(existing.api_key);
       } catch {
         return NextResponse.json(
-          { error: 'Stored API key could not be decrypted — re-enter your key.' },
-          { status: 400 },
-        )
+          {
+            error: 'Stored API key could not be decrypted — re-enter your key.',
+          },
+          { status: 400 }
+        );
       }
     }
 
@@ -87,30 +105,30 @@ export async function POST(request: Request) {
         imageAnalysisProvider: null,
         imageAnalysisApiKey: null,
         imageAnalysisEnabled: false,
-      })
+      });
     } catch (err) {
       if (err instanceof AiError) {
         return NextResponse.json(
           { error: err.message, code: err.code },
-          { status: 400 },
-        )
+          { status: 400 }
+        );
       }
-      console.error('[ai/test] validation error:', err)
+      console.error('[ai/test] validation error:', err);
       return NextResponse.json(
         { error: 'Could not validate the API key.' },
-        { status: 400 },
-      )
+        { status: 400 }
+      );
     }
 
-    // The key just validated successfully -- clear any previously
-    // recorded failure so the Settings banner goes away. Best-effort;
-    // never let this block the "it works" response.
-    clearKeyError(supabase, accountId).catch((err) =>
-      console.error('[ai/test] failed to clear key error:', err),
-    )
+    // A candidate key is not active until saved. Only a successful retest
+    // of the stored key clears the current account's provider error.
+    if (!rawKey)
+      clearKeyError(supabase, accountId).catch((err) =>
+        console.error('[ai/test] failed to clear key error:', err)
+      );
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true });
   } catch (err) {
-    return toErrorResponse(err)
+    return toErrorResponse(err);
   }
 }

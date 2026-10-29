@@ -193,6 +193,9 @@ export async function POST(request: Request) {
       .eq('account_id', accountId)
       .maybeSingle();
 
+    if (!rawKey && existing && existing.provider !== provider)
+      return bad('Enter an API key for the selected provider.');
+
     let apiKeyPlain: string;
     if (rawKey) {
       apiKeyPlain = rawKey;

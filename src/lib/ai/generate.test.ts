@@ -328,3 +328,29 @@ it('retains at most two distinct requested attachments and strips all control ma
   expect(result.mediaIds).toEqual(['one', 'two']);
   expect(result.text).toBe('Examples');
 });
+
+it('uses the shared action parser for DeepSeek replies', async () => {
+  vi.mocked(fetch).mockResolvedValue(
+    okResponse({
+      choices: [
+        {
+          message: {
+            content:
+              'هذا مثال [[SEND_MEDIA:photo-1]] [[TAG_PRODUCT:product-1]]',
+          },
+        },
+      ],
+    })
+  );
+  const result = await generateReply({
+    config: config({ provider: 'deepseek', model: 'deepseek-flash' }),
+    systemPrompt: 'Use approved evidence.',
+    messages: [{ role: 'user', content: 'ارسل صورة' }],
+  });
+  expect(result).toMatchObject({
+    text: 'هذا مثال',
+    handoff: false,
+    mediaId: 'photo-1',
+    productTagId: 'product-1',
+  });
+});

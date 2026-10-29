@@ -4,40 +4,42 @@
 // up to 1 by a stale [1, 20] validation range left over from before 0
 // meant "unlimited", so the checkbox appeared unchecked after reload.
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   requireRole: vi.fn(),
   checkRateLimit: vi.fn(),
   validateAiCredentials: vi.fn(),
   update: vi.fn(),
-}))
+}));
 
 vi.mock('@/lib/auth/account', () => ({
   requireRole: mocks.requireRole,
-  toErrorResponse: () => Response.json({ error: 'auth failed' }, { status: 403 }),
-}))
+  toErrorResponse: () =>
+    Response.json({ error: 'auth failed' }, { status: 403 }),
+}));
 
 vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: mocks.checkRateLimit,
-  rateLimitResponse: () => Response.json({ error: 'rate limited' }, { status: 429 }),
+  rateLimitResponse: () =>
+    Response.json({ error: 'rate limited' }, { status: 429 }),
   RATE_LIMITS: { adminAction: { limit: 30, windowMs: 60_000 } },
-}))
+}));
 
 vi.mock('@/lib/whatsapp/encryption', () => ({
   encrypt: (v: string) => `enc:${v}`,
   decrypt: (v: string) => v.replace(/^enc:/, ''),
-}))
+}));
 
 vi.mock('@/lib/ai/validate', () => ({
   validateAiCredentials: mocks.validateAiCredentials,
-}))
+}));
 
 vi.mock('@/lib/ai/embeddings', () => ({
   embedTexts: vi.fn(),
-}))
+}));
 
-import { POST } from './route'
+import { POST } from './route';
 
 function fakeSupabase() {
   return {
@@ -46,17 +48,22 @@ function fakeSupabase() {
         eq: () => ({
           maybeSingle: () =>
             Promise.resolve({
-              data: { id: 'cfg-1', provider: 'openai', model: 'gpt-4o', api_key: 'enc:key' },
+              data: {
+                id: 'cfg-1',
+                provider: 'openai',
+                model: 'gpt-4o',
+                api_key: 'enc:key',
+              },
               error: null,
             }),
         }),
       }),
       update: (payload: Record<string, unknown>) => {
-        mocks.update(payload)
-        return { eq: () => Promise.resolve({ error: null }) }
+        mocks.update(payload);
+        return { eq: () => Promise.resolve({ error: null }) };
       },
     }),
-  }
+  };
 }
 
 function request(body: unknown) {
@@ -64,45 +71,87 @@ function request(body: unknown) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-  })
+  });
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
-  mocks.checkRateLimit.mockReturnValue({ success: true })
-  mocks.validateAiCredentials.mockResolvedValue(undefined)
+  vi.clearAllMocks();
+  mocks.checkRateLimit.mockReturnValue({ success: true });
+  mocks.validateAiCredentials.mockResolvedValue(undefined);
   mocks.requireRole.mockResolvedValue({
     supabase: fakeSupabase(),
     accountId: 'acc-1',
     userId: 'user-1',
-  })
-})
+  });
+});
 
 describe('POST /api/ai/config — auto_reply_max_per_conversation', () => {
   it('stores 0 as-is when the client sends the "unlimited" sentinel, instead of clamping it up to 1', async () => {
     const res = await POST(
-      request({ provider: 'openai', model: 'gpt-4o', auto_reply_max_per_conversation: 0 }),
-    )
-    expect(res.status).toBe(200)
-    expect(mocks.update).toHaveBeenCalledTimes(1)
+      request({
+        provider: 'openai',
+        model: 'gpt-4o',
+        auto_reply_max_per_conversation: 0,
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(mocks.update).toHaveBeenCalledTimes(1);
     expect(mocks.update.mock.calls[0][0]).toMatchObject({
       auto_reply_max_per_conversation: 0,
-    })
-  })
+    });
+  });
 
   it('still clamps a too-large value down to 20', async () => {
     await POST(
-      request({ provider: 'openai', model: 'gpt-4o', auto_reply_max_per_conversation: 999 }),
-    )
+      request({
+        provider: 'openai',
+        model: 'gpt-4o',
+        auto_reply_max_per_conversation: 999,
+      })
+    );
     expect(mocks.update.mock.calls[0][0]).toMatchObject({
       auto_reply_max_per_conversation: 20,
-    })
-  })
+    });
+  });
 
   it('defaults to 3 when the value is missing or not a number', async () => {
-    await POST(request({ provider: 'openai', model: 'gpt-4o' }))
+    await POST(request({ provider: 'openai', model: 'gpt-4o' }));
     expect(mocks.update.mock.calls[0][0]).toMatchObject({
       auto_reply_max_per_conversation: 3,
+    });
+  });
+});
+
+it('requires a new key before changing provider without leaking the stored key', async () => {
+  const res = await POST(
+    request({ provider: 'deepseek', model: 'deepseek-flash' })
+  );
+  expect(res.status).toBe(400);
+  expect(mocks.validateAiCredentials).not.toHaveBeenCalled();
+  expect(mocks.update).not.toHaveBeenCalled();
+});
+
+it('validates and encrypts the supplied DeepSeek key through the existing config flow', async () => {
+  const res = await POST(
+    request({
+      provider: 'deepseek',
+      model: 'deepseek-v4-pro',
+      api_key: 'deepseek-test-key',
     })
-  })
-})
+  );
+  expect(res.status).toBe(200);
+  expect(mocks.validateAiCredentials).toHaveBeenCalledWith(
+    expect.objectContaining({
+      provider: 'deepseek',
+      model: 'deepseek-v4-pro',
+      apiKey: 'deepseek-test-key',
+    })
+  );
+  expect(mocks.update).toHaveBeenCalledWith(
+    expect.objectContaining({
+      provider: 'deepseek',
+      model: 'deepseek-v4-pro',
+      api_key: 'enc:deepseek-test-key',
+    })
+  );
+});

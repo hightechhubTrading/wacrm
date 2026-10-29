@@ -46,7 +46,10 @@ import { SettingsPanelHead } from './settings-panel-head';
 import { ProductCatalogPanel } from './product-catalog-panel';
 import { BusinessHoursCard } from './business-hours-card';
 import { SocialLinksCard } from './social-links-card';
-import { AI_PROVIDER_DEFAULT_MODEL } from '@/lib/ai/defaults';
+import {
+  AI_PROVIDER_DEFAULT_MODEL,
+  AI_PROVIDER_MODEL_OPTIONS,
+} from '@/lib/ai/defaults';
 import type { AiProvider } from '@/lib/ai/types';
 import type { AccountMember } from '@/types';
 import { fetchAccountMembers, memberLabel } from '@/lib/account/members';
@@ -206,14 +209,14 @@ export function AiConfig() {
     void fetchAccountMembers().then(setMembers);
   }, [accountId, fetchConfig]);
 
-  // Swap the model default when the provider changes, unless the user
-  // typed a custom model.
+  // Credentials and model IDs belong to the selected provider.
   const handleProviderChange = (next: AiProvider) => {
+    if (next === provider) return;
     setProvider(next);
-    const isDefaultModel =
-      Object.values(AI_PROVIDER_DEFAULT_MODEL).includes(model) ||
-      model.trim() === '';
-    if (isDefaultModel) setModel(AI_PROVIDER_DEFAULT_MODEL[next]);
+    setModel(AI_PROVIDER_DEFAULT_MODEL[next]);
+    setApiKey('');
+    setKeyEdited(true);
+    setShowKey(false);
   };
 
   const keyPayload = () => (keyEdited ? apiKey.trim() : undefined);
@@ -478,6 +481,28 @@ export function AiConfig() {
                         placeholder={AI_PROVIDER_DEFAULT_MODEL[provider]}
                         disabled={disabled}
                       />
+                      <div
+                        className="flex flex-wrap gap-2"
+                        role="group"
+                        aria-label={t('modelOptions')}
+                      >
+                        {AI_PROVIDER_MODEL_OPTIONS[provider].map((option) => (
+                          <Button
+                            key={option}
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            aria-pressed={model === option}
+                            disabled={disabled}
+                            onClick={() => setModel(option)}
+                          >
+                            {option}
+                          </Button>
+                        ))}
+                      </div>
+                      <p className="text-muted-foreground text-xs">
+                        {t('modelOptionsHint')}
+                      </p>
                     </div>
                   </div>
 
