@@ -1,23 +1,25 @@
-import { describe, expect, it } from "vitest";
-import en from "./en.json";
-import ar from "./ar.json";
-import { DEFAULT_LOCALE, LOCALE_IDS, type LocaleId } from "@/lib/locales";
+import { describe, expect, it } from 'vitest';
+import en from './en.json';
+import ar from './ar.json';
+import { LOCALE_IDS, type LocaleId } from '@/lib/locales';
 
 type Messages = { [key: string]: string | Messages };
 
-function collectPaths(obj: Messages, prefix = ""): string[] {
+function collectPaths(obj: Messages, prefix = ''): string[] {
   return Object.entries(obj).flatMap(([key, value]) => {
     const path = prefix ? `${prefix}.${key}` : key;
-    return typeof value === "string" ? [path] : collectPaths(value, path);
+    return typeof value === 'string' ? [path] : collectPaths(value, path);
   });
 }
 
 function getAt(obj: Messages, path: string): string {
-  const value = path.split(".").reduce<Messages | string>((acc, key) => {
-    if (typeof acc === "string") throw new Error(`${path} is not an object at ${key}`);
+  const value = path.split('.').reduce<Messages | string>((acc, key) => {
+    if (typeof acc === 'string')
+      throw new Error(`${path} is not an object at ${key}`);
     return acc[key];
   }, obj);
-  if (typeof value !== "string") throw new Error(`${path} did not resolve to a string`);
+  if (typeof value !== 'string')
+    throw new Error(`${path} did not resolve to a string`);
   return value;
 }
 
@@ -28,22 +30,22 @@ function getAt(obj: Messages, path: string): string {
 function extractTopLevelGroups(value: string): string[] {
   const groups: string[] = [];
   let depth = 0;
-  let current = "";
+  let current = '';
   let inGroup = false;
 
   for (let i = 0; i < value.length; i++) {
     const char = value[i];
 
-    if (char === "{") {
+    if (char === '{') {
       if (depth === 0) inGroup = true;
       if (inGroup) current += char;
       depth++;
-    } else if (char === "}") {
+    } else if (char === '}') {
       depth--;
       if (inGroup) current += char;
       if (depth === 0 && inGroup) {
         groups.push(current.slice(1, -1)); // Remove outer braces
-        current = "";
+        current = '';
         inGroup = false;
       }
     } else if (inGroup) {
@@ -72,7 +74,7 @@ const ICU_HEADER_RE = /^\s*(\S+)\s*,\s*(plural|select|selectordinal)\s*,/;
 
 function groupSignature(groupContent: string): string {
   // Check if this is an ICU construct (contains a comma before the first brace)
-  const commaIdx = groupContent.indexOf(",");
+  const commaIdx = groupContent.indexOf(',');
   if (commaIdx === -1) {
     // Simple interpolation: {name} or {count}
     return `{${groupContent}}`;
@@ -94,18 +96,18 @@ function groupSignature(groupContent: string): string {
 
   const categories = new Set<string>();
   let braceDepth = 0;
-  let currentKeyword = "";
+  let currentKeyword = '';
 
   for (let i = 0; i < remainder.length; i++) {
     const char = remainder[i];
 
-    if (char === "{") {
+    if (char === '{') {
       if (currentKeyword.trim()) {
         categories.add(currentKeyword.trim());
       }
-      currentKeyword = "";
+      currentKeyword = '';
       braceDepth++;
-    } else if (char === "}") {
+    } else if (char === '}') {
       braceDepth--;
     } else if (braceDepth === 0) {
       currentKeyword += char;
@@ -113,7 +115,7 @@ function groupSignature(groupContent: string): string {
   }
 
   // Build signature: argName:type:[sorted category keywords]
-  const sortedCategories = Array.from(categories).sort().join("|");
+  const sortedCategories = Array.from(categories).sort().join('|');
   return `${argName}:${typeKeyword}:[${sortedCategories}]`;
 }
 
@@ -126,70 +128,73 @@ function placeholderSignatures(value: string): string[] {
   return groups.map(groupSignature).sort();
 }
 
-describe("messages/locale-parity placeholder parsing", () => {
-  describe("unit tests: groupSignature and ICU parsing", () => {
-    it("simple interpolation {name} must match exactly", () => {
-      const en = "Hello {name}";
-      const ar = "Hello {name}";
+describe('messages/locale-parity placeholder parsing', () => {
+  describe('unit tests: groupSignature and ICU parsing', () => {
+    it('simple interpolation {name} must match exactly', () => {
+      const en = 'Hello {name}';
+      const ar = 'Hello {name}';
       expect(placeholderSignatures(en)).toEqual(placeholderSignatures(ar));
     });
 
-    it("simple interpolation with different placeholder name must NOT match", () => {
-      const en = "Hello {name}";
-      const ar = "Hello {username}";
+    it('simple interpolation with different placeholder name must NOT match', () => {
+      const en = 'Hello {name}';
+      const ar = 'Hello {username}';
       expect(placeholderSignatures(en)).not.toEqual(placeholderSignatures(ar));
     });
 
-    it("plural construct with only branch content differing must PASS", () => {
-      const en = "{count, plural, =1 {conversation} other {conversations}}";
-      const ar = "{count, plural, =1 {محادثة} other {محادثات}}";
+    it('plural construct with only branch content differing must PASS', () => {
+      const en = '{count, plural, =1 {conversation} other {conversations}}';
+      const ar = '{count, plural, =1 {محادثة} other {محادثات}}';
       expect(placeholderSignatures(en)).toEqual(placeholderSignatures(ar));
     });
 
-    it("category keywords must be extracted cleanly without stray commas or spaces", () => {
-      const signature = placeholderSignatures("{count, plural, =1 {x} other {y}}");
+    it('category keywords must be extracted cleanly without stray commas or spaces', () => {
+      const signature = placeholderSignatures(
+        '{count, plural, =1 {x} other {y}}'
+      );
       // Should be exactly ["count:plural:[=1|other]"], not ["count:plural:[, =1|other]"] or similar
-      expect(signature).toEqual(["count:plural:[=1|other]"]);
+      expect(signature).toEqual(['count:plural:[=1|other]']);
     });
 
-    it("handles an ICU header with no space after the first comma (count,plural,=1 {x} other {y})", () => {
+    it('handles an ICU header with no space after the first comma (count,plural,=1 {x} other {y})', () => {
       // A translator writing "{count,plural, =1 {x} other {y}}" (no
       // space after the first comma) used to shift a hardcoded offset
       // and truncate the first category keyword. The header is now
       // parsed with a regex, so this must resolve identically to the
       // fully-spaced form.
-      const noSpace = placeholderSignatures("{count,plural,=1 {x} other {y}}");
-      const spaced = placeholderSignatures("{count, plural, =1 {x} other {y}}");
-      expect(noSpace).toEqual(["count:plural:[=1|other]"]);
+      const noSpace = placeholderSignatures('{count,plural,=1 {x} other {y}}');
+      const spaced = placeholderSignatures('{count, plural, =1 {x} other {y}}');
+      expect(noSpace).toEqual(['count:plural:[=1|other]']);
       expect(noSpace).toEqual(spaced);
     });
 
-    it("plural construct with missing category keyword must FAIL", () => {
-      const en = "{count, plural, =1 {one} other {many}}";
-      const ar = "{count, plural, =1 {واحد}}"; // Missing "other"
+    it('plural construct with missing category keyword must FAIL', () => {
+      const en = '{count, plural, =1 {one} other {many}}';
+      const ar = '{count, plural, =1 {واحد}}'; // Missing "other"
       expect(placeholderSignatures(en)).not.toEqual(placeholderSignatures(ar));
     });
 
-    it("plural construct with different argName must FAIL", () => {
-      const en = "{count, plural, =1 {x} other {y}}";
-      const ar = "{total, plural, =1 {x} other {y}}";
+    it('plural construct with different argName must FAIL', () => {
+      const en = '{count, plural, =1 {x} other {y}}';
+      const ar = '{total, plural, =1 {x} other {y}}';
       expect(placeholderSignatures(en)).not.toEqual(placeholderSignatures(ar));
     });
 
-    it("plural vs select type mismatch must FAIL", () => {
-      const en = "{status, plural, =1 {x} other {y}}";
-      const ar = "{status, select, active {نشط} other {غير نشط}}";
+    it('plural vs select type mismatch must FAIL', () => {
+      const en = '{status, plural, =1 {x} other {y}}';
+      const ar = '{status, select, active {نشط} other {غير نشط}}';
       expect(placeholderSignatures(en)).not.toEqual(placeholderSignatures(ar));
     });
 
-    it("multiple placeholders in one string are tracked independently", () => {
-      const en = "You have {count, plural, =1 {message} other {messages}} from {sender}";
-      const ar = "لديك {count, plural, =1 {رسالة} other {رسائل}} من {sender}";
+    it('multiple placeholders in one string are tracked independently', () => {
+      const en =
+        'You have {count, plural, =1 {message} other {messages}} from {sender}';
+      const ar = 'لديك {count, plural, =1 {رسالة} other {رسائل}} من {sender}';
       expect(placeholderSignatures(en)).toEqual(placeholderSignatures(ar));
     });
   });
 
-  // Statically-imported messages for every non-default locale, keyed
+  // Statically-imported messages for every translated locale, keyed
   // by LocaleId. Adding a locale per src/lib/locales.ts's documented
   // three-step process (id -> LOCALE_IDS, meta -> LOCALES, file ->
   // messages/<id>.json) means step 3 also needs an entry registered
@@ -201,17 +206,17 @@ describe("messages/locale-parity placeholder parsing", () => {
     ar: ar as Messages,
   };
 
-  const nonDefaultLocales = LOCALE_IDS.filter((id) => id !== DEFAULT_LOCALE);
+  const translatedLocales = LOCALE_IDS.filter((id) => id !== 'en');
 
-  describe.each(nonDefaultLocales)(
-    "messages/%s.json structural parity with en.json",
+  describe.each(translatedLocales)(
+    'messages/%s.json structural parity with en.json',
     (localeId) => {
       const messages = LOCALE_MESSAGES[localeId];
 
       if (!messages) {
         throw new Error(
           `locale-parity.test.ts has no registered messages for locale "${localeId}". ` +
-            `Add \`import ${localeId} from "./${localeId}.json"\` and register it in LOCALE_MESSAGES.`,
+            `Add \`import ${localeId} from "./${localeId}.json"\` and register it in LOCALE_MESSAGES.`
         );
       }
 
@@ -231,11 +236,12 @@ describe("messages/locale-parity placeholder parsing", () => {
             [localeId]: placeholderSignatures(getAt(messages, path)),
           }))
           .filter(
-            (entry) => JSON.stringify(entry.en) !== JSON.stringify(entry[localeId]),
+            (entry) =>
+              JSON.stringify(entry.en) !== JSON.stringify(entry[localeId])
           );
 
         expect(mismatches).toEqual([]);
       });
-    },
+    }
   );
 });

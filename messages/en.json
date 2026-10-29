@@ -2156,7 +2156,10 @@
       "syncFailed": "Couldn't save your appearance preference. It still applies on this device.",
       "language": "Language",
       "useLanguage": "Use {name}",
-      "switchFailed": "Couldn't switch language. Please try again."
+      "switchFailed": "Couldn't switch language. Please try again.",
+      "languageHint": "Arabic is the default. Choose English at any time. Your choice is saved automatically.",
+      "light": "Light",
+      "dark": "Dark"
     },
     "security": {
       "title": "Login & security",

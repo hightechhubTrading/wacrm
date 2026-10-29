@@ -12,18 +12,18 @@
  *   3. Add messages/<id>.json with the same key structure as en.json.
  */
 
-export const LOCALE_IDS = ["en", "ar"] as const;
+export const LOCALE_IDS = ['ar', 'en'] as const;
 
 export type LocaleId = (typeof LOCALE_IDS)[number];
 
-export const DEFAULT_LOCALE: LocaleId = "en";
+export const DEFAULT_LOCALE: LocaleId = 'ar';
 
 /** Cookie src/i18n/request.ts reads and /api/locale writes. */
-export const LOCALE_COOKIE = "wacrm.locale";
+export const LOCALE_COOKIE = 'wacrm.locale';
 
 export function isLocaleId(value: unknown): value is LocaleId {
   return (
-    typeof value === "string" &&
+    typeof value === 'string' &&
     (LOCALE_IDS as readonly string[]).includes(value)
   );
 }
@@ -33,14 +33,14 @@ export interface LocaleMeta {
   /** Native display name, shown as-is regardless of the active locale
    *  (same convention as ThemeMeta.name in themes.ts). */
   name: string;
-  dir: "ltr" | "rtl";
+  dir: 'ltr' | 'rtl';
 }
 
 export const LOCALES: ReadonlyArray<LocaleMeta> = [
-  { id: "en", name: "English", dir: "ltr" },
-  { id: "ar", name: "العربية", dir: "rtl" },
+  { id: 'ar', name: 'العربية', dir: 'rtl' },
+  { id: 'en', name: 'English', dir: 'ltr' },
 ];
 
-export function localeDir(locale: string): "ltr" | "rtl" {
-  return LOCALES.find((l) => l.id === locale)?.dir ?? "ltr";
+export function localeDir(locale: string): 'ltr' | 'rtl' {
+  return LOCALES.find((l) => l.id === locale)?.dir ?? 'ltr';
 }
