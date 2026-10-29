@@ -26,14 +26,18 @@ ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 PLAYWRIGHT_BROWSERS_
 ARG SOURCE_COMMIT=unknown
 LABEL org.opencontainers.image.revision=$SOURCE_COMMIT
 RUN groupadd --system nodejs && useradd --system --gid nodejs --create-home nextjs
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/node_modules ./node_modules
+# Keep runtime dependencies independent of source/build artifacts so an app-only
+# release can reuse Chromium and its system libraries.
+COPY --from=deps /app/package.json ./
+COPY --from=deps /app/node_modules ./node_modules
+ARG DEBIAN_MIRROR=http://deb.debian.org/debian
+# An operator can select an official mirror when the default CDN is slow.
+# Debian still verifies signed repository metadata and package checksums.
+RUN sed -i "s@^URIs: http://deb.debian.org/debian\$@URIs: ${DEBIAN_MIRROR}@" /etc/apt/sources.list.d/debian.sources \
+    && npx playwright install --with-deps --only-shell chromium
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/deploy/check-database.mjs ./deploy/check-database.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-# Quotations render PDFs in headless Chromium. Install its Linux libraries and
-# browser in the image, where the unprivileged runtime user can read them.
-RUN npx playwright install --with-deps --only-shell chromium
 USER nextjs
 EXPOSE 3000
 CMD ["sh", "-c", "node deploy/check-database.mjs && exec npm start"]

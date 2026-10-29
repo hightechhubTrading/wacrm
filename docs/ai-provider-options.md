@@ -11,3 +11,5 @@ To configure DeepSeek, select it, choose a model, enter the key in the password 
 Embeddings, voice transcription and image analysis retain their separate configurations. A DeepSeek reply key does not replace the OpenAI embedding/transcription key or the configured image-analysis key. Lexical knowledge retrieval remains available without embeddings.
 
 The earlier behavior release remains disabled pending paid end-to-end validation and a fresh reviewed usefulness holdout. Adding a provider option does not activate it. No DeepSeek live generation has been tested without a supplied key; adapter and credential-routing tests use mocked responses.
+
+The deployment build accepts an optional `DEBIAN_MIRROR` build argument (default: Debian CDN). The current server uses the [official German mirror](https://www.debian.org/mirror/list) after measured CDN downloads stalled. Repository signature/checksum verification remains enabled. Runtime Node/browser dependencies now precede application artifacts in the Dockerfile so app-only releases can reuse their build layers.
