@@ -58,10 +58,9 @@ function output(probabilities: Record<string, number>) {
     model: 'jev-test',
     usage: { input_tokens: 5, output_tokens: 3 },
     answers: Object.fromEntries(
-      Object.entries({ education: 0.99, ...probabilities }).map(([id, p]) => [
-        id,
-        { type: 'noul', noul: p },
-      ])
+      Object.entries({ education: 0.99, behavior: 0.01, ...probabilities }).map(
+        ([id, p]) => [id, { type: 'noul', noul: p }]
+      )
     ),
   };
 }
@@ -740,4 +739,104 @@ it('blocks invented company specifications even when the general explanation pas
   });
   expect(result.handoff).toBe(true);
   expect(result.routingDecision?.failures).toContain('grounded');
+});
+
+it('keeps an exhausted rejected draft in internal review without transferring or retaining actions', async () => {
+  h.ask.mockResolvedValue(
+    output({
+      grounded: 0.1,
+      responsive: 0.01,
+      documents: 0.99,
+      completion: 0.99,
+      scope: 0.99,
+      requests: 0.01,
+    })
+  );
+  const repair = vi.fn().mockResolvedValue(proposal);
+  const result = await verifySalesOutput(
+    ctx,
+    { ...evidence, behaviorV2Enabled: true },
+    proposal,
+    repair
+  );
+  expect(result).toMatchObject({
+    text: '',
+    handoff: false,
+    reviewRequired: true,
+    mediaId: null,
+    productTagId: null,
+    fields: [],
+    routingDecision: { reason: 'reply_needs_review' },
+  });
+  expect(repair).toHaveBeenCalledTimes(2);
+});
+it('lets a final bounded, verified clarification recover a rejected draft', async () => {
+  let calls = 0;
+  h.ask.mockImplementation(() =>
+    output({
+      grounded: calls++ < 6 ? 0.1 : 0.99,
+      responsive: 0.01,
+      documents: 0.99,
+      completion: 0.99,
+      scope: 0.99,
+      requests: 0.01,
+    })
+  );
+  const next = {
+    ...proposal,
+    text: 'What issue are you having with the gate?',
+    productTagId: null,
+  };
+  const result = await verifySalesOutput(
+    ctx,
+    {
+      ...evidence,
+      messages: [{ role: 'user', content: 'I need help with my gate' }],
+      behaviorV2Enabled: true,
+    },
+    proposal,
+    vi.fn().mockResolvedValue(next)
+  );
+  expect(result).toMatchObject({
+    text: next.text,
+    handoff: false,
+    routingDecision: { reason: 'verified_reply', attempt: 3 },
+  });
+});
+it('keeps verified human authority transfers immediate for improved replies', async () => {
+  h.ask.mockResolvedValue(
+    output({
+      grounded: 0.99,
+      responsive: 0.01,
+      handoff_needed: 0.99,
+      documents: 0.99,
+      completion: 0.99,
+      scope: 0.99,
+      requests: 0.01,
+    })
+  );
+  const repair = vi.fn();
+  const result = await verifySalesOutput(
+    ctx,
+    { ...evidence, behaviorV2Enabled: true },
+    { ...proposal, text: '', handoff: true },
+    repair
+  );
+  expect(result.handoff).toBe(true);
+  expect(result.reviewRequired).not.toBe(true);
+  expect(repair).not.toHaveBeenCalled();
+});
+it('queues internal review when verification is unavailable, without treating the outage as a customer transfer', async () => {
+  h.ask.mockRejectedValue(new Error('unavailable'));
+  const result = await verifySalesOutput(
+    ctx,
+    { ...evidence, behaviorV2Enabled: true },
+    proposal
+  );
+  expect(result).toMatchObject({
+    text: '',
+    handoff: false,
+    reviewRequired: true,
+    routingDecision: { reason: 'verification_unavailable' },
+  });
 });

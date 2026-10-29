@@ -1,5 +1,7 @@
 # Jev sales communication checks
 
+The account-gated behavior release and its current activation limits are described in [the 29 October release note](agent-behavior-2026-10-29.md). The workflow below describes the legacy path unless otherwise stated.
+
 Jev is a decision layer alongside the configured generative provider. The provider
 writes prose; Jev interprets intent and verifies proposed replies/actions. It does
 not send messages, grant access, move deals, book visits, calculate quotations or

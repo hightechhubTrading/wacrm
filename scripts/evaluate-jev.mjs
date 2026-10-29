@@ -14,6 +14,7 @@ const result = spawnSync(
     'node_modules/vitest/vitest.mjs',
     'run',
     'src/lib/ai/typesafe/sales.live.test.ts',
+    'src/lib/ai/typesafe/behavior.live.test.ts',
   ],
   {
     stdio: 'inherit',

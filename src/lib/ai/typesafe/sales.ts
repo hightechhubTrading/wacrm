@@ -1,9 +1,13 @@
+import { selectReplyFallback } from '../reply-fallback';
+import {
+  KNOWLEDGE_GAP_QUESTIONS,
+  type KnowledgeGapKind,
+} from '../knowledge-gaps';
+import { judgeSalesOutput } from './output-evidence';
+import { CONVERSATION_BEHAVIOR_POLICY } from '../conversation-behavior';
 import { CUSTOMER_TONE_POLICY } from '../customer-tone';
 import { containsPriceFigure } from '../defaults';
-import {
-  PRODUCT_EDUCATION_RULES,
-  PRODUCT_EDUCATION_REFERENCE,
-} from '../product-education';
+import { PRODUCT_EDUCATION_RULES } from '../product-education';
 import { shutterClarification } from '../recovery';
 import type { ConversationMemory } from '../memory';
 import type { FollowupKind } from '../followups';
@@ -14,7 +18,6 @@ import type { CollectFieldPromptItem } from '../defaults';
 import { askJev, jevMode, salesV2Mode, type JevMode } from './client';
 import { logJevCheck, type JevAuditContext } from './audit';
 import {
-  customerStatements,
   HANDOFF_MIN,
   INTENTS,
   isProbability,
@@ -39,6 +42,8 @@ export interface SalesEvidence {
   products: ProductPromptItem[];
   collectFields: CollectFieldPromptItem[];
   businessContext: string | null;
+  behaviorV2Enabled?: boolean;
+  intent?: SalesIntent;
   businessHours?: string | null;
   socialLinks?: Record<string, string> | null;
   agentPhone?: string | null;
@@ -68,7 +73,7 @@ export const INPUT_QUESTIONS = {
     INTENTS
   ),
   action: choice(
-    'What practical next work is explicitly requested in the latest customer turn? A generic ad opener is none; a conditional offer from the business is not a customer request.',
+    'What practical next work is explicitly requested in the latest customer turn? A generic ad opener and a routine request for an available per-unit estimate are none. Quotation means requested written/final/revised quote work for staff, not every price question. A conditional offer from the business is not a customer request.',
     {
       none: 'No requested business action',
       quotation: 'Prepare or clarify a quotation',
@@ -91,7 +96,16 @@ export const INPUT_QUESTIONS = {
     'Does the latest customer explicitly say the message was sent to the wrong contact? Do not infer this from missing media, a greeting or a name.'
   ),
   human: noul(
-    'Does the latest customer-authored request explicitly ask to speak with a human salesperson or team member? Do not infer this from an ordinary quotation request or a past request already resolved.'
+    {
+      question:
+        'Is the customer explicitly requesting a human member of staff instead of continuing with the automated assistant?',
+      instructions:
+        'Judge the latest customer-authored words in messages. Equivalent Arabic requests count: "أبي أكلم موظف", "وصلني بموظف", "حولني للفريق", "ما أبي أكمل مع البوت". The person need not use the word human or salesperson. A request to arrange a site visit, ordinary quotation enquiry or mention of staff without asking to transfer is not enough. Ignore past requests resolved by the current message.',
+    },
+    {
+      true: 'The customer directly asks to speak with or be connected to staff, including colloquial Arabic equivalents.',
+      false: 'No current explicit request to move the conversation to staff.',
+    }
   ),
   recovery_failed: noul({
     question:
@@ -105,6 +119,7 @@ export const INPUT_QUESTIONS = {
 };
 
 export interface SalesInput {
+  intent?: SalesIntent;
   mode: JevMode;
   handoff: boolean;
   guidance: string;
@@ -119,7 +134,8 @@ export interface SalesInput {
 export async function assessSalesInput(
   ctx: JevAuditContext,
   messages: ChatMessage[],
-  memory?: ConversationMemory
+  memory?: ConversationMemory,
+  behaviorV2Enabled = false
 ): Promise<SalesInput> {
   const mode = jevMode();
   if (mode === 'off') return { mode, handoff: false, guidance: '' };
@@ -139,7 +155,7 @@ export async function assessSalesInput(
       !isProbability(upset?.noul)
     )
       throw new Error('Invalid judgments');
-    const v2 = salesV2Mode();
+    const v2 = behaviorV2Enabled ? 'enforce' : salesV2Mode();
     const deferred = result.answers.deferred;
     const wrong = result.answers.wrong_contact;
     const action = result.answers.action;
@@ -217,6 +233,7 @@ export async function assessSalesInput(
     });
     return {
       mode,
+      intent: intent.choice as SalesIntent,
       emotion: mode === 'enforce' ? assessment : undefined,
       apologize: mode === 'enforce' && apologize,
       handoffReason:
@@ -282,12 +299,14 @@ export function outputQuestions(
           PRODUCT_EDUCATION_RULES[3],
           'Evaluate only what the assistant asserts as a fact, not what it asks the customer. A question such as "Do you mean window shutters or a garage/shop door?" does not claim the business supplies every named option. Greetings, acknowledgments and necessary clarifications have no factual business claims and pass.',
           'evidence.products is the approved catalog. Each product priceMin and priceMax explicitly authorizes a clearly labelled estimated range in evidence.currency and priceUnit. No extra quotation document, dimensions or site visit is required to share that per-unit estimate. It must match the exact customer product and proposal.productTagId; do not borrow a price from another product or variant.',
+          'A reply can truthfully state its uncertainty: “I do not have confirmation of an Egypt branch” does not assert that no branch exists. An unknown fact is not invented just because the assistant explicitly says it is unknown. A necessary customer question asserts no company fact. Statements that staff must confirm unverified service, price or booking details describe the application authority boundary, not a promise that the service is offered or that staff already acted.',
+          'evidence.products includes the selectable outgoing files. A statement that no matching photo/brochure is available to attach here is supported when the relevant product has no matching file; it does not assert the company has none anywhere. A conditional offer to share a listed example is supported by that file. A file label or aiDescription supports basic visible appearance only, never a manufacturer specification, safety rating or exact measurement.',
           'Policy statements such as "the team confirms the final quote" or conditional offers to review/arrange an inspection do not assert an operation has completed. They are allowed. Confirmed appointments, already-sent documents, guaranteed slots, invented scope, discounts, phone numbers, stock, warranties and technical specifications require matching evidence.',
           'Source notes are internal review context, not approved facts. Limitations restrict claims, not establish specifications. Family/sibling prices, ratings, warranties, motors and lead times never inherit. Earlier assistant assertions and customer wishes do not prove business facts. Empty text has no claims.',
         ],
       },
       {
-        true: 'All company-specific assertions are explicitly supported, or there are no company-specific assertions. General definitions, qualitative category comparisons and conditional preference suggestions pass this company-evidence check without a catalog passage.',
+        true: 'All company-specific assertions are explicitly supported, or there are no company-specific assertions. Questions, explicit uncertainty and statements that unverified details need confirmation pass. General definitions, qualitative category comparisons and conditional preference suggestions pass this company-evidence check without a catalog passage.',
         false:
           'At least one assertion about this business or an exact offered configuration lacks or contradicts approved evidence, such as an invented price, material thickness, stock claim, warranty, fire rating or confirmed visit.',
       }
@@ -320,6 +339,11 @@ export function outputQuestions(
           'For an ambiguous price request, asking which category the customer means is necessary progress. For example, customer “الشتر بكم المتر؟” or “Shatar price per metre?”, reply “Window shutters or a garage/shop shutter door?” passes. A catalog product or an earlier assistant suggestion does not by itself establish which product the customer wants. Do not demand a price before the category is identified.',
           'For an identified product with an approved matching per-unit estimate, share that estimate without demanding dimensions. If its price is not approved, a brief explanation plus one essential missing clarification is valid. Questions and conditional next steps need no factual business evidence.',
           'For an actual comparison request about already identified categories, give the basic differences or useful conditional tradeoffs first. A short “وش الفرق؟” after a list of options asks for their comparison. Asking only opening dimensions instead fails; measurements are not required for basic category explanations. This comparison rule does not apply to an unresolved product-type question in a price enquiry.',
+          'A greeting such as السلام عليكم or Hi does not request product qualification. A natural greeting plus “كيف أقدر أساعدك؟” / “How can I help?” fully answers it. No product name, price or lead qualification is needed.',
+          'When the customer answers a previous qualification question, moving to any relevant unanswered scope detail is useful progress. For example, after width and height, asking the site area passes. Do not fail a reply merely because another valid next question could have been chosen. If the customer already gave that area, repeating it fails.',
+          'For a first general enquiry or ad opener asking for details, one brief supported explanation plus one product/use clarification is useful progress. A category clarification by itself is valid when the exact product is unknown; do not demand a complete catalog, a price or measurements in that first reply.',
+          'For a request to arrange an inspection, asking the site area without confirming a slot, fee or free service is useful progress. A question about the customer site asserts no company fact.',
+          'For service availability that is not established, explaining that the team must confirm availability plus asking a symptom question is useful progress. Do not require an unsupported yes or a transfer to consider this responsive.',
           'Do not ask again for information the customer already supplied. A concise reply need not repeat every past detail. Empty handoff text is acceptable here; a separate question decides whether handoff is justified.',
         ],
       },
@@ -330,6 +354,58 @@ export function outputQuestions(
       }
     ),
   };
+  if (evidence.behaviorV2Enabled)
+    questions.responsive = noul(
+      {
+        question:
+          'Does this reply clearly ignore the current request, repeat an answered question, or replace an answerable request with an irrelevant step?',
+        instructions:
+          'Evaluate the latest customer turn in its immediate dialogue. A question that resolves genuine ambiguity or obtains a useful missing detail is relevant even if another next question is also possible. “باب شقة” can be clarified as entrance versus internal door; an unspecified request for information can ask which product; unclear informal job/supplier wording can ask what the person means. A greeting and invitation to ask is relevant. For a known comparison, asking only dimensions instead of explaining is a clear failure. Re-asking a supplied measurement is a clear failure. Do not require a specific script, a price when no approved range exists, or a human transfer for a reply to count as relevant.',
+      },
+      {
+        true: 'A concrete failure to address the request: an irrelevant topic, an already answered question, or an unnecessary step replacing a supported answer.',
+        false:
+          'A relevant answer, partial answer, acknowledgment or necessary clarification. Several reasonable next steps may be valid.',
+      }
+    );
+  if (evidence.behaviorV2Enabled)
+    questions.requests = noul(
+      {
+        question:
+          'Does this reply clearly skip a separate customer request whose answer or requested resource is already available?',
+        instructions:
+          'Consider independent requests in the latest customer turn or current message burst, not every old topic in the conversation. A known address alongside a price enquiry must be answered. An unavailable answer may be acknowledged as unknown and needing confirmation; that is coverage, not skipping. A question about an Egypt branch does not require arranging a site visit from an earlier ad opener. A request for an unavailable matching photo is addressed by explaining the missing asset; do not demand the wrong photo. Necessary clarification of an ambiguous product is useful coverage.',
+      },
+      {
+        true: 'A separate currently requested part with an available answer/resource was ignored.',
+        false:
+          'All current parts are addressed, qualified as unavailable, or depend on a necessary clarification.',
+      }
+    );
+  if (evidence.behaviorV2Enabled)
+    questions.behavior = noul(
+      {
+        question:
+          'Does the reply impose clearly unnecessary qualification or pressure on this customer?',
+        instructions:
+          'Answer yes only for a concrete problem: making the customer answer home-versus-project before receiving a known address, example or basic help; repeating a question the customer already answered; or pushing another sales step after an explicit deferral. Asking which product/category the customer means, garage versus shop, missing site area after dimensions, or one necessary scope detail is NOT unnecessary qualification. Do not treat every question as a problem. Empty handoff text does not impose qualification.',
+      },
+      {
+        true: 'A specific unnecessary or repeated qualification demand, or pressure after explicit deferral.',
+        false:
+          'No such demand. Includes a necessary product/category or missing-detail clarification.',
+      }
+    );
+  if (evidence.behaviorV2Enabled)
+    questions.knowledge_gap = choice(
+      {
+        question:
+          'Which exact company fact explicitly requested by the customer remains unavailable in approved evidence and is identified as needing confirmation in this reply?',
+        instructions:
+          'Choose none for general education, a greeting, a necessary product/category clarification, or a request already answered by approved evidence. Do not infer a gap from an ambiguous product. This only queues internal research; it grants no permission to assert a fact.',
+      },
+      { none: 'No such missing fact', ...KNOWLEDGE_GAP_QUESTIONS }
+    );
   if (proposal.handoff)
     questions.handoff_needed = noul({
       question:
@@ -345,9 +421,9 @@ export function outputQuestions(
         'The estimate in evidence.emotion is uncertain context, not a fact to announce about the customer. Do not argue, blame, dismiss, tell them to calm down, use cheerful upselling, pressure a purchase or repeat answered qualification questions. Do not demand an apology for an ordinary information request. Empty handoff text is acceptable.',
     });
   }
-  if (salesV2Mode() !== 'off') {
+  if (evidence.behaviorV2Enabled || salesV2Mode() !== 'off') {
     questions.documents = noul(
-      'Does `proposal.text` avoid claiming to have read, understood or interpreted attachment content unavailable in evidence.messages and evidence.memory.documents? A filename or receipt marker is not parsed content. Parsed/partial extraction supports only the actual visible text; no visual drawing interpretation. Acknowledge receipt without pretending to read it. Empty handoff text is acceptable.'
+      'Does proposal.text avoid pretending to read or interpret INCOMING customer attachment content that is unavailable in evidence.messages and evidence.memory.documents? A filename or receipt alone is not parsed contents. Parsed/partial text supports only the extracted text. Receipt acknowledgments such as “thanks for the file/brochure” do not claim to have read it. An [Image: ...] description in evidence.messages is available inferred visual context: the reply may refer cautiously to visible shape/color or ask whether the customer wants that appearance. Do not require parsed document text for a photo, or certify dimensions/material/performance from the description. This does not prohibit describing a selected OUTGOING catalog example from its file label or aiDescription in evidence.products; that is different available evidence and supports basic visible appearance only, not inferred technical guarantees. Empty handoff text is acceptable.'
     );
     questions.completion = noul(
       'Does proposal.text avoid falsely asserting an operation has already been completed or a date/slot guaranteed? If it makes no such completed-operation assertion, answer yes. Asking for a location, offering a review, saying the team confirms final quotes, or giving a non-final catalog estimate is not a completed operation and passes. Statements such as appointment is booked, I sent the file or your quote is ready require recorded successful operations in evidence.memory.actions. An open task or requested date is not proof of completion.'
@@ -358,27 +434,38 @@ export function outputQuestions(
       instructions:
         'Only penalize an omission when the reply claims to summarize, compare, price or fulfill the full requested scope but leaves an opening or requirement out. A brief acknowledgment or necessary clarification need not recite previously supplied measurements. For example, asking for missing height after the customer supplied width preserves scope; asking for the same width again is judged by responsive instead. A catalog-backed per-unit estimate need not enumerate every opening or invent missing dimensions. Faithful translation and Arabic digit normalization are allowed. If no scope is supplied, or the reply makes no conflicting or incomplete scope claim, answer yes.',
     });
-    questions.requests = noul(
-      {
-        question:
-          'Does the reply avoid ignoring a separate, independently answerable customer request?',
-        instructions: [
-          'This checks coverage of independent requests only; primary response relevance is checked separately. A customer with one request and one necessary clarification passes this check. For example, customer "الشتر بكم المتر؟" / "Shatar price per meter?", assistant "Window shutters or a garage/shop shutter door?" passes: product type is unresolved, so the per-unit price is not yet independently answerable.',
-          'If there are multiple requests, judge whether the reply answers each part whose answer is already supported by evidence. A known showroom address or phone can be answered independently while collecting missing quote details. Ignoring that known address and asking only measurements fails.',
-          'Do not demand a number before product identity is known. Do not require a human transfer, repeated restatement of the request, or a final quote to consider the turn useful. Empty handoff text is acceptable.',
-        ],
-      },
-      {
-        true: 'No separate known-answer request was skipped. Includes a single ambiguous price request answered by a necessary product-type question.',
-        false:
-          'A separate request with an available supported answer, such as a showroom address alongside a quote request, was ignored.',
-      }
-    );
+    if (!evidence.behaviorV2Enabled)
+      questions.requests = noul(
+        {
+          question:
+            'Does the reply avoid ignoring a separate, independently answerable customer request?',
+          instructions: [
+            'This checks coverage of independent requests only; primary response relevance is checked separately. A customer with one request and one necessary clarification passes this check. For example, customer "الشتر بكم المتر؟" / "Shatar price per meter?", assistant "Window shutters or a garage/shop shutter door?" passes: product type is unresolved, so the per-unit price is not yet independently answerable.',
+            'Judge the latest current request. Earlier turns resolve references and supplied details; do not require a reply to an unrelated old topic, such as an earlier CV enquiry after the customer starts a new product enquiry.',
+            'If there are multiple requests, judge whether the reply answers each part whose answer is already supported by evidence. A known showroom address or phone can be answered independently while collecting missing quote details. Ignoring that known address and asking only measurements fails.',
+            'A requested file that is not available in the supplied product files can be answered by explicitly explaining that limitation; do not require attaching an unrelated file or claiming it exists. A qualified explanation of an unavailable answer is coverage, not a skipped request.',
+            'Do not demand a number before product identity is known. Do not require a human transfer, repeated restatement of the request, or a final quote to consider the turn useful. Empty handoff text is acceptable.',
+          ],
+        },
+        {
+          true: 'No separate known-answer request was skipped. Includes a single ambiguous price request answered by a necessary product-type question.',
+          false:
+            'A separate request with an available supported answer, such as a showroom address alongside a quote request, was ignored.',
+        }
+      );
   }
   if (proposal.mediaId)
     questions.media = noul(
       'Is the exact attachment identified by `proposal.mediaId` in `evidence.products` relevant to the latest customer request and consistent with the reply? An absent file ID is not supported.'
     );
+  if (evidence.behaviorV2Enabled)
+    for (const [index, id] of (proposal.mediaIds ?? []).slice(0, 2).entries()) {
+      questions[`attachment_${index}`] = noul({
+        question:
+          'Is this exact attachment in evidence.products relevant to what the customer requested and consistent with the reply? An unknown or irrelevant file fails.',
+        fileId: id,
+      });
+    }
   if (proposal.productTagId)
     questions.product = noul(
       'Has the customer clearly identified or agreed to the exact product identified by `proposal.productTagId` in `evidence.products` as the topic? A speculative product suggestion by the assistant or an absent ID is not sufficient.'
@@ -407,18 +494,7 @@ async function checkSalesOutput(
   const start = Date.now();
   try {
     const questions = outputQuestions(evidence, proposal);
-    const result = await askJev(
-      {
-        evidence,
-        proposal,
-        generalProductKnowledge: PRODUCT_EDUCATION_REFERENCE,
-        customerStatements: [
-          ...customerStatements(evidence.messages),
-          ...(evidence.memory?.statements.map((s) => s.text) ?? []),
-        ],
-      },
-      questions
-    );
+    const result = await judgeSalesOutput(evidence, proposal, questions);
     const supported = (id: string) => {
       const answer = result.answers[id];
       if (!answer || answer.type !== 'noul' || !isProbability(answer.noul))
@@ -426,7 +502,15 @@ async function checkSalesOutput(
       return answer.noul >= SUPPORTED_MIN;
     };
     const grounded = supported('grounded');
-    const responsive = supported('responsive');
+    const violation = (id: string) => {
+      const a = result.answers[id];
+      if (a?.type !== 'noul' || !isProbability(a.noul))
+        throw Error('Invalid quality judgment');
+      return a.noul >= HANDOFF_MIN;
+    };
+    const responsive = evidence.behaviorV2Enabled
+      ? !violation('responsive')
+      : supported('responsive');
     const education = supported('education');
     const empathetic = !questions.empathy || supported('empathy');
     // Existence/allowlist checks stay in code; semantic judgments never grant access.
@@ -448,7 +532,33 @@ async function checkSalesOutput(
       return supported(`field_${i}`) && allowed.length === 1;
     });
     // Evaluate each enforced dimension so recovery receives every failed check.
+    const requestedAttachments = [
+      ...new Set([
+        ...(proposal.mediaIds ?? []).slice(0, 2),
+        ...(proposal.mediaId ? [proposal.mediaId] : []),
+      ]),
+    ];
+    const allAttachmentsAllowed = requestedAttachments.every(
+      (id) =>
+        evidence.products.some((p) => p.files.some((f) => f.id === id)) &&
+        (id === proposal.mediaId ? mediaAllowed : true) &&
+        (!(proposal.mediaIds ?? []).includes(id) ||
+          supported(`attachment_${proposal.mediaIds!.indexOf(id)}`))
+    );
     const checks: Record<string, boolean> = {
+      ...(evidence.behaviorV2Enabled
+        ? {
+            behavior: (() => {
+              const a = result.answers.behavior;
+              if (a?.type !== 'noul' || !isProbability(a.noul))
+                throw Error('Invalid behavior judgment');
+              return a.noul < HANDOFF_MIN;
+            })(),
+          }
+        : {}),
+      ...(evidence.behaviorV2Enabled
+        ? { attachment_evidence: allAttachmentsAllowed }
+        : {}),
       grounded,
       education,
       responsive,
@@ -470,9 +580,12 @@ async function checkSalesOutput(
         evidence.products.find((p) => p.id === proposal.productTagId)
       ),
     };
-    if (salesV2Mode() === 'enforce') {
+    if (evidence.behaviorV2Enabled || salesV2Mode() === 'enforce') {
       for (const id of ['documents', 'completion', 'scope', 'requests'])
-        checks[id] = supported(id);
+        checks[id] =
+          evidence.behaviorV2Enabled && id === 'requests'
+            ? !violation(id)
+            : supported(id);
     }
     const requestedTransfer =
       proposal.handoff &&
@@ -486,7 +599,9 @@ async function checkSalesOutput(
       layer: 'output',
       mode,
       outcome: handoff
-        ? 'handoff'
+        ? evidence.behaviorV2Enabled
+          ? 'filtered'
+          : 'handoff'
         : !mediaAllowed ||
             !productAllowed ||
             fields.length !== (proposal.fields ?? []).length
@@ -500,6 +615,10 @@ async function checkSalesOutput(
         attempt,
         enforcedFailures: Object.keys(checks).filter((id) => !checks[id]),
         v2Mode: salesV2Mode(),
+        behaviorV2Enabled: evidence.behaviorV2Enabled ?? false,
+        qualityPolarity: evidence.behaviorV2Enabled
+          ? 'violation_probability'
+          : 'support_probability',
         productId: proposal.productTagId,
         sourceDocumentIds: [
           ...new Set(
@@ -512,7 +631,9 @@ async function checkSalesOutput(
         routingReason: requestedTransfer
           ? 'human_authority'
           : handoff
-            ? 'verification_failed'
+            ? evidence.behaviorV2Enabled
+              ? 'draft_rejected'
+              : 'verification_failed'
             : 'verified_reply',
         ...Object.fromEntries(
           Object.keys(questions).map((id) => {
@@ -531,14 +652,43 @@ async function checkSalesOutput(
         reason: requestedTransfer
           ? 'human_authority'
           : handoff
-            ? 'verification_failed'
+            ? evidence.behaviorV2Enabled
+              ? 'draft_rejected'
+              : 'verification_failed'
             : 'verified_reply',
         failures: Object.keys(checks).filter((id) => !checks[id]),
         attempt,
       },
       mediaId: mediaAllowed ? proposal.mediaId : null,
+      ...(evidence.behaviorV2Enabled && proposal.mediaIds
+        ? {
+            mediaIds: proposal.mediaIds
+              .slice(0, 2)
+              .filter(
+                (id, index) =>
+                  supported(`attachment_${index}`) &&
+                  evidence.products.some((p) =>
+                    p.files.some((f) => f.id === id)
+                  )
+              ),
+          }
+        : { mediaIds: undefined }),
       productTagId: productAllowed ? proposal.productTagId : null,
       fields,
+      ...(evidence.behaviorV2Enabled &&
+      result.answers.knowledge_gap?.type === 'choice' &&
+      result.answers.knowledge_gap.confidence >= HANDOFF_MIN &&
+      Object.hasOwn(
+        KNOWLEDGE_GAP_QUESTIONS,
+        result.answers.knowledge_gap.choice
+      )
+        ? {
+            knowledgeGap: {
+              kind: result.answers.knowledge_gap.choice as KnowledgeGapKind,
+              productId: productAllowed ? proposal.productTagId : null,
+            },
+          }
+        : {}),
     };
   } catch {
     failures.push('unavailable');
@@ -568,7 +718,7 @@ async function checkSalesOutput(
 }
 
 /** A rejected draft gets one rewrite, never an unchecked send or an open-ended loop. */
-export async function verifySalesOutput(
+async function recoverSalesOutput(
   ctx: JevAuditContext,
   evidence: SalesEvidence,
   proposal: GenerateResult,
@@ -585,6 +735,10 @@ export async function verifySalesOutput(
     return checked;
   try {
     const corrections: Record<string, string> = {
+      attachment_evidence:
+        'An attachment was not supported or relevant. Select only real files that match the request, or explain that a matching example needs confirmation. Do not promise unsupported attachments.',
+      behavior:
+        'Answer the actual request first. Remove unrelated home/project qualification, repeated detail requests and pressure after deferral. Ask at most one necessary unanswered detail.',
       premature_handoff:
         'The customer can still be helped. Answer a known fact or ask one essential clarification; do not transfer merely because a price or dimension is missing.',
       price_evidence:
@@ -642,8 +796,113 @@ export async function verifySalesOutput(
       },
       2
     );
-  } catch {
+  } catch (error) {
+    // Distinguish an unavailable rewrite from an unsuccessful semantic correction.
+    if (evidence.behaviorV2Enabled) {
+      const code = (error as { code?: string }).code;
+      return {
+        ...checked,
+        routingDecision: {
+          reason: 'recovery_unavailable',
+          failures: checked.routingDecision?.failures ?? [],
+          attempt: checked.routingDecision?.attempt ?? 0,
+          recoveryError: ['rate_limited', 'timeout', 'invalid_key'].includes(
+            code ?? ''
+          )
+            ? code
+            : 'generation_error',
+        },
+      };
+    }
     // Keep the original verified/filtered fields, never the rejected raw proposal.
     return checked;
   }
+}
+
+/** Failed drafts are internal work, not evidence that the customer requested a human. */
+export async function verifySalesOutput(
+  ctx: JevAuditContext,
+  evidence: SalesEvidence,
+  proposal: GenerateResult,
+  repair?: (guidance: string) => Promise<GenerateResult>
+): Promise<GenerateResult> {
+  let result = await recoverSalesOutput(ctx, evidence, proposal, repair);
+  if (
+    !evidence.behaviorV2Enabled ||
+    jevMode() !== 'enforce' ||
+    !result.handoff ||
+    result.routingDecision?.reason === 'human_authority'
+  )
+    return result;
+  try {
+    const fallback = await selectReplyFallback(
+      evidence,
+      proposal.fallbackId ? [proposal.fallbackId] : []
+    );
+    if (fallback) {
+      const checked = await checkSalesOutput(ctx, evidence, fallback, 2);
+      if (
+        !checked.handoff ||
+        checked.routingDecision?.reason === 'human_authority'
+      )
+        return checked;
+      result = checked;
+    }
+  } catch {
+    /* A selected fallback still requires verification. */
+  }
+  if (
+    repair &&
+    !['verification_unavailable', 'recovery_unavailable'].includes(
+      result.routingDecision?.reason ?? ''
+    )
+  ) {
+    try {
+      const replacement = await repair(
+        CONVERSATION_BEHAVIOR_POLICY +
+          '\n' +
+          CUSTOMER_TONE_POLICY +
+          (result.routingDecision?.failures.some(
+            (id) => id === 'price' || id === 'price_evidence'
+          )
+            ? '\nThe selected exact variant has no verified price for this reply. Remove every monetary amount and price range from this last recovery. Do not reuse the rejected amount, even with a hedge. Explain that the exact variant price needs confirmation and ask one genuinely missing detail only if useful.\n'
+            : '') +
+          '\nFinal bounded recovery: use no factual assertion about this company. Do not claim we offer/provide/supply anything, or use عندنا / نوفر / نركب. General product education is allowed without implying it is offered. State an exact unknown as needing confirmation. Answer supported parts or ask one essential unanswered question. For an unknown service, explicitly say availability needs confirmation and ask the symptom without asserting service. For an inspection request, ask only the missing site detail without claiming free service or a booking. Do not repeat the failed reply or an answered question. Keep the reply short. Use the handoff marker only for an explicit human request or a genuine authority decision.'
+      );
+      result = await checkSalesOutput(ctx, evidence, replacement, 3);
+      if (
+        !result.handoff ||
+        result.routingDecision?.reason === 'human_authority'
+      )
+        return result;
+    } catch {
+      /* The rejected original is never sent. */
+    }
+  }
+  return {
+    ...result,
+    text: '',
+    handoff: false,
+    reviewRequired: true,
+    knowledgeGap: undefined,
+    mediaId: null,
+    mediaIds: [],
+    productTagId: null,
+    fields: [],
+    priority: null,
+    priorityReason: null,
+    routingDecision: {
+      reason:
+        result.routingDecision?.reason === 'verification_unavailable'
+          ? 'verification_unavailable'
+          : result.routingDecision?.reason === 'recovery_unavailable'
+            ? 'provider_unavailable'
+            : 'reply_needs_review',
+      failures: result.routingDecision?.failures ?? [],
+      attempt: result.routingDecision?.attempt ?? 0,
+      ...(result.routingDecision?.recoveryError
+        ? { recoveryError: result.routingDecision.recoveryError }
+        : {}),
+    },
+  };
 }

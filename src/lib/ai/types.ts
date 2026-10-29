@@ -18,6 +18,9 @@ export interface AiConfig {
   model: string;
   apiKey: string;
   systemPrompt: string | null;
+  /** Approved company facts, separate from behavior instructions (migration 080). */
+  companyFacts?: string | null;
+  behaviorV2Enabled?: boolean;
   isActive: boolean;
   autoReplyEnabled: boolean;
   autoReplyMaxPerConversation: number;
@@ -88,7 +91,21 @@ export interface ProviderResult {
 
 /** Outcome of a generation call. */
 export interface GenerateResult {
-  routingDecision?: { reason: string; failures: string[]; attempt: number };
+  routingDecision?: {
+    reason: string;
+    failures: string[];
+    attempt: number;
+    recoveryError?: string;
+  };
+  /** Rejected drafts require internal review; this alone does not transfer ownership. */
+  reviewRequired?: boolean;
+  fallbackId?: string;
+  providerUnavailable?: boolean;
+  knowledgeGap?: {
+    kind: import('./knowledge-gaps').KnowledgeGapKind;
+    productId: string | null;
+  };
+  mediaIds?: string[];
   /** The reply text, with any handoff/media sentinel stripped. */
   text: string;
   /** True when the model asked to hand off to a human (auto-reply mode). */

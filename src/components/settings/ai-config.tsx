@@ -121,6 +121,8 @@ export function AiConfig() {
     useState(false);
   const [imageAnalysisEnabled, setImageAnalysisEnabled] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState('');
+  const [companyFacts, setCompanyFacts] = useState('');
+  const [behaviorV2Enabled, setBehaviorV2Enabled] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
   const [maxPerConversation, setMaxPerConversation] = useState(3);
@@ -156,6 +158,8 @@ export function AiConfig() {
         setProvider(data.provider);
         setModel(data.model);
         setSystemPrompt(data.system_prompt ?? '');
+        setCompanyFacts(data.company_facts ?? '');
+        setBehaviorV2Enabled(data.behavior_v2_enabled === true);
         setIsActive(data.is_active);
         setAutoReplyEnabled(data.auto_reply_enabled);
         const loadedMax = data.auto_reply_max_per_conversation ?? 3;
@@ -193,6 +197,8 @@ export function AiConfig() {
   useEffect(() => {
     if (!accountId || loadedAccountIdRef.current === accountId) return;
     loadedAccountIdRef.current = accountId;
+    setCompanyFacts('');
+    setBehaviorV2Enabled(false);
     void fetchConfig();
     // Members populate the handoff-target picker. Best-effort — on an
     // older deployment without the endpoint the picker just shows the
@@ -224,6 +230,8 @@ export function AiConfig() {
     api_key: keyPayload(),
     embeddings_api_key: embeddingsKeyPayload(),
     system_prompt: systemPrompt.trim() || null,
+    company_facts: companyFacts.trim() || null,
+    behavior_v2_enabled: behaviorV2Enabled,
     is_active: isActive,
     auto_reply_enabled: autoReplyEnabled,
     auto_reply_max_per_conversation: unlimitedReplies ? 0 : maxPerConversation,
@@ -539,7 +547,45 @@ export function AiConfig() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="ai-prompt">{t('businessContext')}</Label>
+                    <Label htmlFor="ai-company-facts">
+                      {locale === 'ar'
+                        ? 'معلومات الشركة المؤكدة'
+                        : 'Confirmed company facts'}
+                    </Label>
+                    <Textarea
+                      id="ai-company-facts"
+                      dir="auto"
+                      value={companyFacts}
+                      onChange={(e) => setCompanyFacts(e.target.value)}
+                      maxLength={12000}
+                      rows={5}
+                      disabled={disabled}
+                    />
+                    <p className="text-muted-foreground text-xs">
+                      {locale === 'ar'
+                        ? 'اكتب العنوان ووسائل التواصل والخدمات والسياسات المؤكدة. خلي تعليمات الأسلوب في الحقل التالي، ومواصفات وأسعار المنتجات في الكتالوج.'
+                        : 'Use this for confirmed contact details, services and policies. Keep writing instructions below, and product specifications and prices in the catalog.'}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <Label htmlFor="ai-improved-replies">
+                      {locale === 'ar'
+                        ? 'ردود محسّنة ومراجعة قبل التحويل'
+                        : 'Improved replies and recovery before transfer'}
+                    </Label>
+                    <Switch
+                      id="ai-improved-replies"
+                      checked={behaviorV2Enabled}
+                      onCheckedChange={setBehaviorV2Enabled}
+                      disabled={disabled}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ai-prompt">
+                      {locale === 'ar'
+                        ? 'طريقة الرد وتعليمات العمل'
+                        : 'Reply style and business instructions'}
+                    </Label>
                     <Textarea
                       id="ai-prompt"
                       dir="auto"

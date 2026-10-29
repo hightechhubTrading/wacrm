@@ -8,6 +8,7 @@ export interface JevAuditContext {
   triggerMessageId?: string | null;
   workflow: 'auto_reply' | 'draft' | 'playground' | 'assistance';
   db?: SupabaseClient;
+  snapshot?: { messageIds: string[]; configurationHash: string };
 }
 
 export async function logJevCheck(
@@ -36,7 +37,10 @@ export async function logJevCheck(
     latency_ms: check.latencyMs,
     input_tokens: check.inputTokens ?? null,
     output_tokens: check.outputTokens ?? null,
-    judgments: check.judgments ?? {},
+    judgments: {
+      ...(check.judgments ?? {}),
+      ...(ctx.snapshot ? { inputSnapshot: ctx.snapshot } : {}),
+    },
   };
   // No messages, generated text, field values, provider keys or error bodies.
   // Structured logs remain available before migration 068 has been applied.

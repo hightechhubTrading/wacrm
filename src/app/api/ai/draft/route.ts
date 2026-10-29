@@ -1,3 +1,5 @@
+import { generateResilientReply } from '@/lib/ai/resilient-generation';
+import { turnBrief } from '@/lib/ai/conversation-behavior';
 import { listProductsForPrompt } from '@/lib/ai/media-library';
 import { knowledgeQuery } from '@/lib/ai/query';
 import { loadConversationMemory, memoryPrompt } from '@/lib/ai/memory';
@@ -125,7 +127,12 @@ export async function POST(request: Request) {
       conversationId,
       messages
     );
-    const input = await assessSalesInput(jevContext, messages, memory);
+    const input = await assessSalesInput(
+      jevContext,
+      messages,
+      memory,
+      config.behaviorV2Enabled
+    );
     if (input.handoff) {
       throw new AiError(
         'This request needs a team member to review and reply.',
@@ -142,12 +149,14 @@ export async function POST(request: Request) {
       supabase,
       accountId,
       config,
-      knowledgeQuery(messages)
+      knowledgeQuery(messages, config.behaviorV2Enabled)
     );
 
     const products = await listProductsForPrompt(supabase, accountId);
     const baseSystemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
+      companyFacts: config.companyFacts,
+      behaviorV2Enabled: config.behaviorV2Enabled,
       mode: 'draft',
       knowledge,
       media: products,
@@ -157,7 +166,29 @@ export async function POST(request: Request) {
     const systemPrompt = input.guidance
       ? `${groundedSystemPrompt}\n\nSales communication guidance:\n${input.guidance}`
       : groundedSystemPrompt;
-    const generated = await generateReply({ config, systemPrompt, messages });
+    const salesEvidence: import('@/lib/ai/typesafe/sales').SalesEvidence = {
+      intent: input.intent,
+      messages,
+      knowledge,
+      products,
+      collectFields: [],
+      businessContext: config.behaviorV2Enabled
+        ? (config.companyFacts ?? null)
+        : (config.companyFacts ?? config.systemPrompt),
+      behaviorV2Enabled: config.behaviorV2Enabled,
+      memory,
+      emotion: input.emotion,
+    };
+    const generated = await generateResilientReply(
+      {
+        config,
+        systemPrompt:
+          systemPrompt +
+          (config.behaviorV2Enabled ? '\n' + turnBrief(messages) : ''),
+        messages,
+      },
+      salesEvidence
+    );
     const { usage } = generated;
 
     // Record spend on the account's BYO key. Best-effort + via the
@@ -182,36 +213,30 @@ export async function POST(request: Request) {
 
     const verified = await verifySalesOutput(
       jevContext,
-      {
-        messages,
-        knowledge,
-        products,
-        collectFields: [],
-        businessContext: config.systemPrompt,
-        memory,
-        emotion: input.emotion,
-      },
+      salesEvidence,
       generated,
-      async (guidance) => {
-        const revised = await generateReply({
-          config,
-          systemPrompt: `${systemPrompt}\n\nReply recovery:\n${guidance}`,
-          messages,
-        });
-        try {
-          void logAiUsage(supabaseAdmin(), {
-            accountId,
-            conversationId,
-            mode: 'draft',
-            provider: config.provider,
-            model: config.model,
-            usage: revised.usage,
-          });
-        } catch {
-          // Usage accounting must not prevent a verified draft.
-        }
-        return revised;
-      }
+      generated.providerUnavailable
+        ? undefined
+        : async (guidance) => {
+            const revised = await generateReply({
+              config,
+              systemPrompt: `${systemPrompt}\n\nReply recovery:\n${guidance}`,
+              messages,
+            });
+            try {
+              void logAiUsage(supabaseAdmin(), {
+                accountId,
+                conversationId,
+                mode: 'draft',
+                provider: config.provider,
+                model: config.model,
+                usage: revised.usage,
+              });
+            } catch {
+              // Usage accounting must not prevent a verified draft.
+            }
+            return revised;
+          }
     );
     if (verified.handoff) {
       throw new AiError(
@@ -222,6 +247,14 @@ export async function POST(request: Request) {
         }
       );
     }
+    if (verified.reviewRequired)
+      return NextResponse.json(
+        {
+          error: 'The draft needs review before sending.',
+          code: 'reply_needs_review',
+        },
+        { status: 503 }
+      );
     return NextResponse.json({ draft: verified.text });
   } catch (err) {
     if (err instanceof AiError) {

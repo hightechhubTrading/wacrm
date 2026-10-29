@@ -18,7 +18,9 @@ async function context(params: Params['params']) {
   const { conversationId } = await params;
   const { data, error } = await ctx.supabase
     .from('conversations')
-    .select('id,assigned_agent_id,ai_autoreply_disabled')
+    .select(
+      'id,assigned_agent_id,ai_autoreply_disabled,ai_handoff_reason,ai_handoff_summary'
+    )
     .eq('id', conversationId)
     .eq('account_id', ctx.accountId)
     .maybeSingle();
@@ -33,7 +35,7 @@ export async function GET(_request: Request, { params }: Params) {
         { error: 'Conversation not found' },
         { status: 404 }
       );
-    const [work, events] = await Promise.all([
+    const [work, events, actions, humanReply] = await Promise.all([
       ctx.supabase
         .from('ai_followups')
         .select('*')
@@ -43,9 +45,26 @@ export async function GET(_request: Request, { params }: Params) {
         .limit(30),
       ctx.supabase
         .from('ai_reply_events')
-        .select('outcome,reason,created_at')
+        .select('outcome,reason,created_at,details')
         .eq('conversation_id', ctx.conversationId)
         .eq('account_id', ctx.accountId)
+        .order('created_at', { ascending: false })
+        .limit(1),
+      ctx.supabase
+        .from('ai_media_actions')
+        .select(
+          'id,file_id,status,provider_message_id,failure_code,attempts,created_at,updated_at'
+        )
+        .eq('account_id', ctx.accountId)
+        .eq('conversation_id', ctx.conversationId)
+        .order('created_at', { ascending: false })
+        .limit(10),
+      ctx.supabase
+        .from('messages')
+        .select('created_at')
+        .eq('conversation_id', ctx.conversationId)
+        .eq('sender_type', 'agent')
+        .eq('ai_generated', false)
         .order('created_at', { ascending: false })
         .limit(1),
     ]);
@@ -54,6 +73,10 @@ export async function GET(_request: Request, { params }: Params) {
       followups: work.data ?? [],
       latestEvent: events.data?.[0] ?? null,
       conversation: ctx.conversation,
+      latestHumanReplyAt: humanReply.error
+        ? null
+        : (humanReply.data?.[0]?.created_at ?? null),
+      mediaActions: actions.error ? [] : (actions.data ?? []),
     });
   } catch (e) {
     return toErrorResponse(e);

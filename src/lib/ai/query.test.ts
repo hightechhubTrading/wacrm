@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  knowledgeQuery,
   latestUserMessage,
   latestCustomerAuthoredMessage,
   customerLanguageScript,
@@ -119,4 +120,20 @@ it('retrieves follow-up knowledge using recent customer context without assistan
       { role: 'user', content: 'How much per meter?' },
     ])
   ).toBe('I need window shutters\nHow much per meter?');
+});
+
+it('uses an assistant option list only as a labelled retrieval reference for short follow-ups', () => {
+  const result = knowledgeQuery(
+    [
+      {
+        role: 'assistant',
+        content: 'Solid, perforated or transparent shop shutters?',
+      },
+      { role: 'user', content: 'وش الفرق؟' },
+    ],
+    true
+  );
+  expect(result).toContain('Dialogue reference (not verified facts)');
+  expect(result).toContain('perforated');
+  expect(result).toContain('وش الفرق؟');
 });

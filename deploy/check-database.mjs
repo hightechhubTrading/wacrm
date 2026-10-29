@@ -31,10 +31,17 @@ export async function checkDeploymentDatabase({
     ['conversations', 'ai_handoff_reason', '077'],
     [
       'ai_catalog_questions',
-      'id,product_id,question,answer,evidence,confirmed_by,confirmed_on,status',
-      '078',
+      'id,product_id,question,answer,evidence,confirmed_by,confirmed_on,status,gap_key',
+      '081',
     ],
     ['ai_product_search_chunks', 'id,product_id,content,embedding', '078'],
+    ['ai_configs', 'company_facts,behavior_v2_enabled', '080'],
+    [
+      'ai_media_actions',
+      'id,status,provider_message_id,failure_code,file_snapshot_id',
+      '081',
+    ],
+    ['ai_reply_events', 'details', '080'],
   ]) {
     const endpoint = new URL(`/rest/v1/${table}`, url);
     endpoint.searchParams.set('select', columns);

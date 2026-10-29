@@ -12,15 +12,15 @@ test('accepts the required columns and denied identity-free conversion probe', a
     fetchImpl: async (url, init) => {
       requests.push({ url: new URL(url), init });
       return new Response(
-        JSON.stringify(requests.length === 6 ? { code: '42501' } : []),
-        { status: requests.length === 6 ? 403 : 200 }
+        JSON.stringify(requests.length === 9 ? { code: '42501' } : []),
+        { status: requests.length === 9 ? 403 : 200 }
       );
     },
   });
-  assert.equal(requests.length, 6);
-  for (const r of requests.slice(0, 5))
+  assert.equal(requests.length, 9);
+  for (const r of requests.slice(0, 8))
     assert.equal(r.url.searchParams.get('limit'), '0');
-  assert.equal(JSON.parse(requests[5].init.body).p_conversation_id, null);
+  assert.equal(JSON.parse(requests[8].init.body).p_conversation_id, null);
 });
 test('rejects missing catalog columns before probing conversions', async () => {
   await assert.rejects(
@@ -37,7 +37,7 @@ test('rejects missing conversion migration before promotion', async () => {
     checkDeploymentDatabase({
       ...options,
       fetchImpl: async () =>
-        ++count < 6
+        ++count < 9
           ? new Response('[]')
           : new Response('{"code":"PGRST202"}', { status: 404 }),
     }),
@@ -50,7 +50,7 @@ test('rejects unexpectedly authorized probes or malformed provider responses', a
     checkDeploymentDatabase({
       ...options,
       fetchImpl: async () =>
-        ++count < 6 ? new Response('[]') : new Response('not-json'),
+        ++count < 9 ? new Response('[]') : new Response('not-json'),
     }),
     /migration 076/
   );

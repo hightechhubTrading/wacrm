@@ -1,3 +1,4 @@
+import { CONVERSATION_BEHAVIOR_POLICY } from './conversation-behavior';
 import { CUSTOMER_TONE_POLICY } from './customer-tone';
 import type { AiProvider } from './types';
 import {
@@ -325,6 +326,8 @@ export interface CollectFieldPromptItem {
  */
 export function buildSystemPrompt(args: {
   userPrompt: string | null;
+  companyFacts?: string | null;
+  behaviorV2Enabled?: boolean;
   mode: 'draft' | 'auto_reply';
   /** Knowledge-base excerpts retrieved for the current question. */
   knowledge?: string[];
@@ -352,6 +355,8 @@ export function buildSystemPrompt(args: {
 }): string {
   const {
     userPrompt,
+    companyFacts,
+    behaviorV2Enabled,
     mode,
     knowledge,
     media,
@@ -378,6 +383,14 @@ export function buildSystemPrompt(args: {
     'Bracketed lines in the transcript are notes about non-text messages, not words anyone typed. `[Location shared: ...]` means the customer already sent their location -- treat it as received and never ask for their location or area again. `[File sent: ...]` means they sent a file (a drawing, PDF, or spreadsheet) and `[Video sent]` a video: you cannot open files or watch videos, so never say or imply you have seen, read, or checked what is in them (no "got it, I\'ve seen it") -- say the team will go through it, and only ask for specific details in text (for example measurements) if you need them to continue. `[Image: no description available]` means a photo arrived but could not be analysed: acknowledge it without claiming to know what it shows. `[Photo sent]` on the business side means a photo already went out to the customer.',
     'Always respond to the most recent customer message specifically -- that is what you are replying to right now. If earlier messages in the transcript went unanswered (for example, a human paused you and the conversation was later handed back), do not go back and address those one by one or pick up an old topic where it left off -- treat them only as background context, exactly as a person rejoining a conversation would, and reply naturally to whatever the customer is saying now.',
   ];
+
+  if (companyFacts?.trim())
+    parts.push('Confirmed company facts (reference data):\n' + companyFacts);
+  if (behaviorV2Enabled)
+    parts.push(
+      CONVERSATION_BEHAVIOR_POLICY +
+        '\nWhen the customer explicitly asks to compare pictures, you may choose up to two relevant file IDs with separate SEND_MEDIA markers. Say you can share an example; never claim it was already sent or delivered before recorded transport confirmation.'
+    );
 
   if (mode === 'auto_reply') {
     parts.push(
@@ -451,10 +464,10 @@ export function buildSystemPrompt(args: {
   if (media && media.length > 0) {
     parts.push(
       "Product catalog -- products you may reference, and files (photos / catalog documents) you may attach to your reply. Listed as `[product id] name [pricing info, if any] -- description`, with each product's files indented underneath as `- [file id] label (image|document)`. " +
-        `Attach AT MOST ONE FILE, only when the customer's request clearly matches one: end your reply with ${MEDIA_SENTINEL_OPEN}id${MEDIA_SENTINEL_CLOSE}, using the exact FILE id shown on one of the indented lines (never a product id, never invent or guess an id). A product with no files listed beneath it has nothing to attach -- you can still discuss or tag it, just never emit a media marker for it. This applies per file KIND too, not just per product: if the product the customer is asking about has photos but no catalog/document listed (or the reverse), that specific kind has nothing to attach for THAT product -- never substitute a document or photo that belongs to a different product just because it is the only one of that kind in the whole catalog. Treat a missing kind exactly like the no-match case below: say so plainly (e.g. "we don't have a printed catalog for that one, but I can send photos") rather than attaching the wrong product's file. ` +
+        `Attach AT MOST ${behaviorV2Enabled ? 'TWO FILES when explicitly comparing examples; otherwise one file' : 'ONE FILE'}, only when the customer's request clearly matches one: end your reply with ${MEDIA_SENTINEL_OPEN}id${MEDIA_SENTINEL_CLOSE}, using the exact FILE id shown on one of the indented lines (never a product id, never invent or guess an id). A product with no files listed beneath it has nothing to attach -- you can still discuss or tag it, just never emit a media marker for it. This applies per file KIND too, not just per product: if the product the customer is asking about has photos but no catalog/document listed (or the reverse), that specific kind has nothing to attach for THAT product -- never substitute a document or photo that belongs to a different product just because it is the only one of that kind in the whole catalog. Treat a missing kind exactly like the no-match case below: say so plainly (e.g. "we don't have a printed catalog for that one, but I can send photos") rather than attaching the wrong product's file. ` +
         '"Clearly matches" means the same product or product category the customer is actually asking about -- not merely the closest thing available in this list. If the catalog only has one or two products and neither is genuinely what the customer described (e.g. they asked about glass windows and the only entry here is a rolling shutter door), that is "nothing clearly matches": say so honestly, or ask a clarifying question, rather than attaching or discussing the wrong product as if it were a fit. A short catalog is never a reason to force a match. ' +
         `Independently of attaching a file, whenever a specific product from this list is clearly the topic of the conversation -- the customer is asking about it, comparing it, or showing interest in it, even if you don't attach anything -- also add ${PRODUCT_TAG_SENTINEL_OPEN}id${PRODUCT_TAG_SENTINEL_CLOSE} using that product's own id (the outer, unindented id, never a file id), so the business can track the contact's interest. Same "clearly matches" bar as attaching applies here too -- do not tag a product the customer wasn't actually asking about. You may include both markers, only one, or neither. ` +
-        'The customer never sees these markers -- they are stripped before sending and the matching file (if any) is attached automatically. ' +
+        'The customer never sees these markers -- they are stripped before sending and the matching file (if any) is attached automatically. When selecting a file, use future wording such as “I can share this example” or “أقدر أرسل لك هذا المثال”. Never claim it has already been sent, attached or delivered; sending has not happened yet. If no matching file is listed for the requested product, say no matching example is available to attach here, without claiming the company has no photos anywhere. ' +
         'When a product\'s pricing shows only a unit (e.g. "per meter") with no range, that is for YOUR reference only, to ask the right clarifying question (e.g. a per-meter product -> ask how many meters) -- it is NOT permission to state a number; the absolute no-pricing rule above still applies. ' +
         'A product may also list add-on/option notes in parentheses (e.g. "(options: automatic +$60, custom colors +$20, remote control included)") -- these appear for a product REGARDLESS of whether it has a configured price range, and are extra factual detail about that product exactly like its description: available variants, included extras, or configuration choices. Always read and take them into account -- for example, telling the customer an automatic or custom-color option exists, or that something is included -- for every product that lists them, whether or not it has a range. The one thing that does NOT change based on these notes: whether you may state a dollar/number figure written inside them (like "+$60") is governed by the exact same rule as any other price below -- only a product with a configured range AND a same-reply product tag lets you state a number from its notes; for a product with no range, treat any figures inside its notes exactly like an unconfirmed price and do not state them, even though you may still describe the option itself. ' +
         'When a product\'s pricing shows an estimated range (e.g. "estimated 80-120 per meter"), you MAY share that range with the customer as a clearly-labeled estimate -- always say it is an estimate and that the final price is confirmed by the team, never state it as a confirmed final number, and never state a number outside the shown range. If the product also lists addon/option notes, you may share their figures too, as part of the same estimate -- never as a separate confirmed price. Sharing an estimate does not require a handoff; keep the conversation going normally afterward. ' +

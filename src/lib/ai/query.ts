@@ -70,12 +70,28 @@ export function customerLanguageScript(
 }
 
 /** Recent customer context resolves short follow-ups without indexing assistant guesses. */
-export function knowledgeQuery(messages: ChatMessage[]): string {
-  return messages
-    .filter((m) => m.role === 'user')
-    .slice(-4)
-    .map((m) => stripTrailingImageCaption(m.content))
-    .filter(Boolean)
-    .join('\n')
-    .slice(-2400);
+export function knowledgeQuery(
+  messages: ChatMessage[],
+  includeDialogueReference = false
+): string {
+  const latest = latestCustomerAuthoredMessage(messages);
+  const reference =
+    includeDialogueReference && latest.length < 80
+      ? [...messages]
+          .reverse()
+          .find((m) => m.role === 'assistant')
+          ?.content.slice(0, 500)
+      : '';
+  return (
+    (reference
+      ? 'Dialogue reference (not verified facts): ' + reference + '\nCustomer: '
+      : '') +
+    messages
+      .filter((m) => m.role === 'user')
+      .slice(-4)
+      .map((m) => stripTrailingImageCaption(m.content))
+      .filter(Boolean)
+      .join('\n')
+      .slice(-2400)
+  );
 }

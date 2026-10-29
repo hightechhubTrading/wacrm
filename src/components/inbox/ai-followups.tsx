@@ -13,12 +13,30 @@ import {
   type FollowupKind,
 } from '@/lib/ai/followups';
 type Data = {
+  latestHumanReplyAt?: string | null;
+  mediaActions?: {
+    id: string;
+    status: string;
+    failure_code: string | null;
+    created_at: string;
+  }[];
   available: boolean;
   followups: Followup[];
-  latestEvent: { outcome: string; reason: string; created_at: string } | null;
+  latestEvent: {
+    outcome: string;
+    reason: string;
+    created_at: string;
+    details?: { providerUnavailable?: boolean };
+  } | null;
   conversation: {
     assigned_agent_id: string | null;
     ai_autoreply_disabled: boolean;
+    ai_handoff_summary?: string | null;
+    ai_handoff_reason?: {
+      reason: string;
+      failures: string[];
+      attempt: number;
+    } | null;
   };
 };
 export function AiFollowups({
@@ -286,6 +304,19 @@ export function AiFollowups({
     'reply_cap',
     'slot_unavailable',
     'generation_failed',
+    'reply_needs_review',
+    'provider_unavailable',
+    'verification_unavailable',
+    'verification_failed',
+    'human_authority',
+    'input_complaint_or_emotion',
+    'explicit_human_request',
+    'attachment_unavailable',
+    'reply_limit',
+    'unverified_price',
+    'media_delivery_uncertain',
+    'media_send_failed',
+    'media_conversation_changed',
     'document_review',
     'sent',
     'handoff',
@@ -319,6 +350,50 @@ export function AiFollowups({
           aria-hidden="true"
         />
       </summary>
+      {data.latestHumanReplyAt &&
+        active.some(
+          (f) =>
+            f.created_at &&
+            Date.parse(data.latestHumanReplyAt!) > Date.parse(f.created_at)
+        ) && (
+          <p className="text-muted-foreground mt-3 text-xs">
+            {locale === 'ar'
+              ? 'يوجد رد من الفريق. راجع النتيجة وحدّث حالة المتابعة.'
+              : 'Staff have replied. Check the outcome and update the follow-up status.'}{' '}
+            ({new Date(data.latestHumanReplyAt).toLocaleString(locale)})
+          </p>
+        )}
+      {data.conversation.ai_handoff_summary && (
+        <p className="text-muted-foreground mt-3 text-xs" dir="auto">
+          {data.conversation.ai_handoff_summary}
+        </p>
+      )}
+      {(data.mediaActions?.length ?? 0) > 0 && (
+        <div
+          className="my-3 space-y-1 text-xs"
+          aria-label={locale === 'ar' ? 'حالة المرفقات' : 'Attachment status'}
+        >
+          {data.mediaActions!.map((a) => (
+            <p key={a.id}>
+              {locale === 'ar' ? 'المرفق' : 'Attachment'}:{' '}
+              {a.status === 'accepted'
+                ? locale === 'ar'
+                  ? 'تم قبول الإرسال'
+                  : 'Accepted by provider'
+                : a.status === 'uncertain' || a.status === 'sending'
+                  ? locale === 'ar'
+                    ? 'راجع المحادثة قبل إعادة الإرسال'
+                    : 'Check the conversation before resending'
+                  : a.status === 'failed'
+                    ? locale === 'ar'
+                      ? 'لم يتم الإرسال؛ راجع الملف وأرسله يدوياً'
+                      : 'Not sent; check the asset and send it manually'
+                    : a.status}
+            </p>
+          ))}
+        </div>
+      )}
+
       <div className="space-y-4 p-4">
         {!standalone && (
           <p className="text-muted-foreground">
@@ -327,6 +402,13 @@ export function AiFollowups({
               : data.conversation.assigned_agent_id
                 ? t('humanOwned')
                 : t('eligible')}
+          </p>
+        )}
+        {data.latestEvent?.details?.providerUnavailable && (
+          <p role="status">
+            {locale === 'ar'
+              ? 'مزود الردود غير متاح حالياً. تم استخدام نص معتمد؛ راجع الرصيد وإعدادات المزود.'
+              : 'The reply provider is unavailable. Approved wording was used; check credits and provider settings.'}
           </p>
         )}
         {reason && (

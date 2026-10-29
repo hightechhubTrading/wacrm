@@ -1,3 +1,10 @@
+import { generateResilientReply } from './resilient-generation';
+import { recordKnowledgeGap } from './knowledge-gaps';
+import { createHash } from 'node:crypto';
+import { sendTrackedMedia } from './media-actions';
+import { productContext } from './product-context';
+import { notifyReplyReview } from './reply-review';
+import { turnBrief } from './conversation-behavior';
 import { knowledgeQuery } from '@/lib/ai/query';
 import {
   ensureFollowup,
@@ -448,6 +455,9 @@ export async function dispatchInboundToAiReply(
   // can still see them -- variables declared inside `try` aren't
   // visible in its `catch`.
   const db = supabaseAdmin();
+  const startedAt = Date.now();
+  const stageTimes: Record<string, number> = {};
+  const replyMeta: Record<string, unknown> = {};
   let config: AiConfig | null = null;
   const event = (outcome: 'skipped' | 'sent' | 'failed', reason: string) =>
     recordReplyEvent(db, {
@@ -456,6 +466,14 @@ export async function dispatchInboundToAiReply(
       triggerMessageId,
       outcome,
       reason,
+      ...(config?.behaviorV2Enabled
+        ? {
+            details: {
+              stageMs: { ...stageTimes, total: Date.now() - startedAt },
+              ...replyMeta,
+            },
+          }
+        : {}),
     });
 
   try {
@@ -488,7 +506,7 @@ export async function dispatchInboundToAiReply(
     const { data: conv, error: convErr } = await db
       .from('conversations')
       .select(
-        'assigned_agent_id, ai_autoreply_disabled, ai_reply_count, ai_context_summary, ai_context_summary_at, ai_priority'
+        'assigned_agent_id, ai_autoreply_disabled, ai_reply_count, ai_context_summary, ai_context_summary_at, ai_priority, ad_headline, ad_source_id'
       )
       .eq('id', conversationId)
       .maybeSingle();
@@ -624,6 +642,25 @@ export async function dispatchInboundToAiReply(
       conversationId,
       triggerMessageId,
       workflow: 'auto_reply' as const,
+      ...(config.behaviorV2Enabled
+        ? {
+            snapshot: {
+              messageIds: messages.flatMap((m) =>
+                m.sourceMessageId ? [m.sourceMessageId] : []
+              ),
+              configurationHash: createHash('sha256')
+                .update(
+                  JSON.stringify({
+                    model: config.model,
+                    facts: config.companyFacts,
+                    instructions: config.companyFacts ?? config.systemPrompt,
+                    behavior: config.behaviorV2Enabled,
+                  })
+                )
+                .digest('hex'),
+            },
+          }
+        : {}),
     };
     const stillEligible = async () => {
       if (jevMode() !== 'enforce') return true;
@@ -671,7 +708,10 @@ export async function dispatchInboundToAiReply(
       messages
     );
     const lastCustomer = [...messages].reverse().find((m) => m.role === 'user');
-    if (lastCustomer?.attachmentState === 'unavailable') {
+    if (
+      lastCustomer?.attachmentState === 'unavailable' &&
+      !config.behaviorV2Enabled
+    ) {
       if (!(await stillEligible())) {
         await event('skipped', 'stale_trigger');
         return;
@@ -696,7 +736,12 @@ export async function dispatchInboundToAiReply(
       });
       return;
     }
-    const salesInput = await assessSalesInput(jevContext, messages, memory);
+    const salesInput = await assessSalesInput(
+      jevContext,
+      messages,
+      memory,
+      config.behaviorV2Enabled
+    );
     if (salesInput.handoff && (await stillEligible())) {
       for (const kind of salesInput.followupKinds ?? [])
         await ensureFollowup(db, {
@@ -745,65 +790,63 @@ export async function dispatchInboundToAiReply(
     // Notes list so a human agent always has an up-to-date recap
     // without having to scroll the whole thread -- not just the
     // "AI handled this after hours" case (message-thread.tsx).
-    let contextSummary: string | null = conv.ai_context_summary ?? null;
-    const summaryAge = conv.ai_context_summary_at
-      ? Date.now() - new Date(conv.ai_context_summary_at).getTime()
-      : Infinity;
-    if (summaryAge > CONTEXT_SUMMARY_TTL_MS) {
-      try {
-        const { text: summaryText } = await generateReply({
-          config,
-          systemPrompt:
-            "Summarize this WhatsApp conversation in 2-3 short sentences for a teammate catching up: what the customer wants, what's been resolved, what's still outstanding. Output only the summary, no preamble.",
-          messages,
-        });
-        if (summaryText.trim()) {
-          contextSummary = summaryText.trim();
-          await db
-            .from('conversations')
-            .update({
-              ai_context_summary: contextSummary,
-              ai_context_summary_at: new Date().toISOString(),
-            })
-            .eq('id', conversationId);
-          await upsertAiSummaryNote(db, {
-            accountId,
-            contactId,
-            conversationId,
-            authorUserId: configOwnerUserId,
-            summary: contextSummary,
+    const summaryConfig = config;
+    const refreshStaffSummary = async () => {
+      let contextSummary: string | null = conv.ai_context_summary ?? null;
+      const summaryAge = conv.ai_context_summary_at
+        ? Date.now() - new Date(conv.ai_context_summary_at).getTime()
+        : Infinity;
+      if (summaryAge > CONTEXT_SUMMARY_TTL_MS) {
+        try {
+          const { text: summaryText } = await generateReply({
+            config: summaryConfig,
+            systemPrompt:
+              "Summarize this WhatsApp conversation in 2-3 short sentences for a teammate catching up: what the customer wants, what's been resolved, what's still outstanding. Output only the summary, no preamble.",
+            messages,
           });
+          if (summaryText.trim()) {
+            contextSummary = summaryText.trim();
+            await db
+              .from('conversations')
+              .update({
+                ai_context_summary: contextSummary,
+                ai_context_summary_at: new Date().toISOString(),
+              })
+              .eq('id', conversationId);
+            await upsertAiSummaryNote(db, {
+              accountId,
+              contactId,
+              conversationId,
+              authorUserId: configOwnerUserId,
+              summary: contextSummary,
+            });
+          }
+        } catch (err) {
+          console.error(
+            '[ai auto-reply] context summary generation failed:',
+            err
+          );
         }
-      } catch (err) {
-        console.error(
-          '[ai auto-reply] context summary generation failed:',
-          err
-        );
       }
-    }
+    };
 
     // Ground the reply in the account's knowledge base (best-effort).
-    const knowledge = await retrieveKnowledge(
-      db,
-      accountId,
-      config,
-      knowledgeQuery(messages)
-    );
+    const retrievalStarted = Date.now();
+    const [knowledge, allProducts, contactCollectFields] = await Promise.all([
+      retrieveKnowledge(
+        db,
+        accountId,
+        config,
+        knowledgeQuery(messages, config.behaviorV2Enabled)
+      ),
+      listProductsForPrompt(db, accountId),
+      listAiCollectibleFields(db, accountId),
+    ]);
+    stageTimes.retrieval = Date.now() - retrievalStarted;
+    const media = config.behaviorV2Enabled
+      ? productContext(allProducts, knowledge, messages)
+      : allProducts;
 
-    // Media library -- lets the model attach a product photo/catalog by
-    // id, and/or flag a product as the topic via a tag (best-effort;
-    // empty when the account hasn't set one up, in which case
-    // buildSystemPrompt omits the whole capability).
-    const media = await listProductsForPrompt(db, accountId);
-
-    // AI-collectible fields -- lets the model save lead details (product
-    // interest, measurements, budget, timeline, etc.) onto the contact as
-    // it learns them (best-effort; empty when the account hasn't opted
-    // any fields in, in which case buildSystemPrompt omits the whole
-    // capability). Group fields are added on top, but only when the
-    // contact's current open deal has actually reached a stage with an
-    // active custom field group linked -- never for a brand-new lead.
-    const contactCollectFields = await listAiCollectibleFields(db, accountId);
     const currentDeal = await resolveCurrentOpenDeal(db, accountId, contactId);
     const groupCollectFields = currentDeal
       ? await listGroupFieldsForStage(db, currentDeal.stage_id)
@@ -825,6 +868,8 @@ export async function dispatchInboundToAiReply(
 
     const baseSystemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
+      companyFacts: config.companyFacts,
+      behaviorV2Enabled: config.behaviorV2Enabled,
       mode: 'auto_reply',
       knowledge,
       media,
@@ -836,12 +881,47 @@ export async function dispatchInboundToAiReply(
       timezone: account?.timezone ?? null,
     });
 
-    const groundedSystemPrompt = `${baseSystemPrompt}\n\n${memoryPrompt(memory)}`;
+    const groundedSystemPrompt = `${baseSystemPrompt}\n\n${memoryPrompt(memory)}${config.behaviorV2Enabled ? '\n' + turnBrief(messages) : ''}`;
+    const adReference =
+      config.behaviorV2Enabled && conv.ad_headline
+        ? '\nAdvertisement hint (not customer confirmation or verified product facts): ' +
+          JSON.stringify({
+            headline: conv.ad_headline,
+            source: conv.ad_source_id,
+          })
+        : '';
     const systemPrompt = salesInput.guidance
-      ? `${groundedSystemPrompt}\n\nSales communication guidance:\n${salesInput.guidance}`
-      : groundedSystemPrompt;
+      ? `${groundedSystemPrompt}\n\nSales communication guidance:\n${salesInput.guidance}${adReference}`
+      : groundedSystemPrompt + adReference;
 
-    const generated = await generateReply({ config, systemPrompt, messages });
+    const salesEvidence: import('./typesafe/sales').SalesEvidence = {
+      intent: salesInput.intent,
+      messages,
+      knowledge,
+      products: media,
+      collectFields,
+      businessContext: config.behaviorV2Enabled
+        ? (config.companyFacts ?? null)
+        : (config.companyFacts ?? config.systemPrompt),
+      behaviorV2Enabled: config.behaviorV2Enabled,
+      businessHours: formatBusinessHours(businessHours),
+      socialLinks,
+      agentPhone: assignedAgentPhone,
+      currency: account?.default_currency ?? null,
+      memory,
+      emotion: salesInput.emotion,
+    };
+    const generationStarted = Date.now();
+    const generated = await generateResilientReply(
+      {
+        config,
+        systemPrompt,
+        messages,
+        ...(config.behaviorV2Enabled ? { deadlineAt: startedAt + 60000 } : {}),
+      },
+      salesEvidence
+    );
+    stageTimes.generation = Date.now() - generationStarted;
     const { priority, priorityReason, usage } = generated;
     let { text, handoff, mediaId, productTagId, fields } = generated;
 
@@ -863,7 +943,7 @@ export async function dispatchInboundToAiReply(
 
     // The call just succeeded -- if the key was previously flagged as
     // broken, clear it. Best-effort: never let this block the reply.
-    if (config.lastKeyError) {
+    if (config.lastKeyError && !generated.providerUnavailable) {
       clearKeyError(db, accountId).catch((err) =>
         console.error('[ai auto-reply] failed to clear key error:', err)
       );
@@ -883,7 +963,7 @@ export async function dispatchInboundToAiReply(
       usage,
     });
 
-    if (text && !handoff) {
+    if (text && !handoff && !generated.fallbackId) {
       text = isolatePhoneNumbers(
         await correctReplyLanguageIfNeeded({
           db,
@@ -895,22 +975,12 @@ export async function dispatchInboundToAiReply(
         })
       );
     }
+    if (text && generated.fallbackId) text = isolatePhoneNumbers(text);
     const recoveryConfig = config;
+    const verificationStarted = Date.now();
     const verified = await verifySalesOutput(
       jevContext,
-      {
-        messages,
-        knowledge,
-        products: media,
-        collectFields,
-        businessContext: config.systemPrompt,
-        businessHours: formatBusinessHours(businessHours),
-        socialLinks,
-        agentPhone: assignedAgentPhone,
-        currency: account?.default_currency ?? null,
-        memory,
-        emotion: salesInput.emotion,
-      },
+      salesEvidence,
       {
         text,
         handoff,
@@ -921,36 +991,71 @@ export async function dispatchInboundToAiReply(
         priorityReason,
         usage,
       },
-      async (guidance) => {
-        if (!(await stillEligible())) throw new Error('Superseded reply');
-        const revised = await generateReply({
-          config: recoveryConfig,
-          systemPrompt: `${systemPrompt}\n\nReply recovery:\n${guidance}`,
-          messages,
-        });
-        void logAiUsage(db, {
-          accountId,
-          conversationId,
-          mode: 'auto_reply',
-          provider: recoveryConfig.provider,
-          model: recoveryConfig.model,
-          usage: revised.usage,
-        });
-        if (revised.text && !revised.handoff) {
-          revised.text = isolatePhoneNumbers(
-            await correctReplyLanguageIfNeeded({
-              db,
+      generated.providerUnavailable
+        ? undefined
+        : async (guidance) => {
+            if (!(await stillEligible())) throw new Error('Superseded reply');
+            const revised = await generateReply({
+              config: recoveryConfig,
+              ...(recoveryConfig.behaviorV2Enabled
+                ? { deadlineAt: startedAt + 60000 }
+                : {}),
+              systemPrompt: `${systemPrompt}\n\nReply recovery:\n${guidance}`,
+              messages,
+            });
+            void logAiUsage(db, {
               accountId,
               conversationId,
-              config: recoveryConfig,
-              customerScript: customerLanguageScript(messages),
-              replyText: revised.text,
-            })
-          );
-        }
-        return revised;
-      }
+              mode: 'auto_reply',
+              provider: recoveryConfig.provider,
+              model: recoveryConfig.model,
+              usage: revised.usage,
+            });
+            if (revised.text && !revised.handoff) {
+              revised.text = isolatePhoneNumbers(
+                await correctReplyLanguageIfNeeded({
+                  db,
+                  accountId,
+                  conversationId,
+                  config: recoveryConfig,
+                  customerScript: customerLanguageScript(messages),
+                  replyText: revised.text,
+                })
+              );
+            }
+            return revised;
+          }
     );
+    stageTimes.verification = Date.now() - verificationStarted;
+    replyMeta.generation = verified.fallbackId
+      ? 'approved_snippet'
+      : 'provider';
+    replyMeta.providerUnavailable = generated.providerUnavailable ?? false;
+    if (verified.reviewRequired) {
+      if (!(await stillEligible())) {
+        await event('skipped', 'stale_trigger');
+        return;
+      }
+      await ensureFollowup(db, {
+        accountId,
+        conversationId,
+        sourceMessageId: triggerMessageId,
+        kind: 'handoff',
+        ownerId: conv.assigned_agent_id ?? config.handoffAgentId,
+      });
+      await event(
+        'failed',
+        verified.routingDecision?.reason ?? 'reply_needs_review'
+      );
+      await notifyReplyReview(db, {
+        accountId,
+        conversationId,
+        contactId,
+        ownerId: conv.assigned_agent_id ?? config.handoffAgentId,
+        reason: verified.routingDecision?.reason ?? 'reply_needs_review',
+      });
+      return;
+    }
     text = verified.text;
     handoff = verified.handoff;
     mediaId = verified.mediaId;
@@ -1016,6 +1121,29 @@ export async function dispatchInboundToAiReply(
 
     // Repeated requests are handled by evidence-aware response verification/recovery,
     // not a counter that converts a necessary clarification into a sticky transfer.
+    if (
+      config.behaviorV2Enabled &&
+      !handoff &&
+      (!text || quotesUnverifiedPrice)
+    ) {
+      const reason = quotesUnverifiedPrice ? 'unverified_price' : 'empty_reply';
+      await ensureFollowup(db, {
+        accountId,
+        conversationId,
+        sourceMessageId: triggerMessageId,
+        kind: 'handoff',
+        ownerId: conv.assigned_agent_id ?? config.handoffAgentId,
+      });
+      await event('failed', reason);
+      await notifyReplyReview(db, {
+        accountId,
+        conversationId,
+        contactId,
+        ownerId: conv.assigned_agent_id ?? config.handoffAgentId,
+        reason,
+      });
+      return;
+    }
     if (handoff || !text || quotesUnverifiedPrice) {
       await performHandoff({
         db,
@@ -1074,6 +1202,8 @@ export async function dispatchInboundToAiReply(
 
     for (const kind of salesInput.followupKinds ??
       (salesInput.followupKind ? [salesInput.followupKind] : [])) {
+      if (config.behaviorV2Enabled && ['location', 'comparison'].includes(kind))
+        continue;
       await ensureFollowup(db, {
         accountId,
         conversationId,
@@ -1091,14 +1221,67 @@ export async function dispatchInboundToAiReply(
       aiGenerated: true,
     });
 
+    stageTimes.customerReply = Date.now() - startedAt;
     await event('sent', 'sent');
+    if (config.behaviorV2Enabled && verified.knowledgeGap)
+      await recordKnowledgeGap(db, {
+        accountId,
+        createdBy: configOwnerUserId,
+        productId: verified.knowledgeGap.productId,
+        kind: verified.knowledgeGap.kind,
+      });
 
     // Best-effort media attach: the text reply already landed, so a
     // failure here must not surface as a dispatch failure -- it's logged
     // and swallowed. Never sends anything the model didn't explicitly
     // choose by a real, existing file id (getProductMediaItem returns
     // null for a deleted-mid-conversation or hallucinated id).
-    if (mediaId) {
+    const selectedMedia = [
+      ...new Set([...(verified.mediaIds ?? []), ...(mediaId ? [mediaId] : [])]),
+    ].slice(0, 2);
+    if (config.behaviorV2Enabled && triggerMessageId) {
+      for (const fileId of selectedMedia) {
+        if (!(await stillEligible())) {
+          await event('skipped', 'media_conversation_changed');
+          break;
+        }
+        const outcome = await sendTrackedMedia(db, {
+          accountId,
+          conversationId,
+          contactId,
+          userId: configOwnerUserId,
+          triggerMessageId,
+          fileId,
+        });
+        if (outcome === 'failed' || outcome === 'uncertain') {
+          await event(
+            'failed',
+            outcome === 'uncertain'
+              ? 'media_delivery_uncertain'
+              : 'media_send_failed'
+          );
+          await ensureFollowup(db, {
+            accountId,
+            conversationId,
+            sourceMessageId: triggerMessageId,
+            kind: 'document_review',
+            ownerId: conv.assigned_agent_id ?? config.handoffAgentId,
+          });
+          await notifyReplyReview(db, {
+            accountId,
+            conversationId,
+            contactId,
+            ownerId: conv.assigned_agent_id ?? config.handoffAgentId,
+            kind: 'media',
+            reason:
+              outcome === 'uncertain'
+                ? 'media_delivery_uncertain'
+                : 'media_send_failed',
+          });
+        }
+      }
+    }
+    if (mediaId && !config.behaviorV2Enabled) {
       try {
         const item = await getProductMediaItem(db, accountId, mediaId);
         if (item) {
@@ -1168,8 +1351,20 @@ export async function dispatchInboundToAiReply(
         console.error('[ai auto-reply] field collection failed:', err);
       }
     }
+    await refreshStaffSummary();
   } catch (err) {
-    await event('failed', 'generation_failed');
+    await event(
+      'failed',
+      config?.behaviorV2Enabled ? 'provider_unavailable' : 'generation_failed'
+    );
+    if (config?.behaviorV2Enabled)
+      await notifyReplyReview(db, {
+        accountId,
+        conversationId,
+        contactId,
+        ownerId: config.handoffAgentId,
+        reason: 'provider_unavailable',
+      });
     await ensureFollowup(db, {
       accountId,
       conversationId,

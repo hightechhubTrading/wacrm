@@ -10,13 +10,15 @@ export async function register() {
     // single-candidate connect (no racing) worked every time in the same
     // environment. Disabling Happy Eyeballs process-wide reproduces that
     // working path for every outbound fetch, not just Meta's.
-    const { setDefaultAutoSelectFamily } = await import('net')
-    setDefaultAutoSelectFamily(false)
+    const { setDefaultAutoSelectFamily } = await import('net');
+    setDefaultAutoSelectFamily(false);
 
     // CTWA conversions outbox (migration 065). The app runs as one
     // long-lived container, so an in-process interval replaces a cron;
     // it's a no-op unless META_CAPI_ENABLED=true.
-    const { startConversionPoller } = await import('@/lib/conversions/poller')
-    startConversionPoller()
+    const { startConversionPoller } = await import('@/lib/conversions/poller');
+    startConversionPoller();
+    const { startAiWorkPoller } = await import('@/lib/ai/work-poller');
+    startAiWorkPoller();
   }
 }

@@ -1,3 +1,4 @@
+import { recoverStaleMediaActions } from '@/lib/ai/media-action-recovery';
 import { remindDueFollowups } from '@/lib/ai/followup-reminders';
 import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
@@ -33,6 +34,7 @@ export async function GET(request: Request) {
 
   const admin = supabaseAdmin();
   const followupsReminded = await remindDueFollowups(admin);
+  const attachmentsReviewed = await recoverStaleMediaActions(admin);
   const { data: due, error } = await admin
     .from('automation_pending_executions')
     .select('*')
@@ -44,7 +46,11 @@ export async function GET(request: Request) {
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
   if (!due || due.length === 0)
-    return NextResponse.json({ processed: 0, followupsReminded });
+    return NextResponse.json({
+      processed: 0,
+      followupsReminded,
+      attachmentsReviewed,
+    });
 
   let processed = 0;
   for (const row of due) {
@@ -74,5 +80,9 @@ export async function GET(request: Request) {
     processed++;
   }
 
-  return NextResponse.json({ processed, followupsReminded });
+  return NextResponse.json({
+    processed,
+    followupsReminded,
+    attachmentsReviewed,
+  });
 }

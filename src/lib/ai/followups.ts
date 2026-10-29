@@ -12,6 +12,7 @@ export const FOLLOWUP_KINDS = [
 export type FollowupKind = (typeof FOLLOWUP_KINDS)[number];
 export interface Followup {
   id: string;
+  created_at?: string;
   kind: FollowupKind;
   status: 'open' | 'acknowledged' | 'deferred' | 'completed' | 'cancelled';
   owner_id: string | null;
@@ -29,6 +30,7 @@ export async function recordReplyEvent(
     triggerMessageId?: string;
     outcome: 'skipped' | 'sent' | 'handoff' | 'failed';
     reason: string;
+    details?: object;
   }
 ): Promise<void> {
   const row = {
@@ -37,6 +39,7 @@ export async function recordReplyEvent(
     trigger_message_id: args.triggerMessageId ?? null,
     outcome: args.outcome,
     reason: args.reason,
+    ...(args.details ? { details: args.details } : {}),
   };
   console.info('[ai reply]', row); // IDs and fixed reason codes only.
   try {

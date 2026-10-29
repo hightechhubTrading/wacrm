@@ -4,7 +4,7 @@ import {
   type AiUsage,
   type ChatMessage,
   type GenerateResult,
-} from './types'
+} from './types';
 import {
   HANDOFF_SENTINEL,
   MEDIA_SENTINEL_OPEN,
@@ -17,18 +17,20 @@ import {
   PRIORITY_SENTINEL_CLOSE,
   PRIORITY_LEVELS,
   aiRequestTimeoutMs,
-} from './defaults'
-import { generateOpenAi } from './providers/openai'
-import { generateAnthropic } from './providers/anthropic'
-import { generateGemini } from './providers/gemini'
-import { generateDeepseek } from './providers/deepseek'
+} from './defaults';
+import { generateOpenAi } from './providers/openai';
+import { generateAnthropic } from './providers/anthropic';
+import { generateGemini } from './providers/gemini';
+import { generateDeepseek } from './providers/deepseek';
 
 export interface GenerateArgs {
-  config: AiConfig
+  config: AiConfig;
   /** Fully-built system prompt (see `buildSystemPrompt`). */
-  systemPrompt: string
+  systemPrompt: string;
   /** Recent conversation turns, oldest first. */
-  messages: ChatMessage[]
+  messages: ChatMessage[];
+  /** Shared customer-path deadline across bounded repairs. */
+  deadlineAt?: number;
 }
 
 /**
@@ -36,39 +38,48 @@ export interface GenerateArgs {
  * Dispatches to the right adapter, then parses the handoff sentinel out
  * of the raw text. Throws `AiError` on any provider/network failure.
  */
-export async function generateReply(args: GenerateArgs): Promise<GenerateResult> {
-  const { config, systemPrompt, messages } = args
-  const timeoutMs = aiRequestTimeoutMs()
+export async function generateReply(
+  args: GenerateArgs
+): Promise<GenerateResult> {
+  const { config, systemPrompt, messages } = args;
+  const remaining =
+    args.deadlineAt == null ? Infinity : args.deadlineAt - Date.now();
+  if (remaining <= 0)
+    throw new AiError('Reply generation budget exhausted', {
+      code: 'timeout',
+      status: 504,
+    });
+  const timeoutMs = Math.min(aiRequestTimeoutMs(), remaining);
   const providerArgs = {
     apiKey: config.apiKey,
     model: config.model,
     systemPrompt,
     messages,
     timeoutMs,
-  }
+  };
 
-  let result: { text: string; usage: AiUsage | null }
+  let result: { text: string; usage: AiUsage | null };
   switch (config.provider) {
     case 'openai':
-      result = await generateOpenAi(providerArgs)
-      break
+      result = await generateOpenAi(providerArgs);
+      break;
     case 'anthropic':
-      result = await generateAnthropic(providerArgs)
-      break
+      result = await generateAnthropic(providerArgs);
+      break;
     case 'gemini':
-      result = await generateGemini(providerArgs)
-      break
+      result = await generateGemini(providerArgs);
+      break;
     case 'deepseek':
-      result = await generateDeepseek(providerArgs)
-      break
+      result = await generateDeepseek(providerArgs);
+      break;
     default:
       throw new AiError(`Unsupported AI provider: ${config.provider}`, {
         code: 'unsupported_provider',
         status: 400,
-      })
+      });
   }
 
-  return parseGeneration(result.text, result.usage)
+  return parseGeneration(result.text, result.usage);
 }
 
 /**
@@ -79,21 +90,23 @@ export async function generateReply(args: GenerateArgs): Promise<GenerateResult>
 function extractMarkers(
   text: string,
   open: string,
-  close: string,
-): { text: string; id: string | null } {
-  let id: string | null = null
-  let searchFrom = 0
+  close: string
+): { text: string; id: string | null; ids: string[] } {
+  let id: string | null = null;
+  const ids: string[] = [];
+  let searchFrom = 0;
   for (;;) {
-    const openIdx = text.indexOf(open, searchFrom)
-    if (openIdx === -1) break
-    const closeIdx = text.indexOf(close, openIdx + open.length)
-    if (closeIdx === -1) break
-    const inner = text.slice(openIdx + open.length, closeIdx).trim()
-    if (inner && id === null) id = inner
-    text = text.slice(0, openIdx) + text.slice(closeIdx + close.length)
-    searchFrom = openIdx
+    const openIdx = text.indexOf(open, searchFrom);
+    if (openIdx === -1) break;
+    const closeIdx = text.indexOf(close, openIdx + open.length);
+    if (closeIdx === -1) break;
+    const inner = text.slice(openIdx + open.length, closeIdx).trim();
+    if (inner && !ids.includes(inner)) ids.push(inner);
+    if (inner && id === null) id = inner;
+    text = text.slice(0, openIdx) + text.slice(closeIdx + close.length);
+    searchFrom = openIdx;
   }
-  return { text, id }
+  return { text, id, ids };
 }
 
 /**
@@ -109,68 +122,89 @@ function extractMarkers(
  */
 export function parseGeneration(
   raw: string,
-  usage: AiUsage | null = null,
+  usage: AiUsage | null = null
 ): GenerateResult {
-  const handoff = raw.includes(HANDOFF_SENTINEL)
-  let text = raw.split(HANDOFF_SENTINEL).join('')
+  const handoff = raw.includes(HANDOFF_SENTINEL);
+  let text = raw.split(HANDOFF_SENTINEL).join('');
 
   // Every media / product-tag marker is stripped from the text, not
   // just the first -- the model sometimes emits two media markers
   // ("Australian: [..] American: [..]") or an empty `[[TAG_PRODUCT:]]`,
   // and anything left behind went out to the customer verbatim. The
   // first non-empty id of each kind wins (at most one file is attached).
-  const media = extractMarkers(text, MEDIA_SENTINEL_OPEN, MEDIA_SENTINEL_CLOSE)
-  text = media.text
-  const mediaId = media.id
+  const media = extractMarkers(text, MEDIA_SENTINEL_OPEN, MEDIA_SENTINEL_CLOSE);
+  text = media.text;
+  const mediaId = media.id;
 
-  const tag = extractMarkers(text, PRODUCT_TAG_SENTINEL_OPEN, PRODUCT_TAG_SENTINEL_CLOSE)
-  text = tag.text
-  const productTagId = tag.id
+  const tag = extractMarkers(
+    text,
+    PRODUCT_TAG_SENTINEL_OPEN,
+    PRODUCT_TAG_SENTINEL_CLOSE
+  );
+  text = tag.text;
+  const productTagId = tag.id;
 
-  const fields: { name: string; value: string }[] = []
-  let fieldSearchFrom = 0
+  const fields: { name: string; value: string }[] = [];
+  let fieldSearchFrom = 0;
   for (;;) {
-    const openIdx = text.indexOf(FIELD_SENTINEL_OPEN, fieldSearchFrom)
-    if (openIdx === -1) break
-    const closeIdx = text.indexOf(FIELD_SENTINEL_CLOSE, openIdx + FIELD_SENTINEL_OPEN.length)
-    if (closeIdx === -1) break
-    const inner = text.slice(openIdx + FIELD_SENTINEL_OPEN.length, closeIdx)
-    const eqIdx = inner.indexOf('=')
+    const openIdx = text.indexOf(FIELD_SENTINEL_OPEN, fieldSearchFrom);
+    if (openIdx === -1) break;
+    const closeIdx = text.indexOf(
+      FIELD_SENTINEL_CLOSE,
+      openIdx + FIELD_SENTINEL_OPEN.length
+    );
+    if (closeIdx === -1) break;
+    const inner = text.slice(openIdx + FIELD_SENTINEL_OPEN.length, closeIdx);
+    const eqIdx = inner.indexOf('=');
     if (eqIdx > 0) {
-      const name = inner.slice(0, eqIdx).trim()
-      const value = inner.slice(eqIdx + 1).trim()
-      if (name && value) fields.push({ name, value })
+      const name = inner.slice(0, eqIdx).trim();
+      const value = inner.slice(eqIdx + 1).trim();
+      if (name && value) fields.push({ name, value });
     }
-    text = text.slice(0, openIdx) + text.slice(closeIdx + FIELD_SENTINEL_CLOSE.length)
-    fieldSearchFrom = openIdx
+    text =
+      text.slice(0, openIdx) +
+      text.slice(closeIdx + FIELD_SENTINEL_CLOSE.length);
+    fieldSearchFrom = openIdx;
   }
 
-  let priority: string | null = null
-  let priorityReason: string | null = null
-  const priorityOpenIdx = text.indexOf(PRIORITY_SENTINEL_OPEN)
+  let priority: string | null = null;
+  let priorityReason: string | null = null;
+  const priorityOpenIdx = text.indexOf(PRIORITY_SENTINEL_OPEN);
   if (priorityOpenIdx !== -1) {
     const priorityCloseIdx = text.indexOf(
       PRIORITY_SENTINEL_CLOSE,
-      priorityOpenIdx + PRIORITY_SENTINEL_OPEN.length,
-    )
+      priorityOpenIdx + PRIORITY_SENTINEL_OPEN.length
+    );
     if (priorityCloseIdx !== -1) {
       const inner = text.slice(
         priorityOpenIdx + PRIORITY_SENTINEL_OPEN.length,
-        priorityCloseIdx,
-      )
-      const barIdx = inner.indexOf('|')
-      const level = (barIdx === -1 ? inner : inner.slice(0, barIdx)).trim().toLowerCase()
-      const reason = barIdx === -1 ? '' : inner.slice(barIdx + 1).trim()
+        priorityCloseIdx
+      );
+      const barIdx = inner.indexOf('|');
+      const level = (barIdx === -1 ? inner : inner.slice(0, barIdx))
+        .trim()
+        .toLowerCase();
+      const reason = barIdx === -1 ? '' : inner.slice(barIdx + 1).trim();
       if ((PRIORITY_LEVELS as readonly string[]).includes(level)) {
-        priority = level
-        priorityReason = reason || null
+        priority = level;
+        priorityReason = reason || null;
       }
       text =
         text.slice(0, priorityOpenIdx) +
-        text.slice(priorityCloseIdx + PRIORITY_SENTINEL_CLOSE.length)
+        text.slice(priorityCloseIdx + PRIORITY_SENTINEL_CLOSE.length);
     }
   }
 
-  text = text.trim()
-  return { text, handoff, mediaId, productTagId, fields, priority, priorityReason, usage }
+  text = text.trim();
+  return {
+    text,
+    handoff,
+    mediaId,
+    ...(media.ids.length > 1 ? { mediaIds: media.ids.slice(0, 2) } : {}),
+    productTagId,
+    fields,
+    priority,
+    priorityReason,
+    usage,
+  };
 }

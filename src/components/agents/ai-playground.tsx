@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import {
   Bot,
@@ -19,9 +19,11 @@ interface Turn {
   content: string;
   /** assistant-only: the agent signalled a human handoff on this turn. */
   handoff?: boolean;
+  providerUnavailable?: boolean;
 }
 
 export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
+  const locale = useLocale();
   const copy = useTranslations('Workspace');
   const guide = useTranslations('Workspace.agentGuide');
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -73,6 +75,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
               ? data.reply
               : '',
           handoff: Boolean(data.handoff),
+          providerUnavailable: Boolean(data.providerUnavailable),
         },
       ]);
     } catch {
@@ -218,6 +221,13 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
                 {t.content && (
                   <p dir="auto" className="whitespace-pre-wrap">
                     {t.content}
+                  </p>
+                )}
+                {t.providerUnavailable && (
+                  <p className="text-warning mt-2 text-xs">
+                    {locale === 'ar'
+                      ? 'مزود الردود غير متاح؛ هذا رد من النصوص المعتمدة.'
+                      : 'Reply provider unavailable; approved wording was used.'}
                   </p>
                 )}
                 {t.role === 'assistant' && t.handoff && (
