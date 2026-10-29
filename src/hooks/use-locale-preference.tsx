@@ -2,7 +2,6 @@
 
 import { useCallback } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -14,10 +13,9 @@ import type { LocaleId } from "@/lib/locales";
  *
  * Unlike useAppearance() (theme/mode), there is no "apply locally,
  * then persist" split: the translated text is rendered server-side,
- * so the cookie write IS the apply step. router.refresh() re-runs
- * the server tree (root layout included) with the new cookie, which
- * is what actually changes <html lang>/<html dir> and every
- * translated string — no full page reload.
+ * so the cookie write applies the preference on the next page load.
+ * Reload after saving to replace cached layouts and translated client
+ * state together, including <html lang> and <html dir>.
  *
  * profiles.locale sync (migration 055) mirrors useAppearance()'s
  * write-through: best-effort, logged on failure, never blocks the
@@ -26,7 +24,6 @@ import type { LocaleId } from "@/lib/locales";
 export function useLocalePreference() {
   const locale = useLocale() as LocaleId;
   const { profile } = useAuth();
-  const router = useRouter();
   const t = useTranslations("Settings.appearance");
   const profileId = profile?.id ?? null;
 
@@ -58,9 +55,9 @@ export function useLocalePreference() {
           });
       }
 
-      router.refresh();
+      window.location.reload();
     },
-    [locale, profileId, router, t],
+    [locale, profileId, t],
   );
 
   return { locale, setLocale };
