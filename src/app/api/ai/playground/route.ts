@@ -1,3 +1,4 @@
+import { productContext } from '@/lib/ai/product-context';
 import { generateResilientReply } from '@/lib/ai/resilient-generation';
 import { turnBrief } from '@/lib/ai/conversation-behavior';
 import { knowledgeQuery } from '@/lib/ai/query';
@@ -107,7 +108,8 @@ export async function POST(request: Request) {
       config,
       knowledgeQuery(messages, config.behaviorV2Enabled)
     );
-    const media = await listProductsForPrompt(supabase, accountId);
+    const allProducts = await listProductsForPrompt(supabase, accountId);
+    const media = productContext(allProducts, knowledge, messages);
     const baseSystemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       companyFacts: config.companyFacts,

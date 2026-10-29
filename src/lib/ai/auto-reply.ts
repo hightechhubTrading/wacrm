@@ -843,9 +843,7 @@ export async function dispatchInboundToAiReply(
       listAiCollectibleFields(db, accountId),
     ]);
     stageTimes.retrieval = Date.now() - retrievalStarted;
-    const media = config.behaviorV2Enabled
-      ? productContext(allProducts, knowledge, messages)
-      : allProducts;
+    const media = productContext(allProducts, knowledge, messages);
 
     const currentDeal = await resolveCurrentOpenDeal(db, accountId, contactId);
     const groupCollectFields = currentDeal
