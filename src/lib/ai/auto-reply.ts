@@ -1115,17 +1115,13 @@ export async function dispatchInboundToAiReply(
       );
     if (quotesUnverifiedPrice) {
       console.warn(
-        '[ai auto-reply] reply quoted a price without a matching tagged product -- forcing handoff instead of sending it.'
+        '[ai auto-reply] reply quoted a price without a matching tagged product -- requesting internal review instead of sending it.'
       );
     }
 
     // Repeated requests are handled by evidence-aware response verification/recovery,
     // not a counter that converts a necessary clarification into a sticky transfer.
-    if (
-      config.behaviorV2Enabled &&
-      !handoff &&
-      (!text || quotesUnverifiedPrice)
-    ) {
+    if (!handoff && (!text || quotesUnverifiedPrice)) {
       const reason = quotesUnverifiedPrice ? 'unverified_price' : 'empty_reply';
       await ensureFollowup(db, {
         accountId,
@@ -1144,7 +1140,7 @@ export async function dispatchInboundToAiReply(
       });
       return;
     }
-    if (handoff || !text || quotesUnverifiedPrice) {
+    if (handoff) {
       await performHandoff({
         db,
         accountId,
@@ -1157,17 +1153,11 @@ export async function dispatchInboundToAiReply(
         currentAssignedAgentId: conv.assigned_agent_id,
         triggerMessageId,
         followupKind: salesInput.followupKind,
-        routingDecision: quotesUnverifiedPrice
-          ? {
-              reason: 'unverified_price',
-              failures: ['price_evidence'],
-              attempt: verified.routingDecision?.attempt ?? 0,
-            }
-          : (verified.routingDecision ?? {
-              reason: handoff ? 'model_requested' : 'empty_reply',
-              failures: [],
-              attempt: 0,
-            }),
+        routingDecision: verified.routingDecision ?? {
+          reason: 'model_requested',
+          failures: [],
+          attempt: 0,
+        },
         fields,
         ...(jevMode() === 'enforce' ? { expectedDeal: currentDeal } : {}),
       });

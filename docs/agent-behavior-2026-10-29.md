@@ -36,3 +36,7 @@ The fallback-only development run produced 85/87 verified continuations before w
 Restore the configured provider balance, then use a newly frozen, independently reviewed holdout to validate full generation, recovery, usefulness and latency. Do not tune against the already exposed holdout. Apply the clean prompt and confirmed facts with an optimistic configuration timestamp check. Enable the account switch only after those gates pass, monitor internal-review/transfer reasons and provider errors, and retain a quick switch-off rollback. Enabling the switch during a provider outage is not approved by these results.
 
 Private customer fixtures, provider configuration, migration backups and release evidence remain outside Git under `~/.local/state/wacrm/`. No customer messages were sent by the audit, evaluation or migration tools.
+
+## Subsequent first-turn correction
+
+DeepSeek credentials were subsequently configured. The reproduced opening-question failure, live prompt/fact separation, baseline verified fallback/internal-review correction, and remaining advanced-rollout limits are documented in [the first-turn fix](agent-first-turn-fix-2026-10-29.md). The earlier provider-credit blocker has been replaced by a measured usefulness blocker for the wider advanced flow; that switch remains off.

@@ -908,7 +908,7 @@ describe('dispatchInboundToAiReply — language correction', () => {
 });
 
 describe('dispatchInboundToAiReply — unverified price backstop', () => {
-  it('hands off instead of sending a price that was not tagged to any product', async () => {
+  it('requests internal review instead of transferring for an untagged price', async () => {
     h.generateReply.mockResolvedValue({
       text: 'إذا تقصد بديل الخشب الخارجي للحوش، فالسعر التقديري للمتر يبدأ من 350 إلى 380 ريال للمتر.',
       handoff: false,
@@ -920,16 +920,20 @@ describe('dispatchInboundToAiReply — unverified price backstop', () => {
     await dispatchInboundToAiReply(ARGS);
 
     expect(h.state.rpcCalls).toHaveLength(0); // never claimed a reply slot -- no send attempted
-    expect(h.engineSendText).toHaveBeenCalledTimes(1);
-    expect(h.engineSendText.mock.calls[0][0]).toMatchObject({
-      text: expect.stringContaining('request needs a team member to review'),
-    });
-    expect(h.state.updatePayload).toMatchObject({
-      ai_autoreply_disabled: true,
-    });
+    expect(h.engineSendText).not.toHaveBeenCalled();
+    expect(h.state.updatePayload?.ai_autoreply_disabled).not.toBe(true);
+    expect(h.ensureFollowup).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ kind: 'handoff' })
+    );
+    expect(h.state.notificationInserts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ title: 'AI reply needs review' }),
+      ])
+    );
   });
 
-  it('hands off when the tagged product has no configured price range to back up the quoted number', async () => {
+  it('requests internal review when the tagged product has no configured price range', async () => {
     h.state.products = [
       {
         id: 'prod-1',
@@ -953,9 +957,9 @@ describe('dispatchInboundToAiReply — unverified price backstop', () => {
     await dispatchInboundToAiReply(ARGS);
 
     expect(h.state.rpcCalls).toHaveLength(0);
-    expect(h.engineSendText.mock.calls[0][0]).toMatchObject({
-      text: expect.stringContaining('request needs a team member to review'),
-    });
+    expect(h.engineSendText).not.toHaveBeenCalled();
+    expect(h.state.updatePayload?.ai_autoreply_disabled).not.toBe(true);
+    expect(h.ensureFollowup).toHaveBeenCalled();
   });
 
   it('sends normally when the quoted price is backed by the actually-tagged product', async () => {

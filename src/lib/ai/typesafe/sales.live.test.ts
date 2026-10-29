@@ -85,14 +85,26 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
     ])(
       '$name',
       async ({ customer, reply, blocked }) => {
+        const firstCheck = h.audit.mock.calls.length;
         const result = await verifySalesOutput(
           ctx,
           { ...base, messages: [{ role: 'user', content: customer }] },
           proposed(reply)
         );
-        expect(result.handoff, JSON.stringify(h.audit.mock.lastCall?.[1])).toBe(
-          blocked
-        );
+        if (blocked) {
+          expect(
+            h.audit.mock.calls[firstCheck]?.[1].judgments.enforcedFailures
+              .length
+          ).toBeGreaterThan(0);
+          expect(
+            result.reviewRequired || (result.routingDecision?.attempt ?? 0) > 0
+          ).toBe(true);
+        } else {
+          expect(
+            result.handoff || result.reviewRequired || !result.text,
+            JSON.stringify(h.audit.mock.lastCall?.[1])
+          ).toBeFalsy();
+        }
       },
       20000
     );
@@ -297,6 +309,7 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
     ])(
       '$name tone validation',
       async ({ reply, blocked }) => {
+        const firstCheck = h.audit.mock.calls.length;
         const result = await verifySalesOutput(
           ctx,
           {
@@ -316,9 +329,20 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
           },
           { ...proposed(reply), productTagId: null }
         );
-        expect(result.handoff, JSON.stringify(h.audit.mock.lastCall?.[1])).toBe(
-          blocked
-        );
+        if (blocked) {
+          expect(
+            h.audit.mock.calls[firstCheck]?.[1].judgments.enforcedFailures
+              .length
+          ).toBeGreaterThan(0);
+          expect(
+            result.reviewRequired || (result.routingDecision?.attempt ?? 0) > 0
+          ).toBe(true);
+        } else {
+          expect(
+            result.handoff || result.reviewRequired || !result.text,
+            JSON.stringify(h.audit.mock.lastCall?.[1])
+          ).toBeFalsy();
+        }
       },
       20000
     );
@@ -381,6 +405,7 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
     ])(
       '$name',
       async ({ customer, reply, blocked }) => {
+        const firstCheck = h.audit.mock.calls.length;
         const result = await verifySalesOutput(
           ctx,
           {
@@ -390,9 +415,20 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
           },
           { ...proposed(reply), productTagId: null }
         );
-        expect(result.handoff, JSON.stringify(h.audit.mock.lastCall?.[1])).toBe(
-          blocked
-        );
+        if (blocked) {
+          expect(
+            h.audit.mock.calls[firstCheck]?.[1].judgments.enforcedFailures
+              .length
+          ).toBeGreaterThan(0);
+          expect(
+            result.reviewRequired || (result.routingDecision?.attempt ?? 0) > 0
+          ).toBe(true);
+        } else {
+          expect(
+            result.handoff || result.reviewRequired || !result.text,
+            JSON.stringify(h.audit.mock.lastCall?.[1])
+          ).toBeFalsy();
+        }
       },
       20000
     );
@@ -435,6 +471,7 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
     ])(
       '$name',
       async ({ customer, reply, blocked, tag }) => {
+        const firstCheck = h.audit.mock.calls.length;
         const e = {
           ...base,
           products: [
@@ -450,9 +487,20 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
           ...proposed(reply),
           productTagId: tag ? 'shutter' : null,
         });
-        expect(result.handoff, JSON.stringify(h.audit.mock.lastCall?.[1])).toBe(
-          blocked
-        );
+        if (blocked) {
+          expect(
+            h.audit.mock.calls[firstCheck]?.[1].judgments.enforcedFailures
+              .length
+          ).toBeGreaterThan(0);
+          expect(
+            result.reviewRequired || (result.routingDecision?.attempt ?? 0) > 0
+          ).toBe(true);
+        } else {
+          expect(
+            result.handoff || result.reviewRequired || !result.text,
+            JSON.stringify(h.audit.mock.lastCall?.[1])
+          ).toBeFalsy();
+        }
       },
       20000
     );
@@ -558,6 +606,7 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
     ])(
       '$name',
       async ({ text, blocked, english }) => {
+        const firstCheck = h.audit.mock.calls.length;
         const e = english
           ? {
               ...shopComparison,
@@ -571,9 +620,20 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
             }
           : shopComparison;
         const result = await verifySalesOutput(ctx, e, educationProposal(text));
-        expect(result.handoff, JSON.stringify(h.audit.mock.lastCall?.[1])).toBe(
-          blocked
-        );
+        if (blocked) {
+          expect(
+            h.audit.mock.calls[firstCheck]?.[1].judgments.enforcedFailures
+              .length
+          ).toBeGreaterThan(0);
+          expect(
+            result.reviewRequired || (result.routingDecision?.attempt ?? 0) > 0
+          ).toBe(true);
+        } else {
+          expect(
+            result.handoff || result.reviewRequired || !result.text,
+            JSON.stringify(h.audit.mock.lastCall?.[1])
+          ).toBeFalsy();
+        }
       },
       20000
     );
@@ -625,6 +685,7 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
       );
     }, 20000);
     it('does not let a general guide approve an HTH warranty', async () => {
+      const firstCheck = h.audit.mock.calls.length;
       const result = await verifySalesOutput(
         ctx,
         {
@@ -642,8 +703,11 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
         },
         educationProposal('Our pivot doors come with a five-year warranty.')
       );
-      expect(result.handoff, JSON.stringify(h.audit.mock.lastCall?.[1])).toBe(
-        true
+      expect(
+        h.audit.mock.calls[firstCheck]?.[1].judgments.enforcedFailures
+      ).toContain('grounded');
+      expect(result.text).not.toBe(
+        'Our pivot doors come with a five-year warranty.'
       );
     }, 20000);
   }

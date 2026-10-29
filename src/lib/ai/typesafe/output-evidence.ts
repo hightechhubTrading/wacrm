@@ -60,6 +60,8 @@ export async function judgeSalesOutput(
   if (!evidence.behaviorV2Enabled) return askJev(full, questions);
   const dialogueIds = new Set([
     'responsive',
+    'wrong_comparison',
+    'answered_scope',
     'behavior',
     'requests',
     'empathy',
@@ -79,8 +81,17 @@ export async function judgeSalesOutput(
   const dialogue = Object.fromEntries(
     Object.entries(questions).filter(([id]) => dialogueIds.has(id))
   );
+  const latestCustomerIndex = evidence.messages.findLastIndex(
+    (m) => m.role === 'user'
+  );
   const conversational = {
     evidence: {
+      currentCustomerRequest:
+        evidence.messages[latestCustomerIndex]?.content ?? null,
+      precedingAssistantTurn:
+        evidence.messages
+          .slice(0, latestCustomerIndex)
+          .findLast((m) => m.role === 'assistant')?.content ?? null,
       messages: evidence.messages,
       businessContext: evidence.businessContext,
       businessHours: evidence.businessHours,

@@ -230,3 +230,65 @@ describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
     }, 20000);
   }
 );
+
+describe.runIf(process.env.TYPESAFE_LIVE_TEST === 'true')(
+  'Door dialogue references',
+  () => {
+    it.each([
+      [
+        'does not re-ask an explicitly supplied entrance-door use',
+        [{ role: 'user' as const, content: 'ابي باب لمدخل البيت' }],
+        'تقصد باب مدخل أو باب داخلي؟',
+      ],
+      [
+        'does not compare shutters when the named alternatives were entrance versus garage',
+        [
+          { role: 'user' as const, content: 'عندكم أبواب؟' },
+          {
+            role: 'assistant' as const,
+            content: 'تقصد باب مدخل للبيت أو باب كراج؟',
+          },
+          { role: 'user' as const, content: 'وش الفرق بينهم؟' },
+        ],
+        'المصمت ما يبيّن اللي داخل، والمخرم يبيّن جزء حسب التخريم، والشفاف يخلي المعروضات تبين.',
+      ],
+    ])(
+      '%s',
+      async (_name, messages, text) => {
+        const first = h.audit.mock.calls.length;
+        const result = await verifySalesOutput(
+          ctx,
+          { ...base, messages },
+          proposal(text)
+        );
+        expect(
+          h.audit.mock.calls[first]?.[1].judgments.enforcedFailures
+        ).toContain(
+          _name.includes('re-ask') ? 'answered_scope' : 'wrong_comparison'
+        );
+        expect(result.text).not.toBe(text);
+      },
+      20000
+    );
+    it('allows the actual entrance-versus-garage comparison', async () => {
+      const result = await verifySalesOutput(
+        ctx,
+        {
+          ...base,
+          messages: [
+            { role: 'assistant', content: 'تقصد باب مدخل للبيت أو باب كراج؟' },
+            { role: 'user', content: 'وش الفرق بينهم؟' },
+          ],
+        },
+        proposal(
+          'باب مدخل البيت لمرور الأشخاص، وباب الكراج لدخول السيارة. طريقة الفتح والمقاسات تعتمد على النظام والمساحة المتاحة.'
+        )
+      );
+      expect(
+        result.reviewRequired,
+        JSON.stringify(h.audit.mock.lastCall?.[1])
+      ).not.toBe(true);
+      expect(result.text).toContain('السيارة');
+    }, 20000);
+  }
+);

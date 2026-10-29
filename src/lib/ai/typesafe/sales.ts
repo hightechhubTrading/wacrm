@@ -360,7 +360,7 @@ export function outputQuestions(
         question:
           'Does this reply clearly ignore the current request, repeat an answered question, or replace an answerable request with an irrelevant step?',
         instructions:
-          'Evaluate the latest customer turn in its immediate dialogue. A question that resolves genuine ambiguity or obtains a useful missing detail is relevant even if another next question is also possible. “باب شقة” can be clarified as entrance versus internal door; an unspecified request for information can ask which product; unclear informal job/supplier wording can ask what the person means. A greeting and invitation to ask is relevant. For a known comparison, asking only dimensions instead of explaining is a clear failure. Re-asking a supplied measurement is a clear failure. Do not require a specific script, a price when no approved range exists, or a human transfer for a reply to count as relevant.',
+          'Evaluate the latest customer turn in its immediate dialogue. A question that resolves genuine ambiguity or obtains a useful missing detail is relevant even if another next question is also possible. An explicit “باب لمدخل البيت” already identifies an entrance door: asking entrance versus internal again is a clear repetition. “باب شقة” alone can be clarified as entrance versus internal door; an unspecified request for information can ask which product; unclear informal job/supplier wording can ask what the person means. A greeting and invitation to ask is relevant. For “what is the difference between them?” resolve “them” from the immediately preceding named alternatives. Comparing a different pair (for example roller versus sectional shutters after entrance door versus garage door) is an irrelevant answer even if its general facts are correct. For a known comparison, asking only dimensions instead of explaining is a clear failure. Re-asking a supplied measurement is a clear failure. Do not require a specific script, a price when no approved range exists, or a human transfer for a reply to count as relevant.',
       },
       {
         true: 'A concrete failure to address the request: an irrelevant topic, an already answered question, or an unnecessary step replacing a supported answer.',
@@ -368,6 +368,20 @@ export function outputQuestions(
           'A relevant answer, partial answer, acknowledgment or necessary clarification. Several reasonable next steps may be valid.',
       }
     );
+  if (evidence.behaviorV2Enabled) {
+    questions.wrong_comparison = noul({
+      question:
+        'Does the reply compare different options from the options the customer asked to compare?',
+      instructions:
+        'Resolve a short “what is the difference between them?” using the preceding named alternatives. Entrance door versus garage door is a different comparison from roller versus sectional or solid versus perforated shutters. Answer yes when an unrelated comparison replaces the requested one, even if the explanation is technically correct. Answer no if no comparison was requested, or the reply addresses the actual requested options.',
+    });
+    questions.answered_scope = noul({
+      question:
+        'Does the reply ask the customer to supply or choose a scope detail they have already explicitly supplied?',
+      instructions:
+        'Use the latest customer statements and corrections. “I need a door for the entrance of my house” already says entrance door; asking entrance versus internal again repeats an answered detail. The same applies to supplied measurements, installation area, manual/motorized choice, or window/garage/shop use. Answer no for a genuinely ambiguous detail, an unanswered preference, or checking a contradiction. Assistant suggestions do not establish customer choices.',
+    });
+  }
   if (evidence.behaviorV2Enabled)
     questions.requests = noul(
       {
@@ -557,7 +571,11 @@ async function checkSalesOutput(
           }
         : {}),
       ...(evidence.behaviorV2Enabled
-        ? { attachment_evidence: allAttachmentsAllowed }
+        ? {
+            attachment_evidence: allAttachmentsAllowed,
+            wrong_comparison: !violation('wrong_comparison'),
+            answered_scope: !violation('answered_scope'),
+          }
         : {}),
       grounded,
       education,
@@ -737,6 +755,10 @@ async function recoverSalesOutput(
     const corrections: Record<string, string> = {
       attachment_evidence:
         'An attachment was not supported or relevant. Select only real files that match the request, or explain that a matching example needs confirmation. Do not promise unsupported attachments.',
+      wrong_comparison:
+        'Resolve the exact alternatives in the immediately preceding dialogue and compare those. Do not substitute a shutter-type comparison for entrance versus garage doors.',
+      answered_scope:
+        'Do not re-ask a scope detail explicitly supplied by the customer. Advance to a genuinely missing preference or answer the current question.',
       behavior:
         'Answer the actual request first. Remove unrelated home/project qualification, repeated detail requests and pressure after deferral. Ask at most one necessary unanswered detail.',
       premature_handoff:
@@ -828,7 +850,6 @@ export async function verifySalesOutput(
 ): Promise<GenerateResult> {
   let result = await recoverSalesOutput(ctx, evidence, proposal, repair);
   if (
-    !evidence.behaviorV2Enabled ||
     jevMode() !== 'enforce' ||
     !result.handoff ||
     result.routingDecision?.reason === 'human_authority'
@@ -852,6 +873,7 @@ export async function verifySalesOutput(
     /* A selected fallback still requires verification. */
   }
   if (
+    evidence.behaviorV2Enabled &&
     repair &&
     !['verification_unavailable', 'recovery_unavailable'].includes(
       result.routingDecision?.reason ?? ''

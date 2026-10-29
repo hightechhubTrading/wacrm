@@ -58,9 +58,13 @@ function output(probabilities: Record<string, number>) {
     model: 'jev-test',
     usage: { input_tokens: 5, output_tokens: 3 },
     answers: Object.fromEntries(
-      Object.entries({ education: 0.99, behavior: 0.01, ...probabilities }).map(
-        ([id, p]) => [id, { type: 'noul', noul: p }]
-      )
+      Object.entries({
+        education: 0.99,
+        behavior: 0.01,
+        wrong_comparison: 0.01,
+        answered_scope: 0.01,
+        ...probabilities,
+      }).map(([id, p]) => [id, { type: 'noul', noul: p }])
     ),
   };
 }
@@ -263,7 +267,7 @@ it('rejects dismissive tone even when business facts are supported', async () =>
     },
     { ...proposal, text: 'Stop worrying and buy it already.' }
   );
-  expect(result.handoff).toBe(true);
+  expect(result).toMatchObject({ handoff: false, reviewRequired: true });
   expect(result.text).toBe('');
 });
 it('accepts a patient reply for confusion without forcing human review', async () => {
@@ -287,14 +291,14 @@ it('accepts a grounded useful reply', async () => {
   );
 });
 it.each([0.01, 0.5, 0.84])(
-  'hands off when claim support is inadequate (%s)',
+  'requires review when claim support is inadequate (%s)',
   async (grounded) => {
     h.ask.mockResolvedValue(output({ grounded, responsive: 0.99 }));
     const result = await verifySalesOutput(ctx, evidence, {
       ...proposal,
       text: 'Installation is guaranteed tomorrow.',
     });
-    expect(result.handoff).toBe(true);
+    expect(result).toMatchObject({ handoff: false, reviewRequired: true });
     expect(result.text).toBe('');
   }
 );
@@ -356,7 +360,12 @@ it('never grants a write to an unknown or ambiguous field name', async () => {
 });
 it('checks generated fields on handoff too', async () => {
   h.ask.mockResolvedValue(
-    output({ grounded: 0.99, responsive: 0.99, field_0: 0.1 })
+    output({
+      grounded: 0.99,
+      responsive: 0.99,
+      field_0: 0.1,
+      handoff_needed: 0.99,
+    })
   );
   const result = await verifySalesOutput(ctx, evidence, {
     ...proposal,
@@ -389,7 +398,7 @@ it.each(['network', 'malformed'])(
       ...proposal,
       fields: [{ name: 'Width', value: '3m' }],
     });
-    expect(result.handoff).toBe(true);
+    expect(result).toMatchObject({ handoff: false, reviewRequired: true });
     expect(result.fields).toEqual([]);
     expect(h.audit).toHaveBeenCalledWith(
       ctx,
@@ -441,7 +450,7 @@ describe('review-derived Jev checks', () => {
       ...proposal,
       text: 'I read all your drawings.',
     });
-    expect(result.handoff).toBe(true);
+    expect(result).toMatchObject({ handoff: false, reviewRequired: true });
     expect(result.text).toBe('');
   });
   it('does not create buying work for an explicit customer deferral', async () => {
@@ -546,7 +555,7 @@ it('never loops or sends the second candidate if its claims still fail', async (
   });
   const result = await verifySalesOutput(ctx, evidence, proposal, repair);
   expect(repair).toHaveBeenCalledTimes(1);
-  expect(result.handoff).toBe(true);
+  expect(result).toMatchObject({ handoff: false, reviewRequired: true });
   expect(result.text).toBe('');
   expect(result.fields).toEqual([]);
 });
@@ -586,7 +595,12 @@ it('preserves filtered fields if the rewrite provider fails', async () => {
       throw new Error('provider unavailable');
     }
   );
-  expect(result).toMatchObject({ handoff: true, text: '', fields: [] });
+  expect(result).toMatchObject({
+    handoff: false,
+    reviewRequired: true,
+    text: '',
+    fields: [],
+  });
 });
 
 it('keeps unverified replies blocked after two output service failures', async () => {
@@ -594,14 +608,15 @@ it('keeps unverified replies blocked after two output service failures', async (
   const repair = vi.fn().mockResolvedValue(proposal);
   const result = await verifySalesOutput(ctx, evidence, proposal, repair);
   expect(result).toMatchObject({
-    handoff: true,
+    handoff: false,
+    reviewRequired: true,
     text: '',
     fields: [],
     mediaId: null,
     productTagId: null,
   });
   expect(repair).toHaveBeenCalledTimes(1);
-  expect(h.ask).toHaveBeenCalledTimes(2);
+  expect(h.ask).toHaveBeenCalledTimes(3);
 });
 it('shadow mode never invokes paid regeneration for a rejected candidate', async () => {
   vi.stubEnv('TYPESAFE_MODE', 'shadow');
@@ -695,9 +710,9 @@ it('never sends even the narrow template if its verification fails', async () =>
     proposal,
     vi.fn().mockResolvedValue(proposal)
   );
-  expect(result.handoff).toBe(true);
+  expect(result).toMatchObject({ handoff: false, reviewRequired: true });
   expect(result.text).toBe('');
-  expect(h.ask).toHaveBeenCalledTimes(3);
+  expect(h.ask).toHaveBeenCalledTimes(4);
 });
 it('repairs missing price evidence before the final sender backstop', async () => {
   h.ask
@@ -726,7 +741,7 @@ it('blocks a false general explanation even when no company evidence rule fails'
     },
     { ...proposal, text: 'Perforated shutters have no openings.' }
   );
-  expect(result.handoff).toBe(true);
+  expect(result).toMatchObject({ handoff: false, reviewRequired: true });
   expect(result.routingDecision?.failures).toContain('education');
 });
 it('blocks invented company specifications even when the general explanation passes', async () => {
@@ -737,7 +752,7 @@ it('blocks invented company specifications even when the general explanation pas
     ...proposal,
     text: 'Solid shutters block views. Ours are fire-rated for two hours.',
   });
-  expect(result.handoff).toBe(true);
+  expect(result).toMatchObject({ handoff: false, reviewRequired: true });
   expect(result.routingDecision?.failures).toContain('grounded');
 });
 
@@ -839,4 +854,59 @@ it('queues internal review when verification is unavailable, without treating th
     reviewRequired: true,
     routingDecision: { reason: 'verification_unavailable' },
   });
+});
+
+it('recovers a basic door enquiry with a verified clarification even when advanced behavior is off', async () => {
+  h.ask
+    .mockResolvedValueOnce(output({ grounded: 0.2, responsive: 0.99 }))
+    .mockResolvedValueOnce(output({ grounded: 0.2, responsive: 0.99 }))
+    .mockResolvedValueOnce({
+      model: 'jev-test',
+      usage: { input_tokens: 1, output_tokens: 1 },
+      answers: { candidate: { type: 'choice', choice: 'door_type' } },
+    })
+    .mockResolvedValueOnce(output({ grounded: 0.99, responsive: 0.99 }));
+  const repair = vi
+    .fn()
+    .mockResolvedValue({
+      ...proposal,
+      text: 'Unsupported availability again.',
+    });
+  const result = await verifySalesOutput(
+    ctx,
+    {
+      ...evidence,
+      behaviorV2Enabled: false,
+      messages: [{ role: 'user', content: 'عندكم ابواب؟' }],
+    },
+    { ...proposal, text: 'All our doors have a two-hour fire rating.' },
+    repair
+  );
+  expect(result).toMatchObject({
+    handoff: false,
+    text: 'تقصد باب مدخل أو باب داخلي؟',
+  });
+  expect(result.reviewRequired).not.toBe(true);
+  expect(repair).toHaveBeenCalledTimes(1);
+  expect(h.ask).toHaveBeenCalledTimes(4);
+});
+it('keeps a rejected clarification internal instead of inventing a human request', async () => {
+  h.ask
+    .mockResolvedValueOnce(output({ grounded: 0.2, responsive: 0.99 }))
+    .mockResolvedValueOnce({
+      model: 'jev-test',
+      usage: { input_tokens: 1, output_tokens: 1 },
+      answers: { candidate: { type: 'choice', choice: 'door_type' } },
+    })
+    .mockResolvedValueOnce(output({ grounded: 0.2, responsive: 0.99 }));
+  const result = await verifySalesOutput(ctx, evidence, proposal);
+  expect(result).toMatchObject({
+    handoff: false,
+    reviewRequired: true,
+    text: '',
+    fields: [],
+    mediaId: null,
+    productTagId: null,
+  });
+  expect(h.ask).toHaveBeenCalledTimes(3);
 });
