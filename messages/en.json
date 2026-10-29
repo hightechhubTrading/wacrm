@@ -197,13 +197,13 @@
       "title": "Not enough data yet"
     },
     "agenda": {
-      "title": "Your day, at a glance",
+      "title": "Today",
       "greeting": "Hello, {name}.",
       "subtitle": "A little clarity for the day ahead.",
       "attention": "Needs your attention",
       "attentionHint": "Priority conversations, followed by unread chats.",
-      "followups": "Your agenda",
-      "followupsHint": "Your follow-ups and those waiting for an owner.",
+      "followups": "Due today or overdue",
+      "followupsHint": "Your follow-ups and unassigned follow-ups, through today in your device’s timezone.",
       "unavailable": "This information is currently unavailable.",
       "retry": "Try again",
       "loading": "Loading your workspace…",
@@ -211,16 +211,29 @@
       "openConversation": "Open conversation",
       "priorityCount": "{count, plural, zero {No priority conversations} one {# priority conversation} two {# priority conversations} few {# priority conversations} many {# priority conversations} other {# priority conversations}}",
       "unreadCount": "{count, plural, zero {No unread conversations} one {# unread conversation} two {# unread conversations} few {# unread conversations} many {# unread conversations} other {# unread conversations}}",
-      "noFollowups": "No open follow-ups. A clear agenda.",
+      "noFollowups": "No follow-ups due through today.",
       "unscheduled": "No time set",
       "team": "Your team",
       "online": "Online",
       "away": "Away",
       "offline": "Offline",
-      "actionHint": "Priority conversations and upcoming follow-ups, ready to act on.",
+      "actionHint": "Customer replies, follow-ups and job updates for sales.",
       "openInbox": "Open inbox",
       "taskTaken": "Task assigned to you",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "replies": "Customers waiting for a reply",
+      "repliesHint": "Visible open chats where the latest message is from the customer.",
+      "noReplies": "No customer replies pending in the chats you can access.",
+      "blocked": "Blocked jobs",
+      "blockedHint": "Recorded blockers on jobs you can access. Open a job to follow up.",
+      "noBlocked": "No blocked jobs recorded.",
+      "waiting": "Measurements & workshop",
+      "waitingHint": "Posted requests, work in progress and work ready for installation.",
+      "noWaiting": "No posted measurement or workshop work awaiting an update.",
+      "requested": "Requested: {date}",
+      "showing": "Showing {shown, number} of {count, number}.",
+      "openWork": "Open waiting-work queue",
+      "responsible": "Responsible"
     }
   },
   "Inbox": {
@@ -2434,7 +2447,25 @@
       "blocked": "Blocked / needs attention",
       "update": "Add a WhatsApp update",
       "cancelled": "Cancel request"
-    }
+    },
+    "viewLabel": "Job actions",
+    "views": {
+      "overview": "Updates",
+      "prepare": "New request",
+      "report": "Add report"
+    },
+    "optionalDetails": "Add a responsible person (optional)",
+    "detailsHint": "Add at least 10 characters describing what the team needs to do.",
+    "activeRequest": "There is already an active request for {reference}. Open updates to continue it.",
+    "reportContext": "Choose the measurement request below and add the report received from the worker.",
+    "noReportWork": "No posted measurement request is awaiting a report. Check Updates for a prepared request, or create a new request.",
+    "noWork": "No requests yet. Tap New request to prepare one.",
+    "share": "Share message",
+    "shareHint": "Share or copy the prepared message, then record when you have posted it in WhatsApp.",
+    "shareUnavailable": "Sharing is unavailable. Use Copy message and paste it into WhatsApp.",
+    "evidenceRequired": "Add at least 10 characters or an attachment to record this action.",
+    "noteOptional": "A note or attachment is optional for this action.",
+    "workUnavailable": "This request is no longer available here. Open Updates to view the job’s current records."
   },
   "Workspace": {
     "quotations": "Quotations",

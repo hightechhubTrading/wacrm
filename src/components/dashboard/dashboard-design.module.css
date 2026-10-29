@@ -511,3 +511,62 @@
 :global([dir='rtl']) .surface :global(.crm-metric-track > span) {
   transform-origin: right;
 }
+
+/* Sales Today shares the agenda surfaces, with touch-sized actionable rows. */
+.surface :global(.crm-sales-today .crm-panel-heading h3) {
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 550;
+}
+.surface :global(.crm-sales-today .crm-panel-count) {
+  flex-shrink: 0;
+}
+.surface :global(.crm-sales-today .crm-today-work) {
+  width: 100%;
+  text-align: start;
+  cursor: pointer;
+}
+.surface :global(.crm-sales-today .crm-agenda-row) {
+  min-height: 60px;
+}
+.surface :global(.crm-sales-today .crm-agenda-row strong) {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.surface :global(.crm-sales-today .crm-agenda-row small) {
+  font-size: 13px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.surface :global(.crm-sales-today .crm-agenda-row > svg) {
+  flex-shrink: 0;
+}
+.surface :global(.crm-sales-today [data-overdue='true']) {
+  color: var(--ui-warning);
+}
+.surface :global(.crm-sales-today .crm-agenda-task-manage),
+.surface :global(.crm-sales-today .crm-today-retry) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.surface :global(.crm-sales-today .crm-today-more) {
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+.surface :global(.crm-today-blocked) {
+  --panel-tone: var(--dashboard-rose);
+}
+.surface :global(.crm-today-waiting) {
+  --panel-tone: var(--dashboard-sand);
+}
+.surface :global(.crm-sales-today .crm-today-preview) {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.surface :global(.crm-sales-today .crm-agenda-panel > p) {
+  font-size: 13px;
+  line-height: 1.5;
+}

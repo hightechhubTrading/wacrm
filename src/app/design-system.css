@@ -991,3 +991,24 @@ button.crm-deal-owner:hover { background: color-mix(in srgb, var(--ui-info) 14%,
 }
 .crm-pipeline-list .crm-colored-tag { display: inline-flex; align-items: center; gap: 5px; }
 .crm-pipeline-list .crm-deal-owner { max-width: 100%; }
+
+/* Job handoffs are used on phones: readable fields avoid iOS input zoom. */
+.crm-job-sheet input,
+.crm-job-sheet select,
+.crm-job-sheet textarea {
+  min-height: 44px;
+  font-size: 16px;
+}
+.crm-job-sheet fieldset {
+  min-width: 0;
+}
+.crm-job-sheet[data-slot='sheet-content'] {
+  width: 100%;
+  max-width: 42rem;
+  height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.crm-job-sheet [data-slot='sheet-title'] {
+  padding-right: 2rem;
+  overflow-wrap: anywhere;
+}

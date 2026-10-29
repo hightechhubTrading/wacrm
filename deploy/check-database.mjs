@@ -69,10 +69,30 @@ export async function checkDeploymentDatabase({
     }
   );
   const result = await response.json().catch(() => null);
-  if (!response.ok && result?.code === '42501') return;
-  throw new Error(
-    'Database preflight failed for conversion authorization. Apply migration 076 and verify its RPC permissions before deploying this revision.'
+  if (response.ok || result?.code !== '42501')
+    throw new Error(
+      'Database preflight failed for conversion authorization. Apply migration 076 and verify its RPC permissions before deploying this revision.'
+    );
+  // This read-only query uses a null account and cannot expose customer rows.
+  const today = await fetchImpl(
+    new URL('/rest/v1/rpc/sales_today_replies', url),
+    {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_account: null }),
+      signal: AbortSignal.timeout(15000),
+    }
   );
+  const preview = await today.json().catch(() => null);
+  if (
+    !today.ok ||
+    preview?.count !== 0 ||
+    !Array.isArray(preview?.items) ||
+    preview.items.length !== 0
+  )
+    throw new Error(
+      'Database preflight failed for Sales Today. Apply migration 082 before deploying this revision.'
+    );
 }
 
 if (

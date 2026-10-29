@@ -156,6 +156,7 @@ export function DealSalesPanel({
   const [initialKind, setInitialKind] = useState<'measurement' | 'workshop'>(
     'measurement'
   );
+  const [groupView, setGroupView] = useState<'prepare' | 'report'>('prepare');
   const [quotesOpen, setQuotesOpen] = useState(false);
   const selectedId =
     (selectedDealId ?? selected) ||
@@ -337,6 +338,7 @@ export function DealSalesPanel({
               data-tone="blue"
               onClick={() => {
                 setInitialKind('measurement');
+                setGroupView('prepare');
                 setGroupOpen(true);
               }}
             >
@@ -348,6 +350,7 @@ export function DealSalesPanel({
               data-tone="amber"
               onClick={() => {
                 setInitialKind('measurement');
+                setGroupView('report');
                 setGroupOpen(true);
               }}
             >
@@ -359,6 +362,7 @@ export function DealSalesPanel({
               data-tone="violet"
               onClick={() => {
                 setInitialKind('workshop');
+                setGroupView('prepare');
                 setGroupOpen(true);
               }}
             >
@@ -379,6 +383,7 @@ export function DealSalesPanel({
               key={deal.id}
               dealId={deal.id}
               initialKind={initialKind}
+              initialView={groupView}
               onClose={() => setGroupOpen(false)}
             />
           )}

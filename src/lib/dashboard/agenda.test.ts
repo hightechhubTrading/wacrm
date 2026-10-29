@@ -1,67 +1,77 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { loadAgenda } from './agenda';
-const conversation = (id: string, extra = {}) => ({
-  id,
-  status: 'open',
-  unread_count: 1,
-  contact: null,
-  ...extra,
-});
-function database(results: object[]) {
+import { agendaDayEnd, loadAgenda } from './agenda';
+
+function database(results: (object | Error)[]) {
   const calls: [string, string, unknown[]][] = [];
   let index = 0;
+  const chain = (table: string) => {
+    const result = results[index++];
+    const query: Record<string, unknown> = {
+      then(
+        resolve: (value: object) => unknown,
+        reject: (error: unknown) => unknown
+      ) {
+        return (
+          result instanceof Error
+            ? Promise.reject(result)
+            : Promise.resolve(result)
+        ).then(resolve, reject);
+      },
+    };
+    for (const method of ['select', 'eq', 'in', 'lt', 'or', 'order', 'limit'])
+      query[method] = vi.fn((...args: unknown[]) => {
+        calls.push([table, method, args]);
+        return query;
+      });
+    return query;
+  };
   const db = {
-    from(table: string) {
-      const result = results[index++];
-      const chain: Record<string, unknown> = {
-        then(resolve: (value: object) => unknown) {
-          return Promise.resolve(result).then(resolve);
-        },
-      };
-      for (const method of [
-        'select',
-        'eq',
-        'neq',
-        'in',
-        'gt',
-        'or',
-        'order',
-        'limit',
-      ])
-        chain[method] = vi.fn((...args: unknown[]) => {
-          calls.push([table, method, args]);
-          return chain;
-        });
-      return chain;
+    from: chain,
+    rpc(name: string, args: unknown) {
+      calls.push([name, 'rpc', [args]]);
+      return chain(name);
     },
   };
   return { db: db as unknown as SupabaseClient, calls };
 }
-describe('agenda loader', () => {
-  it('deduplicates attention results and keeps exact counts separate', async () => {
-    const priority = conversation('priority', { ai_priority: 'urgent' });
-    const { db, calls } = database([
-      { data: [priority], count: 12 },
-      { data: [priority, conversation('unread')], count: 24 },
-      { data: [], count: 18, error: null },
-      { data: [{ user_id: 'u', full_name: 'Alex' }] },
+const empty = (): object[] => [
+  { data: { items: [], count: 0 }, error: null },
+  { data: [], count: 0, error: null },
+  { data: [], count: 0, error: null },
+  { data: [], count: 0, error: null },
+  { data: [], error: null },
+];
+describe('sales Today loader', () => {
+  it('loads exact reply counts without using unread counts, and scopes every list', async () => {
+    const results = empty();
+    results[0] = {
+      data: { items: [{ id: 'read-but-unanswered' }], count: 12 },
+      error: null,
+    };
+    const { db, calls } = database(results);
+    const data = await loadAgenda(db, 'account', 'user');
+    expect(data.replies.map((c) => c.id)).toEqual(['read-but-unanswered']);
+    expect(data.replyCount).toBe(12);
+    expect(data.repliesAvailable).toBe(true);
+    expect(calls).toContainEqual([
+      'sales_today_replies',
+      'rpc',
+      [{ p_account: 'account' }],
     ]);
-    const result = await loadAgenda(db, 'account', 'user');
-    expect(result.conversations.map((c) => c.id)).toEqual([
-      'priority',
-      'unread',
-    ]);
-    expect(result.priorityCount).toBe(12);
-    expect(result.unreadCount).toBe(24);
-    expect(result.tasksAvailable).toBe(true);
-    expect(result.taskCount).toBe(18);
-    expect(result.tasks).toHaveLength(0);
     expect(
       calls.filter(
         ([, method, args]) => method === 'eq' && args[0] === 'account_id'
       )
     ).toHaveLength(4);
+    expect(calls.some(([, , args]) => args.includes('unread_count'))).toBe(
+      false
+    );
+  });
+  it('includes only due-through-today follow-ups owned by this user or unassigned', async () => {
+    const now = new Date(2026, 9, 29, 12, 30);
+    const { db, calls } = database(empty());
+    await loadAgenda(db, 'account', 'user', now);
     expect(calls).toContainEqual([
       'ai_followups',
       'or',
@@ -69,30 +79,84 @@ describe('agenda loader', () => {
     ]);
     expect(calls).toContainEqual([
       'ai_followups',
+      'lt',
+      ['due_at', new Date(2026, 9, 30).toISOString()],
+    ]);
+    expect(calls).toContainEqual([
+      'ai_followups',
       'in',
       ['conversation.status', ['open', 'pending']],
     ]);
-  });
-  it('distinguishes an unavailable follow-up table from a successfully empty agenda', async () => {
-    const { db } = database([
-      { data: [], count: 0 },
-      { data: [], count: 0 },
-      { data: null, error: { code: '42P01' } },
-      { data: [], error: null },
+    expect(calls).toContainEqual([
+      'ai_followups',
+      'in',
+      ['status', ['open', 'acknowledged', 'deferred']],
     ]);
-    const result = await loadAgenda(db, 'account', 'user');
-    expect(result.tasksAvailable).toBe(false);
-    expect(result.attentionAvailable).toBe(true);
   });
-  it('reports a partially failed attention query as unavailable', async () => {
-    const { db } = database([
-      { data: null, error: { message: 'offline' } },
-      { data: [], count: 0 },
-      { data: [], error: null },
-      { data: [], error: null },
+  it('keeps blocked work separate and excludes prepared and completed work from waiting', async () => {
+    const { db, calls } = database(empty());
+    await loadAgenda(db, 'account', 'user');
+    expect(calls).toContainEqual([
+      'group_handoffs',
+      'in',
+      ['status', ['waiting', 'in_progress', 'ready']],
     ]);
-    expect((await loadAgenda(db, 'account', 'user')).attentionAvailable).toBe(
-      false
-    );
+    expect(calls).toContainEqual([
+      'group_handoffs',
+      'eq',
+      ['status', 'blocked'],
+    ]);
+    expect(
+      calls.filter(
+        ([table, method, args]) =>
+          table === 'group_handoffs' &&
+          method === 'select' &&
+          String(args[0]).includes('deals!inner')
+      )
+    ).toHaveLength(2);
+    expect(
+      calls.filter(([, method, args]) => method === 'limit' && args[0] === 6)
+    ).toHaveLength(4);
+  });
+  it.each([0, 1, 2, 3])(
+    'keeps section %i unavailable independently of the others',
+    async (index) => {
+      const results: (object | Error)[] = empty();
+      results[index] = {
+        data: null,
+        error: { message: 'Missing table or RPC' },
+      };
+      const { db } = database(results);
+      const data = await loadAgenda(db, 'account', 'user');
+      const availability = [
+        data.repliesAvailable,
+        data.tasksAvailable,
+        data.waitingAvailable,
+        data.blockedAvailable,
+      ];
+      expect(availability).toEqual([0, 1, 2, 3].map((i) => i !== index));
+    }
+  );
+  it('isolates a thrown network failure too', async () => {
+    const results: (object | Error)[] = empty();
+    results[2] = new Error('offline');
+    const { db } = database(results);
+    const data = await loadAgenda(db, 'account', 'user');
+    expect(data.waitingAvailable).toBe(false);
+    expect(data.blockedAvailable).toBe(true);
+    expect(data.repliesAvailable).toBe(true);
+  });
+  it('uses the next local calendar midnight without mutating the input', () => {
+    for (const date of [
+      new Date(2026, 9, 29, 23, 59, 59),
+      new Date(2026, 2, 29, 1),
+      new Date(2026, 9, 25, 1),
+    ]) {
+      const original = date.getTime();
+      const end = new Date(agendaDayEnd(date));
+      expect(end.getHours()).toBe(0);
+      expect(end.getDate()).toBe(date.getDate() + 1);
+      expect(date.getTime()).toBe(original);
+    }
   });
 });
