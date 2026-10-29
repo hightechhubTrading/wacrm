@@ -43,7 +43,7 @@ export function useLocalePreference() {
       }
 
       if (profileId) {
-        void createClient()
+        await createClient()
           .from("profiles")
           .update({ locale: next })
           .eq("id", profileId)
