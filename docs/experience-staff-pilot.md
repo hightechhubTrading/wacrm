@@ -53,4 +53,6 @@ with staff after collecting the baseline rather than inventing one.
 Apply migrations 087, 088 and 089 in staging and run the database preflight.
 Verify real provider acceptance/delivery and microphone/media behavior separately
 from synthetic browser checks. Resolve observed blockers and repeat affected tasks.
-Pilot results and the production release decision remain pending.
+Pilot results remain pending. The user separately authorized production rollout;
+source `94e97dc` and migrations 087–089 are deployed, as recorded in
+[the release tracker](experience-execution.md#authorized-production-release--30-october-2026).

@@ -99,8 +99,9 @@ npm run build -- --webpack
 
 ## Team-owned rollout and boundaries
 
-No production migration or deployment occurred and no real customer message was
-sent. Apply migrations **087, 088 and 089** in staging and run the documented database
+At the local implementation handoff no production migration or deployment had
+occurred, and no real customer message was sent. The subsequently authorized live
+release is recorded below. Apply migrations **087, 088 and 089** in staging and run the documented database
 preflight before rollout. The team owns staff observations/baselines, physical
 Android/iOS microphone/share/keyboard checks, real test-recipient delivery checks
 and the production release decision, per the user's final scope clarification.
@@ -119,3 +120,37 @@ Optional feature candidates in the original review (shared views, escalation,
 contact merges, external approvals, offline/native features) remain discovery
 backlog, rather than unfulfilled implementation commitments. The conversation
 collision indicator is the selected feature implemented for this pilot.
+
+## Authorized production release — 30 October 2026
+
+The user explicitly requested commit, push and deployment after accepting the
+code/automated-QA handoff and assigning the staff pilot to the team.
+
+- Application commit **94e97dc9b9efba03bf1f840bdbac043d79585092** was pushed to
+  `feat/ctwa-conversions` and promoted by the existing VPS updater.
+- Only reviewed migrations 087–089 were applied, atomically, through the linked
+  timestamped process. Recorded versions: **20261030153929** (087),
+  **20261030153930** (088), **20261030153931** (089). The PostgREST schema cache
+  was refreshed. No numeric-directory bulk migration push was used.
+- Live read-only validation passed authenticated search/context/activity shapes,
+  cross-tenant empty results, table RLS, denied browser mutation privileges and
+  anonymous/service-role heartbeat restrictions.
+- The VPS production build, candidate database preflight, authentication/PDF
+  smoke checks, no-active-call gate, public login and exact revision check passed.
+- Post-promotion checks confirmed the running revision, database preflight,
+  protected inbox/quotation/calling/search/activity/job endpoints, all eleven
+  anonymous RPC denials, and a public browser login/inbox redirect without page
+  errors. Public site: <https://wacrm.srv1795091.hstgr.cloud>.
+- Running image: `sha256:7e9ddc4575d10f038d354d6db189e89907447cd995617c2b2304cb62e974d849`.
+  Verified rollback image `wacrm:rollback` retains previous application revision
+  **1b0b4f9caef5418a746096634b3a29999838306d**. Database changes are additive;
+  the updater's rollback restores the app image, not migration history.
+- The exact temporary root SSH key was removed; Hostinger confirmed no remaining
+  root deployment keys. Private release evidence is retained at
+  `~/.local/state/wacrm/releases/experience-20261030/` without the private key.
+
+The separate design changes that appeared during deployment were not included in
+this release and were preserved locally. Staff/device pilot results remain owned
+by the team; this deployment does not claim those observations or real customer
+message-delivery verification. No real customer message or call was sent by these
+release checks.

@@ -199,3 +199,11 @@ activity is advisory and expires, and does not lock other agents out of sending.
 Operational Today/deadline dates now use **Asia/Qatar for every user**. Validate
 Qatar-midnight behavior from devices in different timezones and complete the
 staff/physical-device pilot in `docs/experience-staff-pilot.md` before rollout.
+
+Experience live status, 30 October 2026: source **94e97dc9b9efba03bf1f840bdbac043d79585092**
+is deployed. Migrations 087/088/089 are recorded respectively as
+`20261030153929`, `20261030153930`, `20261030153931`. Candidate and post-promotion
+preflight/auth/public-browser/PDF checks passed; the previous app revision
+`1b0b4f9caef5418a746096634b3a29999838306d` remains `wacrm:rollback`.
+See [the experience release evidence](../docs/experience-execution.md#authorized-production-release--30-october-2026).
+The user authorized rollout separately from the team-owned staff/device pilot.
