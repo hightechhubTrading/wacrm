@@ -27,6 +27,9 @@ import {
 const runFile = promisify(execFile),
   project = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const variant = process.env.PERFORMANCE_VARIANT || 'current';
+const baselineRef =
+  process.env.PERFORMANCE_BASELINE_REF ||
+  '91c1bb52a17ec036242bef64eb3e9b9345617154';
 if (!['current', 'baseline'].includes(variant))
   throw new Error('Expected current or baseline');
 const directory =
@@ -125,7 +128,13 @@ try {
     const archive = join(directory, 'source.tar');
     await runFile(
       'git',
-      ['archive', '--format=tar', '--output', archive, 'HEAD'],
+      [
+        'archive',
+        '--format=tar',
+        '--output',
+        archive,
+        variant === 'baseline' ? baselineRef : 'HEAD',
+      ],
       { cwd: project }
     );
     await runFile('tar', ['-xf', archive, '-C', directory]);
