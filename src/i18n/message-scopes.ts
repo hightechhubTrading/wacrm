@@ -38,6 +38,7 @@ export function sharedMessages(
   messages: AbstractIntlMessages
 ): AbstractIntlMessages {
   return {
+    Recovery: messages.Recovery,
     LoginPage: messages.LoginPage,
     Sidebar: messages.Sidebar,
     Header: messages.Header,

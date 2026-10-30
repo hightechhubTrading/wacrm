@@ -1,4 +1,6 @@
 'use client';
+import { BusinessTimeNote } from '@/components/workspace/business-time-note';
+import { BUSINESS_TIME_ZONE } from '@/lib/business-time';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
@@ -114,6 +116,7 @@ export function Agenda() {
   if (!canSendMessages) return null;
   const date = (value: string) =>
     new Intl.DateTimeFormat(locale, {
+      timeZone: BUSINESS_TIME_ZONE,
       month: 'short',
       day: 'numeric',
       hour: 'numeric',
@@ -250,6 +253,7 @@ export function Agenda() {
         <div>
           <h2>{t('title')}</h2>
           <p>{t('actionHint')}</p>
+          <BusinessTimeNote />
         </div>
         <Link href="/inbox" className="text-primary text-sm">
           {t('openInbox')}{' '}

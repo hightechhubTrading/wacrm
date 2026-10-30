@@ -16,13 +16,13 @@ import {
   Sparkles,
   Download,
 } from "lucide-react";
-import { format } from "date-fns";
+import {formatBusinessDate} from '@/lib/business-time';
 import { MessageText } from "./message-text";
 import { ReplyQuote } from "./reply-quote";
 import { MessageReactions } from "./message-reactions";
 import { InteractivePreview } from "@/components/interactive/interactive-preview";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { useTranslations } from "next-intl";
+import { useTranslations,useLocale } from "next-intl";
 
 interface MessageBubbleProps {
   message: Message;
@@ -371,10 +371,12 @@ export function MessageBubble({
   onToggleReaction,
 }: MessageBubbleProps) {
   const t = useTranslations("Inbox.bubble");
+  const locale=useLocale();
 
   const isAgent =
     message.sender_type === "agent" || message.sender_type === "bot";
-  const time = format(new Date(message.created_at), "HH:mm");
+  const time = message.created_at && Number.isFinite(Date.parse(message.created_at))
+    ? formatBusinessDate(message.created_at,locale,{hour:'2-digit',minute:'2-digit',hourCycle:'h23'}) : t("timeUnknown");
 
   // Row alignment + width cap are owned by <MessageActions> so its hover
   // group matches the bubble's content area, not the full row.

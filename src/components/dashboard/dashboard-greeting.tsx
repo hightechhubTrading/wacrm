@@ -1,4 +1,5 @@
 'use client';
+import { BUSINESS_TIME_ZONE } from '@/lib/business-time';
 
 import { useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
@@ -15,6 +16,7 @@ export function DashboardGreeting() {
     const update = () =>
       setToday(
         new Intl.DateTimeFormat(locale, {
+          timeZone: BUSINESS_TIME_ZONE,
           weekday: 'long',
           month: 'long',
           day: 'numeric',

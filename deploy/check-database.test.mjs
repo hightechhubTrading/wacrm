@@ -6,6 +6,12 @@ const options = {
   serviceRoleKey: 'dummy-server-key',
 };
 const emptyPerformanceResponse = (pathname) => {
+  if (pathname.endsWith('/conversation_activity_snapshot'))
+    return { serverNow: '2026-10-30T09:00:00Z', peers: [] };
+  if (pathname.endsWith('/search_inbox_messages'))
+    return { items: [], total: 0, nextCursor: null };
+  if (pathname.endsWith('/inbox_message_context'))
+    return { found: false, messages: [] };
   if (
     ['dashboard_metrics', 'dashboard_response_time', 'account_profile'].some(
       (name) => pathname.endsWith('/' + name)
@@ -28,19 +34,10 @@ test('accepts the required columns and denied identity-free conversion probe', a
     ...options,
     fetchImpl: async (url, init) => {
       requests.push({ url: new URL(url), init });
-      return new Response(
-        JSON.stringify(
-          requests.length === 9
-            ? { code: '42501' }
-            : requests.length === 10
-              ? { items: [], count: 0 }
-              : emptyPerformanceResponse(new URL(url).pathname)
-        ),
-        { status: requests.length === 9 ? 403 : 200 }
-      );
+      return validFetch(url);
     },
   });
-  assert.equal(requests.length, 17);
+  assert.equal(requests.length, 23);
   for (const r of requests.slice(0, 8))
     assert.equal(r.url.searchParams.get('limit'), '0');
   assert.equal(JSON.parse(requests[8].init.body).p_conversation_id, null);
@@ -123,7 +120,10 @@ const performanceProbes = [
 ];
 function validFetch(url) {
   const path = new URL(url).pathname;
-  if (path.endsWith('/record_conversation_conversion'))
+  if (
+    path.endsWith('/record_conversation_conversion') ||
+    path.endsWith('/record_conversation_activity')
+  )
     return new Response('{"code":"42501"}', { status: 403 });
   if (path.endsWith('/sales_today_replies'))
     return new Response('{"count":0,"items":[]}');
@@ -181,4 +181,87 @@ test('rejects nonempty null-scoped inbox responses and generic authorization err
       }),
       /migration 084/
     );
+});
+
+test('rejects missing send recovery ledger before promotion', async () => {
+  let count = 0;
+  await assert.rejects(
+    checkDeploymentDatabase({
+      ...options,
+      fetchImpl: async (url) => {
+        count++;
+        const path = new URL(url).pathname;
+        if (path.endsWith('/outbound_send_operations'))
+          return new Response('{}', { status: 404 });
+        return new Response(
+          JSON.stringify(
+            count === 9
+              ? { code: '42501' }
+              : count === 10
+                ? { items: [], count: 0 }
+                : emptyPerformanceResponse(path)
+          ),
+          { status: count === 9 ? 403 : 200 }
+        );
+      },
+    }),
+    /migration 087/
+  );
+});
+
+for (const name of ['search_inbox_messages', 'inbox_message_context'])
+  test(`blocks promotion when ${name} is missing`, async () => {
+    let count = 0;
+    await assert.rejects(
+      checkDeploymentDatabase({
+        ...options,
+        fetchImpl: async (url) => {
+          count++;
+          const path = new URL(url).pathname;
+          if (path.endsWith('/' + name))
+            return new Response('{}', { status: 404 });
+          return new Response(
+            JSON.stringify(
+              count === 9
+                ? { code: '42501' }
+                : count === 10
+                  ? { items: [], count: 0 }
+                  : emptyPerformanceResponse(path)
+            ),
+            { status: count === 9 ? 403 : 200 }
+          );
+        },
+      }),
+      /migration 088/
+    );
+  });
+
+for (const name of [
+  'conversation_activity',
+  'conversation_activity_snapshot',
+  'record_conversation_activity',
+])
+  test(`blocks promotion when activity prerequisite ${name} is missing`, async () => {
+    await assert.rejects(
+      checkDeploymentDatabase({
+        ...options,
+        fetchImpl: async (url) =>
+          new URL(url).pathname.endsWith('/' + name)
+            ? new Response('{"code":"PGRST202"}', { status: 404 })
+            : validFetch(url),
+      }),
+      /migration 089/
+    );
+  });
+test('rejects an unexpectedly writable identity-free activity probe', async () => {
+  await assert.rejects(
+    checkDeploymentDatabase({
+      ...options,
+      fetchImpl: async (url) =>
+        new URL(url).pathname.endsWith('/record_conversation_activity')
+          ? new Response('{}')
+          : validFetch(url),
+    }),
+    /migration 089/
+  );
 });

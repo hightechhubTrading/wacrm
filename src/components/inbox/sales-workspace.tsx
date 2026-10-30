@@ -1,4 +1,5 @@
 'use client';
+import { BUSINESS_TIME_ZONE, formatBusinessDate } from '@/lib/business-time';
 
 import { statusClasses } from '@/lib/ui-colors';
 import { useEffect, useState } from 'react';
@@ -24,7 +25,13 @@ import { QuotationsDialog } from '@/components/pipelines/quotations-dialog';
 import type { Deal, Conversation } from '@/types';
 import type { Quotation } from '@/lib/quotations/types';
 import { CustomFieldGroupFields } from '@/components/custom-fields/custom-field-group-fields';
-import type { GroupWork } from '@/lib/jobs/workflow';
+import {
+  jobHistory,
+  latestMeasurement,
+  nextJobWork,
+  type OverviewWork,
+} from '@/lib/inbox/job-overview';
+import { BusinessTimeNote } from '@/components/workspace/business-time-note';
 export function NextSalesAction({
   conversation,
   onOpenJob,
@@ -73,15 +80,17 @@ export function NextSalesAction({
         ) : action.kind === 'followup' ? (
           <span>
             {ft(`kinds.${action.task.kind}`)} ·{' '}
-            {new Date(action.task.due_at).toLocaleString(locale)} ·{' '}
-            {action.task.owner_name ?? t('ownerNotSet')}
+            {new Date(action.task.due_at).toLocaleString(locale, {
+              timeZone: BUSINESS_TIME_ZONE,
+            })}{' '}
+            · {action.task.owner_name ?? t('ownerNotSet')}
           </span>
         ) : (
           <span>
             HTH-{action.work.reference} · {jt(`statuses.${action.work.status}`)}
             {action.work.responsible ? ` · ${action.work.responsible}` : ''}
             {action.work.due_at
-              ? ` · ${new Date(action.work.due_at).toLocaleString(locale)}`
+              ? ` · ${new Date(action.work.due_at).toLocaleString(locale, { timeZone: BUSINESS_TIME_ZONE })}`
               : ''}
           </span>
         )}
@@ -152,61 +161,89 @@ export function DealSalesPanel({
   const canEdit = useCan('send-messages');
   const validDeals = deals.filter((d) => d.contact_id === contactId);
   const [selected, setSelected] = useState('');
-  const [groupOpen, setGroupOpen] = useState(false);
+  const [groupOpen, setGroupOpen] = useState<string | null>(null);
   const [initialKind, setInitialKind] = useState<'measurement' | 'workshop'>(
     'measurement'
   );
-  const [groupView, setGroupView] = useState<'prepare' | 'report'>('prepare');
-  const [quotesOpen, setQuotesOpen] = useState(false);
+  const [groupView, setGroupView] = useState<'overview' | 'prepare' | 'report'>(
+    'prepare'
+  );
+  const [quotesOpen, setQuotesOpen] = useState<string | null>(null);
+  const [historyWorkId, setHistoryWorkId] = useState<string>();
   const selectedId =
     (selectedDealId ?? selected) ||
     (validDeals.length === 1 ? validDeals[0].id : '');
   const deal = validDeals.find((d) => d.id === selectedId);
+  const permittedDealId = deal?.id;
   const [state, setState] = useState<{
     dealId: string;
-    work: GroupWork[];
+    work: OverviewWork[];
+    quotes: Quotation[];
+    acceptedError: boolean;
     quote: Quotation | null;
-    error: boolean;
+    accepted: { id: string; reference: string; revision: number } | null;
+    workError: boolean;
+    quoteError: boolean;
   } | null>(null);
+  const [reload, setReload] = useState(0);
   useEffect(() => {
-    if (!selectedId || !canEdit) return;
+    if (!permittedDealId || !canEdit) return;
     const controller = new AbortController();
     let seq = 0;
     async function load() {
       const current = ++seq;
-      try {
-        const [work, quotes] = await Promise.all([
-          fetch(`/api/jobs/${selectedId}`, { signal: controller.signal }),
-          fetch(`/api/quotations?dealId=${selectedId}&pageSize=1`, {
-            signal: controller.signal,
-          }),
-        ]);
-        if (!work.ok || !quotes.ok) throw new Error('load');
-        const [w, q] = await Promise.all([work.json(), quotes.json()]);
-        if (!controller.signal.aborted && current === seq)
-          setState({
-            dealId: selectedId,
-            work: w.work,
-            quote: q[0] ?? null,
-            error: false,
-          });
-      } catch {
-        if (!controller.signal.aborted && current === seq)
-          setState({ dealId: selectedId, work: [], quote: null, error: true });
-      }
+      const read = async (url: string) => {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error('load');
+        return response.json();
+      };
+      const [work, quotes] = await Promise.allSettled([
+        read(`/api/jobs/${selectedId}?overview=1`),
+        read(`/api/quotations?dealId=${selectedId}&pageSize=25`),
+      ]);
+      if (controller.signal.aborted || current !== seq) return;
+      setState({
+        dealId: selectedId,
+        work: work.status === 'fulfilled' ? work.value.work : [],
+        acceptedError:
+          work.status === 'rejected' || !!work.value.quotationsError,
+        quotes: quotes.status === 'fulfilled' ? quotes.value : [],
+        accepted:
+          work.status === 'fulfilled'
+            ? (work.value.quotations?.[0] ?? null)
+            : null,
+        quote: quotes.status === 'fulfilled' ? (quotes.value[0] ?? null) : null,
+        workError: work.status === 'rejected' || !!work.value.workError,
+        quoteError: quotes.status === 'rejected',
+      });
     }
     void load();
-    const refresh = () => void load();
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load();
+    };
     window.addEventListener('group-work-updated', refresh);
+    window.addEventListener('quotations-updated', refresh);
+    document.addEventListener('visibilitychange', refresh);
     const timer = setInterval(refresh, 30000);
     return () => {
       controller.abort();
       clearInterval(timer);
       window.removeEventListener('group-work-updated', refresh);
+      window.removeEventListener('quotations-updated', refresh);
+      document.removeEventListener('visibilitychange', refresh);
     };
-  }, [selectedId, canEdit]);
+  }, [selectedId, permittedDealId, canEdit, reload, contactId]);
   if (!canEdit) return null;
   const current = state?.dealId === selectedId ? state : null;
+  const history = current ? jobHistory(current.work, current.quotes) : [];
+  const measurement = current ? latestMeasurement(current.work) : null;
+  const nextWork = current ? nextJobWork(current.work) : null;
+  const openWork = (work: OverviewWork) => {
+    setInitialKind(work.kind);
+    setHistoryWorkId(work.id);
+    setGroupView('overview');
+    setGroupOpen(selectedId);
+  };
   return (
     <section className="crm-sales-card" data-tone="blue">
       <header className="crm-customer-section-title">
@@ -221,8 +258,8 @@ export function DealSalesPanel({
         onChange={(e) => {
           setSelected(e.target.value);
           onSelectDeal?.(e.target.value);
-          setGroupOpen(false);
-          setQuotesOpen(false);
+          setGroupOpen(null);
+          setQuotesOpen(null);
         }}
       >
         <option value="">{t('chooseJob')}</option>
@@ -263,11 +300,7 @@ export function DealSalesPanel({
               <dd>{deal.assignee?.full_name ?? t('ownerNotSet')}</dd>
             </div>
           </dl>
-          {current?.error ? (
-            <p role="alert" className="text-sm">
-              {t('unavailable')}
-            </p>
-          ) : !current ? (
+          {!current ? (
             <p className="text-sm">{t('loading')}</p>
           ) : (
             <>
@@ -275,9 +308,11 @@ export function DealSalesPanel({
                 <FileText size={18} aria-hidden />
                 <div>
                   <span>{t('latestQuotation')}</span>
-                  {current.quote ? (
+                  {current.quoteError ? (
+                    <p role="alert">{t('unavailable')}</p>
+                  ) : current.quote ? (
                     <Link
-                      className="underline"
+                      className="inline-flex min-h-11 items-center underline"
                       href={`/quotations/${current.quote.id}`}
                     >
                       {current.quote.reference} · rev {current.quote.revision} ·{' '}
@@ -290,6 +325,144 @@ export function DealSalesPanel({
                   )}
                 </div>
               </div>
+              {current.acceptedError ? (
+                <p role="alert" className="text-sm">
+                  {t('unavailable')}
+                </p>
+              ) : (
+                <div className="mt-2 text-sm">
+                  <span>{t('acceptedQuotation')}: </span>
+                  {current.accepted ? (
+                    <Link
+                      className="inline-flex min-h-11 items-center underline"
+                      href={`/quotations/${current.accepted.id}`}
+                    >
+                      {current.accepted.reference} · rev{' '}
+                      {current.accepted.revision}
+                    </Link>
+                  ) : (
+                    t('noAcceptedQuotation')
+                  )}
+                </div>
+              )}
+              {current.work.some((work) => work.status === 'blocked') && (
+                <p role="status" className="mt-2 text-sm">
+                  {t('workBlocked')}
+                </p>
+              )}
+              {(current.workError ||
+                current.quoteError ||
+                current.acceptedError) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setReload((value) => value + 1)}
+                >
+                  {t('retryOverview')}
+                </Button>
+              )}
+              {!current.workError && (
+                <div className="my-3 space-y-2 text-sm">
+                  <p className="font-medium">{t('nextAction')}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      nextWork
+                        ? openWork(nextWork)
+                        : measurement
+                          ? openWork(measurement.work)
+                          : setQuotesOpen(selectedId)
+                    }
+                  >
+                    {nextWork
+                      ? t(
+                          nextWork.status === 'blocked'
+                            ? 'reviewBlocker'
+                            : 'reviewWork'
+                        )
+                      : measurement
+                        ? t('reviewMeasurement')
+                        : t('quotations')}
+                  </Button>
+                  {measurement && (
+                    <div>
+                      <strong>{t('measurementResult')}</strong>
+                      <p className="whitespace-pre-wrap" dir="auto">
+                        {measurement.event.note || t('measurementEvidence')}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+              <details className="mt-3 text-sm">
+                <summary className="min-h-11 cursor-pointer py-3">
+                  {t('jobHistory')}
+                </summary>
+                <p className="text-muted-foreground my-2">
+                  {t('jobHistoryHint')}
+                </p>
+                {(current.workError || current.quoteError) && (
+                  <p role="alert">{t('historyPartial')}</p>
+                )}
+                {!history.length &&
+                  !current.workError &&
+                  !current.quoteError && <p>{t('noJobHistory')}</p>}
+                <ol className="space-y-3">
+                  {history.map((entry) => (
+                    <li key={entry.id}>
+                      {entry.kind === 'quotation' ? (
+                        <>
+                          <Link
+                            className="block min-h-11 py-2 underline"
+                            href={`/quotations/${entry.quote.id}`}
+                          >
+                            {entry.quote.reference} · rev {entry.quote.revision}
+                          </Link>
+                          <p>
+                            {t('quotationCreated')} ·{' '}
+                            {t('currentQuotationStatus', {
+                              status: t(
+                                `quotationStatuses.${entry.quote.status}`
+                              ),
+                            })}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            className="min-h-11 py-2 text-start underline"
+                            onClick={() => openWork(entry.work)}
+                          >
+                            HTH-{entry.work.reference} ·{' '}
+                            {jt(`kinds.${entry.work.kind}`)} ·{' '}
+                            {entry.event
+                              ? jt(`statuses.${entry.event.status}`)
+                              : t('workCreated')}
+                          </button>
+                          {entry.event?.note && (
+                            <p className="whitespace-pre-wrap" dir="auto">
+                              {entry.event.note}
+                            </p>
+                          )}
+                          {entry.event && (
+                            <p className="text-muted-foreground">
+                              {t('staffRecordedUpdate')}
+                            </p>
+                          )}
+                        </>
+                      )}
+                      <time
+                        className="text-muted-foreground block"
+                        dateTime={entry.at}
+                      >
+                        {formatBusinessDate(entry.at, locale)}
+                      </time>
+                    </li>
+                  ))}
+                </ol>
+              </details>
+              <BusinessTimeNote />
               {current.work
                 .filter(
                   (w) =>
@@ -302,13 +475,16 @@ export function DealSalesPanel({
                   <div className="crm-active-job" key={w.id}>
                     <ClipboardCheck size={17} aria-hidden />
                     <div>
-                      <strong>
+                      <button
+                        className="min-h-11 py-2 text-start font-semibold underline"
+                        onClick={() => openWork(w)}
+                      >
                         HTH-{w.reference} · {jt(`kinds.${w.kind}`)}
-                      </strong>
+                      </button>
                       <span>
                         {jt(`statuses.${w.status}`)}
                         {w.due_at
-                          ? ` · ${new Date(w.due_at).toLocaleDateString(locale)}`
+                          ? ` · ${jt('requestedDate')}: ${formatBusinessDate(w.due_at, locale)}`
                           : ''}
                       </span>
                     </div>
@@ -337,9 +513,10 @@ export function DealSalesPanel({
               variant="outline"
               data-tone="blue"
               onClick={() => {
+                setHistoryWorkId(undefined);
                 setInitialKind('measurement');
                 setGroupView('prepare');
-                setGroupOpen(true);
+                setGroupOpen(selectedId);
               }}
             >
               <CalendarDays size={19} aria-hidden /> {t('requestVisit')}
@@ -349,9 +526,10 @@ export function DealSalesPanel({
               variant="outline"
               data-tone="amber"
               onClick={() => {
+                setHistoryWorkId(undefined);
                 setInitialKind('measurement');
                 setGroupView('report');
-                setGroupOpen(true);
+                setGroupOpen(selectedId);
               }}
             >
               <ClipboardCheck size={19} aria-hidden /> {t('addReport')}
@@ -361,9 +539,10 @@ export function DealSalesPanel({
               variant="outline"
               data-tone="violet"
               onClick={() => {
+                setHistoryWorkId(undefined);
                 setInitialKind('workshop');
                 setGroupView('prepare');
-                setGroupOpen(true);
+                setGroupOpen(selectedId);
               }}
             >
               <Factory size={19} aria-hidden /> {t('requestWorkshop')}
@@ -372,25 +551,26 @@ export function DealSalesPanel({
               size="sm"
               variant="outline"
               data-tone="green"
-              onClick={() => setQuotesOpen(true)}
+              onClick={() => setQuotesOpen(selectedId)}
             >
               <FileText size={19} aria-hidden /> {t('quotations')}
             </Button>
           </div>
           <p className="crm-customer-hint">{t('groupHint')}</p>
-          {groupOpen && (
+          {groupOpen === deal.id && (
             <GroupWorkDialog
               key={deal.id}
               dealId={deal.id}
               initialKind={initialKind}
+              initialWorkId={historyWorkId}
               initialView={groupView}
-              onClose={() => setGroupOpen(false)}
+              onClose={() => setGroupOpen(null)}
             />
           )}
-          {quotesOpen && (
+          {quotesOpen === deal.id && (
             <QuotationsDialog
               open
-              onOpenChange={setQuotesOpen}
+              onOpenChange={(open) => setQuotesOpen(open ? deal.id : null)}
               dealId={deal.id}
               contactId={contactId}
             />

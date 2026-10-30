@@ -1,4 +1,16 @@
 {
+  "Recovery": {
+    "businessTimezone": "Dates and deadlines use Qatar time.",
+    "loading": "Loading your workspace…",
+    "skipToContent": "Skip to content",
+    "errorTitle": "This page could not load",
+    "errorHint": "Try again. If the problem continues, return to Today and reopen your work.",
+    "retry": "Try again",
+    "backToToday": "Back to Today",
+    "notFoundTitle": "This page could not be found",
+    "notFoundHint": "The link may have changed. You can return to Today or find the customer in your inbox.",
+    "openInbox": "Open inbox"
+  },
   "LoginPage": {
     "titleAccept": "Sign in to accept",
     "titleWelcome": "Welcome back",
@@ -15,6 +27,13 @@
     "createAccount": "Create account"
   },
   "Sidebar": {
+    "today": "Today",
+    "more": "More",
+    "mobileNavigation": "Daily work navigation",
+    "mainNavigation": "Main navigation",
+    "workGroup": "Work",
+    "growthGroup": "Growth",
+    "manageGroup": "Manage",
     "title": "Hightech Hub",
     "dashboard": "Dashboard",
     "inbox": "Inbox",
@@ -40,9 +59,11 @@
     "menuProfile": "Profile",
     "menuSettings": "Settings",
     "menuSignOut": "Sign out",
-    "adConversions": "Ad conversions"
+    "adConversions": "Ad conversions",
+    "primaryNavigation": "Primary navigation"
   },
   "Header": {
+    "businessTimezone": "Deadlines · Qatar time",
     "dashboard": "Dashboard",
     "inbox": "Inbox",
     "notifications": "Notifications",
@@ -237,6 +258,65 @@
     }
   },
   "Inbox": {
+    "activity": {
+      "unavailable": "Team activity is unavailable. Check with your team before sending a duplicate reply.",
+      "teammate": "A teammate",
+      "viewing": "Also viewing: {names}.",
+      "composing": "Preparing a reply: {names}. Check before sending another reply.",
+      "otherSession": "Another of your sessions was recently active in this conversation.",
+      "takeOver": "Assign to me"
+    },
+    "historySearch": {
+      "dateUnknown": "Date unavailable",
+      "close": "Close",
+      "title": "Search message history",
+      "hint": "Find older messages and transcribed voice notes across conversations you can access.",
+      "query": "Words to find",
+      "from": "From date",
+      "to": "Through date",
+      "sender": "Sent by",
+      "allSenders": "Anyone",
+      "customer": "Customer",
+      "team": "Team",
+      "bot": "AI assistant",
+      "onlyCurrent": "Only this conversation",
+      "search": "Search messages",
+      "minimum": "Enter at least two characters.",
+      "datesInvalid": "Choose a valid date range.",
+      "failed": "Message history could not be searched",
+      "loading": "Searching message history…",
+      "results": "{count, plural, zero {# results} one {# result} two {# results} few {# results} many {# results} other {# results}} for “{query}”",
+      "empty": "No messages match these filters.",
+      "openFailed": "This message is unavailable or could not be loaded.",
+      "transcript": "Includes a voice transcript",
+      "loadMore": "Load more results",
+      "contextTitle": "Viewing a search result",
+      "contextHint": "Showing messages around the match. Return to the latest messages to continue reading.",
+      "returnLatest": "Back to latest messages",
+      "replyToMatch": "Reply to this message"
+    },
+    "savedViews": {
+      "title": "Saved views",
+      "deviceHint": "Personal views saved in this browser.",
+      "choose": "Choose a saved view",
+      "saveCurrent": "Save current view",
+      "name": "View name",
+      "save": "Save view",
+      "cancel": "Cancel",
+      "delete": "Delete view {name}",
+      "deleteShort": "Delete",
+      "saveFailed": "This browser could not save the view. Check storage access and try again.",
+      "limit": "You can save up to 20 views. Delete one to add another.",
+      "duplicate": "A view with this name already exists. Choose another name.",
+      "nameRequired": "Enter a view name."
+    },
+    "connection": {
+      "disconnected": "Live updates are reconnecting. Messages may be out of date.",
+      "offline": "You are offline. Drafts stay on this device; sending needs a connection.",
+      "lastConnected": "Live updates last connected at {time}.",
+      "retry": "Reconnect and refresh",
+      "lastSynchronized": "Queue last refreshed: {time} · Qatar time"
+    },
     "page": {
       "whatsappNotConnected": "WhatsApp® is not connected. Go to Settings to connect your account."
     },
@@ -298,6 +378,9 @@
       }
     },
     "messageThread": {
+      "dateUnknown": "Date unavailable",
+      "assignmentFailed": "Assignment changed or could not be saved. Refresh the conversation and try again.",
+      "customer": "Customer",
       "backToConversations": "Back to conversations",
       "hideContactPanel": "Hide contact panel",
       "showContactPanel": "Show contact panel",
@@ -348,6 +431,33 @@
       "noCustomerMessages": "No customer messages"
     },
     "composer": {
+      "aiNotConfigured": "Set up the AI assistant in Settings before drafting a reply.",
+      "draftFailed": "Could not prepare a suggested reply. Try again.",
+      "draftEmpty": "The assistant returned no reply. Try again.",
+      "translationFailed": "Could not translate this message. Your draft is unchanged.",
+      "translationEmpty": "The assistant returned no translation. Your draft is unchanged.",
+      "fileTooLarge": "This {kind} is {size} MB. Choose a file up to {max} MB.",
+      "uploadFailed": "Could not upload this file. Choose it again to retry.",
+      "recordingTooLarge": "This recording is too large. Record a shorter voice note.",
+      "recordingUnavailable": "Voice recording is unavailable in this browser.",
+      "microphoneUnavailable": "Microphone access is unavailable. Check your browser permission and try again.",
+      "draftLabel": "Draft",
+      "sendNeedsCheck": "Send unconfirmed",
+      "sendRejectedLabel": "Send failed",
+      "retryFailedMessage": "Retry message",
+      "sendPending": "Sending your message. Your draft stays here until acceptance is confirmed.",
+      "sendRejected": "This message was not sent. Review it and try again.",
+      "sendUnknown": "Acceptance is not confirmed. Check the result before sending again to avoid a duplicate.",
+      "editFailedMessage": "Edit message",
+      "discardFailedMessage": "Discard draft",
+      "checkDelivery": "Check send result",
+      "draftMemory": "Draft kept in this tab. Browser storage is unavailable.",
+      "draftSaved": "Draft saved on this device",
+      "suggestionTitle": "Suggested text — review before replacing your draft",
+      "replaceDraft": "Replace draft",
+      "insertSuggestion": "Insert below",
+      "dismissSuggestion": "Dismiss",
+      "aiUnavailable": "Could not reach the AI assistant. Try again.",
       "draftHint": "Tap the ✨ to draft a reply with AI — you can edit it before sending",
       "sessionExpiredHint": "24-hour session expired. Use a template to re-engage.",
       "templates": "Templates",
@@ -396,6 +506,7 @@
       "replyTools": "Reply tools"
     },
     "bubble": {
+      "timeUnknown": "Time unavailable",
       "photo": "Photo",
       "video": "Video",
       "audio": "Audio",
@@ -438,6 +549,12 @@
       "cancelReply": "Cancel reply"
     },
     "templatePicker": {
+      "headerField": "Header value",
+      "bodyField": "Message value {index}",
+      "urlButtonField": "Link value for {name}",
+      "loadFailed": "Templates could not be loaded",
+      "loadFailedHint": "Try again to check which templates are approved for your account.",
+      "savedUnavailable": "The saved template is no longer available. Choose an approved template to continue.",
       "sendTemplate": "Send template",
       "fillPlaceholders": "Fill in the placeholders to render this template. Meta requires every variable to be set.",
       "pickTemplate": "Pick an approved WhatsApp template to send to this contact.",
@@ -661,11 +778,37 @@
         "won": "Won",
         "lost": "Lost",
         "unknown": "Status not set"
-      }
+      },
+      "acceptedQuotation": "Latest accepted quotation",
+      "noAcceptedQuotation": "No accepted quotation",
+      "workBlocked": "Work is blocked. Review the latest report before following up.",
+      "workHistory": "Recent work history",
+      "workHistoryHint": "Recorded updates, newest first (up to 20). Forwarded reports are recorded by staff; requested dates are not confirmed appointments.",
+      "retryOverview": "Retry job overview",
+      "reviewBlocker": "Review blocked work",
+      "reviewWork": "Review current work",
+      "reviewMeasurement": "Review measurement report",
+      "measurementResult": "Latest recorded measurement result",
+      "measurementEvidence": "Open the source report to review its attachments.",
+      "jobHistory": "Job history",
+      "jobHistoryHint": "Recent recorded work updates and quotation creation, newest first (up to 20). Includes the latest 25 quotations and 20 updates per work request from up to 50 requests. Open a source for its full record.",
+      "historyPartial": "Some sources are unavailable. This history is incomplete.",
+      "noJobHistory": "No recorded work updates or quotations yet.",
+      "quotationCreated": "Quotation created",
+      "currentQuotationStatus": "Current status: {status}",
+      "workCreated": "Request prepared",
+      "staffRecordedUpdate": "Update recorded by staff; a forwarded report does not identify its original author."
     }
   },
   "Contacts": {
     "page": {
+      "loadFailed": "Contacts could not be refreshed",
+      "loadFailedHint": "Your contacts are unavailable right now. Try again to load them.",
+      "showingPrevious": "Showing earlier results from {time}. The current search or filters may not match these rows.",
+      "tagsUnavailable": "Some contact tags are unavailable",
+      "tagsUnavailableHint": "Contacts are available, but tag information may be incomplete. Try again to refresh it.",
+      "selectPage": "Select all contacts on this page",
+      "filterTag": "Filter by {name}",
       "title": "Contacts",
       "subtitle": "Manage your contact list. {count} total contacts.",
       "subtitleZero": "Manage your contact list.",

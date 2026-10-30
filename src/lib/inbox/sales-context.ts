@@ -1,3 +1,4 @@
+import { businessDayEnd } from '@/lib/business-time';
 export type SalesView =
   | 'needs_reply'
   | 'followup_today'
@@ -39,8 +40,7 @@ export function matchesSalesView(
   now = new Date()
 ): boolean {
   if (!ctx || status === 'closed') return false;
-  const end = new Date(now);
-  end.setHours(23, 59, 59, 999);
+  const end = businessDayEnd(new Date(now));
   switch (view) {
     case 'needs_reply':
       return ctx.last_sender === 'customer';

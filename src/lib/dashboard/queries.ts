@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { daysAgoStart, mondayIndex, startOfLocalDay } from './date-utils';
+import {
+  businessDayBoundary,
+  businessMondayIndex,
+  BUSINESS_TIME_ZONE,
+} from '@/lib/business-time';
 import type {
   ActivityItem,
   ConversationsSeriesPoint,
@@ -9,13 +13,14 @@ import type {
 } from './types';
 
 // RPCs aggregate under the caller's table RLS before the API row cap.
-// Calendar boundaries and timezone come from the browser, preserving local days.
+// Operational calendar boundaries use the team's shared Qatar timezone.
 type DB = SupabaseClient;
-const timezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+const timezone = () => BUSINESS_TIME_ZONE;
+const daysAgoStart = (days: number) => businessDayBoundary(new Date(), -days);
 
 export async function loadMetrics(db: DB): Promise<MetricsBundle> {
   const { data, error } = await db.rpc('dashboard_metrics', {
-    p_today: startOfLocalDay().toISOString(),
+    p_today: businessDayBoundary().toISOString(),
     p_yesterday: daysAgoStart(1).toISOString(),
   });
   if (error) throw error;
@@ -43,7 +48,7 @@ export async function loadPipelineDonut(db: DB): Promise<PipelineDonutData> {
 }
 
 export async function loadResponseTime(db: DB): Promise<ResponseTimeSummary> {
-  const monday = mondayIndex(new Date());
+  const monday = businessMondayIndex(new Date());
   const { data, error } = await db.rpc('dashboard_response_time', {
     p_start: daysAgoStart(13).toISOString(),
     p_this_week: daysAgoStart(monday).toISOString(),

@@ -1,9 +1,14 @@
 'use client';
+import { ConversationDraftBadge } from './conversation-draft-badge';
 
 import { DirectionProvider } from '@base-ui/react/direction-provider';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useInboxList } from '@/hooks/use-inbox-list';
+import { useInboxQuery } from '@/hooks/use-inbox-query';
+import { SavedViews } from './saved-views';
+import { MessageSearch } from './message-search';
+import type { InboxView, InboxSort } from '@/lib/inbox/query-state';
 import { useCan } from '@/hooks/use-can';
 import { SALES_VIEWS, type SalesView } from '@/lib/inbox/sales-context';
 import { TRIAGE_GROUPS, sortTriage, triageGroup } from '@/lib/inbox/triage';
@@ -45,6 +50,10 @@ interface ConversationListProps {
   activeConversationId: string | null;
   onSelect: (conversation: Conversation) => void;
   onPrefetch?: (conversation: Conversation | null) => void;
+  onOpenMessage?: (
+    conversationId: string,
+    messageId: string
+  ) => Promise<boolean>;
   conversations: Conversation[];
   onConversationsLoaded: (conversations: Conversation[]) => void;
   /**
@@ -62,14 +71,7 @@ const STATUS_COLORS: Record<ConversationStatus, string> = {
   closed: 'bg-success',
 };
 
-type InboxFilter =
-  | ConversationStatus
-  | 'all'
-  | 'unread'
-  | 'mine'
-  | 'priority'
-  | 'unassigned'
-  | SalesView;
+type InboxFilter = InboxView;
 
 /** Sentinel for the "no assigned agent" filter option, distinct from
  *  any real `profiles.user_id`. */
@@ -79,6 +81,7 @@ export function ConversationList({
   activeConversationId,
   onSelect,
   onPrefetch,
+  onOpenMessage,
   conversations,
   onConversationsLoaded,
   resyncToken = 0,
@@ -107,10 +110,42 @@ export function ConversationList({
     [t, canReadSales]
   );
 
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<InboxFilter>('all');
-  const [sort, setSort] = useState<'priority' | 'newest' | 'oldest'>(
-    'priority'
+  const { query, update: updateQuery } = useInboxQuery(canReadSales);
+  const {
+    search,
+    view: filter,
+    sort,
+    tags: selectedTagIds,
+    company: selectedCompany,
+    agent: selectedAgentId,
+  } = query;
+  const setSearch = useCallback(
+    (value: string) => updateQuery({ search: value }, 'replace'),
+    [updateQuery]
+  );
+  const setFilter = useCallback(
+    (view: InboxFilter) => updateQuery({ view }),
+    [updateQuery]
+  );
+  const setSort = useCallback(
+    (sort: InboxSort) => updateQuery({ sort }),
+    [updateQuery]
+  );
+  const setSelectedTagIds = useCallback(
+    (value: string[] | ((previous: string[]) => string[])) =>
+      updateQuery((previous) => ({
+        ...previous,
+        tags: typeof value === 'function' ? value(previous.tags) : value,
+      })),
+    [updateQuery]
+  );
+  const setSelectedCompany = useCallback(
+    (company: string | null) => updateQuery({ company }),
+    [updateQuery]
+  );
+  const setSelectedAgentId = useCallback(
+    (agent: string | null) => updateQuery({ agent }),
+    [updateQuery]
   );
 
   const [retry, setRetry] = useState(0);
@@ -118,11 +153,8 @@ export function ConversationList({
   // matches if its contact carries any selected tag), consistent with
   // Broadcast audience filtering. Company is an exact match on the field.
   const [tags, setTags] = useState<Tag[]>([]);
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   // null = no filter, 'unassigned' = the explicit unassigned bucket, or a profile's user_id.
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
   const remote = useInboxList(
     {
@@ -218,17 +250,14 @@ export function ConversationList({
     ];
   }, [filtered, sort, t]);
 
-  const toggleTag = useCallback((id: string) => {
-    setSelectedTagIds((prev) =>
-      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
-    );
-  }, []);
-
-  const clearContactFilters = useCallback(() => {
-    setSelectedTagIds([]);
-    setSelectedCompany(null);
-    setSelectedAgentId(null);
-  }, []);
+  const toggleTag = useCallback(
+    (id: string) => {
+      setSelectedTagIds((prev) =>
+        prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
+      );
+    },
+    [setSelectedTagIds]
+  );
 
   const hasContactFilters =
     selectedTagIds.length > 0 ||
@@ -239,7 +268,7 @@ export function ConversationList({
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setSearch(e.target.value);
     },
-    []
+    [setSearch]
   );
 
   const handleSelect = useCallback(
@@ -290,6 +319,7 @@ export function ConversationList({
               onChange={handleSearchChange}
               placeholder={t('searchPlaceholder')}
               aria-label={t('searchPlaceholder')}
+              maxLength={200}
               className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 ps-9 pe-9 text-sm"
             />
             {search && (
@@ -306,6 +336,15 @@ export function ConversationList({
             )}
           </div>
 
+          <MessageSearch
+            activeConversationId={activeConversationId}
+            onOpenMessage={onOpenMessage}
+          />
+          <SavedViews
+            query={query}
+            onApply={(view) => updateQuery(view)}
+            canReadSales={canReadSales}
+          />
           {SALES_VIEWS.includes(filter as SalesView) && (
             <p role="status" className="text-muted-foreground text-xs">
               {fetchError
@@ -667,8 +706,12 @@ export function ConversationList({
               )}
               <button
                 onClick={() => {
-                  clearContactFilters();
-                  setFilter('all');
+                  updateQuery({
+                    tags: [],
+                    company: null,
+                    agent: null,
+                    view: 'all',
+                  });
                 }}
                 className="text-muted-foreground hover:text-foreground px-1 text-[11px]"
               >
@@ -712,9 +755,13 @@ export function ConversationList({
                   type="button"
                   className="text-primary mt-3 text-sm underline"
                   onClick={() => {
-                    setSearch('');
-                    setFilter('all');
-                    clearContactFilters();
+                    updateQuery({
+                      search: '',
+                      view: 'all',
+                      tags: [],
+                      company: null,
+                      agent: null,
+                    });
                   }}
                 >
                   {t('clearAll')}
@@ -765,6 +812,10 @@ interface ConversationItemProps {
   isActive: boolean;
   onSelect: (conversation: Conversation) => void;
   onPrefetch?: (conversation: Conversation | null) => void;
+  onOpenMessage?: (
+    conversationId: string,
+    messageId: string
+  ) => Promise<boolean>;
   t: ReturnType<typeof useTranslations>;
   profilesById: Map<string, Profile>;
 }
@@ -867,6 +918,7 @@ function ConversationItem({
         </div>
         <div className="mt-0.5 flex items-center justify-between gap-2">
           <p className="text-muted-foreground truncate text-xs">
+            <ConversationDraftBadge conversationId={conversation.id} />
             {conversation.last_message_text || t('noMessagesYet')}
           </p>
           <div className="flex shrink-0 items-center gap-1.5">

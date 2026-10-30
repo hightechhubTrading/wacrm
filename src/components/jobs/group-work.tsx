@@ -1,4 +1,6 @@
 'use client';
+import { BusinessTimeNote } from '@/components/workspace/business-time-note';
+import { BUSINESS_TIME_ZONE, businessDateTimeToIso } from '@/lib/business-time';
 
 import { statusClasses } from '@/lib/ui-colors';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -142,7 +144,7 @@ export function GroupWorkDialog({
           location,
           details,
           responsible,
-          due_at: due ? new Date(due).toISOString() : null,
+          due_at: due ? businessDateTimeToIso(due) : null,
           quotation_id: quotation || null,
         }),
       });
@@ -313,6 +315,7 @@ export function GroupWorkDialog({
                         />
                       </details>
                       <Label htmlFor="work-due">{t('requestedDate')}</Label>
+                      <BusinessTimeNote />
                       <Input
                         id="work-due"
                         type="datetime-local"
@@ -450,7 +453,10 @@ function WorkRecord({
       )}
       {work.due_at && (
         <p className="text-sm">
-          {t('requestedDate')}: {new Date(work.due_at).toLocaleString(locale)}
+          {t('requestedDate')}:{' '}
+          {new Date(work.due_at).toLocaleString(locale, {
+            timeZone: BUSINESS_TIME_ZONE,
+          })}
         </p>
       )}
       {work.status === 'draft' && (
@@ -555,7 +561,9 @@ function WorkRecord({
             <article className="border-t pt-2 text-sm" key={event.id}>
               <p className="text-muted-foreground">
                 {t(`actions.${event.action}`)} ·{' '}
-                {new Date(event.created_at).toLocaleString(locale)}
+                {new Date(event.created_at).toLocaleString(locale, {
+                  timeZone: BUSINESS_TIME_ZONE,
+                })}
               </p>
               <p className="whitespace-pre-wrap">{event.note}</p>
               {event.attachments.map((file) =>
@@ -672,7 +680,9 @@ export function WaitingWorkQueue() {
                     >
                       ·{' '}
                       {Date.parse(row.due_at) < Date.now() ? t('overdue') : ''}{' '}
-                      {new Date(row.due_at).toLocaleString(locale)}
+                      {new Date(row.due_at).toLocaleString(locale, {
+                        timeZone: BUSINESS_TIME_ZONE,
+                      })}
                     </span>
                   )}{' '}
                   {row.responsible && `· ${row.responsible}`}

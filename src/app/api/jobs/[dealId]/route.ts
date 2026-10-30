@@ -27,27 +27,52 @@ async function context(params: Params['params']) {
   if (error) throw new Error('Deal lookup failed');
   return { ...ctx, dealId, deal };
 }
-export async function GET(_request: Request, { params }: Params) {
+export async function GET(request: Request, { params }: Params) {
   try {
     const ctx = await context(params);
     if (!ctx.deal)
       return NextResponse.json({ error: 'Deal not found' }, { status: 404 });
+    const overview = new URL(request.url).searchParams.get('overview') === '1';
+    const table = ctx.supabase.from('group_handoffs');
+    const selection = overview
+      ? table.select(
+          'id,deal_id,reference,kind,status,location,details,responsible,due_at,revision,updated_at,quotation_snapshot,created_at,events:group_handoff_events(id,action,status,note,created_at)'
+        )
+      : table.select('*,events:group_handoff_events(*)');
+    let workQuery = selection
+      .eq('account_id', ctx.accountId)
+      .eq('deal_id', ctx.dealId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (overview)
+      workQuery = workQuery
+        .order('created_at', { referencedTable: 'events', ascending: false })
+        .order('id', { referencedTable: 'events', ascending: false })
+        .limit(20, { referencedTable: 'events' });
     const [works, quotes] = await Promise.all([
-      ctx.supabase
-        .from('group_handoffs')
-        .select('*,events:group_handoff_events(*)')
-        .eq('account_id', ctx.accountId)
-        .eq('deal_id', ctx.dealId)
-        .order('created_at', { ascending: false })
-        .limit(50),
+      workQuery,
       ctx.supabase
         .from('quotations')
         .select('id,reference,revision')
         .eq('account_id', ctx.accountId)
         .eq('deal_id', ctx.dealId)
         .eq('status', 'won')
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(50),
     ]);
+    // The compact overview never signs/downloads attachments. Its sections fail
+    // independently; opening a source work record uses the normal report API.
+    if (overview)
+      return NextResponse.json(
+        {
+          work: works.error ? [] : (works.data ?? []),
+          quotations: quotes.error ? [] : (quotes.data ?? []),
+          workError: !!works.error,
+          quotationsError: !!quotes.error,
+        },
+        { headers: { 'Cache-Control': 'private, no-store' } }
+      );
     if (works.error || quotes.error)
       return NextResponse.json(
         { error: 'Could not load work records' },

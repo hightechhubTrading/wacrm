@@ -24,6 +24,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuGroup,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -35,6 +36,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useCan } from '@/hooks/use-can';
+import { useAuth } from '@/hooks/use-auth';
+import { useBrowserOnline } from '@/hooks/use-browser-online';
+import { type SendOutcome } from '@/lib/inbox/send-outcome';
+import { useConversationDraft } from '@/hooks/use-conversation-draft';
+import { useComposerSend } from '@/hooks/use-composer-send';
+import {
+  draftScope,
+  type ComposerAttachment,
+  type ComposerReply,
+  type TemplateDraft,
+} from '@/lib/inbox/drafts';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -52,6 +64,7 @@ import { validateInteractivePayload } from '@/lib/whatsapp/interactive';
 import type { InteractiveMessagePayload, QuickReply } from '@/types';
 import { QuickReplyPicker } from './quick-reply-picker';
 import { CatalogPickerDialog, type CatalogPick } from './catalog-picker-dialog';
+import { TemplatePicker } from './template-picker';
 
 /** Media content types an agent can send from the composer. */
 export type ComposerMediaKind = 'image' | 'video' | 'document' | 'audio';
@@ -83,12 +96,7 @@ export interface SendMediaPayload {
   source: 'upload' | 'catalog';
 }
 
-interface ReplyDraft {
-  /** Internal UUID of the message being replied to — sent back through onSend. */
-  id: string;
-  authorLabel: string;
-  preview: string;
-}
+type ReplyDraft = ComposerReply;
 
 // Mirrors the chat-media bucket's allowed_mime_types (migration 023) for
 // the file picker so unsupported files are rejected before upload rather
@@ -101,32 +109,36 @@ const PICKER_ACCEPT: Record<'image' | 'video' | 'document', string> = {
     'application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain',
 };
 
-interface MediaDraft {
-  kind: ComposerMediaKind;
-  mediaUrl: string;
-  /** Storage path — used to GC the object if the draft is discarded
-   *  (only when `source === "upload"` — see `removeStaged`). */
-  path: string;
-  filename: string;
-  caption: string;
-  /** 'upload' = freshly uploaded to chat-media, GC'd on discard/failed
-   *  send. 'catalog' = picked from the product catalog (ai-media
-   *  bucket, a shared/reusable asset) — never GC'd through this flow. */
-  source: 'upload' | 'catalog';
-}
+type MediaDraft = ComposerAttachment;
 
 interface MessageComposerProps {
   conversationId: string;
   sessionExpired: boolean;
-  onSend: (text: string, replyToId?: string) => void;
-  onSendMedia: (payload: SendMediaPayload) => void;
+  onSend: (
+    text: string,
+    replyToId: string | undefined,
+    operationId: string
+  ) => Promise<SendOutcome>;
+  onSendMedia: (
+    payload: SendMediaPayload,
+    operationId: string
+  ) => Promise<SendOutcome>;
   onSendInteractive: (
     payload: InteractiveMessagePayload,
-    replyToId?: string
-  ) => void;
+    replyToId: string | undefined,
+    operationId: string
+  ) => Promise<SendOutcome>;
   onOpenTemplates: () => void;
+  templatePickerOpen?: boolean;
+  onTemplatePickerOpenChange?: (open: boolean) => void;
+  onSendTemplate?: (draft: TemplateDraft, id: string) => Promise<SendOutcome>;
   replyTo?: ReplyDraft | null;
   onClearReply?: () => void;
+  onDismissOperation?: (id: string) => void;
+  onConfirmedOperation?: (
+    id: string,
+    result: Extract<SendOutcome, { state: 'accepted' }>
+  ) => void;
 }
 
 function formatDuration(seconds: number): string {
@@ -140,29 +152,109 @@ function formatDuration(seconds: number): string {
  *  Meta-accepted format means no server ffmpeg / transcode step. */
 const OPUS_ENCODER_PATH = '/opus/encoderWorker.min.js';
 
-export function MessageComposer({
+export function MessageComposer(props: MessageComposerProps) {
+  const { accountId, user } = useAuth();
+  if (!accountId || !user) return null;
+  const scope = draftScope(accountId, user.id);
+  return (
+    <ScopedMessageComposer
+      key={`${scope}${props.conversationId}`}
+      {...props}
+      scope={scope}
+    />
+  );
+}
+
+function ScopedMessageComposer({
   conversationId,
   sessionExpired,
   onSend,
   onSendMedia,
   onSendInteractive,
   onOpenTemplates,
+  templatePickerOpen = false,
+  onTemplatePickerOpenChange,
+  onSendTemplate,
   replyTo,
   onClearReply,
-}: MessageComposerProps) {
+  onDismissOperation,
+  onConfirmedOperation,
+  scope,
+}: MessageComposerProps & { scope: string }) {
   const t = useTranslations('Inbox.composer');
+  const browserOnline = useBrowserOnline();
   const locale = useLocale();
 
-  const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
+  const {
+    draft: savedDraft,
+    update: updateDraft,
+    persistent,
+  } = useConversationDraft(scope, conversationId);
+  const text = savedDraft.text;
+  const textRef = useRef(text);
+  const editVersion = useRef(0);
+  const mounted = useRef(false);
+  const requests = useRef(new Set<AbortController>());
+  useEffect(() => {
+    mounted.current = true;
+    const pending = requests.current;
+    return () => {
+      mounted.current = false;
+      for (const controller of pending) controller.abort();
+      pending.clear();
+    };
+  }, []);
+  useEffect(() => {
+    textRef.current = text;
+  }, [text]);
+  const setText = useCallback(
+    (next: string | ((previous: string) => string)) => {
+      editVersion.current++;
+      updateDraft((previous) => {
+        const value = typeof next === 'function' ? next(previous.text) : next;
+        textRef.current = value;
+        return { ...previous, text: value };
+      });
+    },
+    [updateDraft]
+  );
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const effectiveReply = replyTo ?? savedDraft.reply;
+  useEffect(() => {
+    if (replyTo) updateDraft((previous) => ({ ...previous, reply: replyTo }));
+  }, [replyTo, updateDraft]);
+  const clearReply = useCallback(() => {
+    updateDraft((previous) => ({ ...previous, reply: null }));
+    onClearReply?.();
+  }, [updateDraft, onClearReply]);
+  const recovery = savedDraft.recovery;
+  const canSend = useCan('send-messages');
+  const readOnly = !canSend;
+  const { sending, deliveryLocked, checkingSend, runOperation, checkDelivery } =
+    useComposerSend({
+      recovery,
+      updateDraft,
+      mounted,
+      readOnly,
+      sessionExpired,
+      browserOnline,
+      onClearReply,
+      onConfirmedOperation,
+      onDismissOperation,
+    });
   const [drafting, setDrafting] = useState(false);
   const [translatingDraft, setTranslatingDraft] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Interactive-message builder dialog + quick-reply picker.
   const [interactiveOpen, setInteractiveOpen] = useState(false);
-  const [interactivePayload, setInteractivePayload] =
-    useState<InteractiveMessagePayload>(blankButtonsPayload);
+  const interactivePayload = savedDraft.interactive ?? blankButtonsPayload();
+  const setInteractivePayload = useCallback(
+    (payload: InteractiveMessagePayload) => {
+      updateDraft((previous) => ({ ...previous, interactive: payload }));
+    },
+    [updateDraft]
+  );
   const [savingQuickReply, setSavingQuickReply] = useState(false);
   const [quickReplyOpen, setQuickReplyOpen] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
@@ -175,14 +267,34 @@ export function MessageComposer({
 
   // Media attachment state. `draft` holds an uploaded-but-not-yet-sent
   // attachment; `busy` covers the upload/transcode window.
-  const [draft, setDraft] = useState<MediaDraft | null>(null);
+  const draft = savedDraft.attachment;
+  const setDraft = useCallback(
+    (
+      next:
+        MediaDraft | null | ((previous: MediaDraft | null) => MediaDraft | null)
+    ) => {
+      return updateDraft((previous) => {
+        const attachment =
+          typeof next === 'function' ? next(previous.attachment) : next;
+        return {
+          ...previous,
+          attachment,
+          attachmentAt: attachment
+            ? attachment.path === previous.attachment?.path
+              ? previous.attachmentAt
+              : Date.now()
+            : null,
+        };
+      });
+    },
+    [updateDraft]
+  );
   const [busy, setBusy] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
-  // Mirror of `draft` for the unmount cleanup, which can't read render
-  // state. Kept in sync below so navigating away with a staged-but-unsent
-  // attachment GCs the orphaned object.
+  // Latest staged object for replacement/discard cleanup. Draft ownership
+  // survives navigation; an unfinished upload is cleaned up separately.
   const draftRef = useRef<MediaDraft | null>(null);
   useEffect(() => {
     draftRef.current = draft;
@@ -210,10 +322,9 @@ export function MessageComposer({
   // Viewers (read-only role) can browse the inbox but never send.
   // For solo users this is always true — single-owner accounts pass
   // every capability — so the disabled branch is a no-op there.
-  const canSend = useCan('send-messages');
-  const readOnly = !canSend;
   // Media (like free-form text) is only allowed inside the 24h window.
-  const inputsDisabled = readOnly || sessionExpired;
+  const inputsDisabled =
+    readOnly || sessionExpired || deliveryLocked || !browserOnline;
 
   const clearTimer = useCallback(() => {
     if (timerRef.current !== null) {
@@ -222,18 +333,17 @@ export function MessageComposer({
     }
   }, []);
 
-  // Tear down any live recording + timer on unmount so a mid-record
-  // navigation doesn't leak the mic, and GC a staged-but-unsent
-  // attachment so it doesn't orphan in the bucket.
+  // Release the microphone on navigation. Completed uploads stay attached
+  // to this conversation's recoverable draft.
   useEffect(() => {
     return () => {
       clearTimer();
       cancelledRef.current = true;
       // stop() releases the mic stream + audio context inside opus-recorder.
       void recorderRef.current?.stop().catch(() => {});
-      removeStaged(draftRef.current?.path, draftRef.current?.source);
+      // Staged attachments belong to their recoverable conversation draft.
     };
-  }, [clearTimer, removeStaged]);
+  }, [clearTimer]);
 
   const adjustHeight = useCallback(() => {
     const el = textareaRef.current;
@@ -245,23 +355,25 @@ export function MessageComposer({
 
   const handleSend = useCallback(async () => {
     const trimmed = text.trim();
-    if (!trimmed || sending || sessionExpired) return;
-
-    setSending(true);
-    try {
-      onSend(trimmed, replyTo?.id);
-      setText('');
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
-    } finally {
-      setSending(false);
-    }
-  }, [text, sending, sessionExpired, onSend, replyTo?.id]);
+    if (!trimmed || inputsDisabled) return;
+    await runOperation(
+      'text',
+      (id) => onSend(trimmed, effectiveReply?.id, id),
+      { text, replyId: effectiveReply?.id }
+    );
+    if (mounted.current) requestAnimationFrame(adjustHeight);
+  }, [
+    text,
+    inputsDisabled,
+    runOperation,
+    onSend,
+    effectiveReply?.id,
+    adjustHeight,
+  ]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
         e.preventDefault();
         handleSend();
       }
@@ -274,35 +386,42 @@ export function MessageComposer({
       setText(e.target.value);
       adjustHeight();
     },
-    [adjustHeight]
+    [adjustHeight, setText]
   );
 
   // Ask the AI assistant for a suggested reply and drop it into the
   // composer for the agent to edit + send. Read-only server-side —
   // nothing is sent until the agent hits Send.
   const handleDraft = useCallback(async () => {
-    if (drafting) return;
+    if (drafting || inputsDisabled) return;
     setDrafting(true);
+    const version = editVersion.current;
+    const controller = new AbortController();
+    requests.current.add(controller);
     try {
       const res = await fetch('/api/ai/draft', {
+        signal: controller.signal,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ conversation_id: conversationId }),
       });
       const data = await res.json().catch(() => ({}));
+      if (!mounted.current || controller.signal.aborted) return;
       if (!res.ok) {
         if (data.code === 'ai_not_configured') {
-          toast.error(
-            "AI isn't set up yet — enable it in Settings → AI Assistant."
-          );
+          toast.error(t('aiNotConfigured'));
         } else {
-          toast.error(data.error ?? "Couldn't draft a reply.");
+          toast.error(t('draftFailed'));
         }
         return;
       }
       const draftText = typeof data.draft === 'string' ? data.draft.trim() : '';
       if (!draftText) {
-        toast.error("The assistant didn't return a reply.");
+        toast.error(t('draftEmpty'));
+        return;
+      }
+      if (textRef.current.trim() || editVersion.current !== version) {
+        setSuggestion(draftText);
         return;
       }
       setText(draftText);
@@ -317,11 +436,13 @@ export function MessageComposer({
         }
       });
     } catch {
-      toast.error("Couldn't reach the AI assistant.");
+      if (mounted.current && !controller.signal.aborted)
+        toast.error(t('aiUnavailable'));
     } finally {
-      setDrafting(false);
+      requests.current.delete(controller);
+      if (mounted.current) setDrafting(false);
     }
-  }, [drafting, conversationId, adjustHeight]);
+  }, [drafting, conversationId, adjustHeight, setText, t, inputsDisabled]);
 
   useEffect(() => {
     const prepare = (event: Event) => {
@@ -343,55 +464,83 @@ export function MessageComposer({
   // build-time default (see message-actions.tsx for the same heuristic
   // on the inbound side).
   const handleTranslateDraft = useCallback(async () => {
-    if (translatingDraft || !text.trim()) return;
+    if (translatingDraft || !text.trim() || inputsDisabled) return;
     const targetLanguage = locale === 'ar' ? 'English' : 'Arabic';
     setTranslatingDraft(true);
+    const version = editVersion.current;
+    const original = text;
+    const controller = new AbortController();
+    requests.current.add(controller);
     try {
       const res = await fetch('/api/ai/translate', {
+        signal: controller.signal,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, target_language: targetLanguage }),
       });
       const data = await res.json().catch(() => ({}));
+      if (!mounted.current || controller.signal.aborted) return;
       if (!res.ok) {
-        toast.error(data.error ?? "Couldn't translate the message.");
+        toast.error(t('translationFailed'));
         return;
       }
       const translated =
         typeof data.translation === 'string' ? data.translation.trim() : '';
       if (!translated) {
-        toast.error("The assistant didn't return a translation.");
+        toast.error(t('translationEmpty'));
+        return;
+      }
+      if (editVersion.current !== version || textRef.current !== original) {
+        setSuggestion(translated);
         return;
       }
       setText(translated);
       requestAnimationFrame(() => adjustHeight());
     } catch {
-      toast.error("Couldn't reach the AI assistant.");
+      if (mounted.current && !controller.signal.aborted)
+        toast.error(t('aiUnavailable'));
     } finally {
-      setTranslatingDraft(false);
+      requests.current.delete(controller);
+      if (mounted.current) setTranslatingDraft(false);
     }
-  }, [translatingDraft, text, adjustHeight, locale]);
+  }, [
+    translatingDraft,
+    text,
+    adjustHeight,
+    locale,
+    setText,
+    t,
+    inputsDisabled,
+  ]);
 
   // ---- Interactive message + quick replies --------------------------
 
   const openInteractiveBuilder = useCallback(
     (seed?: InteractiveMessagePayload) => {
-      setInteractivePayload(seed ?? blankButtonsPayload());
+      if (seed) setInteractivePayload(seed);
+      else if (!savedDraft.interactive)
+        setInteractivePayload(blankButtonsPayload());
       setInteractiveOpen(true);
     },
-    []
+    [setInteractivePayload, savedDraft.interactive]
   );
 
-  const sendInteractive = useCallback(() => {
+  const sendInteractive = useCallback(async () => {
     const result = validateInteractivePayload(interactivePayload);
     if (!result.ok) {
       toast.error(result.error);
       return;
     }
-    onSendInteractive(interactivePayload, replyTo?.id);
-    setInteractiveOpen(false);
-    onClearReply?.();
-  }, [interactivePayload, onSendInteractive, replyTo?.id, onClearReply]);
+    await runOperation(
+      'interactive',
+      (id) => onSendInteractive(interactivePayload, effectiveReply?.id, id),
+      {
+        replyId: effectiveReply?.id,
+        interactive: JSON.stringify(interactivePayload),
+      }
+    );
+    if (mounted.current) setInteractiveOpen(false);
+  }, [interactivePayload, onSendInteractive, effectiveReply?.id, runOperation]);
 
   // Persist the current builder payload as a reusable interactive snippet.
   const saveAsQuickReply = useCallback(async () => {
@@ -413,9 +562,8 @@ export function MessageComposer({
           interactive_payload: interactivePayload,
         }),
       });
-      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? t('quickReplySaveError'));
+        toast.error(t('quickReplySaveError'));
         return;
       }
       toast.success(t('quickReplySaved'));
@@ -450,7 +598,7 @@ export function MessageComposer({
         }
       });
     },
-    [openInteractiveBuilder, adjustHeight]
+    [openInteractiveBuilder, adjustHeight, setText]
   );
 
   // Upload a captured file to chat-media and stage it as a draft.
@@ -462,9 +610,13 @@ export function MessageComposer({
       const max = MEDIA_MAX_BYTES_BY_KIND[kind];
       if (file.size > max) {
         toast.error(
-          `File is ${(file.size / 1024 / 1024).toFixed(1)} MB — ${kind} limit is ${Math.round(
-            max / 1024 / 1024
-          )} MB.`
+          t('fileTooLarge', {
+            size: (file.size / 1024 / 1024).toFixed(1),
+            max: Math.round(max / 1024 / 1024),
+            kind: t(
+              kind === 'image' ? 'photo' : kind === 'audio' ? 'voiceNote' : kind
+            ),
+          })
         );
         return;
       }
@@ -474,9 +626,12 @@ export function MessageComposer({
           CHAT_MEDIA_BUCKET,
           file
         );
-        // Replacing an existing draft? GC the previous object first.
-        removeStaged(draftRef.current?.path, draftRef.current?.source);
-        setDraft({
+        if (!mounted.current) {
+          removeStaged(path, 'upload');
+          return;
+        }
+        const previous = draftRef.current;
+        const staged = setDraft({
           kind,
           mediaUrl: publicUrl,
           path,
@@ -484,13 +639,15 @@ export function MessageComposer({
           caption: '',
           source: 'upload',
         });
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Upload failed.');
+        if (staged) removeStaged(previous?.path, previous?.source);
+        else removeStaged(path, 'upload');
+      } catch {
+        if (mounted.current) toast.error(t('uploadFailed'));
       } finally {
         setBusy(false);
       }
     },
-    [removeStaged]
+    [removeStaged, setDraft, t]
   );
 
   const handlePicked = useCallback(
@@ -514,7 +671,7 @@ export function MessageComposer({
         source: 'catalog',
       });
     },
-    [removeStaged]
+    [removeStaged, setDraft]
   );
 
   // ---- Voice recording (client-side Ogg/Opus, no server transcode) ---
@@ -534,7 +691,7 @@ export function MessageComposer({
       );
       if (file.size === 0) return; // cancelled / empty take
       if (file.size > MEDIA_MAX_BYTES_BY_KIND.audio) {
-        toast.error('Recording is too long (over 16 MB).');
+        toast.error(t('recordingTooLarge'));
         return;
       }
       setBusy(true);
@@ -543,8 +700,12 @@ export function MessageComposer({
           CHAT_MEDIA_BUCKET,
           file
         );
-        removeStaged(draftRef.current?.path, draftRef.current?.source);
-        setDraft({
+        if (!mounted.current) {
+          removeStaged(path, 'upload');
+          return;
+        }
+        const previous = draftRef.current;
+        const staged = setDraft({
           kind: 'audio',
           mediaUrl: publicUrl,
           path,
@@ -552,13 +713,15 @@ export function MessageComposer({
           caption: '',
           source: 'upload',
         });
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Upload failed.');
+        if (staged) removeStaged(previous?.path, previous?.source);
+        else removeStaged(path, 'upload');
+      } catch {
+        if (mounted.current) toast.error(t('uploadFailed'));
       } finally {
         setBusy(false);
       }
     },
-    [removeStaged]
+    [removeStaged, setDraft, t]
   );
 
   const startRecording = useCallback(async () => {
@@ -567,13 +730,14 @@ export function MessageComposer({
       !navigator.mediaDevices?.getUserMedia ||
       typeof AudioContext === 'undefined'
     ) {
-      toast.error("Voice recording isn't supported in this browser.");
+      toast.error(t('recordingUnavailable'));
       return;
     }
     try {
       // Lazy-load the encoder (≈400 KB worker) only when the user records,
       // keeping it out of the main bundle.
       const { default: Recorder } = await import('opus-recorder');
+      if (!mounted.current) return;
       const recorder = new Recorder({
         encoderPath: OPUS_ENCODER_PATH,
         numberOfChannels: 1,
@@ -588,6 +752,11 @@ export function MessageComposer({
       };
       recorderRef.current = recorder;
       await recorder.start();
+      if (!mounted.current) {
+        cancelledRef.current = true;
+        await recorder.stop().catch(() => {});
+        return;
+      }
       setRecording(true);
       setRecordSeconds(0);
       timerRef.current = setInterval(
@@ -597,9 +766,9 @@ export function MessageComposer({
     } catch {
       void recorderRef.current?.stop().catch(() => {});
       recorderRef.current = null;
-      toast.error('Microphone access denied or unavailable.');
+      if (mounted.current) toast.error(t('microphoneUnavailable'));
     }
-  }, [inputsDisabled, busy, recording, finalizeRecording]);
+  }, [inputsDisabled, busy, recording, finalizeRecording, t]);
 
   const stopRecording = useCallback(() => {
     clearTimer();
@@ -622,58 +791,247 @@ export function MessageComposer({
     }
   }, [recording, recordSeconds, stopRecording]);
 
+  const sendTemplateDraft = useCallback(
+    async (draft: TemplateDraft) => {
+      if (deliveryLocked || readOnly || !browserOnline || !onSendTemplate)
+        return;
+      updateDraft((previous) => ({ ...previous, template: draft }));
+      await runOperation('template', (id) => onSendTemplate(draft, id), {
+        template: JSON.stringify(draft),
+      });
+    },
+    [
+      deliveryLocked,
+      readOnly,
+      browserOnline,
+      onSendTemplate,
+      updateDraft,
+      runOperation,
+    ]
+  );
+
   // ---- Draft send / discard -----------------------------------------
 
-  const sendDraft = useCallback(() => {
-    if (!draft || busy) return;
-    onSendMedia({
-      kind: draft.kind,
-      mediaUrl: draft.mediaUrl,
-      path: draft.path,
-      // Audio takes no caption (Meta rejects it). Everything else: the
-      // trimmed caption, or undefined when blank.
-      caption:
-        draft.kind === 'audio' ? undefined : draft.caption.trim() || undefined,
-      filename: draft.kind === 'document' ? draft.filename : undefined,
-      replyToId: replyTo?.id,
-      source: draft.source,
-    });
-    // The object is now owned by the sent message — clear without GC.
-    setDraft(null);
-    onClearReply?.();
-  }, [draft, busy, onSendMedia, replyTo?.id, onClearReply]);
+  const sendDraft = useCallback(async () => {
+    if (!draft || busy || inputsDisabled) return;
+    await runOperation(
+      'media',
+      (id) =>
+        onSendMedia(
+          {
+            kind: draft.kind,
+            mediaUrl: draft.mediaUrl,
+            path: draft.path,
+            caption:
+              draft.kind === 'audio'
+                ? undefined
+                : draft.caption.trim() || undefined,
+            filename: draft.kind === 'document' ? draft.filename : undefined,
+            replyToId: effectiveReply?.id,
+            source: draft.source,
+          },
+          id
+        ),
+      { path: draft.path, replyId: effectiveReply?.id }
+    );
+  }, [
+    draft,
+    busy,
+    inputsDisabled,
+    runOperation,
+    onSendMedia,
+    effectiveReply?.id,
+  ]);
 
   // Discard GCs the staged object — it was uploaded but never sent.
   // No-op for a catalog pick (see removeStaged).
   const discardDraft = useCallback(() => {
     removeStaged(draft?.path, draft?.source);
     setDraft(null);
-  }, [draft?.path, draft?.source, removeStaged]);
+  }, [draft?.path, draft?.source, removeStaged, setDraft]);
 
-  const setCaption = useCallback((caption: string) => {
-    setDraft((d) => (d ? { ...d, caption } : d));
-  }, []);
+  const setCaption = useCallback(
+    (caption: string) => {
+      setDraft((d) => (d ? { ...d, caption } : d));
+    },
+    [setDraft]
+  );
 
   // ---- Render --------------------------------------------------------
 
   return (
-    <div className="crm-composer border-border bg-card border-t p-3">
-      {replyTo && (
+    <div
+      data-conversation-composer={conversationId}
+      className="crm-composer border-border bg-card border-t p-3"
+    >
+      {effectiveReply && (
         <div className="mb-2">
           <ReplyQuote
-            authorLabel={replyTo.authorLabel}
-            preview={replyTo.preview}
-            onDismiss={onClearReply}
+            authorLabel={effectiveReply.authorLabel}
+            preview={effectiveReply.preview}
+            onDismiss={clearReply}
           />
         </div>
       )}
+      {recovery && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="border-border mb-3 rounded-lg border p-3 text-sm"
+        >
+          <p>
+            {t(
+              recovery.state === 'sending'
+                ? 'sendPending'
+                : recovery.state === 'rejected'
+                  ? 'sendRejected'
+                  : 'sendUnknown'
+            )}
+          </p>
+          {recovery.state === 'rejected' ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                disabled={
+                  readOnly ||
+                  !browserOnline ||
+                  (sessionExpired && recovery.kind !== 'template')
+                }
+                onClick={() => {
+                  if (recovery.kind === 'template' && savedDraft.template)
+                    void sendTemplateDraft(savedDraft.template);
+                  else if (recovery.kind === 'media') void sendDraft();
+                  else if (recovery.kind === 'interactive')
+                    void sendInteractive();
+                  else void handleSend();
+                }}
+              >
+                {t('retryFailedMessage')}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  onDismissOperation?.(recovery.id);
+                  updateDraft((previous) => ({ ...previous, recovery: null }));
+                  if (recovery.kind === 'template') onOpenTemplates();
+                  else if (recovery.kind === 'interactive')
+                    setInteractiveOpen(true);
+                  else
+                    requestAnimationFrame(() => textareaRef.current?.focus());
+                }}
+              >
+                {t('editFailedMessage')}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  onDismissOperation?.(recovery.id);
+                  if (draft && recovery.kind === 'media')
+                    removeStaged(draft.path, draft.source);
+                  updateDraft((previous) => ({
+                    ...previous,
+                    recovery: null,
+                    text: recovery.kind === 'text' ? '' : previous.text,
+                    attachment:
+                      recovery.kind === 'media' ? null : previous.attachment,
+                    attachmentAt:
+                      recovery.kind === 'media' ? null : previous.attachmentAt,
+                    interactive:
+                      recovery.kind === 'interactive'
+                        ? null
+                        : previous.interactive,
+                    template:
+                      recovery.kind === 'template' ? null : previous.template,
+                    reply:
+                      previous.reply?.id === recovery.original?.replyId
+                        ? null
+                        : previous.reply,
+                  }));
+                  onClearReply?.();
+                }}
+              >
+                {t('discardFailedMessage')}
+              </Button>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-2"
+              disabled={checkingSend}
+              onClick={checkDelivery}
+            >
+              {t('checkDelivery')}
+            </Button>
+          )}
+        </div>
+      )}
+      {(text || draft) && (
+        <p
+          className="crm-draft-status text-muted-foreground mb-2 text-xs"
+          role="status"
+        >
+          {t(persistent ? 'draftSaved' : 'draftMemory')}
+        </p>
+      )}
+      {suggestion !== null && (
+        <section
+          className="border-border mb-3 rounded-lg border p-3"
+          aria-label={t('suggestionTitle')}
+        >
+          <p className="mb-2 text-sm font-medium">{t('suggestionTitle')}</p>
+          <p
+            className="mb-3 max-h-40 overflow-y-auto text-sm whitespace-pre-wrap"
+            dir="auto"
+          >
+            {suggestion}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={deliveryLocked}
+              onClick={() => {
+                setText(suggestion);
+                setSuggestion(null);
+                requestAnimationFrame(adjustHeight);
+              }}
+            >
+              {t('replaceDraft')}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={deliveryLocked}
+              onClick={() => {
+                setText((previous) =>
+                  previous ? `${previous}\n${suggestion}` : suggestion
+                );
+                setSuggestion(null);
+                requestAnimationFrame(adjustHeight);
+              }}
+            >
+              {t('insertSuggestion')}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setSuggestion(null)}
+            >
+              {t('dismissSuggestion')}
+            </Button>
+          </div>
+        </section>
+      )}
       {sessionExpired && (
-        <div className="crm-session-notice mb-2 flex items-center justify-between rounded-lg bg-warning/10 px-3 py-2">
-          <p className="text-xs text-warning">{t('sessionExpiredHint')}</p>
+        <div className="crm-session-notice bg-warning/10 mb-2 flex items-center justify-between rounded-lg px-3 py-2">
+          <p className="text-warning text-xs">{t('sessionExpiredHint')}</p>
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 text-xs text-warning hover:text-warning"
+            className="text-warning hover:text-warning h-7 text-xs"
             onClick={onOpenTemplates}
           >
             <LayoutTemplate className="me-1 h-3 w-3" />
@@ -717,8 +1075,8 @@ export function MessageComposer({
       {draft ? (
         <MediaDraftPreview
           draft={draft}
-          busy={busy}
-          readOnly={readOnly}
+          busy={busy || deliveryLocked}
+          readOnly={readOnly || sessionExpired}
           onCaptionChange={setCaption}
           onDiscard={discardDraft}
           onSend={sendDraft}
@@ -727,7 +1085,7 @@ export function MessageComposer({
       ) : recording ? (
         // Recording bar — replaces the composer while the mic is live.
         <div className="border-border bg-muted flex items-center gap-3 rounded-xl border px-4 py-2.5">
-          <span className="flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-destructive" />
+          <span className="bg-destructive flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full" />
           <span className="text-foreground flex-1 text-sm">
             {t('recording', {
               current: formatDuration(recordSeconds),
@@ -759,7 +1117,7 @@ export function MessageComposer({
             gateReason="send messages"
             disabled={inputsDisabled || busy}
             onClick={() => setCatalogOpen(true)}
-            className="crm-product-library-action h-9 shrink-0 gap-2 rounded-lg px-3 text-primary hover:bg-primary/10"
+            className="crm-product-library-action text-primary hover:bg-primary/10 h-9 shrink-0 gap-2 rounded-lg px-3"
           >
             <ImageIcon className="h-4 w-4" />
             <span>{t('catalog')}</span>
@@ -788,35 +1146,43 @@ export function MessageComposer({
               align="start"
               className="border-border bg-popover"
             >
-              <DropdownMenuLabel>{t('uploadFromDevice')}</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => imageInputRef.current?.click()}>
-                <ImageIcon className="me-2 h-4 w-4" />
-                {t('photo')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => videoInputRef.current?.click()}>
-                <Video className="me-2 h-4 w-4" />
-                {t('video')}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => documentInputRef.current?.click()}
-              >
-                <FileText className="me-2 h-4 w-4" />
-                {t('document')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void startRecording()}>
-                <Mic className="me-2 h-4 w-4" />
-                {t('voiceNote')}
-              </DropdownMenuItem>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>{t('uploadFromDevice')}</DropdownMenuLabel>
+                <DropdownMenuItem
+                  onClick={() => imageInputRef.current?.click()}
+                >
+                  <ImageIcon className="me-2 h-4 w-4" />
+                  {t('photo')}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => videoInputRef.current?.click()}
+                >
+                  <Video className="me-2 h-4 w-4" />
+                  {t('video')}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => documentInputRef.current?.click()}
+                >
+                  <FileText className="me-2 h-4 w-4" />
+                  {t('document')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void startRecording()}>
+                  <Mic className="me-2 h-4 w-4" />
+                  {t('voiceNote')}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel>{t('replyTools')}</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => openInteractiveBuilder()}>
-                <MessageSquareDashed className="me-2 h-4 w-4" />
-                {t('interactiveMessage')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setQuickReplyOpen(true)}>
-                <Zap className="me-2 h-4 w-4" />
-                {t('quickReplies')}
-              </DropdownMenuItem>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>{t('replyTools')}</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => openInteractiveBuilder()}>
+                  <MessageSquareDashed className="me-2 h-4 w-4" />
+                  {t('interactiveMessage')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setQuickReplyOpen(true)}>
+                  <Zap className="me-2 h-4 w-4" />
+                  {t('quickReplies')}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -825,6 +1191,7 @@ export function MessageComposer({
             size="sm"
             canAct={!readOnly}
             gateReason="send messages"
+            disabled={deliveryLocked || !browserOnline}
             aria-label={t('sendTemplate')}
             title={readOnly ? undefined : t('sendTemplate')}
             className={cn(
@@ -842,7 +1209,7 @@ export function MessageComposer({
             size="sm"
             canAct={!readOnly}
             gateReason="send messages"
-            disabled={drafting}
+            disabled={drafting || inputsDisabled}
             aria-label={t('draftWithAI')}
             title={readOnly ? undefined : t('draftWithAI')}
             className="crm-draft-action text-primary hover:bg-primary/10 h-9 shrink-0 px-3"
@@ -861,7 +1228,7 @@ export function MessageComposer({
             size="sm"
             canAct={!readOnly}
             gateReason="send messages"
-            disabled={translatingDraft || !text.trim()}
+            disabled={translatingDraft || !text.trim() || inputsDisabled}
             aria-label={t('translateDraft')}
             title={readOnly ? undefined : t('translateDraft')}
             className="text-muted-foreground hover:text-primary h-9 w-9 shrink-0 p-0"
@@ -888,7 +1255,7 @@ export function MessageComposer({
                   ? t('sessionExpiredPlaceholder')
                   : t('typeMessagePlaceholder')
             }
-            disabled={sessionExpired || readOnly}
+            disabled={inputsDisabled}
             rows={1}
             // Textarea keeps its own inline title — the GatedButton
             // wrapping pattern doesn't apply to non-button inputs.
@@ -904,7 +1271,7 @@ export function MessageComposer({
             size="sm"
             canAct={!readOnly}
             gateReason="send messages"
-            disabled={!text.trim() || sessionExpired || sending}
+            disabled={!text.trim() || inputsDisabled || sending}
             aria-label={t('sendMessage')}
             onClick={handleSend}
             className="bg-primary hover:bg-primary/90 h-9 w-9 shrink-0 p-0 disabled:opacity-40"
@@ -946,7 +1313,7 @@ export function MessageComposer({
               )}
               {t('saveAsQuickReply')}
             </Button>
-            <Button onClick={sendInteractive}>
+            <Button onClick={sendInteractive} disabled={inputsDisabled}>
               <Send className="me-1 h-4 w-4" />
               {t('send')}
             </Button>
@@ -954,6 +1321,19 @@ export function MessageComposer({
         </DialogContent>
       </Dialog>
 
+      <TemplatePicker
+        open={templatePickerOpen}
+        onOpenChange={(open) => onTemplatePickerOpenChange?.(open)}
+        initialDraft={savedDraft.template}
+        onSelect={(template, values) =>
+          void sendTemplateDraft({
+            name: template.name,
+            language: template.language ?? 'en_US',
+            bodyText: template.body_text,
+            values,
+          })
+        }
+      />
       {/* Quick-reply picker. */}
       <QuickReplyPicker
         open={quickReplyOpen}
@@ -1026,6 +1406,7 @@ function MediaDraftPreview({
         <button
           type="button"
           onClick={onDiscard}
+          disabled={busy || readOnly}
           aria-label={t('removeAttachment')}
           className="text-muted-foreground hover:bg-muted hover:text-foreground rounded p-1"
         >
@@ -1037,10 +1418,16 @@ function MediaDraftPreview({
         {draft.kind !== 'audio' && (
           <input
             value={draft.caption}
+            aria-label={t('addCaption')}
+            disabled={busy || readOnly}
             maxLength={MEDIA_CAPTION_MAX}
             onChange={(e) => onCaptionChange(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              if (
+                e.key === 'Enter' &&
+                !e.shiftKey &&
+                !e.nativeEvent.isComposing
+              ) {
                 e.preventDefault();
                 onSend();
               }

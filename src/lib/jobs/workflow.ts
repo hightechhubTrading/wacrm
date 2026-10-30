@@ -1,3 +1,4 @@
+import { formatBusinessDate } from '@/lib/business-time';
 export type WorkKind = 'measurement' | 'workshop';
 export type WorkStatus =
   | 'draft'
@@ -114,7 +115,7 @@ export function groupMessage(
     lines.push(`${ar ? 'المسؤول' : 'Responsible'}: ${work.responsible}`);
   if (work.due_at)
     lines.push(
-      `${ar ? 'التاريخ المطلوب (غير مؤكد)' : 'Requested date (unconfirmed)'}: ${work.due_at}`
+      `${ar ? 'التاريخ المطلوب (غير مؤكد)' : 'Requested date (unconfirmed)'}: ${formatBusinessDate(work.due_at, ar ? 'ar-QA' : 'en-QA')} (${ar ? 'توقيت قطر' : 'Qatar time'})`
     );
   const q = work.quotation_snapshot;
   if (q) {

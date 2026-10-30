@@ -11,6 +11,7 @@ export function mergeMessageHistory(
   for (const message of incoming) merged.set(message.id, message);
   return [...merged.values()].sort(
     (a, b) =>
-      a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)
+      (a.created_at ?? '').localeCompare(b.created_at ?? '') ||
+      a.id.localeCompare(b.id)
   );
 }

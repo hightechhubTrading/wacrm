@@ -55,6 +55,7 @@ try {
   `
   );
   server = await createServer({
+    cacheDir: join(root, '.vite-cache'),
     configFile: false,
     root: fixtureRoot,
     esbuild: { jsx: 'automatic' },

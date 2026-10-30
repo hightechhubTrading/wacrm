@@ -28,6 +28,12 @@ export function useRealtime({
 }: UseRealtimeOptions) {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [lastConnectedAt, setLastConnectedAt] = useState<number | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const retryConnection = useCallback(
+    () => setAttempt((value) => value + 1),
+    []
+  );
 
   // Store latest callbacks in refs to avoid re-subscribing when the
   // parent re-renders with fresh closures. Assigned inside an effect
@@ -48,7 +54,8 @@ export function useRealtime({
 
     const supabase = createClient();
 
-    let hasConnected = false;
+    let hasConnected = attempt > 0;
+    let disposed = false;
     let connected = false;
     const channel = supabase
       .channel(channelName)
@@ -76,10 +83,12 @@ export function useRealtime({
         }
       )
       .subscribe((status) => {
+        if (disposed) return;
         const next = status === 'SUBSCRIBED';
         if (next && !connected) {
           if (hasConnected) onReconnectRef.current?.();
           hasConnected = true;
+          setLastConnectedAt(Date.now());
         }
         connected = next;
         setIsConnected(next);
@@ -88,11 +97,12 @@ export function useRealtime({
     channelRef.current = channel;
 
     return () => {
+      disposed = true;
       supabase.removeChannel(channel);
       channelRef.current = null;
       setIsConnected(false);
     };
-  }, [channelName, enabled]);
+  }, [channelName, enabled, attempt]);
 
   const unsubscribe = useCallback(() => {
     if (channelRef.current) {
@@ -103,5 +113,5 @@ export function useRealtime({
     }
   }, []);
 
-  return { isConnected, unsubscribe };
+  return { isConnected, lastConnectedAt, retryConnection, unsubscribe };
 }

@@ -248,3 +248,41 @@ describe('sales group work access and recording', () => {
     expect(mocks.signed).not.toHaveBeenCalled();
   });
 });
+
+it('bounds the compact overview, preserves independent failures and never signs attachments', async () => {
+  responses.group_handoffs = {
+    data: [{ id: 'work-1', events: [] }],
+    error: null,
+  };
+  responses.quotations = { data: null, error: { message: 'unavailable' } };
+  const response = await GET(new Request('http://local?overview=1'), params);
+  expect(response.status).toBe(200);
+  expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+  expect(await response.json()).toEqual({
+    work: [{ id: 'work-1', events: [] }],
+    quotations: [],
+    workError: false,
+    quotationsError: true,
+  });
+  expect(mocks.admin).not.toHaveBeenCalled();
+  const index = mocks.clientFrom.mock.calls.findIndex(
+    ([name]) => name === 'group_handoffs'
+  );
+  const query = mocks.clientFrom.mock.results[index].value;
+  expect(query.eq).toHaveBeenCalledWith('account_id', 'account-1');
+  expect(query.eq).toHaveBeenCalledWith('deal_id', 'deal-1');
+  expect(query.limit).toHaveBeenCalledWith(50);
+  expect(query.limit).toHaveBeenCalledWith(20, { referencedTable: 'events' });
+  expect(query.select.mock.calls[0][0]).not.toContain('attachments');
+});
+it('does not turn failed work into an empty successful history', async () => {
+  responses.group_handoffs = { data: null, error: { message: 'unavailable' } };
+  responses.quotations = { data: [{ id: 'accepted' }], error: null };
+  const response = await GET(new Request('http://local?overview=1'), params);
+  expect(await response.json()).toEqual({
+    work: [],
+    quotations: [{ id: 'accepted' }],
+    workError: true,
+    quotationsError: false,
+  });
+});

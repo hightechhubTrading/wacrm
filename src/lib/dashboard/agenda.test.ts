@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { businessDateTimeValue } from '@/lib/business-time';
 import { agendaDayEnd, loadAgenda } from './agenda';
 
 function database(results: (object | Error)[]) {
@@ -80,7 +81,7 @@ describe('sales Today loader', () => {
     expect(calls).toContainEqual([
       'ai_followups',
       'lt',
-      ['due_at', new Date(2026, 9, 30).toISOString()],
+      ['due_at', '2026-10-29T21:00:00.000Z'],
     ]);
     expect(calls).toContainEqual([
       'ai_followups',
@@ -146,7 +147,7 @@ describe('sales Today loader', () => {
     expect(data.blockedAvailable).toBe(true);
     expect(data.repliesAvailable).toBe(true);
   });
-  it('uses the next local calendar midnight without mutating the input', () => {
+  it('uses the next Qatar calendar midnight without mutating the input', () => {
     for (const date of [
       new Date(2026, 9, 29, 23, 59, 59),
       new Date(2026, 2, 29, 1),
@@ -154,8 +155,11 @@ describe('sales Today loader', () => {
     ]) {
       const original = date.getTime();
       const end = new Date(agendaDayEnd(date));
-      expect(end.getHours()).toBe(0);
-      expect(end.getDate()).toBe(date.getDate() + 1);
+      expect(businessDateTimeValue(end).slice(11)).toBe('00:00');
+      expect(end.getTime()).toBeGreaterThan(date.getTime());
+      expect(end.getTime() - date.getTime()).toBeLessThanOrEqual(
+        24 * 60 * 60 * 1000
+      );
       expect(date.getTime()).toBe(original);
     }
   });

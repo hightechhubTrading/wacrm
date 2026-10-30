@@ -66,6 +66,7 @@ try {
   `
   );
   server = await createServer({
+    cacheDir: join(root, '.vite-cache'),
     configFile: false,
     define: { 'process.env': '{}' },
     root,

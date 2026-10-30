@@ -21,7 +21,6 @@ import type {
   MessageReaction,
   Contact,
   ConversationStatus,
-  MessageTemplate,
   Profile,
   InteractiveMessagePayload,
 } from '@/types';
@@ -39,7 +38,12 @@ import {
   CalendarClock,
   BriefcaseBusiness,
 } from 'lucide-react';
-import { format, isToday, isYesterday, differenceInHours } from 'date-fns';
+import { differenceInHours } from 'date-fns';
+import {
+  businessDayKey,
+  businessDayBoundary,
+  formatBusinessDate,
+} from '@/lib/business-time';
 import { useSearchParams } from 'next/navigation';
 import { QuotationAttachment } from '@/components/quotations/quotation-attachment';
 import type { RecentMessagePage } from '@/lib/inbox/thread-previews';
@@ -55,14 +59,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { MessageBubble } from './message-bubble';
+import { MessageSearchContext } from './message-search-context';
+import { ConversationActivity } from './conversation-activity';
 import { MessageActions } from './message-actions';
-import {
-  MessageComposer,
-  CHAT_MEDIA_BUCKET,
-  type SendMediaPayload,
-} from './message-composer';
-import { deleteAccountMedia } from '@/lib/storage/upload-media';
-import { TemplatePicker } from './template-picker';
+import { MessageComposer, type SendMediaPayload } from './message-composer';
+import { sendTrackedMessage, type SendOutcome } from '@/lib/inbox/send-outcome';
+import type { TemplateDraft } from '@/lib/inbox/drafts';
 import { AiThreadBanner, AiConversationNote } from './ai-thread-banner';
 import { ContactSidebar } from './contact-sidebar';
 import {
@@ -100,6 +102,7 @@ interface MessageThreadProps {
   onMessagesLoaded: (messages: Message[], merge?: boolean) => void;
   onNewMessage: (message: Message) => void;
   onUpdateMessage: (id: string, updates: Partial<Message>) => void;
+  onRemoveMessage: (id: string) => void;
   onStatusChange: (conversationId: string, status: ConversationStatus) => void;
   onAssignChange: (
     conversationId: string,
@@ -144,14 +147,17 @@ function formatDateSeparator(
   t: ReturnType<typeof useTranslations>,
   locale: string
 ): string {
-  const date = new Date(dateStr);
-  if (isToday(date)) return t('today');
-  if (isYesterday(date)) return t('yesterday');
-  return new Intl.DateTimeFormat(locale, {
+  if (!dateStr || !Number.isFinite(Date.parse(dateStr)))
+    return t('dateUnknown');
+  const key = businessDayKey(dateStr);
+  if (key === businessDayKey(new Date())) return t('today');
+  if (key === businessDayKey(businessDayBoundary(new Date(), -1)))
+    return t('yesterday');
+  return formatBusinessDate(dateStr, locale, {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
-  }).format(date);
+  });
 }
 
 function groupMessagesByDate(messages: Message[]) {
@@ -159,10 +165,13 @@ function groupMessagesByDate(messages: Message[]) {
   let currentDate = '';
 
   for (const msg of messages) {
-    const day = format(new Date(msg.created_at), 'yyyy-MM-dd');
+    const day =
+      msg.created_at && Number.isFinite(Date.parse(msg.created_at))
+        ? businessDayKey(msg.created_at)
+        : 'date-unknown';
     if (day !== currentDate) {
       currentDate = day;
-      groups.push({ date: msg.created_at, messages: [msg] });
+      groups.push({ date: msg.created_at ?? '', messages: [msg] });
     } else {
       groups[groups.length - 1].messages.push(msg);
     }
@@ -190,6 +199,7 @@ export function MessageThread({
   onMessagesLoaded,
   onNewMessage,
   onUpdateMessage,
+  onRemoveMessage,
   onStatusChange,
   onAssignChange,
   onBack,
@@ -210,6 +220,24 @@ export function MessageThread({
   const locale = useLocale();
   const searchParams = useSearchParams();
   const followupTarget = searchParams.get('followup');
+  const rawMessageTarget = searchParams.get('m');
+  const searchTargetId =
+    rawMessageTarget &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      rawMessageTarget
+    )
+      ? rawMessageTarget
+      : null;
+  const returnToLatest = useCallback(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('m');
+    window.history.replaceState(
+      window.history.state,
+      '',
+      url.pathname + url.search + url.hash
+    );
+    onRefresh?.();
+  }, [onRefresh]);
   const quotationTarget = searchParams.get('quotation');
   const quotationDocument = searchParams.get('document');
   const aiPaused =
@@ -668,6 +696,7 @@ export function MessageThread({
 
   const loadOlderMessages = useCallback(async () => {
     if (
+      searchTargetId ||
       !conversationId ||
       loading ||
       history.id !== conversationId ||
@@ -713,7 +742,7 @@ export function MessageThread({
       rows.slice(0, MESSAGE_PAGE_SIZE).reverse(),
       true
     );
-  }, [conversationId, history, loading, messages]);
+  }, [conversationId, history, loading, messages, searchTargetId]);
 
   useEffect(() => {
     // A reader can reach the top while a cached chat is refreshing. Resume
@@ -739,7 +768,7 @@ export function MessageThread({
   // follow the bottom when the reader was already there (or sent the message).
   useLayoutEffect(() => {
     const element = scrollRef.current;
-    if (!element || !messagesReady) return;
+    if (!element || !messagesReady || searchTargetId) return;
     if (positionedConversation.current !== conversationId) {
       positionedConversation.current = conversationId;
       atBottom.current = true;
@@ -761,203 +790,123 @@ export function MessageThread({
     lastScrolledMessage.current = latest?.id ?? null;
     atBottom.current =
       element.scrollHeight - element.scrollTop - element.clientHeight < 80;
-  }, [messages, messagesReady, replyParents, conversationId]);
+  }, [messages, messagesReady, replyParents, conversationId, searchTargetId]);
 
   useEffect(() => {
     const element = scrollRef.current;
     const content = element?.firstElementChild;
-    if (!element || !content || !messagesReady) return;
+    if (!element || !content || !messagesReady || searchTargetId) return;
     const observer = new ResizeObserver(() => {
       if (atBottom.current) element.scrollTop = element.scrollHeight;
     });
     observer.observe(content);
     return () => observer.disconnect();
-  }, [conversationId, messagesReady]);
+  }, [conversationId, messagesReady, searchTargetId]);
 
-  const handleSend = useCallback(
-    async (text: string, replyToId?: string) => {
-      if (!conversation) return;
-
-      const tempId = `temp-${Date.now()}`;
-
-      // Optimistic update — shows the message immediately with "sending" status
-      const optimisticMsg: Message = {
+  const sendFromComposer = useCallback(
+    async (
+      body: Record<string, unknown>,
+      optimistic: Partial<Message>,
+      operationId: string
+    ): Promise<SendOutcome> => {
+      if (!conversation) return { state: 'rejected' };
+      const tempId = `temp-${operationId}`;
+      onNewMessage({
         id: tempId,
         conversation_id: conversation.id,
         sender_type: 'agent',
         content_type: 'text',
-        content_text: text,
         status: 'sending',
         created_at: new Date().toISOString(),
-        reply_to_message_id: replyToId,
-      };
-      onNewMessage(optimisticMsg);
-      setReplyTo(null);
-
-      try {
-        const res = await fetch('/api/whatsapp/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            conversation_id: conversation.id,
-            message_type: 'text',
-            content_text: text,
-            reply_to_message_id: replyToId,
-          }),
-        });
-
-        const payload = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          const reason = payload?.error || `HTTP ${res.status}`;
-          console.error('Failed to send message:', reason);
-          toast.error(`Failed to send: ${reason}`);
-          // Mark the optimistic bubble as failed so the user sees what happened
-          onUpdateMessage(tempId, { status: 'failed' });
-          return;
-        }
-
-        // Success — the realtime INSERT event will replace the temp bubble
-        // with the real DB row. If realtime hasn't arrived yet, at least
-        // flip status to 'sent' so the UI stops showing "sending".
-        onUpdateMessage(tempId, { status: 'sent' });
-      } catch (err) {
-        console.error('Failed to send message:', err);
-        const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Failed to send: ${reason}`);
-        onUpdateMessage(tempId, { status: 'failed' });
-      }
+        ...optimistic,
+      });
+      const result = await sendTrackedMessage(
+        { ...body, conversation_id: conversation.id },
+        operationId
+      );
+      // Replace the optimistic identity even when realtime is delayed or lost.
+      // Unknown results remain pending, rather than claiming a provider rejection.
+      onUpdateMessage(tempId, {
+        ...(result.state === 'accepted' && result.messageId
+          ? { id: result.messageId }
+          : {}),
+        ...(result.state === 'accepted' && result.whatsappMessageId
+          ? { message_id: result.whatsappMessageId }
+          : {}),
+        status:
+          result.state === 'accepted'
+            ? 'sent'
+            : result.state === 'rejected'
+              ? 'failed'
+              : 'sending',
+      });
+      if (result.state === 'accepted') setReplyTo(null);
+      return result;
     },
     [conversation, onNewMessage, onUpdateMessage]
   );
 
-  const handleSendMedia = useCallback(
-    async (payload: SendMediaPayload) => {
-      if (!conversation) return;
+  const handleSend = useCallback(
+    (text: string, replyToId: string | undefined, operationId: string) =>
+      sendFromComposer(
+        {
+          message_type: 'text',
+          content_text: text,
+          reply_to_message_id: replyToId,
+        },
+        { content_text: text, reply_to_message_id: replyToId },
+        operationId
+      ),
+    [sendFromComposer]
+  );
 
-      // Documents show their filename in our own bubble (and to the
-      // recipient as the Meta caption when no caption was typed); other
-      // kinds use the caption as-is. Audio carries no caption.
+  const handleSendMedia = useCallback(
+    (payload: SendMediaPayload, operationId: string) => {
       const contentText =
         payload.kind === 'document'
           ? payload.caption || payload.filename || 'Document'
           : payload.caption;
-
-      const tempId = `temp-${Date.now()}`;
-      const optimisticMsg: Message = {
-        id: tempId,
-        conversation_id: conversation.id,
-        sender_type: 'agent',
-        content_type: payload.kind,
-        content_text: contentText,
-        media_url: payload.mediaUrl,
-        status: 'sending',
-        created_at: new Date().toISOString(),
-        reply_to_message_id: payload.replyToId,
-      };
-      onNewMessage(optimisticMsg);
-      setReplyTo(null);
-
-      try {
-        const res = await fetch('/api/whatsapp/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            conversation_id: conversation.id,
-            message_type: payload.kind,
-            media_url: payload.mediaUrl,
-            content_text: contentText,
-            filename: payload.filename,
-            reply_to_message_id: payload.replyToId,
-          }),
-        });
-
-        const data = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          const reason = data?.error || `HTTP ${res.status}`;
-          console.error('Failed to send media:', reason);
-          toast.error(`Failed to send: ${reason}`);
-          onUpdateMessage(tempId, { status: 'failed' });
-          // The upload never reached the recipient — GC the orphaned
-          // object rather than leaving it in the public bucket forever.
-          // Never GC a catalog pick — it's a shared/reusable asset in a
-          // different bucket, not a one-off upload.
-          if (payload.source === 'upload') {
-            void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(
-              () => {}
-            );
-          }
-          return;
-        }
-
-        onUpdateMessage(tempId, { status: 'sent' });
-      } catch (err) {
-        console.error('Failed to send media:', err);
-        const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Failed to send: ${reason}`);
-        onUpdateMessage(tempId, { status: 'failed' });
-        if (payload.source === 'upload') {
-          void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(
-            () => {}
-          );
-        }
-      }
+      return sendFromComposer(
+        {
+          message_type: payload.kind,
+          media_url: payload.mediaUrl,
+          content_text: contentText,
+          filename: payload.filename,
+          reply_to_message_id: payload.replyToId,
+        },
+        {
+          content_type: payload.kind,
+          content_text: contentText,
+          media_url: payload.mediaUrl,
+          reply_to_message_id: payload.replyToId,
+        },
+        operationId
+      );
     },
-    [conversation, onNewMessage, onUpdateMessage]
+    [sendFromComposer]
   );
 
   const handleSendInteractive = useCallback(
-    async (payload: InteractiveMessagePayload, replyToId?: string) => {
-      if (!conversation) return;
-
-      const tempId = `temp-${Date.now()}`;
-      // Optimistic bubble — renders the buttons/list immediately via the
-      // interactive_payload, same as the persisted row will.
-      const optimisticMsg: Message = {
-        id: tempId,
-        conversation_id: conversation.id,
-        sender_type: 'agent',
-        content_type: 'interactive',
-        content_text: payload.body,
-        interactive_payload: payload,
-        status: 'sending',
-        created_at: new Date().toISOString(),
-        reply_to_message_id: replyToId,
-      };
-      onNewMessage(optimisticMsg);
-
-      try {
-        const res = await fetch('/api/whatsapp/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            conversation_id: conversation.id,
-            message_type: 'interactive',
-            interactive_payload: payload,
-            reply_to_message_id: replyToId,
-          }),
-        });
-
-        const data = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          const reason = data?.error || `HTTP ${res.status}`;
-          console.error('Failed to send interactive message:', reason);
-          toast.error(`Failed to send: ${reason}`);
-          onUpdateMessage(tempId, { status: 'failed' });
-          return;
-        }
-
-        onUpdateMessage(tempId, { status: 'sent' });
-      } catch (err) {
-        console.error('Failed to send interactive message:', err);
-        const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Failed to send: ${reason}`);
-        onUpdateMessage(tempId, { status: 'failed' });
-      }
-    },
-    [conversation, onNewMessage, onUpdateMessage]
+    (
+      payload: InteractiveMessagePayload,
+      replyToId: string | undefined,
+      operationId: string
+    ) =>
+      sendFromComposer(
+        {
+          message_type: 'interactive',
+          interactive_payload: payload,
+          reply_to_message_id: replyToId,
+        },
+        {
+          content_type: 'interactive',
+          content_text: payload.body,
+          interactive_payload: payload,
+          reply_to_message_id: replyToId,
+        },
+        operationId
+      ),
+    [sendFromComposer]
   );
 
   const handleStatusChange = useCallback(
@@ -980,73 +929,29 @@ export function MessageThread({
   }, []);
 
   const handleSendTemplate = useCallback(
-    async (
-      template: MessageTemplate,
-      values: {
-        body: string[];
-        headerText?: string;
-        buttonParams?: Record<number, string>;
-      }
-    ) => {
-      if (!conversation) return;
-
-      const renderedBody = renderTemplateBody(template.body_text, values.body);
-      const tempId = `temp-${Date.now()}`;
-
-      const optimisticMsg: Message = {
-        id: tempId,
-        conversation_id: conversation.id,
-        sender_type: 'agent',
-        content_type: 'template',
-        content_text: renderedBody,
-        template_name: template.name,
-        status: 'sending',
-        created_at: new Date().toISOString(),
-      };
-      onNewMessage(optimisticMsg);
-
-      try {
-        const res = await fetch('/api/whatsapp/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            conversation_id: conversation.id,
-            message_type: 'template',
-            template_name: template.name,
-            template_language: template.language,
-            // Structured params drive the new send-builder path
-            // (header media + URL button substitution). Body values
-            // are mirrored under both shapes so the route can fall
-            // back if the template row isn't found locally.
-            template_message_params: {
-              body: values.body,
-              headerText: values.headerText,
-              buttonParams: values.buttonParams,
-            },
-            template_params: values.body,
-            content_text: renderedBody,
-          }),
-        });
-
-        const payload = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          const reason = payload?.error || `HTTP ${res.status}`;
-          console.error('Failed to send template:', reason);
-          toast.error(`Failed to send template: ${reason}`);
-          onUpdateMessage(tempId, { status: 'failed' });
-          return;
-        }
-
-        onUpdateMessage(tempId, { status: 'sent' });
-      } catch (err) {
-        console.error('Failed to send template:', err);
-        const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Failed to send template: ${reason}`);
-        onUpdateMessage(tempId, { status: 'failed' });
-      }
+    (draft: TemplateDraft, operationId: string) => {
+      const renderedBody = renderTemplateBody(
+        draft.bodyText,
+        draft.values.body
+      );
+      return sendFromComposer(
+        {
+          message_type: 'template',
+          template_name: draft.name,
+          template_language: draft.language,
+          template_message_params: draft.values,
+          template_params: draft.values.body,
+          content_text: renderedBody,
+        },
+        {
+          content_type: 'template',
+          content_text: renderedBody,
+          template_name: draft.name,
+        },
+        operationId
+      );
     },
-    [conversation, onNewMessage, onUpdateMessage]
+    [sendFromComposer]
   );
 
   // Include quoted parents fetched outside the visible history page.
@@ -1158,23 +1063,28 @@ export function MessageThread({
 
   const handleAssignChange = useCallback(
     async (agentId: string | null) => {
-      if (!conversation) return;
-
-      const supabase = createClient();
-      const { error } = await supabase
-        .from('conversations')
-        .update({ assigned_agent_id: agentId })
-        .eq('id', conversation.id);
-
-      if (error) {
-        console.error('Failed to update assignment:', error);
-        toast.error('Failed to update assignment');
-        return;
+      if (!conversation) return false;
+      try {
+        let query = createClient()
+          .from('conversations')
+          .update({ assigned_agent_id: agentId })
+          .eq('id', conversation.id);
+        query = conversation.assigned_agent_id
+          ? query.eq('assigned_agent_id', conversation.assigned_agent_id)
+          : query.is('assigned_agent_id', null);
+        const { data, error } = await query.select('id').maybeSingle();
+        if (error || !data) {
+          toast.error(t('assignmentFailed'));
+          return false;
+        }
+        onAssignChange(conversation.id, agentId);
+        return true;
+      } catch {
+        toast.error(t('assignmentFailed'));
+        return false;
       }
-
-      onAssignChange(conversation.id, agentId);
     },
-    [conversation, onAssignChange]
+    [conversation, onAssignChange, t]
   );
 
   if (!conversation || !contact) {
@@ -1423,6 +1333,11 @@ export function MessageThread({
         </div>
       </div>
 
+      <ConversationActivity
+        conversationId={conversation.id}
+        assignedAgentId={conversation.assigned_agent_id}
+        onTakeOver={() => handleAssignChange(user?.id ?? null)}
+      />
       <Sheet open={mobileJobOpen} onOpenChange={setMobileJobOpen}>
         <SheetContent className="overflow-y-auto">
           <SheetHeader>
@@ -1496,7 +1411,19 @@ export function MessageThread({
           className="crm-message-scroll min-h-0 flex-1 overflow-y-auto px-4 py-4"
           style={{ overflowAnchor: 'none' }}
         >
-          {!messagesReady && messageFetchError !== conversationId ? (
+          {searchTargetId ? (
+            <MessageSearchContext
+              key={`${conversation.id}:${searchTargetId}`}
+              conversationId={conversation.id}
+              messageId={searchTargetId}
+              contactLabel={contact?.name || contact?.phone || t('customer')}
+              onReturn={returnToLatest}
+              onReply={(message) => {
+                handleStartReply(message);
+                returnToLatest();
+              }}
+            />
+          ) : !messagesReady && messageFetchError !== conversationId ? (
             <div
               className="crm-message-skeleton"
               role="status"
@@ -1771,14 +1698,22 @@ export function MessageThread({
         onSendMedia={handleSendMedia}
         onSendInteractive={handleSendInteractive}
         onOpenTemplates={handleOpenTemplates}
+        templatePickerOpen={templateModalOpen}
+        onTemplatePickerOpenChange={setTemplateModalOpen}
+        onSendTemplate={handleSendTemplate}
         replyTo={replyTo}
         onClearReply={() => setReplyTo(null)}
-      />
-
-      <TemplatePicker
-        open={templateModalOpen}
-        onOpenChange={setTemplateModalOpen}
-        onSelect={handleSendTemplate}
+        onDismissOperation={(id) => onRemoveMessage(`temp-${id}`)}
+        onConfirmedOperation={(id, result) => {
+          onUpdateMessage(`temp-${id}`, {
+            ...(result.messageId ? { id: result.messageId } : {}),
+            ...(result.whatsappMessageId
+              ? { message_id: result.whatsappMessageId }
+              : {}),
+            status: 'sent',
+          });
+          onRefresh?.();
+        }}
       />
     </div>
   );

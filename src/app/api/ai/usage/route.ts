@@ -1,10 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
-import {
-  daysAgoStart,
-  lastNDayKeys,
-  localDayKey,
-} from '@/lib/dashboard/date-utils';
+import { businessDayBoundary, businessDayKey } from '@/lib/business-time';
 
 // Rows are aggregated in-process over a bounded window. An active
 // account writes a handful of rows per conversation, so 30 days sits
@@ -47,13 +43,9 @@ export async function GET(request: Request) {
         ? Math.min(90, Math.floor(rawDays))
         : DEFAULT_WINDOW_DAYS;
 
-    // Align the query cutoff to the START of the oldest local day we'll
-    // chart (not a rolling `now - N*24h` instant). Otherwise rows in the
-    // oldest partial day would be counted in the totals but fall outside
-    // every daily bucket, so the chart's bars wouldn't sum to the
-    // headline total. Local-day boundaries match every other dashboard
-    // chart (see lib/dashboard/date-utils).
-    const since = daysAgoStart(days - 1);
+    // Use the same Qatar calendar for the query window and daily buckets.
+    const now = new Date();
+    const since = businessDayBoundary(now, -(days - 1));
 
     const { data, error } = await supabase
       .from('ai_usage_log')
@@ -106,7 +98,9 @@ export async function GET(request: Request) {
       string,
       { date: string; tokens: number; calls: number }
     >();
-    for (const key of lastNDayKeys(days)) {
+    for (const key of Array.from({ length: days }, (_, index) =>
+      businessDayKey(businessDayBoundary(now, index - days + 1))
+    )) {
       daily.set(key, { date: key, tokens: 0, calls: 0 });
     }
 
@@ -130,7 +124,7 @@ export async function GET(request: Request) {
       m.tokens += r.total_tokens;
       modelMap.set(mk, m);
 
-      const bucket = daily.get(localDayKey(r.created_at));
+      const bucket = daily.get(businessDayKey(r.created_at));
       if (bucket) {
         bucket.tokens += r.total_tokens;
         bucket.calls += 1;

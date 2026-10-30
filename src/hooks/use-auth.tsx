@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { clearDrafts, draftScope } from '@/lib/inbox/drafts';
 import type { User } from '@supabase/supabase-js';
 import { DEFAULT_CURRENCY } from '@/lib/currency';
 import {
@@ -148,6 +149,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // a profile for. This prevents redundant re-fetches and toggling
   // profileLoading back to true on window focus events/token refresh.
   const lastFetchedUserIdRef = useRef<string | null>(null);
+  const previousDraftScope = useRef<string | null>(null);
+  useEffect(() => {
+    if (profileLoading) return;
+    const scope =
+      user && profile?.account_id
+        ? draftScope(profile.account_id, user.id)
+        : null;
+    if (previousDraftScope.current && previousDraftScope.current !== scope)
+      clearDrafts(previousDraftScope.current);
+    previousDraftScope.current = scope;
+  }, [user, profile?.account_id, profileLoading]);
   const profileRequest = useRef(0);
   const invalidateProfile = useCallback(() => {
     profileRequest.current++;
@@ -304,6 +316,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           void fetchProfile(currentUser.id);
         }
       } else {
+        clearDrafts();
         invalidateProfile();
         lastFetchedUserIdRef.current = null;
         setProfile(null);
@@ -324,6 +337,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchProfile, invalidateProfile]);
 
   const signOut = useCallback(async () => {
+    clearDrafts();
     const supabase = createClient();
     invalidateProfile();
     await supabase.auth.signOut();

@@ -7,7 +7,7 @@
     BlinkMacSystemFont,
     'Segoe UI',
     sans-serif;
-  height: 100dvh;
+  height: var(--crm-viewport-height, 100dvh);
   --radius: 0.9rem;
 }
 .crm-workspace main {
@@ -407,5 +407,29 @@
     align-items: flex-start;
     flex-direction: column;
     gap: 8px;
+  }
+}
+
+.crm-mobile-nav {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@media (min-width: 1024px) {
+  .crm-nav-rail .crm-nav-group h2 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+@media (max-width: 1023px) {
+  .crm-workspace:has(
+      input:focus,
+      textarea:focus,
+      [contenteditable='true']:focus
+    )
+    .crm-mobile-nav {
+    display: none;
   }
 }

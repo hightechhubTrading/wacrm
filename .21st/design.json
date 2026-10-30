@@ -1,0 +1,433 @@
+{
+  "version": 1,
+  "project": {
+    "name": "hightechhub",
+    "productType": null,
+    "stack": [
+      "nextjs",
+      "react",
+      "shadcn",
+      "tailwind-v4"
+    ]
+  },
+  "sources": {
+    "tokens": [
+      "src/app/globals.css"
+    ],
+    "components": [
+      "src/components/ui"
+    ],
+    "assets": [],
+    "instructions": [
+      "AGENTS.md",
+      "CLAUDE.md"
+    ]
+  },
+  "design": {
+    "colorMode": "light-and-dark",
+    "colors": {
+      "--color-background": {
+        "value": "var(--background)",
+        "source": "src/app/globals.css"
+      },
+      "--color-foreground": {
+        "value": "var(--foreground)",
+        "source": "src/app/globals.css"
+      },
+      "--color-sidebar-ring": {
+        "value": "var(--sidebar-ring)",
+        "source": "src/app/globals.css"
+      },
+      "--color-sidebar-border": {
+        "value": "var(--sidebar-border)",
+        "source": "src/app/globals.css"
+      },
+      "--color-sidebar-accent-foreground": {
+        "value": "var(--sidebar-accent-foreground)",
+        "source": "src/app/globals.css"
+      },
+      "--color-sidebar-accent": {
+        "value": "var(--sidebar-accent)",
+        "source": "src/app/globals.css"
+      },
+      "--color-sidebar-primary-foreground": {
+        "value": "var(--sidebar-primary-foreground)",
+        "source": "src/app/globals.css"
+      },
+      "--color-sidebar-primary": {
+        "value": "var(--sidebar-primary)",
+        "source": "src/app/globals.css"
+      },
+      "--color-sidebar-foreground": {
+        "value": "var(--sidebar-foreground)",
+        "source": "src/app/globals.css"
+      },
+      "--color-sidebar": {
+        "value": "var(--sidebar)",
+        "source": "src/app/globals.css"
+      },
+      "--color-chart-5": {
+        "value": "var(--chart-5)",
+        "source": "src/app/globals.css"
+      },
+      "--color-chart-4": {
+        "value": "var(--chart-4)",
+        "source": "src/app/globals.css"
+      },
+      "--color-chart-3": {
+        "value": "var(--chart-3)",
+        "source": "src/app/globals.css"
+      },
+      "--color-chart-2": {
+        "value": "var(--chart-2)",
+        "source": "src/app/globals.css"
+      },
+      "--color-chart-1": {
+        "value": "var(--chart-1)",
+        "source": "src/app/globals.css"
+      },
+      "--color-ring": {
+        "value": "var(--ring)",
+        "source": "src/app/globals.css"
+      },
+      "--color-input": {
+        "value": "var(--input)",
+        "source": "src/app/globals.css"
+      },
+      "--color-border": {
+        "value": "var(--border)",
+        "source": "src/app/globals.css"
+      },
+      "--color-destructive": {
+        "value": "var(--ui-danger)",
+        "source": "src/app/globals.css"
+      },
+      "--color-info": {
+        "value": "var(--ui-info)",
+        "source": "src/app/globals.css"
+      },
+      "--color-success": {
+        "value": "var(--ui-success)",
+        "source": "src/app/globals.css"
+      },
+      "--color-warning": {
+        "value": "var(--ui-warning)",
+        "source": "src/app/globals.css"
+      },
+      "--color-optional": {
+        "value": "var(--ui-optional)",
+        "source": "src/app/globals.css"
+      },
+      "--color-accent-foreground": {
+        "value": "var(--accent-foreground)",
+        "source": "src/app/globals.css"
+      },
+      "--color-accent": {
+        "value": "var(--accent)",
+        "source": "src/app/globals.css"
+      },
+      "--color-muted-foreground": {
+        "value": "var(--muted-foreground)",
+        "source": "src/app/globals.css"
+      },
+      "--color-muted": {
+        "value": "var(--muted)",
+        "source": "src/app/globals.css"
+      },
+      "--color-secondary-foreground": {
+        "value": "var(--secondary-foreground)",
+        "source": "src/app/globals.css"
+      },
+      "--color-secondary": {
+        "value": "var(--secondary)",
+        "source": "src/app/globals.css"
+      },
+      "--color-primary-foreground": {
+        "value": "var(--primary-foreground)",
+        "source": "src/app/globals.css"
+      },
+      "--color-primary": {
+        "value": "var(--primary)",
+        "source": "src/app/globals.css"
+      },
+      "--color-popover-foreground": {
+        "value": "var(--popover-foreground)",
+        "source": "src/app/globals.css"
+      },
+      "--color-popover": {
+        "value": "var(--popover)",
+        "source": "src/app/globals.css"
+      },
+      "--color-card-foreground": {
+        "value": "var(--card-foreground)",
+        "source": "src/app/globals.css"
+      },
+      "--color-card": {
+        "value": "var(--card)",
+        "source": "src/app/globals.css"
+      },
+      "--color-card-2": {
+        "value": "var(--card-2)",
+        "source": "src/app/globals.css"
+      },
+      "--color-primary-hover": {
+        "value": "var(--primary-hover)",
+        "source": "src/app/globals.css"
+      },
+      "--color-primary-soft": {
+        "value": "var(--primary-soft)",
+        "source": "src/app/globals.css"
+      },
+      "--color-primary-soft-2": {
+        "value": "var(--primary-soft-2)",
+        "source": "src/app/globals.css"
+      },
+      "--background": {
+        "value": "oklch(0.985 0.004 245)",
+        "source": "src/app/globals.css"
+      },
+      "--foreground": {
+        "value": "oklch(0.285 0.034 245)",
+        "source": "src/app/globals.css"
+      },
+      "--card-foreground": {
+        "value": "oklch(0.285 0.034 245)",
+        "source": "src/app/globals.css"
+      },
+      "--popover-foreground": {
+        "value": "oklch(0.285 0.034 245)",
+        "source": "src/app/globals.css"
+      },
+      "--secondary": {
+        "value": "oklch(0.955 0.007 245)",
+        "source": "src/app/globals.css"
+      },
+      "--secondary-foreground": {
+        "value": "oklch(0.356 0.039 249)",
+        "source": "src/app/globals.css"
+      },
+      "--muted": {
+        "value": "oklch(0.955 0.007 245)",
+        "source": "src/app/globals.css"
+      },
+      "--muted-foreground": {
+        "value": "oklch(0.5 0.025 248)",
+        "source": "src/app/globals.css"
+      },
+      "--accent": {
+        "value": "oklch(0.945 0.009 245)",
+        "source": "src/app/globals.css"
+      },
+      "--accent-foreground": {
+        "value": "oklch(0.356 0.039 249)",
+        "source": "src/app/globals.css"
+      },
+      "--destructive": {
+        "value": "oklch(0.577 0.245 27.325)",
+        "source": "src/app/globals.css"
+      },
+      "--border": {
+        "value": "oklch(0.9 0.012 247)",
+        "source": "src/app/globals.css"
+      },
+      "--chart-2": {
+        "value": "oklch(0.6 0.09 245)",
+        "source": "src/app/globals.css"
+      },
+      "--chart-3": {
+        "value": "oklch(0.7 0.06 260)",
+        "source": "src/app/globals.css"
+      },
+      "--chart-4": {
+        "value": "oklch(0.8 0.04 260)",
+        "source": "src/app/globals.css"
+      },
+      "--chart-5": {
+        "value": "oklch(0.87 0.03 260)",
+        "source": "src/app/globals.css"
+      },
+      "--sidebar-foreground": {
+        "value": "oklch(0.285 0.034 245)",
+        "source": "src/app/globals.css"
+      },
+      "--sidebar-accent": {
+        "value": "oklch(0.945 0.009 245)",
+        "source": "src/app/globals.css"
+      },
+      "--sidebar-accent-foreground": {
+        "value": "oklch(0.356 0.039 249)",
+        "source": "src/app/globals.css"
+      },
+      "--sidebar-border": {
+        "value": "oklch(0.9 0.012 247)",
+        "source": "src/app/globals.css"
+      },
+      "--primary": {
+        "value": "oklch(0.58 0.125 78)",
+        "source": "src/app/globals.css"
+      },
+      "--primary-foreground": {
+        "value": "oklch(0.99 0.004 85)",
+        "source": "src/app/globals.css"
+      },
+      "--primary-hover": {
+        "value": "oklch(0.52 0.12 78)",
+        "source": "src/app/globals.css"
+      },
+      "--primary-soft": {
+        "value": "oklch(0.58 0.125 78 / 0.12)",
+        "source": "src/app/globals.css"
+      },
+      "--primary-soft-2": {
+        "value": "oklch(0.58 0.125 78 / 0.22)",
+        "source": "src/app/globals.css"
+      },
+      "--ring": {
+        "value": "oklch(0.58 0.125 78)",
+        "source": "src/app/globals.css"
+      },
+      "--chart-1": {
+        "value": "oklch(0.58 0.125 78)",
+        "source": "src/app/globals.css"
+      },
+      "--sidebar-primary": {
+        "value": "oklch(0.58 0.125 78)",
+        "source": "src/app/globals.css"
+      },
+      "--sidebar-primary-foreground": {
+        "value": "oklch(0.99 0.004 85)",
+        "source": "src/app/globals.css"
+      },
+      "--sidebar-ring": {
+        "value": "oklch(0.806 0.136 85)",
+        "source": "src/app/globals.css"
+      }
+    },
+    "typography": {
+      "--font-sans": {
+        "value": "var(--font-sans)",
+        "source": "src/app/globals.css"
+      },
+      "--font-mono": {
+        "value": "var(--font-geist-mono)",
+        "source": "src/app/globals.css"
+      },
+      "--font-heading": {
+        "value": "var(--font-sans)",
+        "source": "src/app/globals.css"
+      }
+    },
+    "spacing": {},
+    "radius": {
+      "--radius-sm": {
+        "value": "calc(var(--radius) * 0.6)",
+        "source": "src/app/globals.css"
+      },
+      "--radius-md": {
+        "value": "calc(var(--radius) * 0.8)",
+        "source": "src/app/globals.css"
+      },
+      "--radius-lg": {
+        "value": "var(--radius)",
+        "source": "src/app/globals.css"
+      },
+      "--radius-xl": {
+        "value": "calc(var(--radius) * 1.4)",
+        "source": "src/app/globals.css"
+      },
+      "--radius-2xl": {
+        "value": "calc(var(--radius) * 1.8)",
+        "source": "src/app/globals.css"
+      },
+      "--radius-3xl": {
+        "value": "calc(var(--radius) * 2.2)",
+        "source": "src/app/globals.css"
+      },
+      "--radius-4xl": {
+        "value": "calc(var(--radius) * 2.6)",
+        "source": "src/app/globals.css"
+      },
+      "--radius": {
+        "value": "0.625rem",
+        "source": "src/app/globals.css"
+      }
+    },
+    "shadows": {},
+    "motion": {},
+    "density": "unknown"
+  },
+  "components": {
+    "installed": [
+      "accordion",
+      "alert",
+      "avatar",
+      "badge",
+      "button",
+      "card",
+      "checkbox",
+      "dialog",
+      "dropdown-menu",
+      "dropdown-menu-group-label.test",
+      "gated-button",
+      "input",
+      "label",
+      "popover",
+      "radio-group",
+      "scroll-area",
+      "select",
+      "separator",
+      "sheet",
+      "switch",
+      "table",
+      "tabs",
+      "textarea",
+      "tooltip"
+    ],
+    "preferredPrimitives": [],
+    "patterns": []
+  },
+  "constraints": {
+    "must": [],
+    "avoid": []
+  },
+  "decisions": [],
+  "evidence": [
+    {
+      "fact": "components.installed",
+      "source": "src/components/ui"
+    },
+    {
+      "fact": "design.colorMode:light-and-dark",
+      "source": "src/app/globals.css"
+    },
+    {
+      "fact": "design.tokens",
+      "source": "src/app/globals.css"
+    },
+    {
+      "fact": "project.instructions",
+      "source": "AGENTS.md"
+    },
+    {
+      "fact": "project.instructions",
+      "source": "CLAUDE.md"
+    },
+    {
+      "fact": "project.stack:nextjs",
+      "source": "package.json"
+    },
+    {
+      "fact": "project.stack:react",
+      "source": "package.json"
+    },
+    {
+      "fact": "project.stack:shadcn",
+      "source": "components.json"
+    },
+    {
+      "fact": "project.stack:tailwind-v4",
+      "source": "package.json"
+    }
+  ],
+  "generatedAt": "2026-10-30T08:07:47.316Z"
+}

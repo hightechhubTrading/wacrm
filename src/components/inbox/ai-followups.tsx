@@ -1,4 +1,6 @@
 'use client';
+import { BusinessTimeNote } from '@/components/workspace/business-time-note';
+import { BUSINESS_TIME_ZONE, businessDateTimeToIso } from '@/lib/business-time';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
@@ -240,6 +242,7 @@ export function AiFollowups({
                         ? `${t('overdue')} · `
                         : ''}
                       {new Date(task.due_at).toLocaleString(locale, {
+                        timeZone: BUSINESS_TIME_ZONE,
                         month: 'short',
                         day: 'numeric',
                         hour: 'numeric',
@@ -360,7 +363,11 @@ export function AiFollowups({
             {locale === 'ar'
               ? 'يوجد رد من الفريق. راجع النتيجة وحدّث حالة المتابعة.'
               : 'Staff have replied. Check the outcome and update the follow-up status.'}{' '}
-            ({new Date(data.latestHumanReplyAt).toLocaleString(locale)})
+            (
+            {new Date(data.latestHumanReplyAt).toLocaleString(locale, {
+              timeZone: BUSINESS_TIME_ZONE,
+            })}
+            )
           </p>
         )}
       {data.conversation.ai_handoff_summary && (
@@ -418,7 +425,9 @@ export function AiFollowups({
               ? t(`reasons.${reason}`)
               : t('reasons.other')}{' '}
             <span className="text-muted-foreground">
-              {new Date(data.latestEvent!.created_at).toLocaleString()}
+              {new Date(data.latestEvent!.created_at).toLocaleString(locale, {
+                timeZone: BUSINESS_TIME_ZONE,
+              })}
             </span>
           </p>
         )}
@@ -445,7 +454,10 @@ export function AiFollowups({
                       </span>
                     </div>
                     <p className="text-muted-foreground mt-1 text-xs">
-                      {t('due')}: {new Date(f.due_at).toLocaleString()}
+                      {t('due')}:{' '}
+                      {new Date(f.due_at).toLocaleString(locale, {
+                        timeZone: BUSINESS_TIME_ZONE,
+                      })}
                     </p>
                   </div>
                   <div className="crm-followup-actions">
@@ -479,7 +491,9 @@ export function AiFollowups({
                 {f.confirmed_at && (
                   <p className="text-muted-foreground">
                     {t('confirmedTime')}:{' '}
-                    {new Date(f.confirmed_at).toLocaleString()}
+                    {new Date(f.confirmed_at).toLocaleString(locale, {
+                      timeZone: BUSINESS_TIME_ZONE,
+                    })}
                   </p>
                 )}
                 {editing === f.id && (
@@ -495,6 +509,7 @@ export function AiFollowups({
                     </label>
                     <label className="flex flex-col gap-1">
                       {t('deferUntil')}
+                      <BusinessTimeNote />
                       <Input
                         type="datetime-local"
                         className="bg-card"
@@ -504,6 +519,7 @@ export function AiFollowups({
                     </label>
                     <label className="flex flex-col gap-1">
                       {t('confirmedTime')}
+                      <BusinessTimeNote />
                       <Input
                         type="datetime-local"
                         className="bg-card"
@@ -527,12 +543,12 @@ export function AiFollowups({
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={busy || !date}
+                      disabled={busy || !businessDateTimeToIso(date)}
                       onClick={() =>
                         void mutate('PATCH', {
                           id: f.id,
                           status: 'deferred',
-                          due_at: new Date(date).toISOString(),
+                          due_at: businessDateTimeToIso(date),
                         })
                       }
                     >
@@ -541,12 +557,12 @@ export function AiFollowups({
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={busy || !confirmed}
+                      disabled={busy || !businessDateTimeToIso(confirmed)}
                       onClick={() =>
                         void mutate('PATCH', {
                           id: f.id,
                           status: 'acknowledged',
-                          confirmed_at: new Date(confirmed).toISOString(),
+                          confirmed_at: businessDateTimeToIso(confirmed),
                         })
                       }
                     >

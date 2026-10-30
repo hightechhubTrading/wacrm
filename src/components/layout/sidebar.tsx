@@ -5,7 +5,7 @@ import { areaForPath } from '@/lib/ui-colors';
 import { IntentLink as Link } from './intent-link';
 import { ModeToggle } from './mode-toggle';
 import { usePathname } from 'next/navigation';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, Fragment } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { useTotalUnread } from '@/hooks/use-total-unread';
@@ -84,20 +84,47 @@ interface NavItem {
    * Purely informational — doesn't affect routing or access.
    */
   beta?: boolean;
+  group: 'work' | 'growth' | 'manage';
 }
 
 const navItems: NavItem[] = [
-  { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
-  { href: '/inbox', labelKey: 'inbox', icon: MessageSquare },
-  { href: '/notifications', labelKey: 'notifications', icon: Bell },
-  { href: '/contacts', labelKey: 'contacts', icon: Users },
-  { href: '/pipelines', labelKey: 'pipelines', icon: GitBranch },
-  { href: '/ad-conversions', labelKey: 'adConversions', icon: Megaphone },
-  { href: '/quotations', labelKey: 'quotations', icon: FileText },
-  { href: '/broadcasts', labelKey: 'broadcasts', icon: Radio },
-  { href: '/automations', labelKey: 'automations', icon: Zap },
-  { href: '/flows', labelKey: 'flows', icon: Workflow, beta: true },
-  { href: '/agents', labelKey: 'aiAgents', icon: Bot },
+  {
+    href: '/dashboard',
+    labelKey: 'today',
+    icon: LayoutDashboard,
+    group: 'work',
+  },
+  { href: '/inbox', labelKey: 'inbox', icon: MessageSquare, group: 'work' },
+  {
+    href: '/notifications',
+    labelKey: 'notifications',
+    icon: Bell,
+    group: 'work',
+  },
+  { href: '/contacts', labelKey: 'contacts', icon: Users, group: 'work' },
+  { href: '/pipelines', labelKey: 'pipelines', icon: GitBranch, group: 'work' },
+  {
+    href: '/quotations',
+    labelKey: 'quotations',
+    icon: FileText,
+    group: 'work',
+  },
+  { href: '/broadcasts', labelKey: 'broadcasts', icon: Radio, group: 'growth' },
+  {
+    href: '/ad-conversions',
+    labelKey: 'adConversions',
+    icon: Megaphone,
+    group: 'growth',
+  },
+  { href: '/agents', labelKey: 'aiAgents', icon: Bot, group: 'manage' },
+  { href: '/automations', labelKey: 'automations', icon: Zap, group: 'manage' },
+  {
+    href: '/flows',
+    labelKey: 'flows',
+    icon: Workflow,
+    beta: true,
+    group: 'manage',
+  },
 ];
 
 const bottomNavItems = [
@@ -141,11 +168,20 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)');
+    const closeOnDesktop = () => {
+      if (media.matches) onClose?.();
+    };
+    media.addEventListener('change', closeOnDesktop);
+    return () => media.removeEventListener('change', closeOnDesktop);
+  }, [onClose]);
+
   // Lock body scroll, trap focus, and allow Escape to close while the
   // drawer is open on mobile. No-ops on desktop because the sidebar isn't
   // positioned there (and the hamburger that opens it is lg:hidden).
   useEffect(() => {
-    if (!open) return;
+    if (!open || window.matchMedia('(min-width: 1024px)').matches) return;
 
     previouslyFocused.current = document.activeElement as HTMLElement | null;
     closeButtonRef.current?.focus();
@@ -197,6 +233,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       <button
         type="button"
         aria-label={t('closeMenu')}
+        tabIndex={-1}
+        aria-hidden={!open}
         onClick={onClose}
         className={cn(
           'bg-background/70 fixed inset-0 z-30 backdrop-blur-sm transition-opacity lg:hidden',
@@ -214,11 +252,13 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           // Mobile: fixed drawer that slides in from the left.
           'border-border bg-card fixed inset-y-0 start-0 z-40 flex h-full w-64 flex-col border-e',
           'transition-transform duration-200 ease-out will-change-transform',
-          open ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full',
+          open
+            ? 'visible translate-x-0'
+            : 'invisible -translate-x-full rtl:translate-x-full',
           // Desktop: static, always visible — reset all the mobile framing.
-          'lg:static lg:z-0 lg:w-60 lg:translate-x-0 lg:transition-none lg:rtl:translate-x-0'
+          'lg:visible lg:static lg:z-0 lg:w-60 lg:translate-x-0 lg:transition-none lg:rtl:translate-x-0'
         )}
-        aria-label="Primary"
+        aria-label={t('primaryNavigation')}
       >
         {/* Logo row. On mobile we put a close button here; on desktop the
             close button is hidden since the sidebar is always-visible. */}
@@ -247,9 +287,12 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         </div>
 
         {/* Main navigation */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <nav
+          aria-label={t('mainNavigation')}
+          className="flex-1 overflow-y-auto px-3 py-4"
+        >
           <ul className="flex flex-col gap-1">
-            {navItems.map((item) => {
+            {navItems.map((item, index) => {
               const isActive =
                 pathname === item.href ||
                 (item.href !== '/dashboard' && pathname.startsWith(item.href));
@@ -265,54 +308,62 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 item.href === '/notifications' && unreadNotifications > 0;
 
               return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    data-ui-area={areaForPath(item.href)}
-                    title={t(item.labelKey as string)}
-                    aria-current={isActive ? 'page' : undefined}
-                    className={cn(
-                      // Taller on mobile so fingers can hit the row reliably (≥44px).
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
-                      isActive
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                    )}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    <span className="crm-nav-label flex-1">
-                      {t(item.labelKey as string)}
-                    </span>
-                    {item.beta && (
-                      <span
-                        aria-label={t('beta')}
-                        className="crm-nav-beta border-warning/40 bg-warning/10 text-warning rounded-full border px-1.5 py-0.5 text-[9px] font-semibold tracking-wider uppercase"
-                      >
-                        {t('beta')}
+                <Fragment key={item.href}>
+                  {(index === 0 ||
+                    navItems[index - 1].group !== item.group) && (
+                    <li className="crm-nav-group border-border text-muted-foreground mt-3 border-t px-3 pt-3 pb-1 text-xs font-semibold first:mt-0 first:border-0 first:pt-0">
+                      <h2>{t(`${item.group}Group`)}</h2>
+                    </li>
+                  )}
+                  <li>
+                    <Link
+                      href={item.href}
+                      data-ui-area={areaForPath(item.href)}
+                      title={t(item.labelKey as string)}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={cn(
+                        // Taller on mobile so fingers can hit the row reliably (≥44px).
+                        'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
+                        isActive
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      )}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span className="crm-nav-label flex-1">
+                        {t(item.labelKey as string)}
                       </span>
-                    )}
-                    {showUnreadDot && (
-                      <span
-                        aria-label={t('unreadConversations', {
-                          count: totalUnread,
-                        })}
-                        className="relative flex h-2 w-2"
-                      >
-                        <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
-                      </span>
-                    )}
-                    {showNotificationBadge && (
-                      <span
-                        aria-label={t('unreadNotifications', {
-                          count: unreadNotifications,
-                        })}
-                        className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold"
-                      >
-                        {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                      </span>
-                    )}
-                  </Link>
-                </li>
+                      {item.beta && (
+                        <span
+                          aria-label={t('beta')}
+                          className="crm-nav-beta border-warning/40 bg-warning/10 text-warning rounded-full border px-1.5 py-0.5 text-[9px] font-semibold tracking-wider uppercase"
+                        >
+                          {t('beta')}
+                        </span>
+                      )}
+                      {showUnreadDot && (
+                        <span
+                          aria-label={t('unreadConversations', {
+                            count: totalUnread,
+                          })}
+                          className="relative flex h-2 w-2"
+                        >
+                          <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
+                        </span>
+                      )}
+                      {showNotificationBadge && (
+                        <span
+                          aria-label={t('unreadNotifications', {
+                            count: unreadNotifications,
+                          })}
+                          className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold"
+                        >
+                          {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                </Fragment>
               );
             })}
           </ul>

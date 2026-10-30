@@ -62,7 +62,12 @@ export const VALID_MESSAGE_TYPES = [
 export class SendMessageError extends Error {
   readonly code: string;
   readonly status: number;
-  constructor(code: string, message: string, status: number) {
+  constructor(
+    code: string,
+    message: string,
+    status: number,
+    readonly outcome: 'rejected' | 'unknown' = 'rejected'
+  ) {
     super(message);
     this.name = 'SendMessageError';
     this.code = code;
@@ -85,6 +90,8 @@ export interface SendMessageParams {
   /** Structured payload for `messageType === 'interactive'`. */
   interactivePayload?: InteractiveMessagePayload | null;
   replyToMessageId?: string | null;
+  /** Server ledger callback; never supplied by an untrusted request body. */
+  onProviderAccepted?: (messageId: string) => Promise<void>;
 }
 
 export interface SendMessageResult {
@@ -116,8 +123,13 @@ export function validateSendMessageParams(params: {
   templateName?: string | null;
   interactivePayload?: InteractiveMessagePayload | null;
 }): void {
-  const { messageType, contentText, mediaUrl, templateName, interactivePayload } =
-    params;
+  const {
+    messageType,
+    contentText,
+    mediaUrl,
+    templateName,
+    interactivePayload,
+  } = params;
 
   if (!messageType) {
     throw new SendMessageError('bad_request', 'message_type is required', 400);
@@ -506,7 +518,31 @@ export async function sendMessageToConversation(
   } catch (err) {
     const message = describeFetchError(err);
     console.error('[send-message] Meta send failed for all variants:', message);
-    throw new SendMessageError('meta_error', `Meta API error: ${message}`, 502);
+    const rejected =
+      err instanceof Error &&
+      'providerRejected' in err &&
+      err.providerRejected === true;
+    throw new SendMessageError(
+      rejected ? 'meta_rejected' : 'meta_error',
+      `Meta API error: ${message}`,
+      502,
+      rejected ? 'rejected' : 'unknown'
+    );
+  }
+
+  if (!waMessageId)
+    throw new SendMessageError(
+      'meta_error',
+      'Provider acceptance could not be confirmed',
+      502,
+      'unknown'
+    );
+  // Record provider acceptance before any local persistence or flow cleanup.
+  // A ledger outage must not prevent saving the actual sent message.
+  try {
+    await params.onProviderAccepted?.(waMessageId);
+  } catch {
+    console.error('[send-message] Could not record provider acceptance');
   }
 
   if (workingPhone !== sanitizedPhone) {
@@ -550,7 +586,8 @@ export async function sendMessageToConversation(
     throw new SendMessageError(
       'db_error',
       `Message sent to Meta but failed to save to DB: ${msgError.message}`,
-      500
+      500,
+      'unknown'
     );
   }
 

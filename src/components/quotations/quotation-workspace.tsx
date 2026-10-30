@@ -1,4 +1,5 @@
 'use client';
+import { recordReliability } from '@/lib/inbox/reliability';
 
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { WorkspaceSelect } from './workspace-select';
@@ -314,27 +315,37 @@ export function QuotationWorkspace({
       setError(t(invalid));
       return null;
     }
-    const res = await fetch(`/api/quotations/${quotation.id}/workspace`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        draft,
-        version: quotation.workspaceVersion ?? 0,
-        revise,
-      }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setError(translateError(data.error ?? 'saveError'));
-      return null;
+    const started = performance.now();
+    try {
+      const res = await fetch(`/api/quotations/${quotation.id}/workspace`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          draft,
+          version: quotation.workspaceVersion ?? 0,
+          revise,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        recordReliability('quotation.rejected', performance.now() - started);
+        setError(translateError(data.error ?? 'saveError'));
+        return null;
+      }
+      recordReliability('quotation.saved', performance.now() - started);
+      window.dispatchEvent(new Event('quotations-updated'));
+      const next = draftFromQuotation(data);
+      setQuotation(data);
+      setDraft(next);
+      setSaved(JSON.stringify(next));
+      setError(null);
+      return data;
+    } catch (error) {
+      recordReliability('quotation.unavailable', performance.now() - started);
+      throw error;
     }
-    const next = draftFromQuotation(data);
-    setQuotation(data);
-    setDraft(next);
-    setSaved(JSON.stringify(next));
-    setError(null);
-    return data;
   }
+
   async function save(revise = false) {
     setBusy(revise ? 'revise' : 'save');
     try {
@@ -431,6 +442,7 @@ export function QuotationWorkspace({
         return;
       }
       setQuotation((q) => ({ ...q, ...data }));
+      window.dispatchEvent(new Event('quotations-updated'));
       toast.success(t('saved'));
     } catch {
       setError(t('saveError'));

@@ -94,6 +94,105 @@ export async function checkDeploymentDatabase({
       'Database preflight failed for Sales Today. Apply migration 082 before deploying this revision.'
     );
   await checkPerformanceDatabase({ url, headers, fetchImpl });
+  const ledgerUrl = new URL('/rest/v1/outbound_send_operations', url);
+  ledgerUrl.searchParams.set(
+    'select',
+    'id,account_id,user_id,conversation_id,request_hash,state,message_id,whatsapp_message_id,error_code,created_at,updated_at'
+  );
+  ledgerUrl.searchParams.set('limit', '0');
+  const ledger = await fetchImpl(ledgerUrl, {
+    headers,
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!ledger.ok)
+    throw new Error(
+      'Database preflight failed for send recovery. Apply migration 087 before deploying this revision.'
+    );
+  for (const [name, parameters, valid] of [
+    [
+      'search_inbox_messages',
+      { p_account: null, p_query: 'preflight' },
+      (value) =>
+        Array.isArray(value?.items) &&
+        value.items.length === 0 &&
+        value.total === 0 &&
+        value.nextCursor === null,
+    ],
+    [
+      'inbox_message_context',
+      { p_account: null, p_conversation: null, p_message: null },
+      (value) =>
+        value?.found === false &&
+        Array.isArray(value.messages) &&
+        value.messages.length === 0,
+    ],
+  ]) {
+    const response = await fetchImpl(new URL(`/rest/v1/rpc/${name}`, url), {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(parameters),
+      signal: AbortSignal.timeout(15000),
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok || !valid(result))
+      throw new Error(
+        `Database preflight failed for ${name}. Apply migration 088 before deploying this revision.`
+      );
+  }
+  const activityUrl = new URL('/rest/v1/conversation_activity', url);
+  activityUrl.searchParams.set(
+    'select',
+    'conversation_id,account_id,user_id,tab_id,sequence,active,last_seen_at,composing_until'
+  );
+  activityUrl.searchParams.set('limit', '0');
+  const activity = await fetchImpl(activityUrl, {
+    headers,
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!activity.ok)
+    throw new Error(
+      'Database preflight failed for conversation activity. Apply migration 089 before deploying this revision.'
+    );
+  const snapshot = await fetchImpl(
+    new URL('/rest/v1/rpc/conversation_activity_snapshot', url),
+    {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_conversation: null, p_tab: null }),
+      signal: AbortSignal.timeout(15000),
+    }
+  );
+  const peers = await snapshot.json().catch(() => null);
+  if (
+    !snapshot.ok ||
+    !Array.isArray(peers?.peers) ||
+    peers.peers.length !== 0 ||
+    !Number.isFinite(Date.parse(peers.serverNow))
+  )
+    throw new Error(
+      'Database preflight failed for activity snapshot. Apply migration 089 before deploying this revision.'
+    );
+  // Deliberately identity-free: this must be denied before any activity write.
+  const denied = await fetchImpl(
+    new URL('/rest/v1/rpc/record_conversation_activity', url),
+    {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        p_conversation: null,
+        p_tab: null,
+        p_sequence: 1,
+        p_composing: false,
+        p_leave: false,
+      }),
+      signal: AbortSignal.timeout(15000),
+    }
+  );
+  const denial = await denied.json().catch(() => null);
+  if (denied.ok || denial?.code !== '42501')
+    throw new Error(
+      'Database preflight failed for activity write authorization. Apply migration 089 before deploying this revision.'
+    );
 }
 
 /** Signature/cache checks without a customer/account/user identity. Service-role

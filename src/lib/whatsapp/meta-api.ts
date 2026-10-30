@@ -35,6 +35,15 @@ interface MetaErrorResponse {
   }
 }
 
+export class MetaRequestError extends Error {
+  readonly providerRejected: boolean
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'MetaRequestError'
+    this.providerRejected = status >= 400 && status < 500
+  }
+}
+
 async function throwMetaError(response: Response, fallback: string): Promise<never> {
   let message = fallback
   try {
@@ -58,7 +67,7 @@ async function throwMetaError(response: Response, fallback: string): Promise<nev
   } catch {
     // response body wasn't JSON — keep the fallback
   }
-  throw new Error(message)
+  throw new MetaRequestError(message, response.status)
 }
 
 /**

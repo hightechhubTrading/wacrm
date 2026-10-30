@@ -167,3 +167,35 @@ benchmark build contains synthetic backend settings and must never be deployed.
 
 Local preflight tests: `node --test deploy/check-database.test.mjs`. Execution,
 measurements and remaining live gates: [performance release](../docs/performance-execution.md).
+
+### Experience release: send recovery prerequisite
+
+Apply `087_outbound_send_operations.sql` before deploying the experience changes.
+The additive ledger stores operation IDs, actor/account/conversation scope,
+request fingerprints and outcomes; it stores no message bodies. Authenticated
+clients can read only their own operations on conversations they can still
+access. Only the server's service-role client can claim or settle a send.
+
+The deployment preflight checks the ledger columns with a zero-row read. A
+missing ledger blocks promotion. The application also rejects a tracked send
+before calling Meta when the ledger is unavailable. Do not bypass this check
+or fall back to an untracked resend after a timeout.
+
+A claimed operation is never automatically reclaimed. An unconfirmed provider
+result remains locked for read-only reconciliation; absence of a ledger row is
+not proof that a POST still in transit cannot arrive. Confirmed provider
+acceptance prevents another dispatch even if saving the message row failed.
+Operational repair of such a row must preserve the original provider ID.
+
+Local verification uses `scripts/check-send-operations-db.mjs` with a disposable
+PGlite database and `scripts/check-experience-browser.mjs` with synthetic
+customers, media and API transport. These checks do not send customer messages
+or apply production migrations.
+
+The experience update also requires migrations `088_message_history_search.sql`
+and `089_conversation_activity.sql`. Run `node deploy/check-database.mjs` against
+staging after migration and before release. Search uses caller authorization;
+activity is advisory and expires, and does not lock other agents out of sending.
+Operational Today/deadline dates now use **Asia/Qatar for every user**. Validate
+Qatar-midnight behavior from devices in different timezones and complete the
+staff/physical-device pilot in `docs/experience-staff-pilot.md` before rollout.

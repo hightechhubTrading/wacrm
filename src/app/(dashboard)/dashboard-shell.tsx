@@ -14,12 +14,17 @@ import { areaForPath } from '@/lib/ui-colors';
 import { useTheme } from '@/hooks/use-theme';
 import { LocaleSync } from '@/components/locale-sync';
 import { CallingProvider } from '@/components/calling/calling-provider';
+import { useTranslations } from 'next-intl';
+import { MobileNavigation } from '@/components/layout/mobile-navigation';
+import { useKeyboardViewport } from '@/hooks/use-keyboard-viewport';
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
 // itself can stay a server component and export metadata (noindex) —
 // client components can't export Next's metadata object.
 
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
+  const t = useTranslations('Recovery');
+  useKeyboardViewport();
   const { user, loading } = useAuth();
   const { mode } = useTheme();
   const router = useRouter();
@@ -39,9 +44,9 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   if (loading) {
     return (
       <div className="bg-background flex h-screen items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
+        <div role="status" className="flex flex-col items-center gap-3">
           <div className="border-primary h-8 w-8 animate-spin rounded-full border-2 border-t-transparent" />
-          <p className="text-muted-foreground text-sm">Loading...</p>
+          <p className="text-muted-foreground text-sm">{t('loading')}</p>
         </div>
       </div>
     );
@@ -55,6 +60,13 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       data-mode={mode}
       data-ui-area={areaForPath(pathname)}
     >
+      <a
+        href="#main-content"
+        inert={sidebarOpen || undefined}
+        className="focus:bg-primary focus:text-primary-foreground sr-only focus:not-sr-only focus:fixed focus:start-4 focus:top-4 focus:z-50 focus:rounded-md focus:px-4 focus:py-3"
+      >
+        {t('skipToContent')}
+      </a>
       {/* Reports this tab's online/away presence once we know a user is
           signed in. Headless — renders nothing. */}
       <PresenceHeartbeat />
@@ -76,11 +88,17 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
         />
         {/* Thinner horizontal padding on mobile so cards have room to breathe. */}
         <main
+          id="main-content"
+          tabIndex={-1}
           data-area={pathname.split('/')[1]}
           className="crm-main min-w-0 flex-1 overflow-y-auto p-4 sm:p-6"
         >
           {children}
         </main>
+        <MobileNavigation
+          expanded={sidebarOpen}
+          onMore={() => setSidebarOpen(true)}
+        />
       </div>
     </div>
   );

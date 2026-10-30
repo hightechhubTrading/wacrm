@@ -1,4 +1,6 @@
 'use client';
+import { recordReliability } from '@/lib/inbox/reliability';
+import { businessDayEnd } from '@/lib/business-time';
 
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -78,11 +80,11 @@ export function useInboxList(
           };
     cache.current = current;
     const timer = setTimeout(async () => {
+      const started = performance.now();
       setState((previous) => ({ ...previous, busy: true, error: false }));
       try {
         const args = JSON.parse(key)[1] as typeof query;
-        const dayEnd = new Date();
-        dayEnd.setHours(23, 59, 59, 999);
+        const dayEnd = businessDayEnd();
         const needsSales = SALES_VIEWS.includes(args.view as SalesView);
         const canSales = ['owner', 'admin', 'agent'].includes(
           accountRole ?? ''
@@ -123,6 +125,7 @@ export function useInboxList(
         );
         if (needsSales) current.sales = first?.counts ?? {};
         callback.current([...rows.values()]);
+        recordReliability('queue.ready', performance.now() - started);
         setState({
           key,
           busy: false,
@@ -169,6 +172,8 @@ export function useInboxList(
           }
         }
       } catch {
+        if (!controller.signal.aborted)
+          recordReliability('queue.failed', performance.now() - started);
         if (!controller.signal.aborted)
           setState((previous) => ({
             ...previous,

@@ -16,6 +16,7 @@ import {
   useState,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useSyncExternalStore,
 } from 'react';
@@ -36,6 +37,7 @@ import { useRealtime } from '@/hooks/use-realtime';
 import { ConversationList } from '@/components/inbox/conversation-list';
 import { MessageThread } from '@/components/inbox/message-thread';
 import { WifiOff } from 'lucide-react';
+import { ConnectionNotice } from '@/components/inbox/connection-notice';
 import { cn } from '@/lib/utils';
 
 // Remembers the agent's show/hide choice for the desktop contact panel
@@ -73,6 +75,14 @@ export default function InboxPage() {
 
 function InboxPageInner() {
   const t = useTranslations('Inbox.page');
+  const livePage = useRef(true),
+    searchOpenSequence = useRef(0);
+  useEffect(() => {
+    livePage.current = true;
+    return () => {
+      livePage.current = false;
+    };
+  }, []);
   const searchParams = useSearchParams();
   /**
    * `?c=<id>` deep-link support. Used when landing here from the
@@ -82,8 +92,18 @@ function InboxPageInner() {
   const deepLinkConvId = searchParams.get('c');
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [lastSynchronizedAt, setLastSynchronizedAt] = useState<number | null>(
+    null
+  );
   const [activeConversation, setActiveConversation] =
     useState<Conversation | null>(null);
+  const selectedConversation = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    selectedConversation.current = activeConversation?.id ?? null;
+    return () => {
+      selectedConversation.current = null;
+    };
+  }, [activeConversation?.id]);
   const [activeContact, setActiveContact] = useState<Contact | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageCache] = useState(() => new ThreadPreviewCache());
@@ -261,11 +281,9 @@ function InboxPageInner() {
           setMessages((prev) => {
             // Avoid duplicates
             if (prev.some((m) => m.id === newMsg.id)) return prev;
-            // Replace optimistic message if it exists
-            const withoutOptimistic = prev.filter(
-              (m) => !m.id.startsWith('temp-')
-            );
-            return [...withoutOptimistic, newMsg];
+            // Incoming customer messages must not erase unrelated pending sends.
+            // The POST/reconciliation result settles its own optimistic identity.
+            return [...prev, newMsg];
           });
           setDealsRefreshToken((v) => v + 1);
         }
@@ -337,7 +355,9 @@ function InboxPageInner() {
 
         // Update active conversation if it changed
         if (activeConversation && conv.id === activeConversation.id) {
-          setActiveConversation((prev) => (prev ? { ...prev, ...conv } : prev));
+          setActiveConversation((prev) =>
+            prev?.id === conv.id ? { ...prev, ...conv } : prev
+          );
         }
       }
     },
@@ -345,7 +365,7 @@ function InboxPageInner() {
   );
 
   // Reconcile list/history directly when the realtime subscription reconnects.
-  useRealtime({
+  const { isConnected, lastConnectedAt, retryConnection } = useRealtime({
     channelName: 'inbox-realtime',
     onMessageEvent: handleMessageEvent,
     onConversationEvent: handleConversationEvent,
@@ -384,6 +404,7 @@ function InboxPageInner() {
   const handleConversationsLoaded = useCallback(
     (loaded: Conversation[]) => {
       setConversations(loaded);
+      setLastSynchronizedAt(Date.now());
       if (
         !deepLinkConvId ||
         autoSelectedForDeepLinkRef.current === deepLinkConvId
@@ -433,7 +454,18 @@ function InboxPageInner() {
       // messages array, but the fetch effect in MessageThread only re-runs
       // when conversationId changes — so messages would stay empty until
       // the user navigated away and back. Bail out early instead.
-      if (activeConversation?.id === conv.id) return;
+      if (activeConversation?.id === conv.id) {
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('m')) {
+          url.searchParams.delete('m');
+          window.history.replaceState(
+            window.history.state,
+            '',
+            url.pathname + url.search + url.hash
+          );
+        }
+        return;
+      }
       setActiveConversation(conv);
       setActiveContact(conv.contact ?? null);
       clearTimeout(prefetchTimer.current);
@@ -463,6 +495,7 @@ function InboxPageInner() {
       const url = new URL(window.location.href);
       url.searchParams.set('c', conv.id);
       url.searchParams.delete('followup');
+      url.searchParams.delete('m');
       window.history.replaceState(
         null,
         '',
@@ -470,6 +503,35 @@ function InboxPageInner() {
       );
     },
     [activeConversation?.id, messageCache]
+  );
+
+  const handleOpenMessage = useCallback(
+    async (conversationId: string, messageId: string) => {
+      const version = ++searchOpenSequence.current;
+      const { data, error } = await createClient()
+        .from('conversations')
+        .select(CONVERSATION_SELECT)
+        .eq('id', conversationId)
+        .maybeSingle();
+      if (
+        error ||
+        !data ||
+        !livePage.current ||
+        version !== searchOpenSequence.current
+      )
+        return false;
+      handleSelectConversation(normalizeConversation(data));
+      const url = new URL(window.location.href);
+      url.searchParams.set('c', conversationId);
+      url.searchParams.set('m', messageId);
+      window.history.replaceState(
+        window.history.state,
+        '',
+        url.pathname + url.search + url.hash
+      );
+      return true;
+    },
+    [handleSelectConversation]
   );
 
   // Mobile "back" — deselect the conversation so the list pane comes
@@ -484,6 +546,7 @@ function InboxPageInner() {
     autoSelectedForDeepLinkRef.current = null;
     const url = new URL(window.location.href);
     url.searchParams.delete('c');
+    url.searchParams.delete('m');
     url.searchParams.delete('followup');
     window.history.replaceState(
       null,
@@ -494,6 +557,11 @@ function InboxPageInner() {
 
   const handleMessagesLoaded = useCallback(
     (loaded: Message[], merge = false) => {
+      if (
+        !livePage.current ||
+        selectedConversation.current !== activeConversation?.id
+      )
+        return;
       setMessages((previous) =>
         merge ? mergeMessageHistory(previous, loaded) : loaded
       );
@@ -503,6 +571,11 @@ function InboxPageInner() {
   );
 
   const handleNewMessage = useCallback((msg: Message) => {
+    if (
+      !livePage.current ||
+      selectedConversation.current !== msg.conversation_id
+    )
+      return;
     setMessages((prev) => {
       if (prev.some((m) => m.id === msg.id)) return prev;
       return [...prev, msg];
@@ -511,9 +584,16 @@ function InboxPageInner() {
 
   const handleUpdateMessage = useCallback(
     (id: string, updates: Partial<Message>) => {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, ...updates } : m))
-      );
+      setMessages((prev) => {
+        if (
+          updates.id &&
+          updates.id !== id &&
+          prev.some((message) => message.id === updates.id)
+        ) {
+          return prev.filter((message) => message.id !== id);
+        }
+        return prev.map((m) => (m.id === id ? { ...m, ...updates } : m));
+      });
     },
     []
   );
@@ -524,7 +604,9 @@ function InboxPageInner() {
         prev.map((c) => (c.id === conversationId ? { ...c, status } : c))
       );
       if (activeConversation?.id === conversationId) {
-        setActiveConversation((prev) => (prev ? { ...prev, status } : prev));
+        setActiveConversation((prev) =>
+          prev?.id === conversationId ? { ...prev, status } : prev
+        );
       }
     },
     [activeConversation]
@@ -541,7 +623,7 @@ function InboxPageInner() {
       );
       if (activeConversation?.id === conversationId) {
         setActiveConversation((prev) =>
-          prev
+          prev?.id === conversationId
             ? { ...prev, assigned_agent_id: assignedAgentId ?? undefined }
             : prev
         );
@@ -568,6 +650,15 @@ function InboxPageInner() {
         </div>
       )}
 
+      <ConnectionNotice
+        connected={isConnected}
+        lastConnectedAt={lastConnectedAt}
+        lastSynchronizedAt={lastSynchronizedAt}
+        onRetry={() => {
+          retryConnection();
+          handleManualRefresh();
+        }}
+      />
       <div className="crm-inbox-panes flex min-h-0 flex-1 overflow-hidden">
         {/* Left panel: Conversation list.
             Hidden on mobile when a conversation is selected so the
@@ -582,6 +673,7 @@ function InboxPageInner() {
             activeConversationId={activeConversation?.id ?? null}
             onSelect={handleSelectConversation}
             onPrefetch={prefetchConversation}
+            onOpenMessage={handleOpenMessage}
             conversations={conversations}
             onConversationsLoaded={handleConversationsLoaded}
             resyncToken={resyncToken + listRefreshToken}
@@ -605,6 +697,7 @@ function InboxPageInner() {
           )}
         >
           <MessageThread
+            key={activeConversation?.id ?? 'no-conversation'}
             conversation={activeConversation}
             contact={activeContact}
             messages={messages}
@@ -613,6 +706,11 @@ function InboxPageInner() {
             onMessagesLoaded={handleMessagesLoaded}
             onNewMessage={handleNewMessage}
             onUpdateMessage={handleUpdateMessage}
+            onRemoveMessage={(id) =>
+              setMessages((previous) =>
+                previous.filter((message) => message.id !== id)
+              )
+            }
             onStatusChange={handleStatusChange}
             onAssignChange={handleAssignChange}
             onBack={handleCloseConversation}

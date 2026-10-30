@@ -1,3 +1,4 @@
+import { businessDayBoundary } from '@/lib/business-time';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { FollowupKind } from '@/lib/ai/followups';
 import type { GroupWork } from '@/lib/jobs/workflow';
@@ -38,11 +39,9 @@ export interface AgendaData {
   membersAvailable: boolean;
 }
 
-/** Exclusive next local midnight; preserves the browser's calendar day across DST. */
+/** Exclusive next Qatar midnight, shared by staff on every device. */
 export function agendaDayEnd(now = new Date()) {
-  const end = new Date(now);
-  end.setHours(24, 0, 0, 0);
-  return end.toISOString();
+  return businessDayBoundary(now, 1).toISOString();
 }
 
 // A rejected request must not hide the other independent work lists.

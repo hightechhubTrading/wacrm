@@ -2224,3 +2224,50 @@ html[data-mode='light']
     -webkit-line-clamp: 6;
   }
 }
+
+/* Recoverable drafts use their own status line, separate from the compact AI hint. */
+.crm-inbox .crm-composer > .crm-draft-status {
+  margin: 0 0 8px;
+  padding: 0;
+  min-height: 0;
+  font-size: 12px;
+  text-align: start;
+}
+@media (max-width: 767px) {
+  .crm-inbox .crm-compose-row textarea,
+  .crm-inbox .crm-queue input {
+    font-size: 16px;
+  }
+  .crm-inbox .crm-compose-row > button,
+  .crm-inbox .crm-compose-row > span > button,
+  .crm-inbox .crm-session-notice button,
+  .crm-inbox .crm-reply-toolbar button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .crm-inbox .crm-compose-row > :last-child,
+  .crm-inbox .crm-compose-row > :last-child button {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .crm-inbox .crm-segment button {
+    min-height: 44px;
+    font-size: 13px;
+  }
+  .crm-inbox .crm-sales-job-select {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .crm-inbox .crm-sales-card [data-slot='button'] {
+    min-height: 44px;
+    font-size: 13px;
+  }
+}
+
+.crm-sales-card p,
+.crm-sales-card li,
+.crm-sales-card a {
+  overflow-wrap: anywhere;
+}

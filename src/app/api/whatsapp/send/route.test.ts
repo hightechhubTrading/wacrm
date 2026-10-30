@@ -35,7 +35,7 @@ function makeSupabaseMock() {
     const selectResult = () => {
       switch (table) {
         case 'profiles':
-          return { data: { account_id: 'acct-1' }, error: null }
+          return { data: { account_id: 'acct-1', account_role: 'owner' }, error: null }
         case 'contacts':
           return { data: contactRow, error: null }
         case 'conversations':
