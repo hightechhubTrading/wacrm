@@ -7,8 +7,12 @@ import { groupDealsByTag, isOverdue } from '@/lib/pipelines/deal-views';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DealCard } from './deal-card';
+import type { TagGroupSummary } from '@/lib/pipelines/page';
 
 interface Props {
+  summaries?: TagGroupSummary[];
+  allSummary?: { total: number; open: number; overdue: number };
+  paging?: { total: number; page: number; onChange: (page: number) => void };
   candidates: Deal[];
   deals: Deal[];
   stages: PipelineStage[];
@@ -20,6 +24,9 @@ interface Props {
 }
 const PAGE_SIZE = 5;
 export function PipelineTagView({
+  summaries,
+  allSummary,
+  paging,
   candidates,
   deals,
   stages,
@@ -47,7 +54,19 @@ export function PipelineTagView({
   }, [selectedTag]);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
-  const groups = useMemo(() => groupDealsByTag(candidates), [candidates]);
+  const groups = useMemo(
+    () =>
+      summaries ??
+      groupDealsByTag(candidates).map((group) => ({
+        id: group.id,
+        tag: group.tag,
+        total: group.deals.length,
+        open: group.deals.filter((deal) => (deal.status || 'open') === 'open')
+          .length,
+        overdue: group.deals.filter((deal) => isOverdue(deal)).length,
+      })),
+    [candidates, summaries]
+  );
   const matches = groups.filter((group) =>
     (group.tag?.name || t('untagged'))
       .toLocaleLowerCase()
@@ -96,46 +115,52 @@ export function PipelineTagView({
             </div>
           </div>
           <div className="crm-tag-tiles">
-            {[{ id: '', tag: null, deals: candidates }, ...shown].map(
-              (group) => {
-                const open = group.deals.filter(
-                  (deal) => (deal.status || 'open') === 'open'
-                ).length;
-                const overdue = group.deals.filter((deal) =>
-                  isOverdue(deal)
-                ).length;
-                return (
-                  <button
-                    key={group.id}
-                    type="button"
-                    aria-pressed={selectedTag === group.id}
-                    onClick={() => onSelectTag(group.id)}
-                    className="crm-tag-tile"
-                  >
-                    <span className="flex items-start justify-between gap-3">
-                      <span className="text-sm leading-snug font-semibold">
-                        {group.id
-                          ? group.tag?.name || t('untagged')
-                          : c('allDeals')}
+            {[
+              {
+                id: '',
+                tag: null,
+                ...(allSummary ?? {
+                  total: candidates.length,
+                  open: candidates.filter(
+                    (deal) => (deal.status || 'open') === 'open'
+                  ).length,
+                  overdue: candidates.filter((deal) => isOverdue(deal)).length,
+                }),
+              },
+              ...shown,
+            ].map((group) => {
+              const { open, overdue } = group;
+              return (
+                <button
+                  key={group.id}
+                  type="button"
+                  aria-pressed={selectedTag === group.id}
+                  onClick={() => onSelectTag(group.id)}
+                  className="crm-tag-tile"
+                >
+                  <span className="flex items-start justify-between gap-3">
+                    <span className="text-sm leading-snug font-semibold">
+                      {group.id
+                        ? group.tag?.name || t('untagged')
+                        : c('allDeals')}
+                    </span>
+                    <Tags
+                      className="text-muted-foreground size-4 shrink-0"
+                      style={{ color: group.tag?.color }}
+                    />
+                  </span>
+                  <strong>{group.total}</strong>
+                  <span className="text-muted-foreground text-xs">
+                    {c('openCount', { count: open })}
+                    {overdue > 0 && (
+                      <span className="text-destructive ms-2">
+                        {c('overdueCount', { count: overdue })}
                       </span>
-                      <Tags
-                        className="text-muted-foreground size-4 shrink-0"
-                        style={{ color: group.tag?.color }}
-                      />
-                    </span>
-                    <strong>{group.deals.length}</strong>
-                    <span className="text-muted-foreground text-xs">
-                      {c('openCount', { count: open })}
-                      {overdue > 0 && (
-                        <span className="text-destructive ms-2">
-                          {c('overdueCount', { count: overdue })}
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                );
-              }
-            )}
+                    )}
+                  </span>
+                </button>
+              );
+            })}
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p role="status" className="text-muted-foreground text-xs">
@@ -184,7 +209,8 @@ export function PipelineTagView({
                 : c('allDeals')}
             </h2>
             <p className="text-muted-foreground mt-1 text-sm">
-              {t('dealCount', { count: deals.length })} · {c('uniqueDeals')}
+              {t('dealCount', { count: paging?.total ?? deals.length })} ·{' '}
+              {c('uniqueDeals')}
             </p>
           </div>
           {selectedTag && (
@@ -196,6 +222,7 @@ export function PipelineTagView({
         </div>
         <SmartDealGrid
           key={selectedTag}
+          paging={paging}
           deals={deals}
           stages={stages}
           onDealMoved={onDealMoved}
@@ -213,6 +240,7 @@ export function PipelineTagView({
 }
 
 function SmartDealGrid({
+  paging,
   deals,
   stages,
   onDealMoved,
@@ -220,13 +248,21 @@ function SmartDealGrid({
   onOpenQuotations,
 }: Pick<
   Props,
-  'deals' | 'stages' | 'onDealMoved' | 'onEditDeal' | 'onOpenQuotations'
+  | 'paging'
+  | 'deals'
+  | 'stages'
+  | 'onDealMoved'
+  | 'onEditDeal'
+  | 'onOpenQuotations'
 >) {
   const c = useTranslations('Pipelines.smartCard');
-  const [page, setPage] = useState(0);
-  const pages = Math.max(1, Math.ceil(deals.length / 6));
+  const [localPage, setLocalPage] = useState(0);
+  const total = paging?.total ?? deals.length;
+  const page = paging?.page ?? localPage;
+  const setPage = paging?.onChange ?? setLocalPage;
+  const pages = Math.max(1, Math.ceil(total / 6));
   const current = Math.min(page, pages - 1);
-  const shown = deals.slice(current * 6, (current + 1) * 6);
+  const shown = paging ? deals : deals.slice(current * 6, (current + 1) * 6);
   return (
     <>
       <div className="crm-smart-deal-grid">
@@ -246,7 +282,7 @@ function SmartDealGrid({
       {pages > 1 && (
         <div className="flex items-center justify-between gap-3">
           <p role="status" className="text-muted-foreground text-sm">
-            {c('dealPage', { page: current + 1, pages, total: deals.length })}
+            {c('dealPage', { page: current + 1, pages, total })}
           </p>
           <div className="flex gap-2">
             <Button

@@ -8,7 +8,13 @@ vi.mock('@/lib/auth/account', () => ({
 }));
 
 vi.mock('@/lib/quotations/crud', () => ({
-  createQuotation: vi.fn().mockResolvedValue({ id: 'q-1', reference: 'HT-26-PIV-001', status: 'draft' }),
+  createQuotation: vi
+    .fn()
+    .mockResolvedValue({
+      id: 'q-1',
+      reference: 'HT-26-PIV-001',
+      status: 'draft',
+    }),
 }));
 
 import { GET, POST } from './route';
@@ -45,14 +51,25 @@ const rawQuotationRow = {
 // so `await query` resolves the eventual `{ data, error }` result --
 // mirroring the route's `let query = ...; if (status) query = query.eq(...)`
 // pattern where the query is reassigned before being awaited.
-function makeListSupabase(result: { data: unknown; error: unknown }) {
+function makeListSupabase(result: {
+  data: unknown;
+  error: unknown;
+  count?: number;
+}) {
   const builder: {
     eq: ReturnType<typeof vi.fn>;
     order: ReturnType<typeof vi.fn>;
-    then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => unknown;
+    range: ReturnType<typeof vi.fn>;
+    or: ReturnType<typeof vi.fn>;
+    then: (
+      resolve: (v: unknown) => unknown,
+      reject?: (e: unknown) => unknown
+    ) => unknown;
   } = {
     eq: vi.fn(() => builder),
     order: vi.fn(() => builder),
+    range: vi.fn(() => builder),
+    or: vi.fn(() => builder),
     then: (resolve, reject) => Promise.resolve(result).then(resolve, reject),
   };
   const select = vi.fn(() => builder);
@@ -66,7 +83,7 @@ function makeListSupabase(result: { data: unknown; error: unknown }) {
 // existing tests that don't care about this lookup keep working.
 function makeCreateSupabase(profileResult?: { data: unknown; error: unknown }) {
   const single = vi.fn(() =>
-    Promise.resolve(profileResult ?? { data: { id: 'profile-1' }, error: null }),
+    Promise.resolve(profileResult ?? { data: { id: 'profile-1' }, error: null })
   );
   const eq = vi.fn(() => ({ single }));
   const select = vi.fn(() => ({ eq }));
@@ -85,16 +102,20 @@ beforeEach(() => {
 });
 
 describe('POST /api/quotations', () => {
-  it('creates a quotation using the caller\'s own account, ignoring any accountId in the body', async () => {
+  it("creates a quotation using the caller's own account, ignoring any accountId in the body", async () => {
     const { createQuotation } = await import('@/lib/quotations/crud');
     const req = new Request('http://test/api/quotations', {
       method: 'POST',
-      body: JSON.stringify({ accountId: 'someone-elses-account', productCode: 'PIV', currency: 'QAR' }),
+      body: JSON.stringify({
+        accountId: 'someone-elses-account',
+        productCode: 'PIV',
+        currency: 'QAR',
+      }),
     });
     const res = await POST(req);
     expect(res.status).toBe(201);
     expect(createQuotation).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId: 'acc-1', productCode: 'PIV' }),
+      expect.objectContaining({ accountId: 'acc-1', productCode: 'PIV' })
     );
     const body = await res.json();
     expect(body.reference).toBe('HT-26-PIV-001');
@@ -109,7 +130,7 @@ describe('POST /api/quotations', () => {
     const res = await POST(req);
     expect(res.status).toBe(201);
     expect(createQuotation).toHaveBeenCalledWith(
-      expect.objectContaining({ assignedTo: 'profile-1', createdBy: 'u-1' }),
+      expect.objectContaining({ assignedTo: 'profile-1', createdBy: 'u-1' })
     );
   });
 
@@ -117,12 +138,19 @@ describe('POST /api/quotations', () => {
     const { createQuotation } = await import('@/lib/quotations/crud');
     const req = new Request('http://test/api/quotations', {
       method: 'POST',
-      body: JSON.stringify({ productCode: 'PIV', currency: 'QAR', assignedTo: 'someone-elses-profile' }),
+      body: JSON.stringify({
+        productCode: 'PIV',
+        currency: 'QAR',
+        assignedTo: 'someone-elses-profile',
+      }),
     });
     const res = await POST(req);
     expect(res.status).toBe(201);
     expect(createQuotation).toHaveBeenCalledWith(
-      expect.objectContaining({ assignedTo: 'someone-elses-profile', createdBy: 'u-1' }),
+      expect.objectContaining({
+        assignedTo: 'someone-elses-profile',
+        createdBy: 'u-1',
+      })
     );
   });
 
@@ -141,7 +169,8 @@ describe('POST /api/quotations', () => {
     });
     const res = await POST(req);
     expect(res.status).toBe(201);
-    const [callArgs] = (createQuotation as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [callArgs] = (createQuotation as ReturnType<typeof vi.fn>).mock
+      .calls[0];
     expect(callArgs).not.toHaveProperty('total');
     expect(callArgs).not.toHaveProperty('subtotal');
     expect(callArgs).not.toHaveProperty('discountAmount');
@@ -177,15 +206,18 @@ describe('GET /api/quotations', () => {
     h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase: { from } });
 
     const req = new Request(
-      'http://test/api/quotations?accountId=someone-elses-account',
+      'http://test/api/quotations?accountId=someone-elses-account'
     );
     const res = await GET(req);
 
     expect(res.status).toBe(200);
     expect(from).toHaveBeenCalledWith('quotations');
-    expect(select).toHaveBeenCalledWith('*');
+    expect(select).toHaveBeenCalledWith('*', { count: 'exact' });
+    expect(builder.range).toHaveBeenCalledWith(0, 49);
     expect(builder.eq).toHaveBeenCalledWith('account_id', 'acc-1');
-    expect(builder.order).toHaveBeenCalledWith('created_at', { ascending: false });
+    expect(builder.order).toHaveBeenCalledWith('created_at', {
+      ascending: false,
+    });
 
     const body = await res.json();
     expect(body).toHaveLength(1);
@@ -195,6 +227,48 @@ describe('GET /api/quotations', () => {
       reference: 'HT-26-PIV-001',
       clientCompany: 'Acme Co',
     });
+  });
+
+  it('bounds pages, returns a total and searches all records with quoted literal filters', async () => {
+    const { from, builder } = makeListSupabase({
+      data: [],
+      error: null,
+      count: 1500,
+    });
+    h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase: { from } });
+    const params = new URLSearchParams({
+      page: '3',
+      pageSize: '25',
+      search: 'A%,x_(test)',
+    });
+    const res = await GET(new Request(`http://test/api/quotations?${params}`));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('X-Total-Count')).toBe('1500');
+    expect(builder.range).toHaveBeenCalledWith(50, 74);
+    const pattern = JSON.stringify('%A\\%,x\\_(test)%');
+    expect(builder.or).toHaveBeenCalledWith(
+      ['reference', 'client_name', 'client_company', 'project_name']
+        .map((field) => `${field}.ilike.${pattern}`)
+        .join(',')
+    );
+    expect(builder.order).toHaveBeenCalledWith('id', { ascending: false });
+  });
+
+  it.each([
+    'page=0',
+    'page=-1',
+    'page=1.5',
+    'page=1000001',
+    'pageSize=101',
+    'pageSize=0',
+    'page=NaN',
+  ])('rejects invalid pagination: %s', async (params) => {
+    const { from } = makeListSupabase({ data: [], error: null });
+    h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase: { from } });
+    expect(
+      (await GET(new Request(`http://test/api/quotations?${params}`))).status
+    ).toBe(400);
+    expect(from).not.toHaveBeenCalled();
   });
 
   it('applies a status filter when provided', async () => {
@@ -217,9 +291,9 @@ describe('GET /api/quotations', () => {
 
     // Only the account_id filter should have been applied on this
     // builder -- 'status' never appears among the .eq() calls.
-    expect(
-      builder.eq.mock.calls.some(([field]) => field === 'status'),
-    ).toBe(false);
+    expect(builder.eq.mock.calls.some(([field]) => field === 'status')).toBe(
+      false
+    );
   });
 
   it('applies a dealId filter (deal-card entry point) when provided', async () => {
@@ -243,9 +317,9 @@ describe('GET /api/quotations', () => {
 
     // Only the account_id filter should have been applied on this
     // builder -- 'deal_id' never appears among the .eq() calls.
-    expect(
-      builder.eq.mock.calls.some(([field]) => field === 'deal_id'),
-    ).toBe(false);
+    expect(builder.eq.mock.calls.some(([field]) => field === 'deal_id')).toBe(
+      false
+    );
   });
 
   it('returns 400 with the Supabase error message on query failure', async () => {

@@ -1,0 +1,378 @@
+{
+  "environment": "Same local synthetic 1500-record transport, production webpack, Chrome CPU4x, network40ms; not production-user timings.",
+  "limits": [
+    "One cold observation and 4\u20136 warm observations per route; sample p95 is near the observed maximum, not a reliable population percentile.",
+    "Backend byte/request windows include concurrent background work and prefetch; browser collection ends 100ms after useful content.",
+    "Long-thread EventTiming samples only include events over the observer threshold and are not field INP.",
+    "Server RSS comes from the local process; ps CPU samples are process-lifetime averages. Shared VPS metrics are in a separate report.",
+    "Fixture does not emulate RLS; separate SQL fixtures and read-only live plans test authorization/query behavior."
+  ],
+  "baseline": {
+    "sourceSha256": "9aea6598cb76fc7c609d11157d3f31b43291d276b841e51aa31e9e2804a54541",
+    "routes": {
+      "inbox": {
+        "coldSamples": 1,
+        "coldUsefulMs": 1504.81,
+        "warmSamples": 6,
+        "warmP50Ms": 839.13,
+        "warmP95Ms": 847.63,
+        "coldBackendBytes": 3795521,
+        "coldScriptEncodedBytes": 415680,
+        "coldBrowserTransferBytes": 617434
+      },
+      "dashboard": {
+        "coldSamples": 1,
+        "coldUsefulMs": 1920.8,
+        "warmSamples": 5,
+        "warmP50Ms": 1369.92,
+        "warmP95Ms": 1379.83,
+        "coldBackendBytes": 5785743,
+        "coldScriptEncodedBytes": 451593,
+        "coldBrowserTransferBytes": 655184
+      },
+      "pipelines": {
+        "coldSamples": 1,
+        "coldUsefulMs": 3439.33,
+        "warmSamples": 4,
+        "warmP50Ms": 2838.19,
+        "warmP95Ms": 2913.62,
+        "coldBackendBytes": 5878620,
+        "coldScriptEncodedBytes": 381990,
+        "coldBrowserTransferBytes": 569686
+      },
+      "quotations": {
+        "coldSamples": 1,
+        "coldUsefulMs": 1278.23,
+        "warmSamples": 5,
+        "warmP50Ms": 837.76,
+        "warmP95Ms": 859.24,
+        "coldBackendBytes": 1955031,
+        "coldScriptEncodedBytes": 318525,
+        "coldBrowserTransferBytes": 1228816
+      },
+      "settings": {
+        "coldSamples": 1,
+        "coldUsefulMs": 639.58,
+        "warmSamples": 4,
+        "warmP50Ms": 134.26,
+        "warmP95Ms": 137.3,
+        "coldBackendBytes": 1261955,
+        "coldScriptEncodedBytes": 413464,
+        "coldBrowserTransferBytes": 587235
+      }
+    },
+    "idle": {
+      "durationMs": 300011.717333,
+      "meetsFiveMinuteRequirement": true,
+      "backendRequests": 525,
+      "callingReads": 75,
+      "settingsReads": 10
+    },
+    "multipleTabs": {
+      "tabs": 2,
+      "durationMs": 60003.21875,
+      "backendRequests": 202,
+      "callingReads": 30,
+      "settingsReads": 4
+    },
+    "cachedChatMs": 177.59,
+    "typingDuringBurstMs": 127.64,
+    "longThread": {
+      "messages": 559,
+      "scrollFrameP95Ms": 19.2,
+      "sampledInteractionMaxMs": 72,
+      "longTaskMaxMs": 126,
+      "heapBytes": 90053590
+    },
+    "serverMaxRssBytes": 339902464,
+    "serverOperations": {
+      "supabase.auth.user": {
+        "samples": 1098,
+        "p50Ms": 27.43,
+        "p95Ms": 35.7
+      },
+      "supabase.table.profiles": {
+        "samples": 223,
+        "p50Ms": 27.23,
+        "p95Ms": 28.89
+      },
+      "supabase.table.accounts": {
+        "samples": 216,
+        "p50Ms": 27.5,
+        "p95Ms": 28.89
+      },
+      "account.resolve": {
+        "samples": 216,
+        "p50Ms": 82.6,
+        "p95Ms": 86.69
+      },
+      "supabase.table.whatsapp_calls": {
+        "samples": 126,
+        "p50Ms": 27.53,
+        "p95Ms": 28.78
+      },
+      "supabase.table.group_handoffs": {
+        "samples": 5,
+        "p50Ms": 26.65,
+        "p95Ms": 26.98
+      },
+      "supabase.table.quotations": {
+        "samples": 6,
+        "p50Ms": 28.92,
+        "p95Ms": 30.47
+      },
+      "supabase.table.quotation_product_codes": {
+        "samples": 7,
+        "p50Ms": 30.53,
+        "p95Ms": 32.27
+      },
+      "supabase.table.account_invitations": {
+        "samples": 6,
+        "p50Ms": 27.87,
+        "p95Ms": 29.47
+      },
+      "supabase.table.conversations": {
+        "samples": 5,
+        "p50Ms": 29.11,
+        "p95Ms": 29.32
+      },
+      "supabase.table.ai_configs": {
+        "samples": 3,
+        "p50Ms": 28.72,
+        "p95Ms": 29.54
+      },
+      "supabase.table.ai_followups": {
+        "samples": 5,
+        "p50Ms": 28.64,
+        "p95Ms": 32.21
+      },
+      "supabase.table.ai_reply_events": {
+        "samples": 5,
+        "p50Ms": 28.73,
+        "p95Ms": 32.35
+      },
+      "supabase.table.ai_media_actions": {
+        "samples": 5,
+        "p50Ms": 28.79,
+        "p95Ms": 32.44
+      },
+      "supabase.table.messages": {
+        "samples": 5,
+        "p50Ms": 29.29,
+        "p95Ms": 32.49
+      },
+      "supabase.table.quick_replies": {
+        "samples": 1,
+        "p50Ms": 27.73,
+        "p95Ms": 27.73
+      },
+      "supabase.table.api_keys": {
+        "samples": 1,
+        "p50Ms": 25.39,
+        "p95Ms": 25.39
+      }
+    },
+    "checks": [
+      "Baseline limitation: unpaginated inbox hits fixture API cap before conversation 1500",
+      "cached chat switching",
+      "contact-panel preference persists without hydration mismatch",
+      "typing and realtime burst",
+      "missed-message recovery after real SDK reconnect",
+      "550+ loaded messages and scroll frame sampling",
+      "outgoing/incoming synthetic SDP, hidden-tab ringing, mute and peer cleanup (no real audio or calls)",
+      "all thirteen settings deep links",
+      "mobile Arabic deep link",
+      "five-minute real idle cadence",
+      "two-tab real idle cadence with background listener retained"
+    ]
+  },
+  "current": {
+    "sourceSha256": "9bc4d66791ad6ddcd27c914ebd5df7c8816f2cc6e830b3f4d96c3b394e348c7f",
+    "routes": {
+      "inbox": {
+        "coldSamples": 1,
+        "coldUsefulMs": 952.63,
+        "warmSamples": 6,
+        "warmP50Ms": 254.05,
+        "warmP95Ms": 902.08,
+        "coldBackendBytes": 83560,
+        "coldScriptEncodedBytes": 419226,
+        "coldBrowserTransferBytes": 591410
+      },
+      "dashboard": {
+        "coldSamples": 1,
+        "coldUsefulMs": 787.06,
+        "warmSamples": 5,
+        "warmP50Ms": 273.06,
+        "warmP95Ms": 384.66,
+        "coldBackendBytes": 55261,
+        "coldScriptEncodedBytes": 454370,
+        "coldBrowserTransferBytes": 610351
+      },
+      "pipelines": {
+        "coldSamples": 1,
+        "coldUsefulMs": 1031.76,
+        "warmSamples": 4,
+        "warmP50Ms": 826.76,
+        "warmP95Ms": 878.68,
+        "coldBackendBytes": 79449,
+        "coldScriptEncodedBytes": 385222,
+        "coldBrowserTransferBytes": 533998
+      },
+      "quotations": {
+        "coldSamples": 1,
+        "coldUsefulMs": 690.15,
+        "warmSamples": 5,
+        "warmP50Ms": 315.49,
+        "warmP95Ms": 819.65,
+        "coldBackendBytes": 26947,
+        "coldScriptEncodedBytes": 322630,
+        "coldBrowserTransferBytes": 491377
+      },
+      "settings": {
+        "coldSamples": 1,
+        "coldUsefulMs": 485.15,
+        "warmSamples": 4,
+        "warmP50Ms": 116.03,
+        "warmP95Ms": 124.78,
+        "coldBackendBytes": 8734,
+        "coldScriptEncodedBytes": 314121,
+        "coldBrowserTransferBytes": 458697
+      }
+    },
+    "idle": {
+      "durationMs": 300014.9975,
+      "meetsFiveMinuteRequirement": true,
+      "backendRequests": 155,
+      "callingReads": 10,
+      "settingsReads": 10
+    },
+    "multipleTabs": {
+      "tabs": 2,
+      "durationMs": 60002.46537499997,
+      "backendRequests": 60,
+      "callingReads": 4,
+      "settingsReads": 4
+    },
+    "cachedChatMs": 175.3,
+    "typingDuringBurstMs": 98.79,
+    "longThread": {
+      "messages": 559,
+      "scrollFrameP95Ms": 18.6,
+      "sampledInteractionMaxMs": 80,
+      "longTaskMaxMs": 124,
+      "heapBytes": 87996188
+    },
+    "serverMaxRssBytes": 323747840,
+    "serverOperations": {
+      "supabase.auth.user": {
+        "samples": 614,
+        "p50Ms": 27.87,
+        "p95Ms": 35.76
+      },
+      "supabase.rpc.account_profile": {
+        "samples": 150,
+        "p50Ms": 27.58,
+        "p95Ms": 30.49
+      },
+      "account.resolve": {
+        "samples": 150,
+        "p50Ms": 55.97,
+        "p95Ms": 66.74
+      },
+      "supabase.table.whatsapp_calls": {
+        "samples": 66,
+        "p50Ms": 27.85,
+        "p95Ms": 29.66
+      },
+      "supabase.table.group_handoffs": {
+        "samples": 5,
+        "p50Ms": 70.35,
+        "p95Ms": 116.44
+      },
+      "supabase.table.quotations": {
+        "samples": 6,
+        "p50Ms": 27.92,
+        "p95Ms": 28.87
+      },
+      "supabase.table.quotation_product_codes": {
+        "samples": 7,
+        "p50Ms": 28.21,
+        "p95Ms": 29.13
+      },
+      "supabase.table.profiles": {
+        "samples": 7,
+        "p50Ms": 27.42,
+        "p95Ms": 28.44
+      },
+      "supabase.table.account_invitations": {
+        "samples": 7,
+        "p50Ms": 27.62,
+        "p95Ms": 27.95
+      },
+      "supabase.table.conversations": {
+        "samples": 6,
+        "p50Ms": 28.85,
+        "p95Ms": 32.11
+      },
+      "supabase.table.ai_configs": {
+        "samples": 4,
+        "p50Ms": 29.23,
+        "p95Ms": 31.06
+      },
+      "supabase.table.ai_media_actions": {
+        "samples": 6,
+        "p50Ms": 27.55,
+        "p95Ms": 29.87
+      },
+      "supabase.table.messages": {
+        "samples": 6,
+        "p50Ms": 27.61,
+        "p95Ms": 29.95
+      },
+      "supabase.table.ai_followups": {
+        "samples": 6,
+        "p50Ms": 27.42,
+        "p95Ms": 29.75
+      },
+      "supabase.table.ai_reply_events": {
+        "samples": 6,
+        "p50Ms": 27.5,
+        "p95Ms": 29.82
+      },
+      "supabase.table.quick_replies": {
+        "samples": 1,
+        "p50Ms": 27.36,
+        "p95Ms": 27.36
+      },
+      "supabase.table.ai_products": {
+        "samples": 1,
+        "p50Ms": 28.21,
+        "p95Ms": 28.21
+      },
+      "supabase.table.api_keys": {
+        "samples": 1,
+        "p50Ms": 27.22,
+        "p95Ms": 27.22
+      }
+    },
+    "checks": [
+      "deep link outside first conversation page",
+      "cached chat switching",
+      "contact-panel preference persists without hydration mismatch",
+      "typing and realtime burst",
+      "missed-message recovery after real SDK reconnect",
+      "550+ loaded messages and scroll frame sampling",
+      "outgoing/incoming synthetic SDP, hidden-tab ringing, mute and peer cleanup (no real audio or calls)",
+      "all thirteen settings deep links",
+      "mobile Arabic deep link",
+      "sidebar unread snapshot and realtime unknown/known transitions",
+      "five-minute real idle cadence",
+      "two-tab real idle cadence with background listener retained"
+    ]
+  },
+  "callingReductionPercent": {
+    "idle": 76.47,
+    "multipleTabs": 76.47
+  }
+}

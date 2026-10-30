@@ -1,0 +1,27 @@
+{
+  "measuredAt": "2026-10-30T01:19:18.000Z",
+  "windowStart": "2026-10-29T01:48:22.000Z",
+  "source": "Hostinger VPS historical metrics",
+  "scope": "Entire shared VPS, not the application container. Sampling may miss brief spikes.",
+  "capacity": {
+    "vcpus": 2,
+    "memoryMiB": 8192
+  },
+  "cpu": {
+    "unit": "%",
+    "samples": 48,
+    "min": 10.82,
+    "mean": 13.126458333333334,
+    "p95": 24.71,
+    "max": 40.76
+  },
+  "memory": {
+    "unit": "bytes",
+    "samples": 48,
+    "min": 2869858304,
+    "mean": 2997270101.3333335,
+    "p95": 2995093504,
+    "max": 4925886464
+  },
+  "assessment": "These samples do not show sustained CPU or memory saturation; prioritize the measured application work before changing infrastructure."
+}

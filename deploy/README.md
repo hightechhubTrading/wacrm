@@ -141,3 +141,29 @@ The local customer-guide revision also requires migration
 creates review-only educational drafts without overwriting existing guides. Guide
 approval remains separate from company-product approval. See the “Customer guides
 across the catalog” section of `docs/ai-knowledge-catalog.md`; 079 is not yet applied.
+
+## Performance release database prerequisites
+
+The performance release requires migrations **083–086** before application
+promotion. The candidate's startup preflight checks the exact PostgREST signatures
+for the four dashboard aggregates, `inbox_list`, `pipeline_list` and
+`account_profile`. Inbox checks include the `p_sales` and `p_metadata_only`
+parameters. Missing migrations, stale signatures and malformed responses stop the
+candidate before the updater replaces the running application.
+
+The probes carry no user/customer/account identity, perform no writes and expect
+empty results. Deliberately denied service-role EXECUTE (`403 / 42501`) is also
+accepted after endpoint resolution; this does not replace the separate
+authenticated RLS checks. Never widen function privileges merely to pass preflight.
+
+Apply only these reviewed SQL files through the existing **timestamped linked
+migration process**; do not run `supabase db push` against the entire numeric local
+migration directory. Record the resulting versions, refresh the PostgREST schema
+cache, and run `node deploy/check-database.mjs` with the existing server Supabase
+environment. Then use the installed updater, preserving its candidate checks,
+active-call gate and rollback. Source must be committed and available at the
+reviewed deployment branch/revision before invoking the Git-based updater; a local
+benchmark build contains synthetic backend settings and must never be deployed.
+
+Local preflight tests: `node --test deploy/check-database.test.mjs`. Execution,
+measurements and remaining live gates: [performance release](../docs/performance-execution.md).

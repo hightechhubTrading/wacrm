@@ -177,7 +177,7 @@ export function DealSalesPanel({
       try {
         const [work, quotes] = await Promise.all([
           fetch(`/api/jobs/${selectedId}`, { signal: controller.signal }),
-          fetch(`/api/quotations?dealId=${selectedId}`, {
+          fetch(`/api/quotations?dealId=${selectedId}&pageSize=1`, {
             signal: controller.signal,
           }),
         ]);

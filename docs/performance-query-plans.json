@@ -1,0 +1,419 @@
+{
+  "measuredAt": "2026-10-30T01:53:37.486Z",
+  "environment": "Linked database, authenticated table RLS, read-only transaction; prepared SQL bodies, not installed RPCs.",
+  "operations": {
+    "pipeline": {
+      "sqlSha256": "452105dd829fc1fcf596a28f1fab4839e4f2249b035f2c837cd298013c850767",
+      "planningMs": 56.454,
+      "executionMs": 181.27,
+      "sharedHitBlocks": 6472,
+      "sharedReadBlocks": 0,
+      "relations": [
+        {
+          "type": "Seq Scan",
+          "relation": "conversations",
+          "loops": 1,
+          "rowsPerLoop": 638,
+          "totalMs": 37.785
+        },
+        {
+          "type": "Index Scan",
+          "relation": "contact_tags",
+          "loops": 16,
+          "rowsPerLoop": 30,
+          "totalMs": 34.544
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "deals",
+          "loops": 1,
+          "rowsPerLoop": 638,
+          "totalMs": 29.904
+        },
+        {
+          "type": "Index Scan",
+          "relation": "contacts",
+          "loops": 478,
+          "rowsPerLoop": 1,
+          "totalMs": 29.636
+        },
+        {
+          "type": "Index Scan",
+          "relation": "contacts",
+          "loops": 638,
+          "rowsPerLoop": 1,
+          "totalMs": 26.796
+        },
+        {
+          "type": "Index Scan",
+          "relation": "contact_custom_values",
+          "loops": 9,
+          "rowsPerLoop": 0,
+          "totalMs": 2.43
+        },
+        {
+          "type": "Bitmap Heap Scan",
+          "relation": "tags",
+          "loops": 1,
+          "rowsPerLoop": 16,
+          "totalMs": 1.504
+        },
+        {
+          "type": "Index Scan",
+          "relation": "profiles",
+          "loops": 1,
+          "rowsPerLoop": 7,
+          "totalMs": 1.262
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "custom_fields",
+          "loops": 2,
+          "rowsPerLoop": 2,
+          "totalMs": 1.054
+        },
+        {
+          "type": "Index Scan",
+          "relation": "pipelines",
+          "loops": 1,
+          "rowsPerLoop": 1,
+          "totalMs": 1.013
+        },
+        {
+          "type": "Index Scan",
+          "relation": "contacts",
+          "loops": 4,
+          "rowsPerLoop": 1,
+          "totalMs": 1.008
+        },
+        {
+          "type": "Index Scan",
+          "relation": "ai_sales_assistance",
+          "loops": 9,
+          "rowsPerLoop": 0,
+          "totalMs": 0.702
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "profiles",
+          "loops": 0,
+          "rowsPerLoop": 0,
+          "totalMs": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "contacts",
+          "loops": 0,
+          "rowsPerLoop": 0,
+          "totalMs": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "contacts",
+          "loops": 0,
+          "rowsPerLoop": 0,
+          "totalMs": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "conversations",
+          "loops": 0,
+          "rowsPerLoop": 0,
+          "totalMs": 0
+        }
+      ]
+    },
+    "inbox": {
+      "sqlSha256": "41b4bf2c6b341e742a7e052a315f8c715ecc9d1e7f33c2e15ac072c12bf8b62e",
+      "planningMs": 23.115,
+      "executionMs": 73.168,
+      "sharedHitBlocks": 3457,
+      "sharedReadBlocks": 0,
+      "relations": [
+        {
+          "type": "Index Scan",
+          "relation": "conversations",
+          "loops": 639,
+          "rowsPerLoop": 1,
+          "totalMs": 19.809
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "contacts",
+          "loops": 1,
+          "rowsPerLoop": 639,
+          "totalMs": 19.144
+        },
+        {
+          "type": "Index Scan",
+          "relation": "contacts",
+          "loops": 50,
+          "rowsPerLoop": 1,
+          "totalMs": 3.15
+        },
+        {
+          "type": "Index Scan",
+          "relation": "ai_followups",
+          "loops": 0,
+          "rowsPerLoop": 0,
+          "totalMs": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "conversations",
+          "loops": 0,
+          "rowsPerLoop": 0,
+          "totalMs": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "profiles",
+          "loops": 0,
+          "rowsPerLoop": 0,
+          "totalMs": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "messages",
+          "loops": 0,
+          "rowsPerLoop": 0,
+          "totalMs": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "conversations",
+          "loops": 0,
+          "rowsPerLoop": 0,
+          "totalMs": 0
+        }
+      ]
+    },
+    "metrics": {
+      "sqlSha256": "9c3e09dd1f20fa6c6f92e082668ed054ac9e469e75e6c31a28d47219ecc513a2",
+      "planningMs": 3.531,
+      "executionMs": 94.296,
+      "sharedHitBlocks": 2189,
+      "sharedReadBlocks": 0,
+      "relations": [
+        {
+          "type": "Index Scan",
+          "relation": "messages",
+          "loops": 1,
+          "rowsPerLoop": 16,
+          "totalMs": 40.863
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "conversations",
+          "loops": 1,
+          "rowsPerLoop": 639,
+          "totalMs": 17.518
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "deals",
+          "loops": 1,
+          "rowsPerLoop": 638,
+          "totalMs": 17.167
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "deals",
+          "loops": 1,
+          "rowsPerLoop": 638,
+          "totalMs": 17.03
+        },
+        {
+          "type": "Index Scan",
+          "relation": "conversations",
+          "loops": 16,
+          "rowsPerLoop": 1,
+          "totalMs": 6.016
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "contacts",
+          "loops": 1,
+          "rowsPerLoop": 3,
+          "totalMs": 0.609
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "profiles",
+          "loops": 0,
+          "rowsPerLoop": 0,
+          "totalMs": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "profiles",
+          "loops": 0,
+          "rowsPerLoop": 0,
+          "totalMs": 0
+        }
+      ]
+    },
+    "series": {
+      "sqlSha256": "9c3e09dd1f20fa6c6f92e082668ed054ac9e469e75e6c31a28d47219ecc513a2",
+      "planningMs": 4.622,
+      "executionMs": 71.143,
+      "sharedHitBlocks": 2003,
+      "sharedReadBlocks": 0,
+      "relations": [
+        {
+          "type": "Index Scan",
+          "relation": "messages",
+          "loops": 1,
+          "rowsPerLoop": 1225,
+          "totalMs": 69.744
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "conversations",
+          "loops": 1,
+          "rowsPerLoop": 639,
+          "totalMs": 33.654
+        }
+      ]
+    },
+    "response": {
+      "sqlSha256": "9c3e09dd1f20fa6c6f92e082668ed054ac9e469e75e6c31a28d47219ecc513a2",
+      "planningMs": 5.96,
+      "executionMs": 42.009,
+      "sharedHitBlocks": 1620,
+      "sharedReadBlocks": 0,
+      "relations": [
+        {
+          "type": "Index Scan",
+          "relation": "messages",
+          "loops": 1,
+          "rowsPerLoop": 666,
+          "totalMs": 38.44
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "conversations",
+          "loops": 1,
+          "rowsPerLoop": 639,
+          "totalMs": 37.032
+        }
+      ]
+    },
+    "account": {
+      "sqlSha256": "35a18361b61bc25ae9f0b71544e5d619e4702e4b64a603fa977447644df9d159",
+      "planningMs": 2.17,
+      "executionMs": 1.138,
+      "sharedHitBlocks": 30,
+      "sharedReadBlocks": 0,
+      "relations": [
+        {
+          "type": "Seq Scan",
+          "relation": "profiles",
+          "loops": 1,
+          "rowsPerLoop": 1,
+          "totalMs": 0.672
+        },
+        {
+          "type": "Index Scan",
+          "relation": "accounts",
+          "loops": 1,
+          "rowsPerLoop": 1,
+          "totalMs": 0.326
+        }
+      ]
+    },
+    "inboxCounts": {
+      "sqlSha256": "41b4bf2c6b341e742a7e052a315f8c715ecc9d1e7f33c2e15ac072c12bf8b62e",
+      "planningMs": 8.157,
+      "executionMs": 213.587,
+      "sharedHitBlocks": 10059,
+      "sharedReadBlocks": 0,
+      "relations": [
+        {
+          "type": "Index Scan",
+          "relation": "messages",
+          "loops": 639,
+          "rowsPerLoop": 1,
+          "totalMs": 122.049
+        },
+        {
+          "type": "Index Scan",
+          "relation": "conversations",
+          "loops": 639,
+          "rowsPerLoop": 1,
+          "totalMs": 40.896
+        },
+        {
+          "type": "Index Scan",
+          "relation": "conversations",
+          "loops": 639,
+          "rowsPerLoop": 1,
+          "totalMs": 19.809
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "contacts",
+          "loops": 1,
+          "rowsPerLoop": 639,
+          "totalMs": 19.558
+        },
+        {
+          "type": "Index Scan",
+          "relation": "ai_followups",
+          "loops": 639,
+          "rowsPerLoop": 0,
+          "totalMs": 10.224
+        },
+        {
+          "type": "Index Scan",
+          "relation": "conversations",
+          "loops": 82,
+          "rowsPerLoop": 1,
+          "totalMs": 4.264
+        },
+        {
+          "type": "Index Scan",
+          "relation": "group_handoffs",
+          "loops": 1,
+          "rowsPerLoop": 0,
+          "totalMs": 0.018
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "profiles",
+          "loops": 0,
+          "rowsPerLoop": 0,
+          "totalMs": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "deals",
+          "loops": 0,
+          "rowsPerLoop": 0,
+          "totalMs": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "profiles",
+          "loops": 0,
+          "rowsPerLoop": 0,
+          "totalMs": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "deals",
+          "loops": 0,
+          "rowsPerLoop": 0,
+          "totalMs": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "contacts",
+          "loops": 0,
+          "rowsPerLoop": 0,
+          "totalMs": 0
+        }
+      ]
+    }
+  }
+}

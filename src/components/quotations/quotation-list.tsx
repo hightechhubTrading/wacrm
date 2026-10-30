@@ -31,6 +31,10 @@ export function QuotationList() {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<string>('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [querySearch, setQuerySearch] = useState('');
+  const pageSize = 25;
   const [creating, setCreating] = useState(false);
 
   // Product codes are admin-managed (Task 15's Settings page, GET/POST
@@ -47,27 +51,38 @@ export function QuotationList() {
   const [productCode, setProductCode] = useState('');
 
   useEffect(() => {
-    let cancelled = false;
+    const timer = setTimeout(() => setQuerySearch(search.trim()), 250);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    const controller = new AbortController();
     setLoading(true);
     setLoadError(false);
-    const params = new URLSearchParams(status ? { status } : {});
-    fetch(`/api/quotations?${params}`)
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(pageSize),
+      search: querySearch,
+    });
+    if (status) params.set('status', status);
+    fetch(`/api/quotations?${params}`, { signal: controller.signal })
       .then(async (res) => {
         if (!res.ok) throw new Error('load');
         const rows = await res.json();
         if (!Array.isArray(rows)) throw new Error('load');
-        if (!cancelled) setQuotations(rows);
+        if (!controller.signal.aborted) {
+          setQuotations(rows);
+          setTotal(Number(res.headers.get('X-Total-Count') ?? rows.length));
+        }
       })
       .catch(() => {
-        if (!cancelled) setLoadError(true);
+        if (!controller.signal.aborted) setLoadError(true);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [status, revision]);
+    return () => controller.abort();
+  }, [status, revision, page, querySearch]);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,12 +136,6 @@ export function QuotationList() {
     }
   }
 
-  const filtered = quotations.filter((q) =>
-    [q.reference, q.clientName, q.clientCompany, q.projectName].some((value) =>
-      value?.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
-    )
-  );
-
   return (
     <div className="crm-quotation-list space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -178,14 +187,20 @@ export function QuotationList() {
           aria-label={t('searchQuotations')}
           placeholder={t('searchQuotations')}
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
           className="border-input h-9 w-full rounded-lg border bg-transparent ps-9 pe-3 text-sm"
         />
       </div>
       <WorkspaceSelect
         aria-label={t('status')}
         value={status}
-        onValueChange={setStatus}
+        onValueChange={(value) => {
+          setStatus(value);
+          setPage(1);
+        }}
         className="qw-status-filter"
       >
         <option value="">{t('allStatuses')}</option>
@@ -213,7 +228,7 @@ export function QuotationList() {
             {t('retry')}
           </Button>
         </div>
-      ) : filtered.length === 0 ? (
+      ) : quotations.length === 0 ? (
         <div className="crm-list-state">
           <FileText size={30} aria-hidden />
           <h2>{t('quotationEmpty')}</h2>
@@ -232,7 +247,7 @@ export function QuotationList() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((q) => (
+              {quotations.map((q) => (
                 <tr key={q.id} className="border-border border-b">
                   <td className="py-2 pe-4">
                     <Link
@@ -267,6 +282,36 @@ export function QuotationList() {
             </tbody>
           </table>
         </div>
+      )}
+      {!loading && !loadError && total > pageSize && (
+        <nav
+          className="flex items-center justify-between gap-3"
+          aria-label={t('quotationPagination')}
+        >
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((value) => value - 1)}
+          >
+            {t('previousPage')}
+          </Button>
+          <span className="text-muted-foreground text-sm" aria-live="polite">
+            {t('quotationPageCount', {
+              page,
+              pages: Math.ceil(total / pageSize),
+              total,
+            })}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page * pageSize >= total}
+            onClick={() => setPage((value) => value + 1)}
+          >
+            {t('nextPage')}
+          </Button>
+        </nav>
       )}
     </div>
   );

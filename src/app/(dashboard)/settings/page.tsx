@@ -3,27 +3,100 @@ import { Settings2 } from 'lucide-react';
 import { PageIdentity } from '@/components/workspace/page-identity';
 
 import { Suspense, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
 import { SettingsRail } from '@/components/settings/settings-rail';
 import { SettingsOverview } from '@/components/settings/settings-overview';
-import { ProfileForm } from '@/components/settings/profile-form';
-import { SecurityPanel } from '@/components/settings/security-panel';
-import { AppearancePanel } from '@/components/settings/appearance-panel';
-import { WhatsAppConfig } from '@/components/settings/whatsapp-config';
-import { TemplateManager } from '@/components/settings/template-manager';
-import { QuickRepliesManager } from '@/components/settings/quick-replies-manager';
-import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel';
-import { DealsSettings } from '@/components/settings/deals-settings';
-import { ProductCatalogPanel } from '@/components/settings/product-catalog-panel';
-import { MembersTab } from '@/components/settings/members-tab';
-import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
-import { QuotationProductCodes } from '@/components/settings/quotation-product-codes';
 import {
   resolveSection,
   type SettingsSection,
 } from '@/components/settings/settings-sections';
+
+function PanelLoading() {
+  return (
+    <div
+      className="bg-muted min-h-64 animate-pulse rounded-xl"
+      aria-busy="true"
+    />
+  );
+}
+
+const ProfileForm = dynamic(
+  () => import('@/components/settings/profile-form').then((m) => m.ProfileForm),
+  { loading: PanelLoading }
+);
+const SecurityPanel = dynamic(
+  () =>
+    import('@/components/settings/security-panel').then((m) => m.SecurityPanel),
+  { loading: PanelLoading }
+);
+const AppearancePanel = dynamic(
+  () =>
+    import('@/components/settings/appearance-panel').then(
+      (m) => m.AppearancePanel
+    ),
+  { loading: PanelLoading }
+);
+const WhatsAppConfig = dynamic(
+  () =>
+    import('@/components/settings/whatsapp-config').then(
+      (m) => m.WhatsAppConfig
+    ),
+  { loading: PanelLoading }
+);
+const TemplateManager = dynamic(
+  () =>
+    import('@/components/settings/template-manager').then(
+      (m) => m.TemplateManager
+    ),
+  { loading: PanelLoading }
+);
+const QuickRepliesManager = dynamic(
+  () =>
+    import('@/components/settings/quick-replies-manager').then(
+      (m) => m.QuickRepliesManager
+    ),
+  { loading: PanelLoading }
+);
+const FieldsAndTagsPanel = dynamic(
+  () =>
+    import('@/components/settings/fields-and-tags-panel').then(
+      (m) => m.FieldsAndTagsPanel
+    ),
+  { loading: PanelLoading }
+);
+const DealsSettings = dynamic(
+  () =>
+    import('@/components/settings/deals-settings').then((m) => m.DealsSettings),
+  { loading: PanelLoading }
+);
+const ProductCatalogPanel = dynamic(
+  () =>
+    import('@/components/settings/product-catalog-panel').then(
+      (m) => m.ProductCatalogPanel
+    ),
+  { loading: PanelLoading }
+);
+const MembersTab = dynamic(
+  () => import('@/components/settings/members-tab').then((m) => m.MembersTab),
+  { loading: PanelLoading }
+);
+const ApiKeysSettings = dynamic(
+  () =>
+    import('@/components/settings/api-keys-settings').then(
+      (m) => m.ApiKeysSettings
+    ),
+  { loading: PanelLoading }
+);
+const QuotationProductCodes = dynamic(
+  () =>
+    import('@/components/settings/quotation-product-codes').then(
+      (m) => m.QuotationProductCodes
+    ),
+  { loading: PanelLoading }
+);
 
 // `useSearchParams` opts this page out of static prerendering unless it
 // sits under a Suspense boundary. Without one, the production build hits

@@ -2,7 +2,7 @@
 
 import { areaForPath } from '@/lib/ui-colors';
 
-import Link from 'next/link';
+import { IntentLink as Link } from './intent-link';
 import { ModeToggle } from './mode-toggle';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
@@ -280,11 +280,13 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     )}
                   >
                     <item.icon className="h-4 w-4" />
-                    <span className="crm-nav-label flex-1">{t(item.labelKey as string)}</span>
+                    <span className="crm-nav-label flex-1">
+                      {t(item.labelKey as string)}
+                    </span>
                     {item.beta && (
                       <span
                         aria-label={t('beta')}
-                        className="crm-nav-beta rounded-full border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-warning uppercase"
+                        className="crm-nav-beta border-warning/40 bg-warning/10 text-warning rounded-full border px-1.5 py-0.5 text-[9px] font-semibold tracking-wider uppercase"
                       >
                         {t('beta')}
                       </span>
@@ -335,7 +337,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     )}
                   >
                     <item.icon className="h-4 w-4" />
-                    <span className="crm-nav-label">{t(item.labelKey as string)}</span>
+                    <span className="crm-nav-label">
+                      {t(item.labelKey as string)}
+                    </span>
                   </Link>
                 </li>
               );
@@ -343,11 +347,11 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           </ul>
         </nav>
 
-        {(
+        {
           <div className="crm-inbox-appearance hidden lg:flex">
             <ModeToggle />
           </div>
-        )}
+        }
         {/* User section */}
         <div className="border-border shrink-0 border-t p-3">
           {/* Account name display — surfaced only when the account

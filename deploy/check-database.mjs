@@ -93,6 +93,102 @@ export async function checkDeploymentDatabase({
     throw new Error(
       'Database preflight failed for Sales Today. Apply migration 082 before deploying this revision.'
     );
+  await checkPerformanceDatabase({ url, headers, fetchImpl });
+}
+
+/** Signature/cache checks without a customer/account/user identity. Service-role
+ * EXECUTE may deliberately be denied; 42501 still proves the endpoint resolved.
+ * These SQL functions are read-only and null-scoped probes return no customer data.
+ */
+async function checkPerformanceDatabase({ url, headers, fetchImpl }) {
+  const emptyItems = (result) =>
+    Array.isArray(result?.items) &&
+    result.items.length === 0 &&
+    result.total === 0;
+  const probes = [
+    [
+      'dashboard_metrics',
+      '083',
+      { p_today: null, p_yesterday: null },
+      (result) => result === null,
+    ],
+    [
+      'dashboard_message_series',
+      '083',
+      { p_start: null, p_days: 1, p_timezone: 'UTC' },
+      (result) => Array.isArray(result) && result.length === 0,
+    ],
+    [
+      'dashboard_pipeline_summary',
+      '083',
+      {},
+      (result) =>
+        Array.isArray(result?.stages) &&
+        result.stages.length === 0 &&
+        result.totalValue === 0,
+    ],
+    [
+      'dashboard_response_time',
+      '083',
+      {
+        p_start: null,
+        p_this_week: null,
+        p_last_week: null,
+        p_timezone: 'UTC',
+      },
+      (result) => result === null,
+    ],
+    [
+      'inbox_list',
+      '084',
+      {
+        p_account: null,
+        p_search: '',
+        p_view: 'all',
+        p_sort: 'priority',
+        p_tags: [],
+        p_company: null,
+        p_agent: null,
+        p_day_end: null,
+        p_cursor: null,
+        p_limit: 1,
+        p_sales: false,
+        p_metadata_only: true,
+      },
+      emptyItems,
+    ],
+    [
+      'pipeline_list',
+      '085',
+      {
+        p_pipeline: null,
+        p_filters: {},
+        p_view: 'list',
+        p_page: 0,
+        p_stage_pages: {},
+        p_today: null,
+        p_week_end: null,
+        p_fallback_currency: 'USD',
+      },
+      emptyItems,
+    ],
+    ['account_profile', '086', {}, (result) => result === null],
+  ];
+  for (const [name, migration, body, valid] of probes) {
+    const response = await fetchImpl(new URL(`/rest/v1/rpc/${name}`, url), {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15000),
+    });
+    // Undefined sentinel distinguishes invalid JSON from a valid JSON null.
+    const result = await response.json().catch(() => undefined);
+    const denied = response.status === 403 && result?.code === '42501';
+    if (!denied && (!response.ok || !valid(result)))
+      throw new Error(
+        `Database preflight failed for ${name}. Apply migration ${migration} and refresh the schema cache before deploying this revision.`
+      );
+  }
 }
 
 if (

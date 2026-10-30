@@ -18,18 +18,21 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { waitForIce, waitForConnection } from '@/lib/whatsapp/calling/webrtc';
 import { sameCalls } from '@/lib/whatsapp/calling/snapshots';
+import { createCallingSync } from '@/lib/whatsapp/calling/sync';
 import { isActiveCall, type CallRecord } from '@/lib/whatsapp/calling/types';
 import './calling.css';
 
 export async function callingFetch<T>(
   path: string,
-  body?: unknown
+  body?: unknown,
+  signal?: AbortSignal
 ): Promise<T> {
   const response = await fetch(`/api/whatsapp/calls${path}`, {
     method: body ? 'POST' : 'GET',
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
     cache: 'no-store',
+    signal,
   });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || 'Calling request failed.');
@@ -67,6 +70,8 @@ export function CallingProvider({ children }: { children: ReactNode }) {
   const operatingRef = useRef(false);
   const requestGenerationRef = useRef(0);
   const mutedRef = useRef(false);
+  const syncRef = useRef<ReturnType<typeof createCallingSync> | null>(null);
+  const callsRef = useRef<CallRecord[]>([]);
 
   useEffect(() => {
     clientRef.current = crypto.randomUUID();
@@ -98,24 +103,24 @@ export function CallingProvider({ children }: { children: ReactNode }) {
   );
 
   const refreshSettings = useCallback(async () => {
-    if (!accountId || !canSendMessages) {
-      setEnabled(false);
-      return;
-    }
-    try {
-      const result = await callingFetch<{ enabled: boolean }>('/settings');
-      setEnabled(result.enabled);
-    } catch {
-      setEnabled(false);
-    }
-  }, [accountId, canSendMessages]);
+    await syncRef.current?.refreshSettings();
+  }, []);
 
   const refresh = useCallback(async () => {
+    await syncRef.current?.refresh();
+  }, []);
+
+  const loadCalls = useCallback(async () => {
     if (!accountId || !canSendMessages) return;
     const generation = ++requestGenerationRef.current;
     try {
-      const result = await callingFetch<{ calls: CallRecord[] }>('');
+      const result = await callingFetch<{ calls: CallRecord[] }>(
+        '',
+        undefined,
+        AbortSignal.timeout(10_000)
+      );
       if (generation !== requestGenerationRef.current) return;
+      callsRef.current = result.calls;
       setCalls((previous) =>
         sameCalls(previous, result.calls) ? previous : result.calls
       );
@@ -150,9 +155,29 @@ export function CallingProvider({ children }: { children: ReactNode }) {
   }, [accountId, canSendMessages, cleanup]);
 
   useEffect(() => {
-    void refreshSettings();
-    void refresh();
     if (!accountId || !canSendMessages) return;
+    let disposed = false;
+    const invalidate = () => {
+      requestGenerationRef.current++;
+    };
+    const sync = createCallingSync({
+      loadSettings: async () => {
+        const result = await callingFetch<{ enabled: boolean }>(
+          '/settings',
+          undefined,
+          AbortSignal.timeout(10_000)
+        );
+        if (!disposed) setEnabled(result.enabled);
+        return result.enabled;
+      },
+      loadCalls,
+      hasActiveCall: () =>
+        !!ownedRef.current ||
+        operatingRef.current ||
+        callsRef.current.some((call) => isActiveCall(call.state)),
+    });
+    syncRef.current = sync;
+    sync.start();
     const db = createClient();
     const channel = db
       .channel(`calling:${accountId}:${crypto.randomUUID()}`)
@@ -165,28 +190,25 @@ export function CallingProvider({ children }: { children: ReactNode }) {
           filter: `account_id=eq.${accountId}`,
         },
         () => {
-          void refresh();
+          void sync.refresh();
         }
       )
-      .subscribe();
-    const timer = setInterval(() => {
-      void refresh();
-    }, 4000);
-    const settingsTimer = setInterval(() => {
-      void refreshSettings();
-    }, 30_000);
+      .subscribe((status) => sync.setRealtimeHealthy(status === 'SUBSCRIBED'));
     const resume = () => {
-      void refresh();
-      void refreshSettings();
+      void sync.refresh();
+      void sync.refreshSettings();
     };
     window.addEventListener('focus', resume);
     return () => {
-      clearInterval(timer);
-      clearInterval(settingsTimer);
+      disposed = true;
+      sync.stop();
+      syncRef.current = null;
+      invalidate();
+      callsRef.current = [];
       window.removeEventListener('focus', resume);
       void db.removeChannel(channel);
     };
-  }, [accountId, canSendMessages, refresh, refreshSettings]);
+  }, [accountId, canSendMessages, loadCalls]);
 
   useEffect(() => {
     let exitSentFor: string | null = null;

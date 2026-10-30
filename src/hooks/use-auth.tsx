@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   createContext,
@@ -9,17 +9,17 @@ import {
   useMemo,
   useRef,
   type ReactNode,
-} from "react";
-import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
-import { DEFAULT_CURRENCY } from "@/lib/currency";
+} from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { User } from '@supabase/supabase-js';
+import { DEFAULT_CURRENCY } from '@/lib/currency';
 import {
   canEditSettings as canEditSettingsFor,
   canManageMembers as canManageMembersFor,
   canSendMessages as canSendMessagesFor,
   isAccountRole,
   type AccountRole,
-} from "@/lib/auth/roles";
+} from '@/lib/auth/roles';
 
 interface Profile {
   id: string;
@@ -148,25 +148,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // a profile for. This prevents redundant re-fetches and toggling
   // profileLoading back to true on window focus events/token refresh.
   const lastFetchedUserIdRef = useRef<string | null>(null);
+  const profileRequest = useRef(0);
+  const invalidateProfile = useCallback(() => {
+    profileRequest.current++;
+  }, []);
 
   // Shared across init, auth-state-change listener, and the exposed
   // refreshProfile() callback. Reads the current session's user id and
   // pulls the matching profile row along with its account summary.
   const fetchProfile = useCallback(async (userId: string) => {
+    const generation = ++profileRequest.current;
     const supabase = createClient();
     setProfileLoading(true);
     lastFetchedUserIdRef.current = userId;
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select(
-          "id, full_name, email, avatar_url, role, beta_features, theme, mode, locale, account_id, account_role, phone",
-        )
-        .eq("user_id", userId)
-        .maybeSingle();
-
+      const { data: snapshot, error } = await supabase.rpc('account_profile');
+      if (generation !== profileRequest.current) return;
+      const data = snapshot?.profile;
+      if (data && data.user_id !== userId) {
+        lastFetchedUserIdRef.current = null;
+        setProfile(null);
+        setAccount(null);
+        return;
+      }
       if (error) {
-        console.error("[AuthProvider] fetchProfile error:", {
+        console.error('[AuthProvider] fetchProfile error:', {
           message: error.message,
           details: error.details,
           hint: error.hint,
@@ -177,40 +183,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data) {
-        // Load the account with a plain lookup by id instead of an
-        // embedded FK join. The embed (`account:accounts!inner(...)`)
-        // forces PostgREST to resolve the profiles.account_id →
-        // accounts.id relationship from its schema cache; a stale cache
-        // (common right after a migration adds the FK) makes it fail
-        // hard with PGRST200 and blanks the whole profile — the user
-        // then loses account context everywhere (issue #294). A point
-        // lookup by id needs no relationship inference, so the profile
-        // (with account_id / account_role) still resolves even if the
-        // account name lookup itself can't.
-        let accountRow: AccountSummary | null = null;
-        if (data.account_id) {
-          const { data: account, error: accountErr } = await supabase
-            .from("accounts")
-            // default_currency added in migration 021; narrowed to the
-            // USD fallback below for older schemas where it reads null.
-            .select("id, name, default_currency")
-            .eq("id", data.account_id)
-            .maybeSingle();
-          if (accountErr) {
-            console.error("[AuthProvider] fetchAccount error:", {
-              message: accountErr.message,
-              details: accountErr.details,
-              hint: accountErr.hint,
-              code: accountErr.code,
-            });
-          } else if (account) {
-            accountRow = {
+        const account = snapshot.account;
+        const accountRow: AccountSummary | null = account
+          ? {
               id: account.id,
               name: account.name,
               default_currency: account.default_currency ?? DEFAULT_CURRENCY,
-            };
-          }
-        }
+            }
+          : null;
 
         // Narrow the DB enum into our AccountRole union. The DB
         // constraint should make this unconditional, but a future
@@ -244,38 +224,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         setAccount(accountRow);
       } else {
+        setProfile(null);
+        setAccount(null);
         lastFetchedUserIdRef.current = null;
       }
     } catch (err) {
-      console.error("[AuthProvider] fetchProfile threw:", err);
+      if (generation !== profileRequest.current) return;
+      console.error('[AuthProvider] fetchProfile threw:', err);
       lastFetchedUserIdRef.current = null;
     } finally {
-      setProfileLoading(false);
+      if (generation === profileRequest.current) setProfileLoading(false);
     }
   }, []);
 
   useEffect(() => {
     const supabase = createClient();
     let mounted = true;
+    let authVersion = 0;
 
     const safetyTimer = setTimeout(() => {
       if (mounted) {
-        console.warn("[AuthProvider] getSession() timed out after 3s");
+        console.warn('[AuthProvider] getSession() timed out after 3s');
         setLoading(false);
         setProfileLoading(false);
       }
     }, 3000);
 
     const init = async () => {
+      const version = authVersion;
       try {
         const {
           data: { session },
           error,
         } = await supabase.auth.getSession();
 
-        if (error) console.error("[AuthProvider] getSession error:", error.message);
+        if (error)
+          console.error('[AuthProvider] getSession error:', error.message);
 
-        if (!mounted) return;
+        if (!mounted || version !== authVersion) return;
         const currentUser = session?.user ?? null;
         setUser(currentUser);
 
@@ -284,7 +270,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // (header, sidebar) can render from the user object alone,
           // profile enriches async. Callers that need to branch on
           // profile data gate on `profileLoading` instead.
-          fetchProfile(currentUser.id);
+          if (currentUser.id !== lastFetchedUserIdRef.current)
+            void fetchProfile(currentUser.id);
         } else {
           // No user → no profile to load. Flip profileLoading off so
           // pages that gate on it don't wait forever on the logged-out
@@ -292,7 +279,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfileLoading(false);
         }
       } catch (err) {
-        console.error("[AuthProvider] init threw:", err);
+        if (mounted && version === authVersion) setProfileLoading(false);
+        console.error('[AuthProvider] init threw:', err);
       } finally {
         if (mounted) setLoading(false);
         clearTimeout(safetyTimer);
@@ -305,14 +293,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
+      authVersion++;
       const currentUser = session?.user ?? null;
       setUser(currentUser);
 
       if (currentUser) {
         if (currentUser.id !== lastFetchedUserIdRef.current) {
-          fetchProfile(currentUser.id);
+          setProfile(null);
+          setAccount(null);
+          void fetchProfile(currentUser.id);
         }
       } else {
+        invalidateProfile();
         lastFetchedUserIdRef.current = null;
         setProfile(null);
         setAccount(null);
@@ -324,19 +316,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false;
+      invalidateProfile();
+      lastFetchedUserIdRef.current = null;
       clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, [fetchProfile, invalidateProfile]);
 
   const signOut = useCallback(async () => {
     const supabase = createClient();
+    invalidateProfile();
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
     setAccount(null);
-    window.location.href = "/login";
-  }, []);
+    window.location.href = '/login';
+  }, [invalidateProfile]);
 
   const refreshProfile = useCallback(async () => {
     if (!user?.id) return;
@@ -352,10 +347,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {
       accountRole: role,
       accountId: profile?.account_id ?? null,
-      isOwner: role === "owner",
-      isAdmin: role === "admin",
-      isAgent: role === "agent",
-      isViewer: role === "viewer",
+      isOwner: role === 'owner',
+      isAdmin: role === 'admin',
+      isAgent: role === 'agent',
+      isViewer: role === 'viewer',
       canManageMembers: role ? canManageMembersFor(role) : false,
       canEditSettings: role ? canEditSettingsFor(role) : false,
       canSendMessages: role ? canSendMessagesFor(role) : false,
@@ -398,7 +393,7 @@ export function useAuth(): AuthContextValue {
       loading: false,
       profileLoading: false,
       signOut: async () => {
-        window.location.href = "/login";
+        window.location.href = '/login';
       },
       refreshProfile: async () => {},
       account: null,

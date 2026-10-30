@@ -37,6 +37,11 @@ const scrollOptions = {
 };
 interface PipelineBoardProps {
   stages: PipelineStage[];
+  paging?: {
+    counts: Record<string, number>;
+    pages: Record<string, number>;
+    onChange: (id: string, page: number) => void;
+  };
   deals: Deal[];
   onDealMoved: (dealId: string, newStageId: string) => void;
   onAddDeal: (stageId: string) => void;
@@ -45,6 +50,7 @@ interface PipelineBoardProps {
 }
 
 export function PipelineBoard({
+  paging,
   stages,
   deals,
   onDealMoved,
@@ -124,6 +130,11 @@ export function PipelineBoard({
               stage={stage}
               stages={sortedStages}
               deals={stageDeals}
+              total={paging?.counts[stage.id] ?? 0}
+              remotePage={paging?.pages[stage.id]}
+              onPageChange={
+                paging ? (page) => paging.onChange(stage.id, page) : undefined
+              }
               dragging={!!activeDealId}
               onDealMoved={onDealMoved}
               onAddDeal={onAddDeal}
@@ -190,6 +201,9 @@ export function PipelineBoard({
 }
 
 function StageColumn({
+  total: remoteTotal,
+  remotePage,
+  onPageChange,
   stage,
   stages,
   deals,
@@ -199,6 +213,9 @@ function StageColumn({
   onEditDeal,
   onOpenQuotations,
 }: {
+  total?: number;
+  remotePage?: number;
+  onPageChange?: (page: number) => void;
   stage: PipelineStage;
   stages: PipelineStage[];
   deals: Deal[];
@@ -210,15 +227,20 @@ function StageColumn({
 }) {
   const t = useTranslations('Pipelines.board');
   const c = useTranslations('Pipelines.smartCard');
-  const [page, setPage] = useState(0);
-  const pages = Math.max(1, Math.ceil(deals.length / CARDS_PER_STAGE_PAGE));
+  const [localPage, setLocalPage] = useState(0);
+  const total = onPageChange ? (remoteTotal ?? 0) : deals.length;
+  const page = remotePage ?? localPage;
+  const setPage = onPageChange ?? setLocalPage;
+  const pages = Math.max(1, Math.ceil(total / CARDS_PER_STAGE_PAGE));
   const current = Math.min(page, pages - 1);
   // Keep all records available to search and counts, but only mount this page's
   // interactive cards and drag subscriptions.
-  const shown = deals.slice(
-    current * CARDS_PER_STAGE_PAGE,
-    (current + 1) * CARDS_PER_STAGE_PAGE
-  );
+  const shown = onPageChange
+    ? deals
+    : deals.slice(
+        current * CARDS_PER_STAGE_PAGE,
+        (current + 1) * CARDS_PER_STAGE_PAGE
+      );
   const canCreate = useCan('send-messages');
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
@@ -237,14 +259,14 @@ function StageColumn({
           {stage.name}
         </h3>
         <span className="bg-muted text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium">
-          {deals.length}
+          {total}
         </span>
       </div>
 
       {pages > 1 && (
-        <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
+        <div className="border-border mt-3 flex items-center justify-between gap-2 border-t pt-3">
           <p role="status" className="text-muted-foreground text-xs">
-            {c('dealPage', { page: current + 1, pages, total: deals.length })}
+            {c('dealPage', { page: current + 1, pages, total })}
           </p>
           <div className="flex gap-1">
             <Button

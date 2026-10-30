@@ -33,14 +33,14 @@ import { DealAiSummary } from './deal-card';
 import { PipelineTagView } from './pipeline-tag-view';
 import { CustomerTagPicker } from './customer-tag-picker';
 import { PipelineBoard } from './pipeline-board';
-import { getPipelineOwner } from '@/lib/pipelines/deal-owner';
 import { cn } from '@/lib/utils';
+import { createClient } from '@/lib/supabase/client';
+import { usePipelineList } from '@/hooks/use-pipeline-list';
+import { readPipelineExport } from '@/lib/pipelines/page';
 import {
   DEFAULT_DEAL_FILTERS,
   UNASSIGNED,
-  dealTags,
   dealsCsv,
-  filterDeals,
   isOverdue,
   readDealView,
   writeDealView,
@@ -67,6 +67,8 @@ interface Props {
   pipelineId: string;
   stages: PipelineStage[];
   deals: Deal[];
+  revision: number;
+  onDealsLoaded: (rows: Deal[]) => void;
   onRefresh: () => Promise<void>;
   onDealAssigned: (id: string, owner: DealOwner | null) => void;
   onDealMoved: (dealId: string, stageId: string) => void;
@@ -99,6 +101,14 @@ export function PipelineExplorer(props: Props) {
   const [view, setView] = useState<DealView>(
     () => readVisibleDealView(new URLSearchParams(params.toString())).view
   );
+  const remote = usePipelineList(
+    pipelineId,
+    filters,
+    view,
+    props.revision,
+    props.onDealsLoaded
+  );
+  const [exporting, setExporting] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
@@ -133,31 +143,13 @@ export function PipelineExplorer(props: Props) {
       return [];
     }
   }, [savedJSON]);
-  const tags = useMemo(() => dealTags(deals), [deals]);
-  const owners = useMemo(
-    () =>
-      Array.from(
-        new Map(
-          deals
-            .map(getPipelineOwner)
-            .filter((owner) => owner.id)
-            .map((owner) => [owner.id!, owner.name || t('unknownOwner')])
-        ).entries()
-      ).sort((a, b) => a[1].localeCompare(b[1])),
-    [deals, t]
-  );
-  const visible = useMemo(
-    () => filterDeals(deals, filters, new Date(), defaultCurrency),
-    [deals, filters, defaultCurrency]
-  );
-  const tagCandidates = useMemo(
-    () =>
-      filterDeals(deals, { ...filters, tag: '' }, new Date(), defaultCurrency),
-    [deals, filters, defaultCurrency]
-  );
-  const openDeals = visible.filter(
-    (deal) => (deal.status || 'open') === 'open'
-  );
+  const tags = remote.data?.tags ?? [];
+  const owners = (remote.data?.owners ?? []).map(([id, name]) => [
+    id,
+    name || t('unknownOwner'),
+  ]);
+  const visible = deals;
+  const summary = remote.data?.summary;
   const filterCount = (
     Object.keys(DEFAULT_DEAL_FILTERS) as (keyof DealFilters)[]
   ).filter(
@@ -204,69 +196,76 @@ export function PipelineExplorer(props: Props) {
       toast.error(t('copyFailed'));
     }
   }
-  function exportCsv() {
-    const headers = [
-      'deal',
-      'customer',
-      'phone',
-      'stage',
-      'status',
-      'owner',
-      'aiSummary',
-      'closeDate',
-      'tags',
-    ].map((key) => t(key));
-    const url = URL.createObjectURL(
-      new Blob(
-        [
-          dealsCsv(
-            visible,
-            new Map(stages.map((stage) => [stage.id, stage.name])),
-            headers
-          ),
-        ],
-        { type: 'text/csv;charset=utf-8;' }
-      )
-    );
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `pipeline-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const exported = await readPipelineExport(createClient(), {
+        pipelineId,
+        filters,
+        view: 'export',
+        page: 0,
+        stagePages: {},
+        fallbackCurrency: defaultCurrency,
+      });
+      const headers = [
+        'deal',
+        'customer',
+        'phone',
+        'stage',
+        'status',
+        'owner',
+        'aiSummary',
+        'closeDate',
+        'tags',
+      ].map((key) => t(key));
+      const url = URL.createObjectURL(
+        new Blob(
+          [
+            dealsCsv(
+              exported,
+              new Map(stages.map((stage) => [stage.id, stage.name])),
+              headers
+            ),
+          ],
+          { type: 'text/csv;charset=utf-8;' }
+        )
+      );
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `pipeline-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      toast.error(t('exportError'));
+    } finally {
+      setExporting(false);
+    }
   }
   return (
     <PipelinePeopleProvider
       pipelineId={pipelineId}
-      onAssigned={props.onDealAssigned}
+      onAssigned={(id, owner) => {
+        props.onDealAssigned(id, owner);
+        remote.refresh();
+      }}
     >
       <section className="space-y-6" aria-label={t('workspace')}>
         <div className="crm-pipeline-summary">
           <div>
             <span>{t('openDeals')}</span>
-            <strong>{openDeals.length}</strong>
+            <strong>{summary?.open ?? 0}</strong>
           </div>
           <div>
             <span>{t('won')}</span>
-            <strong>
-              {visible.filter((deal) => deal.status === 'won').length}
-            </strong>
+            <strong>{summary?.won ?? 0}</strong>
           </div>
           <div>
             <span>{t('overdue')}</span>
-            <strong>{visible.filter((deal) => isOverdue(deal)).length}</strong>
+            <strong>{summary?.overdue ?? 0}</strong>
           </div>
           <div>
             <span>{t('unassigned')}</span>
-            <strong>
-              {
-                visible.filter(
-                  (deal) =>
-                    !getPipelineOwner(deal).id &&
-                    !getPipelineOwner(deal).unavailable &&
-                    (deal.status || 'open') === 'open'
-                ).length
-              }
-            </strong>
+            <strong>{summary?.unassigned ?? 0}</strong>
           </div>
         </div>
         <div className="crm-pipeline-tools space-y-5">
@@ -344,7 +343,7 @@ export function PipelineExplorer(props: Props) {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={!visible.length}
+                disabled={!remote.data?.total || remote.loading || exporting}
                 onClick={exportCsv}
               >
                 <Download className="size-4" />
@@ -512,7 +511,10 @@ export function PipelineExplorer(props: Props) {
           <div className="border-border flex flex-wrap items-center justify-between gap-3 border-t pt-4">
             <div className="flex flex-wrap items-center gap-3">
               <p role="status" className="text-muted-foreground text-sm">
-                {t('showing', { shown: visible.length, total: deals.length })}
+                {t('showing', {
+                  shown: remote.data?.total ?? 0,
+                  total: remote.data?.pipelineTotal ?? 0,
+                })}
               </p>
               {filterCount > 0 && (
                 <Button variant="link" size="sm" onClick={reset}>
@@ -535,9 +537,30 @@ export function PipelineExplorer(props: Props) {
             </FilterSelect>
           </div>
         </div>
-        {view === 'tags' ? (
+        {remote.loading ? (
+          <div
+            role="status"
+            className="text-muted-foreground py-12 text-center"
+          >
+            {t('loading')}
+          </div>
+        ) : remote.error ? (
+          <div role="alert" className="crm-pipeline-empty">
+            <p>{t('loadError')}</p>
+            <Button variant="outline" onClick={remote.refresh}>
+              {t('retry')}
+            </Button>
+          </div>
+        ) : view === 'tags' ? (
           <PipelineTagView
-            candidates={tagCandidates}
+            candidates={visible}
+            summaries={remote.data?.tagGroups}
+            allSummary={remote.data?.tagSummary}
+            paging={{
+              total: remote.data?.total ?? 0,
+              page: remote.data?.page ?? 0,
+              onChange: remote.setPage,
+            }}
             deals={visible}
             stages={stages}
             selectedTag={filters.tag}
@@ -564,10 +587,26 @@ export function PipelineExplorer(props: Props) {
         ) : view === 'board' ? (
           <>
             <p className="text-muted-foreground text-xs">{t('boardHint')}</p>
-            <PipelineBoard {...props} deals={visible} />
+            <PipelineBoard
+              {...props}
+              deals={visible}
+              paging={{
+                counts: remote.data?.stageCounts ?? {},
+                pages: remote.data?.stagePages ?? {},
+                onChange: remote.setStagePage,
+              }}
+            />
           </>
         ) : (
-          <DealList {...props} deals={visible} />
+          <DealList
+            {...props}
+            deals={visible}
+            paging={{
+              total: remote.data?.total ?? 0,
+              page: remote.data?.page ?? 0,
+              onChange: remote.setPage,
+            }}
+          />
         )}
       </section>
     </PipelinePeopleProvider>
@@ -602,18 +641,24 @@ function FilterSelect({
   );
 }
 function DealList({
+  paging,
   deals,
   stages,
   onDealMoved,
   onEditDeal,
   onOpenQuotations,
-}: Props) {
+}: Props & {
+  paging?: { total: number; page: number; onChange: (page: number) => void };
+}) {
   const t = useTranslations('Pipelines.explorer');
   const c = useTranslations('Pipelines.smartCard');
-  const [page, setPage] = useState(0);
-  const pages = Math.max(1, Math.ceil(deals.length / 25));
+  const [localPage, setLocalPage] = useState(0);
+  const total = paging?.total ?? deals.length;
+  const page = paging?.page ?? localPage;
+  const setPage = paging?.onChange ?? setLocalPage;
+  const pages = Math.max(1, Math.ceil(total / 25));
   const current = Math.min(page, pages - 1);
-  const shown = deals.slice(current * 25, (current + 1) * 25);
+  const shown = paging ? deals : deals.slice(current * 25, (current + 1) * 25);
   const locale = useLocale();
   const { profile, accountRole } = useAuth();
   const canWrite = useCan('send-messages');
@@ -758,7 +803,7 @@ function DealList({
       {pages > 1 && (
         <div className="border-border flex items-center justify-between gap-3 border-t px-5 py-4">
           <p role="status" className="text-muted-foreground text-xs">
-            {c('dealPage', { page: current + 1, pages, total: deals.length })}
+            {c('dealPage', { page: current + 1, pages, total })}
           </p>
           <div className="flex gap-2">
             <Button

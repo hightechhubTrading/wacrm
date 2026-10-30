@@ -241,6 +241,7 @@
       "whatsappNotConnected": "WhatsApp® غير متصل. انتقل إلى الإعدادات لربط حسابك."
     },
     "conversationList": {
+      "loadMore": "تحميل المزيد من المحادثات",
       "searchPlaceholder": "البحث في المحادثات...",
       "filterAll": "الكل",
       "filterUnread": "غير مقروءة",
@@ -1034,6 +1035,8 @@
       "creating": "جارٍ الإنشاء..."
     },
     "explorer": {
+      "loading": "جارٍ تحميل الصفقات…",
+      "exportError": "تعذّر تصدير جميع الصفقات المطابقة. حاول مرة أخرى.",
       "workspace": "مساحة مسار المبيعات",
       "description": "تابع فرص البيع حسب المنتج أو وسم العميل، وحدّد الخطوة التالية لكل فرصة.",
       "view": "عرض الصفقات",
@@ -2468,6 +2471,10 @@
     "workUnavailable": "هذا الطلب لم يعد متاحًا هنا. افتح التحديثات للاطلاع على سجلات العمل الحالية."
   },
   "Workspace": {
+    "quotationPagination": "صفحات عروض الأسعار",
+    "previousPage": "السابق",
+    "nextPage": "التالي",
+    "quotationPageCount": "الصفحة {page} من {pages} · {total} عرض سعر",
     "quotations": "عروض الأسعار",
     "quotationsHint": "أنشئ عروض أسعار العملاء وراجعها وتابعها.",
     "agents": "مساعد الذكاء الاصطناعي",

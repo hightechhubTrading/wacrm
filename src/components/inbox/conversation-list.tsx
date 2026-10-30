@@ -3,19 +3,10 @@
 import { DirectionProvider } from '@base-ui/react/direction-provider';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import {
-  CONVERSATION_SELECT,
-  matchesContactFilters,
-  normalizeConversations,
-} from '@/lib/inbox/conversations';
-import { useSalesContext } from '@/hooks/use-sales-context';
-import {
-  SALES_VIEWS,
-  matchesSalesView,
-  type SalesView,
-} from '@/lib/inbox/sales-context';
+import { useInboxList } from '@/hooks/use-inbox-list';
+import { useCan } from '@/hooks/use-can';
+import { SALES_VIEWS, type SalesView } from '@/lib/inbox/sales-context';
 import { TRIAGE_GROUPS, sortTriage, triageGroup } from '@/lib/inbox/triage';
-import { useAuth } from '@/hooks/use-auth';
 import { ar, enUS } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { Conversation, ConversationStatus, Tag, Profile } from '@/types';
@@ -95,17 +86,10 @@ export function ConversationList({
   const t = useTranslations('Inbox.conversationList');
   const locale = useLocale();
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const { user } = useAuth();
-  const sales = useSalesContext(
-    conversations
-      .map((c) => `${c.id}|${c.last_message_at ?? ''}`)
-      .sort()
-      .join(',')
-  );
-
+  const canReadSales = useCan('send-messages');
   const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(
     () => [
-      ...(sales.available
+      ...(canReadSales
         ? SALES_VIEWS.map((value) => ({
             label: t(`salesViews.${value}`),
             value,
@@ -120,7 +104,7 @@ export function ConversationList({
       { label: t('filterPending'), value: 'pending' },
       { label: t('filterClosed'), value: 'closed' },
     ],
-    [t, sales.available]
+    [t, canReadSales]
   );
 
   const [search, setSearch] = useState('');
@@ -129,26 +113,6 @@ export function ConversationList({
     'priority'
   );
 
-  const matchesView = useCallback(
-    (c: Conversation, view: InboxFilter) => {
-      if (SALES_VIEWS.includes(view as SalesView))
-        return matchesSalesView(
-          view as SalesView,
-          sales.data[c.id],
-          c.status,
-          user?.id
-        );
-      if (view === 'unread') return c.unread_count > 0;
-      if (view === 'mine')
-        return Boolean(user?.id) && c.assigned_agent_id === user?.id;
-      if (view === 'priority') return triageGroup(c) === 'priority';
-      if (view === 'unassigned') return !c.assigned_agent_id;
-      return view === 'all' || c.status === view;
-    },
-    [sales.data, user?.id]
-  );
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(false);
   const [retry, setRetry] = useState(0);
   // Contact-based filters (issue #272). Tags use OR logic (a conversation
   // matches if its contact carries any selected tag), consistent with
@@ -160,60 +124,20 @@ export function ConversationList({
   // null = no filter, 'unassigned' = the explicit unassigned bucket, or a profile's user_id.
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
-  // Keep the latest callback in a ref so the fetch effect below can
-  // have a stable, empty-dep identity. Previously the fetch useCallback
-  // depended on `onConversationsLoaded`, which depends on the parent's
-  // `deepLinkConvId` — so every URL change (including one the parent
-  // triggered via router.replace after a click) caused a fresh
-  // conversations fetch. That extra refetch was the trigger for the
-  // deep-link auto-select running a second time and wiping the active
-  // thread's messages.
-  // Mutation lives in an effect (not render) per React 19's refs rule;
-  // the fetch runs once on mount so it's fine to read the slightly
-  // older value — the very next render updates the ref for any
-  // subsequent async completion.
-  const onConversationsLoadedRef = useRef(onConversationsLoaded);
-  useEffect(() => {
-    onConversationsLoadedRef.current = onConversationsLoaded;
-  });
-
-  useEffect(() => {
-    const supabase = createClient();
-    let cancelled = false;
-
-    (async () => {
-      const { data, error } = await supabase
-        .from('conversations')
-        .select(CONVERSATION_SELECT)
-        .order('last_message_at', { ascending: false });
-
-      if (cancelled) return;
-
-      if (error) {
-        setFetchError(true);
-        // Supabase errors have non-enumerable properties — log fields explicitly
-        console.error('Failed to fetch conversations:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
-        setLoading(false);
-        return;
-      }
-
-      setFetchError(false);
-      onConversationsLoadedRef.current(normalizeConversations(data ?? []));
-      setLoading(false);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-    // `resyncToken` is included so the parent can force a refetch when
-    // the realtime channel reconnects or the tab regains focus — catches
-    // up on any events sent while the WS was disconnected or throttled.
-  }, [resyncToken, retry]);
+  const remote = useInboxList(
+    {
+      search: search.trim(),
+      view: filter,
+      sort,
+      tags: selectedTagIds,
+      company: selectedCompany,
+      agent: selectedAgentId,
+    },
+    resyncToken + retry,
+    onConversationsLoaded
+  );
+  const loading = remote.loading;
+  const fetchError = remote.error;
 
   // Tag definitions for the filter picker — loaded once so labels/colours
   // stay stable regardless of which conversations happen to be loaded.
@@ -252,17 +176,7 @@ export function ConversationList({
     };
   }, []);
 
-  // Company options are derived from the loaded conversations — there's no
-  // separate companies table, and only companies with a live conversation
-  // are worth offering as an inbox filter.
-  const companies = useMemo(() => {
-    const set = new Set<string>();
-    for (const c of conversations) {
-      const co = c.contact?.company?.trim();
-      if (co) set.add(co);
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [conversations]);
+  const companies = remote.companies;
 
   const tagsById = useMemo(() => {
     const m = new Map<string, Tag>();
@@ -276,56 +190,8 @@ export function ConversationList({
     return m;
   }, [profiles]);
 
-  const refined = useMemo(() => {
-    let result = conversations;
-
-    // Contact-based filters (tags via OR logic, exact company match).
-    if (selectedTagIds.length > 0 || selectedCompany !== null) {
-      result = result.filter((c) =>
-        matchesContactFilters(c, {
-          tagIds: selectedTagIds,
-          company: selectedCompany,
-        })
-      );
-    }
-
-    // Assigned-agent filter — a conversation-level field, not routed
-    // through matchesContactFilters (which is contact-specific).
-    if (selectedAgentId !== null) {
-      result = result.filter((c) =>
-        selectedAgentId === UNASSIGNED_AGENT
-          ? !c.assigned_agent_id
-          : c.assigned_agent_id === selectedAgentId
-      );
-    }
-
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      result = result.filter((c) => {
-        const name = c.contact?.name?.toLowerCase() ?? '';
-        const phone = c.contact?.phone?.toLowerCase() ?? '';
-        const lastMsg = c.last_message_text?.toLowerCase() ?? '';
-        return name.includes(q) || phone.includes(q) || lastMsg.includes(q);
-      });
-    }
-
-    return result;
-  }, [conversations, search, selectedTagIds, selectedCompany, selectedAgentId]);
-
-  const viewCounts = useMemo(
-    () =>
-      Object.fromEntries(
-        FILTER_OPTIONS.map((option) => [
-          option.value,
-          refined.filter((c) => matchesView(c, option.value)).length,
-        ])
-      ),
-    [FILTER_OPTIONS, refined, matchesView]
-  );
-  const filtered = useMemo(
-    () => refined.filter((c) => matchesView(c, filter)),
-    [refined, matchesView, filter]
-  );
+  const viewCounts = remote.counts;
+  const filtered = conversations;
   const sections = useMemo(() => {
     if (sort === 'priority') {
       const ordered = sortTriage(filtered);
@@ -442,9 +308,9 @@ export function ConversationList({
 
           {SALES_VIEWS.includes(filter as SalesView) && (
             <p role="status" className="text-muted-foreground text-xs">
-              {sales.error
+              {fetchError
                 ? t('salesUnavailable')
-                : sales.loading
+                : loading
                   ? t('salesLoading')
                   : t('salesViewHint')}
             </p>
@@ -467,12 +333,12 @@ export function ConversationList({
                   ? t('mine')
                   : t(value === 'all' ? 'filterAll' : 'filterUnread')}
                 <small className="tabular-nums">
-                  {loading ? '–' : viewCounts[value]}
+                  {loading ? '–' : (viewCounts[value] ?? 0)}
                 </small>
               </button>
             ))}
           </div>
-          {sales.available && (
+          {canReadSales && (
             <div
               className="crm-queue-action-views"
               role="group"
@@ -486,7 +352,15 @@ export function ConversationList({
                   onClick={() => setFilter(value)}
                 >
                   <span>{t(`salesViews.${value}`)}</span>
-                  <strong>{viewCounts[value]}</strong>
+                  <strong
+                    title={
+                      remote.salesError ? t('salesUnavailable') : undefined
+                    }
+                  >
+                    {loading || remote.salesLoading || remote.salesError
+                      ? '–'
+                      : (viewCounts[value] ?? 0)}
+                  </strong>
                 </button>
               ))}
             </div>
@@ -566,7 +440,7 @@ export function ConversationList({
                           >
                             <span>{opt.label}</span>
                             <small>
-                              {loading ? '–' : viewCounts[opt.value]}
+                              {loading ? '–' : (viewCounts[opt.value] ?? 0)}
                             </small>
                           </DropdownMenuRadioItem>
                         ))}
@@ -869,6 +743,16 @@ export function ConversationList({
                 />
               )}
             />
+          )}
+          {!loading && !fetchError && remote.hasMore && (
+            <button
+              type="button"
+              className="text-primary py-3 text-sm"
+              disabled={remote.busy}
+              onClick={remote.loadMore}
+            >
+              {t('loadMore')}
+            </button>
           )}
         </div>
       </div>

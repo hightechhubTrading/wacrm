@@ -6,7 +6,6 @@ import type { Pipeline, PipelineStage, Deal, Tag } from '@/types';
 import { stageHasActiveRequiredGroup } from '@/lib/pipelines/group-values';
 import { WaitingWorkQueue } from '@/components/jobs/group-work';
 import type { DealOwner } from '@/components/pipelines/deal-assignment';
-import { loadDealSummaries } from '@/lib/pipelines/deal-summaries';
 import { PipelineExplorer } from '@/components/pipelines/pipeline-explorer';
 import { useSearchParams } from 'next/navigation';
 import { PageIdentity } from '@/components/workspace/page-identity';
@@ -92,10 +91,6 @@ function normalizeDeal(raw: RawDeal): Deal {
   } as Deal;
 }
 
-function normalizeDeals(rows: RawDeal[]): Deal[] {
-  return rows.map(normalizeDeal);
-}
-
 export default function PipelinesPage() {
   const { accountId } = useAuth();
   return (
@@ -141,6 +136,11 @@ function PipelinesPageInner() {
   const [dealsError, setDealsError] = useState(false);
   const [loadedPipelineId, setLoadedPipelineId] = useState('');
   const [reloadVersion, setReloadVersion] = useState(0);
+  const [dataRevision, setDataRevision] = useState(0);
+  const editSequence = useRef(0);
+  useEffect(() => {
+    editSequence.current++;
+  }, [selectedPipelineId]);
 
   // Dialog / sheet state
   const [newPipelineOpen, setNewPipelineOpen] = useState(false);
@@ -195,37 +195,6 @@ function PipelinesPageInner() {
         .order('position');
       if (error) throw error;
       return data ?? [];
-    },
-    [supabase]
-  );
-
-  const loadDeals = useCallback(
-    async (pipelineId: string) => {
-      const rows: RawDeal[] = [];
-      const batchSize = 500;
-      for (let offset = 0; ; offset += batchSize) {
-        const { data, error } = await supabase
-          .from('deals')
-          .select(
-            '*, contact:contacts(*, contact_tags(tags(*)), contact_custom_values(value, custom_fields(field_name, ai_collectible))), assignee:profiles!deals_assigned_to_fkey(*)'
-          )
-          .eq('pipeline_id', pipelineId)
-          .order('created_at', { ascending: false })
-          .order('id')
-          .range(offset, offset + batchSize - 1);
-        if (error) throw error;
-        rows.push(...((data ?? []) as RawDeal[]));
-        if (!data || data.length < batchSize) break;
-      }
-      const normalized = normalizeDeals(rows);
-      return loadDealSummaries(supabase, normalized).catch(() =>
-        normalized.map((deal) => ({
-          ...deal,
-          aiSummary: null,
-          aiSummaryUnavailable: true,
-          conversationOwnerUnavailable: true,
-        }))
-      );
     },
     [supabase]
   );
@@ -322,13 +291,9 @@ function PipelinesPageInner() {
     (async () => {
       setDealsError(false);
       try {
-        const [s, d] = await Promise.all([
-          loadStages(selectedPipelineId),
-          loadDeals(selectedPipelineId),
-        ]);
+        const s = await loadStages(selectedPipelineId);
         if (cancelled) return;
         setStages(s);
-        setDeals(d);
         setLoadedPipelineId(selectedPipelineId);
       } catch {
         if (!cancelled) setDealsError(true);
@@ -337,7 +302,7 @@ function PipelinesPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [selectedPipelineId, loadStages, loadDeals, reloadVersion]);
+  }, [selectedPipelineId, loadStages, reloadVersion]);
 
   const refreshPipelines = useCallback(async () => {
     try {
@@ -361,13 +326,8 @@ function PipelinesPageInner() {
   }, [loadStages, selectedPipelineId, explorerCopy]);
 
   const refreshDeals = useCallback(async () => {
-    if (!selectedPipelineId) return;
-    try {
-      setDeals(await loadDeals(selectedPipelineId));
-    } catch {
-      toast.error(explorerCopy('loadError'));
-    }
-  }, [loadDeals, selectedPipelineId, explorerCopy]);
+    setDataRevision((value) => value + 1);
+  }, []);
 
   const dealsRef = useRef(deals);
   useEffect(() => {
@@ -501,6 +461,7 @@ function PipelinesPageInner() {
           if (movedDeal)
             setOrderInfoState({ deal: { ...movedDeal, stage_id: newStageId } });
         }
+        void refreshDeals();
       } finally {
         movingDeals.current.delete(dealId);
       }
@@ -517,11 +478,36 @@ function PipelinesPageInner() {
     [stages]
   );
 
-  const handleEditDeal = useCallback((deal: Deal) => {
-    setEditingDeal(deal);
-    setDefaultStageId(deal.stage_id);
-    setDealFormOpen(true);
-  }, []);
+  const handleEditDeal = useCallback(
+    (deal: Deal) => {
+      const sequence = ++editSequence.current;
+      const notice = toast.loading(explorerCopy('loading'));
+      void (async () => {
+        try {
+          const { data, error } = await supabase
+            .from('deals')
+            .select(
+              '*, contact:contacts(*, contact_tags(tags(*)), contact_custom_values(value, custom_fields(field_name, ai_collectible))), assignee:profiles!deals_assigned_to_fkey(*)'
+            )
+            .eq('id', deal.id)
+            .eq('pipeline_id', selectedPipelineId)
+            .maybeSingle();
+          if (sequence !== editSequence.current) return;
+          if (error || !data) throw new Error('load');
+          const full = normalizeDeal(data as RawDeal);
+          setEditingDeal(full);
+          setDefaultStageId(full.stage_id);
+          setDealFormOpen(true);
+        } catch {
+          if (sequence === editSequence.current)
+            toast.error(explorerCopy('loadError'));
+        } finally {
+          toast.dismiss(notice);
+        }
+      })();
+    },
+    [supabase, selectedPipelineId, explorerCopy]
+  );
 
   const handleOpenQuotations = useCallback((deal: Deal) => {
     setQuotationsDeal(deal);
@@ -759,6 +745,8 @@ function PipelinesPageInner() {
               }
               key={selectedPipelineId}
               pipelineId={selectedPipelineId}
+              revision={dataRevision + reloadVersion}
+              onDealsLoaded={setDeals}
               onRefresh={async () => {
                 await Promise.all([refreshDeals(), refreshStages()]);
               }}

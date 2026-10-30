@@ -8,6 +8,7 @@ import './globals.css';
 import { ThemeProvider } from '@/hooks/use-theme';
 import { ThemedToaster } from '@/components/themed-toaster';
 import { localeDir } from '@/lib/locales';
+import { sharedMessages } from '@/i18n/message-scopes';
 import {
   DEFAULT_MODE,
   DEFAULT_THEME,
@@ -136,7 +137,10 @@ export default async function RootLayout({
         />
       </head>
       <body className="bg-background text-foreground min-h-full font-sans">
-        <NextIntlClientProvider messages={messages} locale={locale}>
+        <NextIntlClientProvider
+          messages={sharedMessages(messages)}
+          locale={locale}
+        >
           <ThemeProvider>
             {children}
             <ThemedToaster />

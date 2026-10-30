@@ -241,6 +241,7 @@
       "whatsappNotConnected": "WhatsApp® is not connected. Go to Settings to connect your account."
     },
     "conversationList": {
+      "loadMore": "Load more conversations",
       "searchPlaceholder": "Search conversations...",
       "filterAll": "All",
       "filterUnread": "Unread",
@@ -1034,6 +1035,8 @@
       "creating": "Creating..."
     },
     "explorer": {
+      "loading": "Loading deals…",
+      "exportError": "Could not export all matching deals. Please try again.",
       "workspace": "Pipeline workspace",
       "description": "Track each opportunity, focus on a product or customer tag, and keep the next step clear.",
       "view": "Deal view",
@@ -2468,6 +2471,10 @@
     "workUnavailable": "This request is no longer available here. Open Updates to view the job’s current records."
   },
   "Workspace": {
+    "quotationPagination": "Quotation pages",
+    "previousPage": "Previous",
+    "nextPage": "Next",
+    "quotationPageCount": "Page {page} of {pages} · {total} quotations",
     "quotations": "Quotations",
     "quotationsHint": "Create, review and follow up on customer quotations.",
     "agents": "AI agents",

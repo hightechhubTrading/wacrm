@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
-import { createQuotation, type CreateQuotationInput } from '@/lib/quotations/crud';
+import {
+  createQuotation,
+  type CreateQuotationInput,
+} from '@/lib/quotations/crud';
 import { mapQuotationRow } from '@/lib/quotations/types';
 
 // Explicit allow-list of what a caller may set on create. Everything
@@ -9,9 +12,17 @@ import { mapQuotationRow } from '@/lib/quotations/types';
 // creation time (those are always computed server-side, via
 // computeQuotationTotals inside saveQuotationItems), and accountId is
 // never trusted from the body regardless (see below).
-const CREATE_QUOTATION_FIELDS = ['contactId', 'dealId', 'assignedTo', 'productCode', 'currency'] as const;
+const CREATE_QUOTATION_FIELDS = [
+  'contactId',
+  'dealId',
+  'assignedTo',
+  'productCode',
+  'currency',
+] as const;
 
-function pickCreateFields(body: Record<string, unknown>): Record<string, unknown> {
+function pickCreateFields(
+  body: Record<string, unknown>
+): Record<string, unknown> {
   const picked: Record<string, unknown> = {};
   for (const key of CREATE_QUOTATION_FIELDS) {
     if (body[key] !== undefined) picked[key] = body[key];
@@ -47,7 +58,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
     if (!body.productCode) {
-      return NextResponse.json({ error: 'productCode is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'productCode is required' },
+        { status: 400 }
+      );
     }
 
     const fields = pickCreateFields(body);
@@ -59,7 +73,10 @@ export async function POST(request: Request) {
         .eq('user_id', ctx.userId)
         .single();
       if (profileErr || !profile) {
-        return NextResponse.json({ error: 'Could not resolve caller profile' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Could not resolve caller profile' },
+          { status: 400 }
+        );
       }
       fields.assignedTo = profile.id;
     }
@@ -102,18 +119,54 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const status = url.searchParams.get('status');
     const dealId = url.searchParams.get('dealId');
+    const page = Number(url.searchParams.get('page') ?? 1);
+    const pageSize = Number(url.searchParams.get('pageSize') ?? 50);
+    if (
+      !Number.isSafeInteger(page) ||
+      page < 1 ||
+      page > 1_000_000 ||
+      !Number.isSafeInteger(pageSize) ||
+      pageSize < 1 ||
+      pageSize > 100
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid pagination' },
+        { status: 400 }
+      );
+    }
+    const search = (url.searchParams.get('search') ?? '').trim().slice(0, 200);
 
     let query = ctx.supabase
       .from('quotations')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('account_id', ctx.accountId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range((page - 1) * pageSize, page * pageSize - 1);
     if (status) query = query.eq('status', status);
     if (dealId) query = query.eq('deal_id', dealId);
 
-    const { data, error } = await query;
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    return NextResponse.json((data ?? []).map(mapQuotationRow));
+    if (search) {
+      // Quote PostgREST filter values and escape LIKE wildcards: user text
+      // remains a literal substring, including commas, quotes and parentheses.
+      const pattern = JSON.stringify(
+        '%' + search.replace(/[\\%_]/g, '\\$&') + '%'
+      );
+      query = query.or(
+        ['reference', 'client_name', 'client_company', 'project_name']
+          .map((field) => `${field}.ilike.${pattern}`)
+          .join(',')
+      );
+    }
+    const { data, error, count } = await query;
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json((data ?? []).map(mapQuotationRow), {
+      headers: {
+        'X-Total-Count': String(count ?? 0),
+        'Cache-Control': 'private, no-store',
+      },
+    });
   } catch (err) {
     return toErrorResponse(err);
   }
