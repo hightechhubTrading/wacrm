@@ -1,6 +1,6 @@
 # Performance implementation — 30 October 2026
 
-Implements [the performance plan](performance-plan-2026-10-30.md), against source baseline `91c1bb5`. The implementation is prepared for production release. **Migrations 083–086 are applied; application rollout is in progress.** Migrations must precede the application; missing RPCs surface errors rather than reverting to unbounded downloads.
+Implements [the performance plan](performance-plan-2026-10-30.md), against source baseline `91c1bb5`. **Deployed to production at `1b0b4f9caef5418a746096634b3a29999838306d`. Migrations 083–086 are applied.** Migrations precede the application; missing RPCs surface errors rather than reverting to unbounded downloads.
 
 ## Changes
 
@@ -44,7 +44,7 @@ The initial pipeline SQL draft repeatedly scanned visible profiles (638 loops, a
 - Production React component browser fixtures check calling cadence/hidden-tab notifications, reconnect reconciliation, quotations, English/Arabic scopes, inbox/pipeline paging/search/moves/CSV and out-of-order session/profile/logout responses.
 - Full production Next workspace profiling uses actual routing, auth lifecycle, SDK subscriptions and API handlers with a local synthetic Supabase transport. It is separate from the SQL/RLS fixtures and does not emulate production authorization. It blocks external/customer requests and uses synthetic WebRTC signaling; real customer audio is not exercised.
 
-Final exact-tree checks passed: TypeScript, production webpack build, all 1,526 unit tests, all four disposable SQL fixtures, component browser checks and `git diff --check`. Focused ESLint has zero errors and one existing remote-avatar `<img>` warning in `conversation-list.tsx`. The profiled build's source/message SHA-256 matches the final working tree.
+Final exact-tree checks passed: TypeScript, production webpack build, all 1,526 unit tests, all four disposable SQL fixtures, component browser checks and `git diff --check`. Focused ESLint has zero errors and one existing remote-avatar `<img>` warning in `conversation-list.tsx`. The profiled build's source/message SHA-256 matches the released source at `1b0b4f9` (verified from its Git archive, independently of later workspace changes).
 
 ## Production-build comparison
 
@@ -82,6 +82,20 @@ Local Next process peak sampled RSS was about 340 → 324 MB; loaded-workspace b
 
 Full-workspace checks passed for deep links beyond page one, cached switching, persisted contact-panel preference, typing under realtime bursts, missed-message recovery after a real SDK reconnect, unread snapshot/event transitions, all thirteen settings deep links, scoped Next navigation, mobile Arabic and synthetic incoming/outgoing signaling with hidden-tab ringing, mute and peer cleanup. Real audio/customer calls were not made. Earlier short-debug and fake-clock idle output is superseded by these real elapsed-time runs.
 
+## Mobile route comparison
+
+The same two production builds were measured at **390 × 844**, with the same 4× CPU slowdown, network profile and fixture. [Baseline trace](performance-mobile-baseline.json), [optimized trace](performance-mobile-current.json). Both completed without browser errors. Each route has one cold and four warm observations; warm navigation uses the real mobile drawer. Repeated selections of the already-current route are omitted. These route-only runs do not repeat idle/calling regression tests, which are covered by the full reports above.
+
+| Route      | Cold before → after | Warm p50 before → after | Warm sample p95 before → after |
+| ---------- | ------------------: | ----------------------: | -----------------------------: |
+| Inbox      |         1,564 → 982 |             1,030 → 465 |                  1,056 → 1,045 |
+| Dashboard  |         1,945 → 757 |             1,614 → 499 |                    1,626 → 617 |
+| Pipelines  |       3,402 → 1,325 |             3,059 → 642 |                  3,091 → 1,051 |
+| Quotations |         1,259 → 702 |             1,058 → 548 |                    1,084 → 567 |
+| Settings   |           535 → 462 |               453 → 332 |                      478 → 345 |
+
+The mobile samples reinforce the median improvements without establishing a meaningful inbox tail improvement. Repeat inbox tail measurements with normal staff navigation after release.
+
 ## Reproduction
 
 ```sh
@@ -92,7 +106,7 @@ PLAYWRIGHT_CHANNEL=chrome node scripts/profile-performance.mjs
 PERFORMANCE_VARIANT=baseline PLAYWRIGHT_CHANNEL=chrome node scripts/profile-performance.mjs
 ```
 
-The profiler archives pinned baseline `91c1bb52a17ec036242bef64eb3e9b9345617154` (override with `PERFORMANCE_BASELINE_REF`), overlays the working source for current comparisons, and records a source SHA-256. Committing the optimizations does not move the baseline. Both builds use webpack, as the Dockerfile does, with the same 1,500-record fixture, Chrome, 4× CPU slowdown, 40-ms network latency and 25-ms synthetic backend latency. Cold means full document navigation after clearing HTTP cache; warm means actual Next client navigation. Five-minute idle uses real elapsed time. `PERFORMANCE_IDLE_MS=0` is debug-only and explicitly fails the five-minute requirement. Build-only and reused-build options are documented in the profiler source; source snapshots reside in temporary directories.
+The profiler archives pinned baseline `91c1bb52a17ec036242bef64eb3e9b9345617154` (override with `PERFORMANCE_BASELINE_REF`), overlays the working source for current comparisons, and records a source SHA-256. Committing the optimizations does not move the baseline. Both builds use webpack, as the Dockerfile does, with the same 1,500-record fixture, Chrome, 4× CPU slowdown, 40-ms network latency and 25-ms synthetic backend latency. Cold means full document navigation after clearing HTTP cache; warm means actual Next client navigation. Five-minute idle uses real elapsed time. `PERFORMANCE_IDLE_MS=0` is debug-only and explicitly fails the five-minute requirement. Use `PERFORMANCE_VIEWPORT=mobile PERFORMANCE_ROUTES_ONLY=1` for the mobile route profile and set `PERFORMANCE_REPORT` to a distinct output file. Build-only and reused-build options are documented in the profiler source; source snapshots reside in temporary directories.
 
 Disposable SQL commands require a temporary PGlite installation; set `PGLITE_MODULE` to its `dist/index.js`, then run each `scripts/check-*-db.mjs` file listed above. Current local installation: `/tmp/wacrm-sales-today-db/node_modules/@electric-sql/pglite/dist/index.js`. SQL fixtures never use production credentials. `node scripts/explain-performance.mjs` requires the linked Supabase CLI and performs read-only plan inspection.
 
@@ -105,7 +119,7 @@ Disposable SQL commands require a temporary PGlite installation; set `PGLITE_MOD
 3. Check authenticated inbox/deep links, filters/counts, moves/exports, every settings section, both locales, unread/reconnect recovery and incoming/outgoing call setup. Use a staff pilot for physical-device/audio checks.
 4. Compare real-user route/API timings and error rates against the pre-release baseline. Temporarily enable duration logs only if needed. Revert the application image on regression; keep additive RPCs until no clients use them. Do not remove functions while a new client is active.
 
-Production-user latency, physical-device audio, real tenant reassignment and post-deploy smoke checks remain deployment gates. Synthetic measurements and read-only live query plans do not prove these outcomes.
+Production-user latency and physical-device audio need staff follow-up; tenant reassignment is exercised in isolated fixtures rather than changing staff access. Post-deploy smoke checks are recorded below. Synthetic measurements and read-only live query plans do not prove real-device audio or population latency outcomes.
 
 ## Authorized rollout — 30 October 2026
 
@@ -121,4 +135,14 @@ Migrations were applied atomically through the timestamped linked-database proce
 
 Live authenticated read-only validation passed for all seven RPCs: caller-RLS/anonymous privileges, own account binding, dashboard counts against scoped tables, series/summary shapes, bounded inbox/pipeline pages and cross-tenant empty results. The service-environment startup preflight passed after schema reload. The ordinary suite was rerun (1,526 passed, 68 skipped), as were TypeScript and sixteen deployment-guard tests. Before rollout, production was at baseline `91c1bb52a17ec036242bef64eb3e9b9345617154`. The installed updater matches the reviewed repository copy; its active-call check, candidate validation and automatic rollback remain in place.
 
-Private SQL/output/deployment evidence resides at `~/.local/state/wacrm/releases/performance-20261030/`. Application promotion and final public checks are recorded when complete. Temporary SSH access is removed after the release.
+Private SQL/output/deployment evidence resides at `~/.local/state/wacrm/releases/performance-20261030/`. The updater successfully promoted `1b0b4f9caef5418a746096634b3a29999838306d`. The running image is `sha256:dfc449daa4a2dd000d100d470d470339e2b50c0af8b2c0ed0d3cb92af47c94be`, build ID `CT05EuwRoRYO_UEWhHctS`. Its source/message SHA-256 matches both production-build profiles. The verified rollback image is retained as `wacrm:rollback` at baseline revision `91c1bb52a17ec036242bef64eb3e9b9345617154`.
+
+Post-promotion checks passed:
+
+- Running revision/image match; database startup preflight passes with the actual server environment.
+- Internal login returns 200; unauthenticated dashboard/inbox return 307; quotations/calling/audio-config APIs return 401.
+- Public HTTPS login renders its email form with no browser errors; protected public inbox redirects to login.
+- All seven new RPC endpoints deny anonymous execution with PostgreSQL permission code 42501. Authenticated shapes/counts/tenant boundaries were checked separately in the live database.
+- The exact temporary SSH key was removed, and Hostinger reports no remaining root deployment keys.
+
+No real customer messages or calls were sent. Real-user tail latency and physical-device audio remain monitoring/staff checks, as described above. Later workspace feature edits are outside this deployed source revision.

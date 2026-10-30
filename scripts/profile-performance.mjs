@@ -39,6 +39,11 @@ const output = resolve(
   process.env.PERFORMANCE_REPORT || `docs/performance-browser-${variant}.json`
 );
 const fixtureLatency = Number(process.env.PERFORMANCE_FIXTURE_LATENCY_MS || 25);
+const routesOnly = process.env.PERFORMANCE_ROUTES_ONLY === '1';
+const primaryViewport =
+  process.env.PERFORMANCE_VIEWPORT === 'mobile'
+    ? { width: 390, height: 844 }
+    : { width: 1440, height: 1000 };
 const priorStamp = process.env.PERFORMANCE_APP_DIR
   ? JSON.parse(
       await readFile(join(directory, '.performance-fixture.json'), 'utf8')
@@ -69,6 +74,8 @@ const report = {
     },
     browser: 'Chromium/Chrome, production Next build',
     cpuThrottle: 4,
+    viewport: primaryViewport,
+    routesOnly,
     network: {
       latencyMs: 40,
       downloadBytesPerSecond: 5 * 1024 * 1024,
@@ -316,7 +323,7 @@ try {
     });
     return context;
   };
-  const context = await newContext(),
+  const context = await newContext(primaryViewport),
     page = await context.newPage(),
     cdp = await context.newCDPSession(page);
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
@@ -352,7 +359,17 @@ try {
     settings: '.crm-settings-content h2',
   };
   async function recordRoute(route, navigation = 'cold') {
+    // Selecting the current route keeps the mobile drawer open; measure actual
+    // navigations rather than a no-op selection underneath that drawer.
+    if (
+      primaryViewport.width < 1024 &&
+      navigation === 'warm' &&
+      new URL(page.url()).pathname === '/' + route
+    )
+      return;
     if (navigation === 'cold') await cdp.send('Network.clearBrowserCache');
+    if (navigation === 'warm' && primaryViewport.width < 1024)
+      await page.locator('button[aria-controls="primary-sidebar"]').click();
     const frontendStart = appRequests.length;
     await page.evaluate(() => performance.clearResourceTimings());
     const requestStart = backend.requests.length,
@@ -415,438 +432,450 @@ try {
   for (let repeat = 0; repeat < 3; repeat++)
     for (const route of Object.keys(readiness))
       await recordRoute(route, 'warm');
-  // Full workspace: deep link beyond the first list page, cached switching,
-  // reconnect history, read receipts, old-message paging and typing under events.
-  const first = backend.tables.conversations[0],
-    outside = backend.tables.conversations[1499];
-  if (variant === 'current') {
-    await page.goto(`${origin}/inbox?c=${outside.id}`);
-    await page
-      .getByText('Fixture transcript 1500 message 1', { exact: true })
-      .waitFor();
-    report.checks.push('deep link outside first conversation page');
-  } else
-    report.checks.push(
-      'Baseline limitation: unpaginated inbox hits fixture API cap before conversation 1500'
-    );
-  await page.goto(`${origin}/inbox?c=${first.id}`);
-  await page
-    .getByText('Fixture transcript 1 message 600', { exact: true })
-    .waitFor();
-  await page
-    .locator('[data-conversation-viewport] button')
-    .filter({ hasText: 'Fixture Customer 21' })
-    .first()
-    .click();
-  await page
-    .getByText('Fixture transcript 21 message 1', { exact: true })
-    .waitFor();
-  const warmStart = performance.now();
-  await page
-    .locator('[data-conversation-viewport] button')
-    .filter({ hasText: 'Fixture Customer 1' })
-    .first()
-    .click();
-  await page
-    .getByText('Fixture transcript 1 message 600', { exact: true })
-    .waitFor();
-  report.warmChatMs = performance.now() - warmStart;
-  report.checks.push('cached chat switching');
-  await page
-    .getByRole('button', { name: 'Hide contact panel', exact: true })
-    .click();
-  assert.equal(await page.locator('.crm-details-pane').count(), 0);
-  await page.reload();
-  await page
-    .getByText('Fixture transcript 1 message 600', { exact: true })
-    .waitFor();
-  await page
-    .getByRole('button', { name: 'Show contact panel', exact: true })
-    .first()
-    .click();
-  await page.locator('.crm-details-pane').waitFor();
-  report.checks.push(
-    'contact-panel preference persists without hydration mismatch'
-  );
-
-  const composer = page.locator('textarea').first();
-  await composer.fill('Synthetic unsent draft');
-  const burstStart = performance.now();
-  for (let n = 0; n < 8; n++) {
-    const message = {
-      ...backend.tables.messages.find((m) => m.conversation_id === first.id),
-      id: `f0000000-0000-0000-0000-${String(n).padStart(12, '0')}`,
-      content_text: `Live fixture burst ${n}`,
-      sender_type: 'customer',
-      created_at: isoNow(n),
-    };
-    backend.tables.messages.push(message);
-    backend.emit('messages', 'INSERT', message);
-  }
-  await composer.fill('Synthetic unsent draft after burst');
-  await page
-    .locator('.crm-message-column')
-    .getByText('Live fixture burst 7', { exact: true })
-    .waitFor();
-  report.typingDuringBurstMs = performance.now() - burstStart;
-  report.checks.push('typing and realtime burst');
-  const missed = {
-    ...backend.tables.messages.find(
-      (message) => message.conversation_id === first.id
-    ),
-    id: 'f0000000-0000-0000-0000-000000000099',
-    sender_type: 'customer',
-    content_text: 'Fixture reconnect catch-up',
-    created_at: isoNow(20),
-  };
-  backend.tables.messages.push(missed);
-  backend.disconnectRealtime();
-  await page
-    .locator('.crm-message-column')
-    .getByText('Fixture reconnect catch-up', { exact: true })
-    .waitFor();
-  report.checks.push('missed-message recovery after real SDK reconnect');
-
-  const historyStart = performance.now();
-  for (let n = 0; n < 10; n++) {
-    const count = await page.locator('[id^="message-"]').count();
-    await page
-      .getByRole('button', { name: 'Load older messages', exact: true })
-      .click();
-    await page.waitForFunction(
-      (count) => document.querySelectorAll('[id^="message-"]').length > count,
-      count
-    );
-  }
-  const historyCount = await page.locator('[id^="message-"]').count();
-  const frameIntervals = await page
-    .locator('.crm-message-scroll')
-    .evaluate(async (element) => {
-      const times = [];
-      let last = performance.now();
-      for (let n = 0; n < 30; n++) {
-        element.scrollTop =
-          (element.scrollHeight - element.clientHeight) *
-          (0.05 + (0.9 * (n % 10)) / 9);
-        await new Promise(requestAnimationFrame);
-        const now = performance.now();
-        times.push(now - last);
-        last = now;
-      }
-      return times;
-    });
-  report.longThread = {
-    loadedMessages: historyCount,
-    loadHistoryMs: performance.now() - historyStart,
-    scrollFrameIntervalsMs: frameIntervals,
-  };
-  report.checks.push('550+ loaded messages and scroll frame sampling');
-  await page.evaluate(() => {
-    window.__fixturePeers = [];
-    Object.defineProperty(navigator, 'mediaDevices', {
-      configurable: true,
-      value: { getUserMedia: async () => new MediaStream() },
-    });
-    window.RTCPeerConnection = class extends EventTarget {
-      constructor() {
-        super();
-        this.iceGatheringState = 'complete';
-        this.connectionState = 'new';
-        this.signalingState = 'stable';
-        window.__fixturePeers.push(this);
-      }
-      getTransceivers() {
-        return [];
-      }
-      addTrack() {}
-      async createOffer() {
-        return { type: 'offer', sdp: 'fixture-offer' };
-      }
-      async createAnswer() {
-        return { type: 'answer', sdp: 'fixture-answer' };
-      }
-      async setLocalDescription(value) {
-        this.localDescription = value;
-        this.signalingState =
-          value.type === 'offer' ? 'have-local-offer' : 'stable';
-      }
-      async setRemoteDescription(value) {
-        this.remoteDescription = value;
-        this.signalingState =
-          value.type === 'offer' ? 'have-remote-offer' : 'stable';
-        this.connectionState = 'connected';
-        this.onconnectionstatechange?.();
-        this.dispatchEvent(new Event('connectionstatechange'));
-      }
-      close() {
-        this.closed = true;
-        this.connectionState = 'closed';
-      }
-    };
-  });
-  const callingPattern = '**/api/whatsapp/calls**';
-  const callingRoute = async (route) => {
-    const request = route.request(),
-      url = new URL(request.url()),
-      path = url.pathname;
-    if (path.endsWith('/settings')) return route.fallback();
-    if (path.endsWith('/permissions'))
-      return route.fulfill({
-        json: {
-          permissions: {
-            permission: { status: 'permanent' },
-            actions: [{ action_name: 'start_call', can_perform_action: true }],
-          },
-        },
-      });
-    if (path.endsWith('/audio-config'))
-      return route.fulfill({ json: { iceServers: [] } });
-    if (request.method() === 'GET')
-      return route.fulfill({
-        json: {
-          calls: backend.tables.whatsapp_calls.filter((call) =>
-            ['ringing', 'connecting', 'active'].includes(call.state)
-          ),
-        },
-      });
-    const body = request.postDataJSON();
-    let call;
-    if (path === '/api/whatsapp/calls') {
-      call = {
-        id: 'c0000000-0000-0000-0000-000000000100',
-        account_id: backend.ids.account,
-        conversation_id: first.id,
-        direction: 'outbound',
-        state: 'active',
-        agent_user_id: backend.ids.user,
-        client_id: body.client_id,
-        remote_sdp_type: 'answer',
-        remote_sdp: 'fixture-remote-answer',
-        created_at: isoNow(),
-        answered_at: isoNow(),
-        customer_name: 'Synthetic outgoing call',
-      };
-      backend.tables.whatsapp_calls.push(call);
-    } else {
-      call = backend.tables.whatsapp_calls.find(
-        (call) => call.id === path.split('/').at(-1)
+  if (!routesOnly) {
+    // Full workspace: deep link beyond the first list page, cached switching,
+    // reconnect history, read receipts, old-message paging and typing under events.
+    const first = backend.tables.conversations[0],
+      outside = backend.tables.conversations[1499];
+    if (variant === 'current') {
+      await page.goto(`${origin}/inbox?c=${outside.id}`);
+      await page
+        .getByText('Fixture transcript 1500 message 1', { exact: true })
+        .waitFor();
+      report.checks.push('deep link outside first conversation page');
+    } else
+      report.checks.push(
+        'Baseline limitation: unpaginated inbox hits fixture API cap before conversation 1500'
       );
-      if (body.action === 'claim')
-        Object.assign(call, {
+    await page.goto(`${origin}/inbox?c=${first.id}`);
+    await page
+      .getByText('Fixture transcript 1 message 600', { exact: true })
+      .waitFor();
+    await page
+      .locator('[data-conversation-viewport] button')
+      .filter({ hasText: 'Fixture Customer 21' })
+      .first()
+      .click();
+    await page
+      .getByText('Fixture transcript 21 message 1', { exact: true })
+      .waitFor();
+    const warmStart = performance.now();
+    await page
+      .locator('[data-conversation-viewport] button')
+      .filter({ hasText: 'Fixture Customer 1' })
+      .first()
+      .click();
+    await page
+      .getByText('Fixture transcript 1 message 600', { exact: true })
+      .waitFor();
+    report.warmChatMs = performance.now() - warmStart;
+    report.checks.push('cached chat switching');
+    await page
+      .getByRole('button', { name: 'Hide contact panel', exact: true })
+      .click();
+    assert.equal(await page.locator('.crm-details-pane').count(), 0);
+    await page.reload();
+    await page
+      .getByText('Fixture transcript 1 message 600', { exact: true })
+      .waitFor();
+    await page
+      .getByRole('button', { name: 'Show contact panel', exact: true })
+      .first()
+      .click();
+    await page.locator('.crm-details-pane').waitFor();
+    report.checks.push(
+      'contact-panel preference persists without hydration mismatch'
+    );
+
+    const composer = page.locator('textarea').first();
+    await composer.fill('Synthetic unsent draft');
+    const burstStart = performance.now();
+    for (let n = 0; n < 8; n++) {
+      const message = {
+        ...backend.tables.messages.find((m) => m.conversation_id === first.id),
+        id: `f0000000-0000-0000-0000-${String(n).padStart(12, '0')}`,
+        content_text: `Live fixture burst ${n}`,
+        sender_type: 'customer',
+        created_at: isoNow(n),
+      };
+      backend.tables.messages.push(message);
+      backend.emit('messages', 'INSERT', message);
+    }
+    await composer.fill('Synthetic unsent draft after burst');
+    await page
+      .locator('.crm-message-column')
+      .getByText('Live fixture burst 7', { exact: true })
+      .waitFor();
+    report.typingDuringBurstMs = performance.now() - burstStart;
+    report.checks.push('typing and realtime burst');
+    const missed = {
+      ...backend.tables.messages.find(
+        (message) => message.conversation_id === first.id
+      ),
+      id: 'f0000000-0000-0000-0000-000000000099',
+      sender_type: 'customer',
+      content_text: 'Fixture reconnect catch-up',
+      created_at: isoNow(20),
+    };
+    backend.tables.messages.push(missed);
+    backend.disconnectRealtime();
+    await page
+      .locator('.crm-message-column')
+      .getByText('Fixture reconnect catch-up', { exact: true })
+      .waitFor();
+    report.checks.push('missed-message recovery after real SDK reconnect');
+
+    const historyStart = performance.now();
+    for (let n = 0; n < 10; n++) {
+      const count = await page.locator('[id^="message-"]').count();
+      await page
+        .getByRole('button', { name: 'Load older messages', exact: true })
+        .click();
+      await page.waitForFunction(
+        (count) => document.querySelectorAll('[id^="message-"]').length > count,
+        count
+      );
+    }
+    const historyCount = await page.locator('[id^="message-"]').count();
+    const frameIntervals = await page
+      .locator('.crm-message-scroll')
+      .evaluate(async (element) => {
+        const times = [];
+        let last = performance.now();
+        for (let n = 0; n < 30; n++) {
+          element.scrollTop =
+            (element.scrollHeight - element.clientHeight) *
+            (0.05 + (0.9 * (n % 10)) / 9);
+          await new Promise(requestAnimationFrame);
+          const now = performance.now();
+          times.push(now - last);
+          last = now;
+        }
+        return times;
+      });
+    report.longThread = {
+      loadedMessages: historyCount,
+      loadHistoryMs: performance.now() - historyStart,
+      scrollFrameIntervalsMs: frameIntervals,
+    };
+    report.checks.push('550+ loaded messages and scroll frame sampling');
+    await page.evaluate(() => {
+      window.__fixturePeers = [];
+      Object.defineProperty(navigator, 'mediaDevices', {
+        configurable: true,
+        value: { getUserMedia: async () => new MediaStream() },
+      });
+      window.RTCPeerConnection = class extends EventTarget {
+        constructor() {
+          super();
+          this.iceGatheringState = 'complete';
+          this.connectionState = 'new';
+          this.signalingState = 'stable';
+          window.__fixturePeers.push(this);
+        }
+        getTransceivers() {
+          return [];
+        }
+        addTrack() {}
+        async createOffer() {
+          return { type: 'offer', sdp: 'fixture-offer' };
+        }
+        async createAnswer() {
+          return { type: 'answer', sdp: 'fixture-answer' };
+        }
+        async setLocalDescription(value) {
+          this.localDescription = value;
+          this.signalingState =
+            value.type === 'offer' ? 'have-local-offer' : 'stable';
+        }
+        async setRemoteDescription(value) {
+          this.remoteDescription = value;
+          this.signalingState =
+            value.type === 'offer' ? 'have-remote-offer' : 'stable';
+          this.connectionState = 'connected';
+          this.onconnectionstatechange?.();
+          this.dispatchEvent(new Event('connectionstatechange'));
+        }
+        close() {
+          this.closed = true;
+          this.connectionState = 'closed';
+        }
+      };
+    });
+    const callingPattern = '**/api/whatsapp/calls**';
+    const callingRoute = async (route) => {
+      const request = route.request(),
+        url = new URL(request.url()),
+        path = url.pathname;
+      if (path.endsWith('/settings')) return route.fallback();
+      if (path.endsWith('/permissions'))
+        return route.fulfill({
+          json: {
+            permissions: {
+              permission: { status: 'permanent' },
+              actions: [
+                { action_name: 'start_call', can_perform_action: true },
+              ],
+            },
+          },
+        });
+      if (path.endsWith('/audio-config'))
+        return route.fulfill({ json: { iceServers: [] } });
+      if (request.method() === 'GET')
+        return route.fulfill({
+          json: {
+            calls: backend.tables.whatsapp_calls.filter((call) =>
+              ['ringing', 'connecting', 'active'].includes(call.state)
+            ),
+          },
+        });
+      const body = request.postDataJSON();
+      let call;
+      if (path === '/api/whatsapp/calls') {
+        call = {
+          id: 'c0000000-0000-0000-0000-000000000100',
+          account_id: backend.ids.account,
+          conversation_id: first.id,
+          direction: 'outbound',
+          state: 'active',
           agent_user_id: backend.ids.user,
           client_id: body.client_id,
-          state: 'connecting',
-        });
-      if (body.action === 'accept')
-        Object.assign(call, { state: 'active', answered_at: isoNow() });
-      if (['terminate', 'reject'].includes(body.action))
-        Object.assign(call, { state: 'ended', ended_at: isoNow() });
-    }
-    return route.fulfill({ json: { call } });
-  };
-  await context.route(callingPattern, callingRoute);
-  await page
-    .getByRole('button', { name: 'WhatsApp calls', exact: true })
-    .click();
-  await page
-    .getByRole('button', { name: 'Call customer', exact: true })
-    .click();
-  await page.getByText('On call', { exact: true }).waitFor();
-  await page.getByRole('button', { name: 'End call', exact: true }).click();
-  await page.locator('.crm-call-panel').waitFor({ state: 'hidden' });
-  const incoming = {
-    id: 'c0000000-0000-0000-0000-000000000101',
-    account_id: backend.ids.account,
-    conversation_id: first.id,
-    direction: 'inbound',
-    state: 'ringing',
-    agent_user_id: null,
-    remote_sdp_type: 'offer',
-    remote_sdp: 'fixture-incoming-offer',
-    created_at: isoNow(),
-    customer_name: 'Synthetic incoming call',
-  };
-  backend.tables.whatsapp_calls.push(incoming);
-  await page.evaluate(() =>
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
-      value: 'hidden',
-    })
-  );
-  backend.emit('whatsapp_calls', 'INSERT', incoming);
-  await page.getByRole('button', { name: 'Answer', exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Answer', exact: true }).click();
-  await page.getByText('On call', { exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Mute', exact: true }).click();
-  assert.equal(
+          remote_sdp_type: 'answer',
+          remote_sdp: 'fixture-remote-answer',
+          created_at: isoNow(),
+          answered_at: isoNow(),
+          customer_name: 'Synthetic outgoing call',
+        };
+        backend.tables.whatsapp_calls.push(call);
+      } else {
+        call = backend.tables.whatsapp_calls.find(
+          (call) => call.id === path.split('/').at(-1)
+        );
+        if (body.action === 'claim')
+          Object.assign(call, {
+            agent_user_id: backend.ids.user,
+            client_id: body.client_id,
+            state: 'connecting',
+          });
+        if (body.action === 'accept')
+          Object.assign(call, { state: 'active', answered_at: isoNow() });
+        if (['terminate', 'reject'].includes(body.action))
+          Object.assign(call, { state: 'ended', ended_at: isoNow() });
+      }
+      return route.fulfill({ json: { call } });
+    };
+    await context.route(callingPattern, callingRoute);
     await page
-      .getByRole('button', { name: 'Unmute', exact: true })
-      .getAttribute('aria-pressed'),
-    'true'
-  );
-  await page.getByRole('button', { name: 'End call', exact: true }).click();
-  await page.locator('.crm-call-panel').waitFor({ state: 'hidden' });
-  assert.equal(
-    await page.evaluate(
-      () => window.__fixturePeers.filter((peer) => peer.closed).length
-    ),
-    2
-  );
-  await page.evaluate(() => {
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
-      value: 'visible',
+      .getByRole('button', { name: 'WhatsApp calls', exact: true })
+      .click();
+    await page
+      .getByRole('button', { name: 'Call customer', exact: true })
+      .click();
+    await page.getByText('On call', { exact: true }).waitFor();
+    await page.getByRole('button', { name: 'End call', exact: true }).click();
+    await page.locator('.crm-call-panel').waitFor({ state: 'hidden' });
+    const incoming = {
+      id: 'c0000000-0000-0000-0000-000000000101',
+      account_id: backend.ids.account,
+      conversation_id: first.id,
+      direction: 'inbound',
+      state: 'ringing',
+      agent_user_id: null,
+      remote_sdp_type: 'offer',
+      remote_sdp: 'fixture-incoming-offer',
+      created_at: isoNow(),
+      customer_name: 'Synthetic incoming call',
+    };
+    backend.tables.whatsapp_calls.push(incoming);
+    await page.evaluate(() =>
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        value: 'hidden',
+      })
+    );
+    backend.emit('whatsapp_calls', 'INSERT', incoming);
+    await page.getByRole('button', { name: 'Answer', exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Answer', exact: true }).click();
+    await page.getByText('On call', { exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Mute', exact: true }).click();
+    assert.equal(
+      await page
+        .getByRole('button', { name: 'Unmute', exact: true })
+        .getAttribute('aria-pressed'),
+      'true'
+    );
+    await page.getByRole('button', { name: 'End call', exact: true }).click();
+    await page.locator('.crm-call-panel').waitFor({ state: 'hidden' });
+    assert.equal(
+      await page.evaluate(
+        () => window.__fixturePeers.filter((peer) => peer.closed).length
+      ),
+      2
+    );
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        value: 'visible',
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
     });
-    document.dispatchEvent(new Event('visibilitychange'));
-  });
-  await context.unroute(callingPattern, callingRoute);
-  report.checks.push(
-    'outgoing/incoming synthetic SDP, hidden-tab ringing, mute and peer cleanup (no real audio or calls)'
-  );
-
-  report.workspaceProfile = await page.evaluate(() => ({
-    timeOrigin: performance.timeOrigin,
-    events: window.__performanceEvents,
-    longTasks: window.__performanceLongTasks,
-    heap: performance.memory?.usedJSHeapSize,
-    messages: document.querySelectorAll('[id^=\"message-\"]').length,
-  }));
-  // All settings panels must mount through actual Next dynamic boundaries.
-  const sections = [
-    'overview',
-    'profile',
-    'security',
-    'appearance',
-    'whatsapp',
-    'templates',
-    'quick-replies',
-    'fields',
-    'deals',
-    'products',
-    'members',
-    'api',
-    'quotation-product-codes',
-  ];
-  for (const section of sections) {
-    await page.goto(`${origin}/settings?tab=${section}`);
-    await page.locator('.crm-settings-content').waitFor();
-    await page.waitForFunction(
-      () =>
-        !!document.querySelector('.crm-settings-content')?.textContent?.trim()
-    );
-    assert.ok(
-      (await page.locator('.crm-settings-content').innerText()).trim(),
-      `Blank settings panel: ${section}`
-    );
-  }
-  report.checks.push('all thirteen settings deep links');
-  // Real Next client navigation must retain route-specific translations.
-  await recordRoute('inbox', 'warm');
-  await recordRoute('quotations', 'warm');
-  await recordRoute('dashboard', 'warm');
-  assert.ok(
-    !errors.some((error) =>
-      /MISSING_MESSAGE|INVALID_MESSAGE|locale/.test(error)
-    ),
-    errors.join('\n')
-  );
-  backend.tables.profiles[0].locale = 'ar';
-  const mobile = await newContext({ width: 390, height: 844 });
-  await mobile.addCookies([{ name: 'wacrm.locale', value: 'ar', url: origin }]);
-  const mobilePage = await mobile.newPage();
-  await mobilePage.goto(
-    `${origin}/inbox?c=${variant === 'current' ? outside.id : first.id}`
-  );
-  await mobilePage
-    .getByText(
-      variant === 'current'
-        ? 'Fixture transcript 1500 message 1'
-        : 'Fixture transcript 1 message 600',
-      { exact: true }
-    )
-    .waitFor();
-  assert.equal(await mobilePage.locator('html').getAttribute('dir'), 'rtl');
-  report.checks.push('mobile Arabic deep link');
-  await mobile.close();
-  backend.tables.profiles[0].locale = 'en';
-  if (variant === 'current') {
-    await page.goto(origin + '/dashboard');
-    await page.locator(readiness.dashboard).first().waitFor();
-    const unreadRow = backend.tables.conversations.find(
-      (row) => row.unread_count === 0
-    );
-    const unreadCount = () =>
-      backend.tables.conversations.filter((row) => row.unread_count > 0).length;
-    const unreadBadge = () =>
-      page
-        .locator(`[aria-label="${unreadCount()} unread conversations"]`)
-        .first();
-    await unreadBadge().waitFor();
-    unreadRow.unread_count = 3;
-    backend.emit('conversations', 'UPDATE', unreadRow);
-    await unreadBadge().waitFor();
-    unreadRow.unread_count = 0;
-    backend.emit('conversations', 'UPDATE', unreadRow);
-    await unreadBadge().waitFor();
+    await context.unroute(callingPattern, callingRoute);
     report.checks.push(
-      'sidebar unread snapshot and realtime unknown/known transitions'
+      'outgoing/incoming synthetic SDP, hidden-tab ringing, mute and peer cleanup (no real audio or calls)'
     );
-  }
-  // Measure real wall-clock idle cadence. A short debug run is explicitly
-  // distinguished from the required five-minute measurement in the report.
-  await page.goto(origin + '/inbox');
-  await page.locator(readiness.inbox).first().waitFor();
-  await page.waitForTimeout(2000);
-  const idleDuration = Number(process.env.PERFORMANCE_IDLE_MS ?? 300_000),
-    idleStart = backend.requests.length,
-    idleStarted = performance.now();
-  console.log(`Measuring ${idleDuration / 1000} seconds of real idle cadence…`);
-  for (let elapsed = 0; elapsed < idleDuration; elapsed += 30_000)
-    await page.waitForTimeout(Math.min(30_000, idleDuration - elapsed));
-  const idle = backend.requests.slice(idleStart);
-  report.idle = {
-    durationMs: performance.now() - idleStarted,
-    meetsFiveMinuteRequirement: idleDuration >= 300_000,
-    backendRequests: idle.length,
-    callingReads: idle.filter((r) => r.path === '/rest/v1/whatsapp_calls')
-      .length,
-    settingsReads: idle.filter((r) => r.path === '/rest/v1/whatsapp_config')
-      .length,
-  };
-  report.checks.push(
-    idleDuration >= 300_000
-      ? 'five-minute real idle cadence'
-      : 'short debug idle only'
-  );
-  // Two independent authenticated tabs retain incoming-call listeners. Measure
-  // the aggregate cadence rather than assuming the single-tab result scales.
-  const second = await context.newPage();
-  second.on('pageerror', (error) => errors.push(error.message));
-  await second.goto(origin + '/dashboard');
-  await second.locator(readiness.dashboard).first().waitFor();
-  await page.bringToFront();
-  await page.waitForTimeout(2000);
-  const tabsStart = backend.requests.length,
-    tabsStarted = performance.now();
-  console.log('Measuring 60 seconds with two authenticated tabs…');
-  await page.waitForTimeout(30000);
-  await page.waitForTimeout(30000);
-  const tabRequests = backend.requests.slice(tabsStart);
-  report.multipleTabs = {
-    tabs: 2,
-    durationMs: performance.now() - tabsStarted,
-    backendRequests: tabRequests.length,
-    callingReads: tabRequests.filter(
-      (r) => r.path === '/rest/v1/whatsapp_calls'
-    ).length,
-    settingsReads: tabRequests.filter(
-      (r) => r.path === '/rest/v1/whatsapp_config'
-    ).length,
-  };
-  report.checks.push(
-    'two-tab real idle cadence with background listener retained'
-  );
-  await second.close();
+
+    report.workspaceProfile = await page.evaluate(() => ({
+      timeOrigin: performance.timeOrigin,
+      events: window.__performanceEvents,
+      longTasks: window.__performanceLongTasks,
+      heap: performance.memory?.usedJSHeapSize,
+      messages: document.querySelectorAll('[id^=\"message-\"]').length,
+    }));
+    // All settings panels must mount through actual Next dynamic boundaries.
+    const sections = [
+      'overview',
+      'profile',
+      'security',
+      'appearance',
+      'whatsapp',
+      'templates',
+      'quick-replies',
+      'fields',
+      'deals',
+      'products',
+      'members',
+      'api',
+      'quotation-product-codes',
+    ];
+    for (const section of sections) {
+      await page.goto(`${origin}/settings?tab=${section}`);
+      await page.locator('.crm-settings-content').waitFor();
+      await page.waitForFunction(
+        () =>
+          !!document.querySelector('.crm-settings-content')?.textContent?.trim()
+      );
+      assert.ok(
+        (await page.locator('.crm-settings-content').innerText()).trim(),
+        `Blank settings panel: ${section}`
+      );
+    }
+    report.checks.push('all thirteen settings deep links');
+    // Real Next client navigation must retain route-specific translations.
+    await recordRoute('inbox', 'warm');
+    await recordRoute('quotations', 'warm');
+    await recordRoute('dashboard', 'warm');
+    assert.ok(
+      !errors.some((error) =>
+        /MISSING_MESSAGE|INVALID_MESSAGE|locale/.test(error)
+      ),
+      errors.join('\n')
+    );
+    backend.tables.profiles[0].locale = 'ar';
+    const mobile = await newContext({ width: 390, height: 844 });
+    await mobile.addCookies([
+      { name: 'wacrm.locale', value: 'ar', url: origin },
+    ]);
+    const mobilePage = await mobile.newPage();
+    await mobilePage.goto(
+      `${origin}/inbox?c=${variant === 'current' ? outside.id : first.id}`
+    );
+    await mobilePage
+      .getByText(
+        variant === 'current'
+          ? 'Fixture transcript 1500 message 1'
+          : 'Fixture transcript 1 message 600',
+        { exact: true }
+      )
+      .waitFor();
+    assert.equal(await mobilePage.locator('html').getAttribute('dir'), 'rtl');
+    report.checks.push('mobile Arabic deep link');
+    await mobile.close();
+    backend.tables.profiles[0].locale = 'en';
+    if (variant === 'current') {
+      await page.goto(origin + '/dashboard');
+      await page.locator(readiness.dashboard).first().waitFor();
+      const unreadRow = backend.tables.conversations.find(
+        (row) => row.unread_count === 0
+      );
+      const unreadCount = () =>
+        backend.tables.conversations.filter((row) => row.unread_count > 0)
+          .length;
+      const unreadBadge = () =>
+        page
+          .locator(`[aria-label="${unreadCount()} unread conversations"]`)
+          .first();
+      await unreadBadge().waitFor();
+      unreadRow.unread_count = 3;
+      backend.emit('conversations', 'UPDATE', unreadRow);
+      await unreadBadge().waitFor();
+      unreadRow.unread_count = 0;
+      backend.emit('conversations', 'UPDATE', unreadRow);
+      await unreadBadge().waitFor();
+      report.checks.push(
+        'sidebar unread snapshot and realtime unknown/known transitions'
+      );
+    }
+    // Measure real wall-clock idle cadence. A short debug run is explicitly
+    // distinguished from the required five-minute measurement in the report.
+    await page.goto(origin + '/inbox');
+    await page.locator(readiness.inbox).first().waitFor();
+    await page.waitForTimeout(2000);
+    const idleDuration = Number(process.env.PERFORMANCE_IDLE_MS ?? 300_000),
+      idleStart = backend.requests.length,
+      idleStarted = performance.now();
+    console.log(
+      `Measuring ${idleDuration / 1000} seconds of real idle cadence…`
+    );
+    for (let elapsed = 0; elapsed < idleDuration; elapsed += 30_000)
+      await page.waitForTimeout(Math.min(30_000, idleDuration - elapsed));
+    const idle = backend.requests.slice(idleStart);
+    report.idle = {
+      durationMs: performance.now() - idleStarted,
+      meetsFiveMinuteRequirement: idleDuration >= 300_000,
+      backendRequests: idle.length,
+      callingReads: idle.filter((r) => r.path === '/rest/v1/whatsapp_calls')
+        .length,
+      settingsReads: idle.filter((r) => r.path === '/rest/v1/whatsapp_config')
+        .length,
+    };
+    report.checks.push(
+      idleDuration >= 300_000
+        ? 'five-minute real idle cadence'
+        : 'short debug idle only'
+    );
+    // Two independent authenticated tabs retain incoming-call listeners. Measure
+    // the aggregate cadence rather than assuming the single-tab result scales.
+    const second = await context.newPage();
+    second.on('pageerror', (error) => errors.push(error.message));
+    await second.goto(origin + '/dashboard');
+    await second.locator(readiness.dashboard).first().waitFor();
+    await page.bringToFront();
+    await page.waitForTimeout(2000);
+    const tabsStart = backend.requests.length,
+      tabsStarted = performance.now();
+    console.log('Measuring 60 seconds with two authenticated tabs…');
+    await page.waitForTimeout(30000);
+    await page.waitForTimeout(30000);
+    const tabRequests = backend.requests.slice(tabsStart);
+    report.multipleTabs = {
+      tabs: 2,
+      durationMs: performance.now() - tabsStarted,
+      backendRequests: tabRequests.length,
+      callingReads: tabRequests.filter(
+        (r) => r.path === '/rest/v1/whatsapp_calls'
+      ).length,
+      settingsReads: tabRequests.filter(
+        (r) => r.path === '/rest/v1/whatsapp_config'
+      ).length,
+    };
+    report.checks.push(
+      'two-tab real idle cadence with background listener retained'
+    );
+    await second.close();
+  } else
+    report.checks.push(
+      'Route-only profile; idle and workspace regressions are covered by the full desktop reports.'
+    );
   report.completed = true;
   report.browserErrors = errors;
   report.serverResources = resources;
