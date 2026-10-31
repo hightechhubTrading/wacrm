@@ -497,6 +497,9 @@ export function DealSalesPanel({
               <Layers size={16} aria-hidden />
               {t('requirements')}
             </summary>
+            <p className="text-muted-foreground mt-2 text-xs">
+              {t('requirementsHint')}
+            </p>
             <CustomFieldGroupFields
               scope="deal"
               recordId={deal.id}

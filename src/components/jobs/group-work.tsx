@@ -108,6 +108,19 @@ export function GroupWorkDialog({
   );
   const reports =
     data?.work.filter((work) => nextStatus(work, 'report') !== null) ?? [];
+  const detailsRemaining = Math.max(0, 10 - details.trim().length);
+  const dueIso = due ? businessDateTimeToIso(due) : null;
+  const invalidDue =
+    Boolean(due) && (!dueIso || Date.parse(dueIso) <= Date.now());
+  const prepareBlocker = !location.trim()
+    ? t('prepareNeedLocation')
+    : detailsRemaining > 0
+      ? t('prepareNeedDetails', { count: detailsRemaining })
+      : kind === 'workshop' && !quotation
+        ? t('prepareNeedQuotation')
+        : invalidDue
+          ? t('prepareNeedFutureDate')
+          : null;
   const visibleWork =
     view === 'report'
       ? reports
@@ -134,6 +147,7 @@ export function GroupWorkDialog({
     return () => controller.abort();
   }, [load]);
   async function create() {
+    if (prepareBlocker) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/jobs/${dealId}`, {
@@ -144,7 +158,7 @@ export function GroupWorkDialog({
           location,
           details,
           responsible,
-          due_at: due ? businessDateTimeToIso(due) : null,
+          due_at: dueIso,
           quotation_id: quotation || null,
         }),
       });
@@ -321,15 +335,26 @@ export function GroupWorkDialog({
                         type="datetime-local"
                         value={due}
                         onChange={(e) => setDue(e.target.value)}
+                        aria-invalid={invalidDue}
+                        aria-describedby={
+                          invalidDue ? 'work-prepare-blocker' : undefined
+                        }
                       />
+                      {prepareBlocker && (
+                        <p
+                          id="work-prepare-blocker"
+                          className="text-muted-foreground text-sm"
+                          role="status"
+                        >
+                          {prepareBlocker}
+                        </p>
+                      )}
                       <Button
                         className="min-h-11 w-full"
                         onClick={create}
-                        disabled={
-                          busy ||
-                          !location.trim() ||
-                          details.trim().length < 10 ||
-                          (kind === 'workshop' && !quotation)
+                        disabled={busy || Boolean(prepareBlocker)}
+                        aria-describedby={
+                          prepareBlocker ? 'work-prepare-blocker' : undefined
                         }
                       >
                         {t('prepare')}

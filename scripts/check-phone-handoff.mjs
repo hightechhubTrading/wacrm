@@ -55,7 +55,7 @@ try {
   `
   );
   server = await createServer({
-    cacheDir: join(root, '.vite-cache'),
+    cacheDir: join(fixtureRoot, '.vite-cache'),
     configFile: false,
     root: fixtureRoot,
     esbuild: { jsx: 'automatic' },
@@ -183,7 +183,25 @@ try {
     .fill('Synthetic site');
   await page
     .getByLabel('Products, requirements and instructions', { exact: true })
+    .fill('باب');
+  await page.getByText('Add 7 more characters', { exact: false }).waitFor();
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'Prepare message', exact: true })
+      .isDisabled(),
+    true,
+    'A short requirement should explain why preparation is disabled'
+  );
+  await page
+    .getByLabel('Products, requirements and instructions', { exact: true })
     .fill('Measure the entrance');
+  await page
+    .getByLabel('Requested date (not a confirmed booking)')
+    .fill('2020-01-01T10:00');
+  await page
+    .getByText('Choose a future requested date', { exact: false })
+    .waitFor();
+  await page.getByLabel('Requested date (not a confirmed booking)').fill('');
   await page
     .getByRole('button', { name: 'Prepare message', exact: true })
     .click();
@@ -297,6 +315,17 @@ try {
                 ),
               'Avoid iOS field zoom'
             );
+            if (locale === 'ar' && width === 390 && dark) {
+              await page
+                .getByLabel('موقع العمل / رابط الخريطة')
+                .fill('العزيزية');
+              await page
+                .getByLabel('المنتجات والمتطلبات والتعليمات')
+                .fill('باب');
+              await page
+                .getByText('أضف 7 أحرف أخرى', { exact: false })
+                .waitFor();
+            }
           }
         }
       }
