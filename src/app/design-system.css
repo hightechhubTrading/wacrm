@@ -146,6 +146,32 @@ html[data-theme='navy-gold'] {
   font-size: 14px;
   line-height: 1.6;
 }
+.crm-workspace :is(input, textarea, select):focus-visible,
+html:has(.crm-workspace) :is([data-slot='sheet-content'], [data-slot='dialog-content'], [data-slot='popover-content']) :is(input, textarea, select):focus-visible,
+.crm-flow-editor input:focus-visible {
+  outline-style: solid;
+  outline-width: 2px;
+  outline-color: var(--primary) !important;
+  outline-offset: 2px;
+}
+@media (max-width: 767px) {
+  .crm-main input,
+  .crm-main select,
+  .crm-main textarea,
+  .crm-main [data-slot='input'],
+  .crm-main [data-slot='select-trigger'],
+  .crm-main [data-slot='textarea'] {
+    font-size: 16px;
+  }
+  [data-slot='sheet-content'] input,
+  [data-slot='sheet-content'] select,
+  [data-slot='sheet-content'] textarea,
+  [data-slot='dialog-content'] input,
+  [data-slot='dialog-content'] select,
+  [data-slot='dialog-content'] textarea {
+    font-size: 16px;
+  }
+}
 .crm-main [data-slot='tabs'],
 .crm-main [data-slot='tabs-content'] {
   min-width: 0;
@@ -515,9 +541,9 @@ html[data-theme='navy-gold'] {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .crm-workspace *:not(:where(.crm-dashboard, .crm-dashboard *)),
-  .crm-workspace *:not(:where(.crm-dashboard, .crm-dashboard *))::before,
-  .crm-workspace *:not(:where(.crm-dashboard, .crm-dashboard *))::after {
+  .crm-workspace *,
+  .crm-workspace *::before,
+  .crm-workspace *::after {
     scroll-behavior: auto !important;
     transition-duration: 0s !important;
     animation-duration: 0s !important;
@@ -1011,4 +1037,62 @@ button.crm-deal-owner:hover { background: color-mix(in srgb, var(--ui-info) 14%,
 .crm-job-sheet [data-slot='sheet-title'] {
   padding-right: 2rem;
   overflow-wrap: anywhere;
+}
+
+/* Semantic warning stays readable in both modes. */
+.crm-flow-beta {
+  color: var(--ui-warning);
+  border-color: color-mix(in srgb, var(--ui-warning) 40%, var(--border));
+  background: color-mix(in srgb, var(--ui-warning) 10%, var(--card));
+}
+/* Expressive pipeline framing follows each configured stage color. */
+.crm-stage-column {
+  border-color: color-mix(in srgb, var(--stage-color, var(--primary)) 24%, var(--border));
+  background: color-mix(in srgb, var(--stage-color, var(--primary)) 7%, var(--card));
+  border-radius: 20px;
+}
+.crm-stage-column > div:first-child {
+  height: 5px;
+  border-radius: 20px 20px 0 0;
+}
+.crm-stage-column h3 {
+  font-size: 16px;
+  line-height: 1.35;
+}
+.crm-stage-column > div:nth-child(2) > span {
+  background: color-mix(in srgb, var(--stage-color, var(--primary)) 15%, var(--card));
+  color: var(--foreground);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.crm-smart-deal[data-attention='late'] {
+  border-inline-start: 3px solid var(--ui-danger);
+}
+.crm-smart-deal[data-attention='today'],
+.crm-smart-deal[data-attention='owner'],
+.crm-smart-deal[data-attention='date'] {
+  border-inline-start: 3px solid var(--ui-warning);
+}
+.crm-card-ai-summary[data-summary-state='pending'],
+.crm-card-ai-summary[data-summary-state='unavailable'] {
+  border-color: var(--border);
+  background: var(--card-2);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.crm-card-ai-summary[data-summary-state='pending'] .crm-glass-summary-icon,
+.crm-card-ai-summary[data-summary-state='unavailable'] .crm-glass-summary-icon {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+.crm-smart-actions > .crm-deal-conversation-action {
+  --action-color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 32%, var(--border));
+  background: color-mix(in srgb, var(--primary) 13%, var(--card));
+}
+.crm-smart-actions > .crm-deal-work-action > button,
+.crm-smart-actions > .crm-deal-quotation-action {
+  --action-color: var(--muted-foreground);
+  background: var(--card);
 }

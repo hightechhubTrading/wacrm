@@ -265,6 +265,7 @@ try {
   await page.getByRole('button', { name: /Blocked synthetic job/ }).click();
   const sheet = page.locator('.crm-job-sheet');
   await sheet.waitFor();
+  await sheet.locator('.crm-job-card').waitFor();
   assert.equal(
     await sheet.locator('.crm-job-card').count(),
     1,

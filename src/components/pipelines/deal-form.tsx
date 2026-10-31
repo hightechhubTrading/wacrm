@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useId, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useCan } from '@/hooks/use-can';
@@ -56,6 +56,8 @@ export function DealForm({
   onSaved,
 }: DealFormProps) {
   const t = useTranslations('Pipelines.form');
+  const formId = useId();
+  const fieldId = (name: string) => `${formId}-${name}`;
   const supabase = createClient();
   const { accountId, defaultCurrency, profile, accountRole } = useAuth();
   const canWrite = useCan('send-messages');
@@ -304,8 +306,14 @@ export function DealForm({
               </p>
             )}
             <div className="grid gap-2">
-              <Label className="text-muted-foreground">{t('title')}</Label>
+              <Label
+                htmlFor={fieldId('title')}
+                className="text-muted-foreground"
+              >
+                {t('title')}
+              </Label>
               <Input
+                id={fieldId('title')}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder={t('titlePlaceholder')}
@@ -314,11 +322,17 @@ export function DealForm({
             </div>
 
             <div className="grid gap-2">
-              <Label className="text-muted-foreground">{t('contact')}</Label>
+              <Label
+                htmlFor={fieldId('contact')}
+                className="text-muted-foreground"
+              >
+                {t('contact')}
+              </Label>
               <select
+                id={fieldId('contact')}
                 value={contactId}
                 onChange={(e) => setContactId(e.target.value)}
-                className="border-border bg-muted text-foreground focus:border-primary focus:ring-primary h-9 w-full rounded-lg border px-2.5 text-sm outline-none focus:ring-1"
+                className="border-border bg-muted text-foreground focus:border-primary focus:ring-primary h-9 w-full rounded-lg border px-2.5 text-sm focus:ring-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
               >
                 <option value="">{t('selectContact')}</option>
                 {contacts.map((c) => (
@@ -341,10 +355,16 @@ export function DealForm({
 
             <div className="grid grid-cols-[1fr_110px] gap-3">
               <div className="grid gap-2">
-                <Label className="text-muted-foreground">{t('value')}</Label>
+                <Label
+                  htmlFor={fieldId('value')}
+                  className="text-muted-foreground"
+                >
+                  {t('value')}
+                </Label>
                 <div className="relative">
                   <DollarSign className="text-muted-foreground absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2" />
                   <Input
+                    id={fieldId('value')}
                     type="number"
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
@@ -354,11 +374,17 @@ export function DealForm({
                 </div>
               </div>
               <div className="grid gap-2">
-                <Label className="text-muted-foreground">{t('currency')}</Label>
+                <Label
+                  htmlFor={fieldId('currency')}
+                  className="text-muted-foreground"
+                >
+                  {t('currency')}
+                </Label>
                 <select
+                  id={fieldId('currency')}
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="border-border bg-muted text-foreground focus:border-primary h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
+                  className="border-border bg-muted text-foreground focus:border-primary h-9 w-full rounded-lg border px-2.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
                 >
                   {CURRENCIES.map((c) => (
                     <option key={c.code} value={c.code}>
@@ -370,10 +396,14 @@ export function DealForm({
             </div>
 
             <div className="grid gap-2">
-              <Label className="text-muted-foreground">
+              <Label
+                htmlFor={fieldId('expected-close')}
+                className="text-muted-foreground"
+              >
                 {t('expectedCloseDate')}
               </Label>
               <Input
+                id={fieldId('expected-close')}
                 type="date"
                 value={expectedCloseDate}
                 onChange={(e) => setExpectedCloseDate(e.target.value)}
@@ -382,11 +412,17 @@ export function DealForm({
             </div>
 
             <div className="grid gap-2">
-              <Label className="text-muted-foreground">{t('stage')}</Label>
+              <Label
+                htmlFor={fieldId('stage')}
+                className="text-muted-foreground"
+              >
+                {t('stage')}
+              </Label>
               <select
+                id={fieldId('stage')}
                 value={stageId}
                 onChange={(e) => setStageId(e.target.value)}
-                className="border-border bg-muted text-foreground focus:border-primary h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
+                className="border-border bg-muted text-foreground focus:border-primary h-9 w-full rounded-lg border px-2.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
               >
                 {stages.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -397,11 +433,17 @@ export function DealForm({
             </div>
 
             <div className="grid gap-2">
-              <Label className="text-muted-foreground">{t('assignedTo')}</Label>
+              <Label
+                htmlFor={fieldId('owner')}
+                className="text-muted-foreground"
+              >
+                {t('assignedTo')}
+              </Label>
               <select
+                id={fieldId('owner')}
                 value={assignedTo}
                 onChange={(e) => setAssignedTo(e.target.value)}
-                className="border-border bg-muted text-foreground focus:border-primary h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
+                className="border-border bg-muted text-foreground focus:border-primary h-9 w-full rounded-lg border px-2.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
               >
                 <option value="">{t('unassigned')}</option>
                 {profiles.map((p) => (
@@ -413,8 +455,14 @@ export function DealForm({
             </div>
 
             <div className="grid gap-2">
-              <Label className="text-muted-foreground">{t('notes')}</Label>
+              <Label
+                htmlFor={fieldId('notes')}
+                className="text-muted-foreground"
+              >
+                {t('notes')}
+              </Label>
               <Textarea
+                id={fieldId('notes')}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder={t('notesPlaceholder')}

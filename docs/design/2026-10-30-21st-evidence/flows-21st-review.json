@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "suggestions": 1
+  },
+  "filesReviewed": 1,
+  "findings": [
+    {
+      "ruleId": "design-hardcoded-color",
+      "severity": "info",
+      "category": "design-system",
+      "file": "src/app/(dashboard)/flows/page.tsx",
+      "line": 42,
+      "column": 65,
+      "message": "Hardcoded color may drift from project design tokens.",
+      "confidence": 0.9,
+      "autofix": false,
+      "fixable": false
+    }
+  ],
+  "fixed": []
+}

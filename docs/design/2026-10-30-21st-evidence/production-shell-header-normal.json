@@ -1,0 +1,7310 @@
+{
+  "variant": "current",
+  "completed": true,
+  "measuredAt": "2026-10-30T20:40:43.832Z",
+  "environment": {
+    "backend": "Local synthetic Supabase and Realtime fixture; SQL/RLS verified separately",
+    "backendLatencyMs": 25,
+    "bundler": "webpack (matches Dockerfile)",
+    "fixture": {
+      "conversations": 1500,
+      "deals": 1500,
+      "quotations": 1500,
+      "firstThreadMessages": 600
+    },
+    "browser": "Chromium/Chrome, production Next build",
+    "cpuThrottle": 4,
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "routesOnly": true,
+    "network": {
+      "latencyMs": 40,
+      "downloadBytesPerSecond": 5242880,
+      "uploadBytesPerSecond": 1048576
+    },
+    "coldDefinition": "Full document navigation after clearing the browser HTTP cache; warm means Next client navigation.",
+    "timezone": "Europe/Berlin",
+    "note": "Synthetic account and transport; these are not production-user latency measurements."
+  },
+  "routes": [
+    {
+      "route": "inbox",
+      "navigation": "cold",
+      "usefulMs": 1030.148459,
+      "backendRequests": 39,
+      "frontend": [
+        {
+          "path": "/inbox",
+          "prefetch": false,
+          "type": "document"
+        },
+        {
+          "path": "/icon",
+          "prefetch": false,
+          "type": "other"
+        },
+        {
+          "path": "/api/whatsapp/calls/settings",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/api/whatsapp/calls",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/api/whatsapp/calls",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/api/whatsapp/calls",
+          "prefetch": false,
+          "type": "fetch"
+        }
+      ],
+      "backendBytes": 80174,
+      "browser": {
+        "timeOrigin": 1793392845146,
+        "navigation": [
+          {
+            "ttfbMs": 65.80000001192093,
+            "bytes": 28444,
+            "encoded": 28144
+          }
+        ],
+        "longTasks": [
+          {
+            "start": 588.1000000238419,
+            "duration": 58
+          }
+        ],
+        "interactions": [],
+        "resources": [
+          {
+            "bytes": 9232,
+            "encoded": 8932,
+            "duration": 54.39999997615814,
+            "type": "link"
+          },
+          {
+            "bytes": 9324,
+            "encoded": 9024,
+            "duration": 59.200000047683716,
+            "type": "link"
+          },
+          {
+            "bytes": 9240,
+            "encoded": 8940,
+            "duration": 59.700000047683716,
+            "type": "link"
+          },
+          {
+            "bytes": 48732,
+            "encoded": 48432,
+            "duration": 113.60000002384186,
+            "type": "link"
+          },
+          {
+            "bytes": 24437,
+            "encoded": 24137,
+            "duration": 61.69999998807907,
+            "type": "link"
+          },
+          {
+            "bytes": 1113,
+            "encoded": 813,
+            "duration": 50.30000001192093,
+            "type": "link"
+          },
+          {
+            "bytes": 14276,
+            "encoded": 13976,
+            "duration": 59.200000047683716,
+            "type": "link"
+          },
+          {
+            "bytes": 840,
+            "encoded": 540,
+            "duration": 101,
+            "type": "link"
+          },
+          {
+            "bytes": 3160,
+            "encoded": 2860,
+            "duration": 156.60000002384186,
+            "type": "link"
+          },
+          {
+            "bytes": 61683,
+            "encoded": 61383,
+            "duration": 184,
+            "type": "script"
+          },
+          {
+            "bytes": 63182,
+            "encoded": 62882,
+            "duration": 184.30000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 784,
+            "encoded": 484,
+            "duration": 153.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 12461,
+            "encoded": 12161,
+            "duration": 164.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 13582,
+            "encoded": 13282,
+            "duration": 165.19999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 2866,
+            "encoded": 2566,
+            "duration": 196.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 9585,
+            "encoded": 9285,
+            "duration": 199,
+            "type": "script"
+          },
+          {
+            "bytes": 8819,
+            "encoded": 8519,
+            "duration": 209.30000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 2370,
+            "encoded": 2070,
+            "duration": 207.4000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 17049,
+            "encoded": 16749,
+            "duration": 235.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 3862,
+            "encoded": 3562,
+            "duration": 241.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 16013,
+            "encoded": 15713,
+            "duration": 243.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 52685,
+            "encoded": 52385,
+            "duration": 247.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 4970,
+            "encoded": 4670,
+            "duration": 248.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 11377,
+            "encoded": 11077,
+            "duration": 251.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 5575,
+            "encoded": 5275,
+            "duration": 280.5999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 3718,
+            "encoded": 3418,
+            "duration": 282.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 4618,
+            "encoded": 4318,
+            "duration": 285.5,
+            "type": "script"
+          },
+          {
+            "bytes": 2477,
+            "encoded": 2177,
+            "duration": 290.5999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 11449,
+            "encoded": 11149,
+            "duration": 292.30000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 3174,
+            "encoded": 2874,
+            "duration": 292.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 3816,
+            "encoded": 3516,
+            "duration": 334.7000000476837,
+            "type": "script"
+          },
+          {
+            "bytes": 3194,
+            "encoded": 2894,
+            "duration": 333.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 1317,
+            "encoded": 1017,
+            "duration": 335.30000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 4864,
+            "encoded": 4564,
+            "duration": 335.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 5274,
+            "encoded": 4974,
+            "duration": 337,
+            "type": "script"
+          },
+          {
+            "bytes": 11582,
+            "encoded": 11282,
+            "duration": 337.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 14265,
+            "encoded": 13965,
+            "duration": 388.5,
+            "type": "script"
+          },
+          {
+            "bytes": 5685,
+            "encoded": 5385,
+            "duration": 101,
+            "type": "link"
+          },
+          {
+            "bytes": 1362,
+            "encoded": 1062,
+            "duration": 380.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 3647,
+            "encoded": 3347,
+            "duration": 382.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 3841,
+            "encoded": 3541,
+            "duration": 383.30000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 7749,
+            "encoded": 7449,
+            "duration": 385.5,
+            "type": "script"
+          },
+          {
+            "bytes": 68414,
+            "encoded": 68114,
+            "duration": 398.5999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 711,
+            "encoded": 411,
+            "duration": 428.5,
+            "type": "script"
+          },
+          {
+            "bytes": 489,
+            "encoded": 189,
+            "duration": 428.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 2459,
+            "encoded": 2159,
+            "duration": 429.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 46.90000003576279,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.299999952316284,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.39999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.10000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 41.80000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 316,
+            "encoded": 16,
+            "duration": 151.9000000357628,
+            "type": "fetch"
+          },
+          {
+            "bytes": 312,
+            "encoded": 12,
+            "duration": 150.19999998807907,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.40000003576279,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.59999996423721,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 44.10000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 43.40000003576279,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 44.299999952316284,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 46.799999952316284,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 83,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 82.80000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 83,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 83.19999998807907,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 83.30000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 84.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 107.59999996423721,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 76.19999998807907,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 41.60000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 44.799999952316284,
+            "type": "fetch"
+          },
+          {
+            "bytes": 312,
+            "encoded": 12,
+            "duration": 118.69999998807907,
+            "type": "fetch"
+          }
+        ],
+        "heap": 13334211
+      }
+    },
+    {
+      "route": "dashboard",
+      "navigation": "cold",
+      "usefulMs": 927.953125,
+      "backendRequests": 49,
+      "frontend": [
+        {
+          "path": "/dashboard",
+          "prefetch": false,
+          "type": "document"
+        },
+        {
+          "path": "/api/dashboard/weather",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/automations/new",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/broadcasts/new",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/pipelines",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/contacts",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/icon",
+          "prefetch": false,
+          "type": "other"
+        },
+        {
+          "path": "/api/whatsapp/calls/settings",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/api/whatsapp/calls",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/inbox",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/inbox",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/api/whatsapp/calls",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/inbox",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/inbox",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/inbox",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/inbox",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/inbox",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/inbox",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/inbox",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/inbox",
+          "prefetch": true,
+          "type": "fetch"
+        }
+      ],
+      "backendBytes": 58286,
+      "browser": {
+        "timeOrigin": 1793392846282,
+        "navigation": [
+          {
+            "ttfbMs": 46.700000047683716,
+            "bytes": 18530,
+            "encoded": 18230
+          }
+        ],
+        "longTasks": [
+          {
+            "start": 733.5,
+            "duration": 105
+          }
+        ],
+        "interactions": [],
+        "resources": [
+          {
+            "bytes": 9232,
+            "encoded": 8932,
+            "duration": 68.19999998807907,
+            "type": "link"
+          },
+          {
+            "bytes": 9324,
+            "encoded": 9024,
+            "duration": 68.69999998807907,
+            "type": "link"
+          },
+          {
+            "bytes": 9240,
+            "encoded": 8940,
+            "duration": 68.80000001192093,
+            "type": "link"
+          },
+          {
+            "bytes": 48732,
+            "encoded": 48432,
+            "duration": 79.69999998807907,
+            "type": "link"
+          },
+          {
+            "bytes": 1113,
+            "encoded": 813,
+            "duration": 60.30000001192093,
+            "type": "link"
+          },
+          {
+            "bytes": 24437,
+            "encoded": 24137,
+            "duration": 73.40000003576279,
+            "type": "link"
+          },
+          {
+            "bytes": 840,
+            "encoded": 540,
+            "duration": 111.60000002384186,
+            "type": "link"
+          },
+          {
+            "bytes": 14276,
+            "encoded": 13976,
+            "duration": 115,
+            "type": "link"
+          },
+          {
+            "bytes": 3160,
+            "encoded": 2860,
+            "duration": 167.19999998807907,
+            "type": "link"
+          },
+          {
+            "bytes": 63182,
+            "encoded": 62882,
+            "duration": 194.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 784,
+            "encoded": 484,
+            "duration": 164.5999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 12461,
+            "encoded": 12161,
+            "duration": 174.79999995231628,
+            "type": "script"
+          },
+          {
+            "bytes": 13582,
+            "encoded": 13282,
+            "duration": 175.79999995231628,
+            "type": "script"
+          },
+          {
+            "bytes": 61683,
+            "encoded": 61383,
+            "duration": 194.19999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 2866,
+            "encoded": 2566,
+            "duration": 207.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 9585,
+            "encoded": 9285,
+            "duration": 209.5,
+            "type": "script"
+          },
+          {
+            "bytes": 2370,
+            "encoded": 2070,
+            "duration": 218.5,
+            "type": "script"
+          },
+          {
+            "bytes": 8819,
+            "encoded": 8519,
+            "duration": 219.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 17049,
+            "encoded": 16749,
+            "duration": 244,
+            "type": "script"
+          },
+          {
+            "bytes": 52685,
+            "encoded": 52385,
+            "duration": 255.5999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 3862,
+            "encoded": 3562,
+            "duration": 252,
+            "type": "script"
+          },
+          {
+            "bytes": 16013,
+            "encoded": 15713,
+            "duration": 254.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 4970,
+            "encoded": 4670,
+            "duration": 261.2000000476837,
+            "type": "script"
+          },
+          {
+            "bytes": 11377,
+            "encoded": 11077,
+            "duration": 263,
+            "type": "script"
+          },
+          {
+            "bytes": 5575,
+            "encoded": 5275,
+            "duration": 291.30000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 3718,
+            "encoded": 3418,
+            "duration": 293.30000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 4618,
+            "encoded": 4318,
+            "duration": 297.2000000476837,
+            "type": "script"
+          },
+          {
+            "bytes": 11449,
+            "encoded": 11149,
+            "duration": 298.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 2477,
+            "encoded": 2177,
+            "duration": 303.19999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 3174,
+            "encoded": 2874,
+            "duration": 304.10000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 3816,
+            "encoded": 3516,
+            "duration": 341.2999999523163,
+            "type": "script"
+          },
+          {
+            "bytes": 2532,
+            "encoded": 2232,
+            "duration": 341.7999999523163,
+            "type": "script"
+          },
+          {
+            "bytes": 5516,
+            "encoded": 5216,
+            "duration": 342,
+            "type": "script"
+          },
+          {
+            "bytes": 109930,
+            "encoded": 109630,
+            "duration": 364.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 4284,
+            "encoded": 3984,
+            "duration": 346.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 7749,
+            "encoded": 7449,
+            "duration": 347.4000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 711,
+            "encoded": 411,
+            "duration": 389.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 1362,
+            "encoded": 1062,
+            "duration": 390,
+            "type": "script"
+          },
+          {
+            "bytes": 3647,
+            "encoded": 3347,
+            "duration": 391.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 2459,
+            "encoded": 2159,
+            "duration": 391.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 18411,
+            "encoded": 18111,
+            "duration": 394.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 5577,
+            "encoded": 5277,
+            "duration": 111.5,
+            "type": "link"
+          },
+          {
+            "bytes": 489,
+            "encoded": 189,
+            "duration": 409,
+            "type": "script"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 44.90000003576279,
+            "type": "fetch"
+          },
+          {
+            "bytes": 335,
+            "encoded": 35,
+            "duration": 5.899999976158142,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 41.89999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.299999952316284,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.80000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 44,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 45,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 46.10000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 82.39999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 86.90000003576279,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 80.30000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 81.30000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 475,
+            "encoded": 175,
+            "duration": 58.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 474,
+            "encoded": 174,
+            "duration": 58.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 469,
+            "encoded": 169,
+            "duration": 58.60000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 469,
+            "encoded": 169,
+            "duration": 58.60000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 316,
+            "encoded": 16,
+            "duration": 126.40000003576279,
+            "type": "fetch"
+          },
+          {
+            "bytes": 312,
+            "encoded": 12,
+            "duration": 126.30000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 44.69999998807907,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 44.10000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 45.89999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 43.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 43.90000003576279,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 43.39999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 82.80000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 82.80000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 82.89999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 467,
+            "encoded": 167,
+            "duration": 42.69999998807907,
+            "type": "fetch"
+          },
+          {
+            "bytes": 1026,
+            "encoded": 726,
+            "duration": 43,
+            "type": "fetch"
+          },
+          {
+            "bytes": 312,
+            "encoded": 12,
+            "duration": 119.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 480,
+            "encoded": 180,
+            "duration": 44.09999996423721,
+            "type": "fetch"
+          },
+          {
+            "bytes": 480,
+            "encoded": 180,
+            "duration": 44.19999998807907,
+            "type": "fetch"
+          },
+          {
+            "bytes": 480,
+            "encoded": 180,
+            "duration": 43.59999996423721,
+            "type": "fetch"
+          },
+          {
+            "bytes": 480,
+            "encoded": 180,
+            "duration": 51.89999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 1054,
+            "encoded": 754,
+            "duration": 41.39999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 1055,
+            "encoded": 755,
+            "duration": 41.90000003576279,
+            "type": "fetch"
+          },
+          {
+            "bytes": 1055,
+            "encoded": 755,
+            "duration": 41.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 1053,
+            "encoded": 753,
+            "duration": 47.200000047683716,
+            "type": "fetch"
+          }
+        ],
+        "heap": 21513119
+      }
+    },
+    {
+      "route": "pipelines",
+      "navigation": "cold",
+      "usefulMs": 1424.9960829999995,
+      "backendRequests": 26,
+      "frontend": [
+        {
+          "path": "/pipelines",
+          "prefetch": false,
+          "type": "document"
+        },
+        {
+          "path": "/icon",
+          "prefetch": false,
+          "type": "other"
+        },
+        {
+          "path": "/api/whatsapp/calls/settings",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/api/whatsapp/calls",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/api/jobs",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/api/whatsapp/calls",
+          "prefetch": false,
+          "type": "fetch"
+        }
+      ],
+      "backendBytes": 75869,
+      "browser": {
+        "timeOrigin": 1793392847316,
+        "navigation": [
+          {
+            "ttfbMs": 34.799999952316284,
+            "bytes": 19057,
+            "encoded": 18757
+          }
+        ],
+        "longTasks": [
+          {
+            "start": 875.8999999761581,
+            "duration": 60
+          },
+          {
+            "start": 936.1999999880791,
+            "duration": 69
+          }
+        ],
+        "interactions": [],
+        "resources": [
+          {
+            "bytes": 9232,
+            "encoded": 8932,
+            "duration": 66.69999998807907,
+            "type": "link"
+          },
+          {
+            "bytes": 9324,
+            "encoded": 9024,
+            "duration": 67.19999998807907,
+            "type": "link"
+          },
+          {
+            "bytes": 9240,
+            "encoded": 8940,
+            "duration": 66.39999997615814,
+            "type": "link"
+          },
+          {
+            "bytes": 48732,
+            "encoded": 48432,
+            "duration": 77.5,
+            "type": "link"
+          },
+          {
+            "bytes": 24437,
+            "encoded": 24137,
+            "duration": 72.10000002384186,
+            "type": "link"
+          },
+          {
+            "bytes": 1113,
+            "encoded": 813,
+            "duration": 58.89999997615814,
+            "type": "link"
+          },
+          {
+            "bytes": 840,
+            "encoded": 540,
+            "duration": 106.30000001192093,
+            "type": "link"
+          },
+          {
+            "bytes": 14276,
+            "encoded": 13976,
+            "duration": 108.60000002384186,
+            "type": "link"
+          },
+          {
+            "bytes": 784,
+            "encoded": 484,
+            "duration": 155.79999995231628,
+            "type": "script"
+          },
+          {
+            "bytes": 3160,
+            "encoded": 2860,
+            "duration": 158.5,
+            "type": "link"
+          },
+          {
+            "bytes": 12461,
+            "encoded": 12161,
+            "duration": 166.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 13582,
+            "encoded": 13282,
+            "duration": 167.29999995231628,
+            "type": "script"
+          },
+          {
+            "bytes": 61683,
+            "encoded": 61383,
+            "duration": 185.5999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 63182,
+            "encoded": 62882,
+            "duration": 185.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 2866,
+            "encoded": 2566,
+            "duration": 197,
+            "type": "script"
+          },
+          {
+            "bytes": 9585,
+            "encoded": 9285,
+            "duration": 200.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 2370,
+            "encoded": 2070,
+            "duration": 209.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 8819,
+            "encoded": 8519,
+            "duration": 210.9000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 52685,
+            "encoded": 52385,
+            "duration": 247,
+            "type": "script"
+          },
+          {
+            "bytes": 17049,
+            "encoded": 16749,
+            "duration": 234.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 3862,
+            "encoded": 3562,
+            "duration": 243.5,
+            "type": "script"
+          },
+          {
+            "bytes": 16013,
+            "encoded": 15713,
+            "duration": 244.30000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 4970,
+            "encoded": 4670,
+            "duration": 252.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 11377,
+            "encoded": 11077,
+            "duration": 254.19999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 5575,
+            "encoded": 5275,
+            "duration": 283.0999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 3718,
+            "encoded": 3418,
+            "duration": 284.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 4618,
+            "encoded": 4318,
+            "duration": 285.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 11449,
+            "encoded": 11149,
+            "duration": 289.2000000476837,
+            "type": "script"
+          },
+          {
+            "bytes": 2477,
+            "encoded": 2177,
+            "duration": 295.5,
+            "type": "script"
+          },
+          {
+            "bytes": 3174,
+            "encoded": 2874,
+            "duration": 295.5,
+            "type": "script"
+          },
+          {
+            "bytes": 3816,
+            "encoded": 3516,
+            "duration": 334.10000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 4864,
+            "encoded": 4564,
+            "duration": 334.5999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 3918,
+            "encoded": 3618,
+            "duration": 334.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 11582,
+            "encoded": 11282,
+            "duration": 337,
+            "type": "script"
+          },
+          {
+            "bytes": 5652,
+            "encoded": 5352,
+            "duration": 339.10000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 16882,
+            "encoded": 16582,
+            "duration": 341,
+            "type": "script"
+          },
+          {
+            "bytes": 711,
+            "encoded": 411,
+            "duration": 382.9000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 1362,
+            "encoded": 1062,
+            "duration": 383.4000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 3389,
+            "encoded": 3089,
+            "duration": 384.10000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 3647,
+            "encoded": 3347,
+            "duration": 384.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 7749,
+            "encoded": 7449,
+            "duration": 386.2000000476837,
+            "type": "script"
+          },
+          {
+            "bytes": 25650,
+            "encoded": 25350,
+            "duration": 390,
+            "type": "script"
+          },
+          {
+            "bytes": 489,
+            "encoded": 189,
+            "duration": 428.10000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 2459,
+            "encoded": 2159,
+            "duration": 428.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 46.80000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 41.90000003576279,
+            "type": "fetch"
+          },
+          {
+            "bytes": 316,
+            "encoded": 16,
+            "duration": 128.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 312,
+            "encoded": 12,
+            "duration": 129.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.30000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 43,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42,
+            "type": "fetch"
+          },
+          {
+            "bytes": 327,
+            "encoded": 27,
+            "duration": 205.89999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 48.60000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 46.89999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 132.19999998807907,
+            "type": "fetch"
+          },
+          {
+            "bytes": 312,
+            "encoded": 12,
+            "duration": 207.29999995231628,
+            "type": "fetch"
+          }
+        ],
+        "heap": 24629296
+      }
+    },
+    {
+      "route": "quotations",
+      "navigation": "cold",
+      "usefulMs": 777.9130420000001,
+      "backendRequests": 36,
+      "frontend": [
+        {
+          "path": "/quotations",
+          "prefetch": false,
+          "type": "document"
+        },
+        {
+          "path": "/api/quotations",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/api/quotation-product-codes",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/api/whatsapp/calls/settings",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/api/whatsapp/calls",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/icon",
+          "prefetch": false,
+          "type": "other"
+        },
+        {
+          "path": "/quotations/b000000-0000-0000-0000-000000000005",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/quotations/b000000-0000-0000-0000-000000000004",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/quotations/b000000-0000-0000-0000-000000000003",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/quotations/b000000-0000-0000-0000-000000000002",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/api/whatsapp/calls",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/quotations/b000000-0000-0000-0000-000000000001",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/quotations/b000000-0000-0000-0000-000000000005",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/quotations/b000000-0000-0000-0000-000000000004",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/quotations/b000000-0000-0000-0000-000000000003",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/quotations/b000000-0000-0000-0000-000000000002",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/quotations/b000000-0000-0000-0000-000000000001",
+          "prefetch": true,
+          "type": "fetch"
+        }
+      ],
+      "backendBytes": 27563,
+      "browser": {
+        "timeOrigin": 1793392848846.2,
+        "navigation": [
+          {
+            "ttfbMs": 34.89999997615814,
+            "bytes": 13518,
+            "encoded": 13218
+          }
+        ],
+        "longTasks": [],
+        "interactions": [],
+        "resources": [
+          {
+            "bytes": 9232,
+            "encoded": 8932,
+            "duration": 66.30000001192093,
+            "type": "link"
+          },
+          {
+            "bytes": 9324,
+            "encoded": 9024,
+            "duration": 66.5,
+            "type": "link"
+          },
+          {
+            "bytes": 9240,
+            "encoded": 8940,
+            "duration": 67,
+            "type": "link"
+          },
+          {
+            "bytes": 48732,
+            "encoded": 48432,
+            "duration": 76.79999995231628,
+            "type": "link"
+          },
+          {
+            "bytes": 1113,
+            "encoded": 813,
+            "duration": 58.39999997615814,
+            "type": "link"
+          },
+          {
+            "bytes": 24437,
+            "encoded": 24137,
+            "duration": 71.59999996423721,
+            "type": "link"
+          },
+          {
+            "bytes": 840,
+            "encoded": 540,
+            "duration": 109.89999997615814,
+            "type": "link"
+          },
+          {
+            "bytes": 14276,
+            "encoded": 13976,
+            "duration": 113.39999997615814,
+            "type": "link"
+          },
+          {
+            "bytes": 3160,
+            "encoded": 2860,
+            "duration": 165.30000001192093,
+            "type": "link"
+          },
+          {
+            "bytes": 63182,
+            "encoded": 62882,
+            "duration": 192.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 784,
+            "encoded": 484,
+            "duration": 162.20000004768372,
+            "type": "script"
+          },
+          {
+            "bytes": 13582,
+            "encoded": 13282,
+            "duration": 173.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 61683,
+            "encoded": 61383,
+            "duration": 191.9000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 12461,
+            "encoded": 12161,
+            "duration": 172.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 2866,
+            "encoded": 2566,
+            "duration": 204.5,
+            "type": "script"
+          },
+          {
+            "bytes": 9585,
+            "encoded": 9285,
+            "duration": 207.30000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 2370,
+            "encoded": 2070,
+            "duration": 216.10000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 8819,
+            "encoded": 8519,
+            "duration": 217.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 17049,
+            "encoded": 16749,
+            "duration": 242.5,
+            "type": "script"
+          },
+          {
+            "bytes": 16013,
+            "encoded": 15713,
+            "duration": 252.5,
+            "type": "script"
+          },
+          {
+            "bytes": 52685,
+            "encoded": 52385,
+            "duration": 253.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 3862,
+            "encoded": 3562,
+            "duration": 250.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 4970,
+            "encoded": 4670,
+            "duration": 257.4000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 11377,
+            "encoded": 11077,
+            "duration": 259.9000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 3718,
+            "encoded": 3418,
+            "duration": 292.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 5575,
+            "encoded": 5275,
+            "duration": 293.4000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 4618,
+            "encoded": 4318,
+            "duration": 294.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 11449,
+            "encoded": 11149,
+            "duration": 296.30000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 2477,
+            "encoded": 2177,
+            "duration": 298,
+            "type": "script"
+          },
+          {
+            "bytes": 1362,
+            "encoded": 1062,
+            "duration": 300.5,
+            "type": "script"
+          },
+          {
+            "bytes": 4909,
+            "encoded": 4609,
+            "duration": 345.5,
+            "type": "script"
+          },
+          {
+            "bytes": 11582,
+            "encoded": 11282,
+            "duration": 347.0999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 5685,
+            "encoded": 5385,
+            "duration": 110.30000001192093,
+            "type": "link"
+          },
+          {
+            "bytes": 711,
+            "encoded": 411,
+            "duration": 341.7000000476837,
+            "type": "script"
+          },
+          {
+            "bytes": 3647,
+            "encoded": 3347,
+            "duration": 344.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 2459,
+            "encoded": 2159,
+            "duration": 344.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 5092,
+            "encoded": 4792,
+            "duration": 345.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 489,
+            "encoded": 189,
+            "duration": 386.9000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 50.09999996423721,
+            "type": "fetch"
+          },
+          {
+            "bytes": 17873,
+            "encoded": 17573,
+            "duration": 139.10000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 413,
+            "encoded": 113,
+            "duration": 134.39999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 45.60000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 316,
+            "encoded": 16,
+            "duration": 135,
+            "type": "fetch"
+          },
+          {
+            "bytes": 312,
+            "encoded": 12,
+            "duration": 135,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 44.10000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.60000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 490,
+            "encoded": 190,
+            "duration": 43.89999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 491,
+            "encoded": 191,
+            "duration": 43.90000003576279,
+            "type": "fetch"
+          },
+          {
+            "bytes": 491,
+            "encoded": 191,
+            "duration": 44.19999998807907,
+            "type": "fetch"
+          },
+          {
+            "bytes": 491,
+            "encoded": 191,
+            "duration": 44.30000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 312,
+            "encoded": 12,
+            "duration": 121.80000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 491,
+            "encoded": 191,
+            "duration": 42.39999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 1049,
+            "encoded": 749,
+            "duration": 42,
+            "type": "fetch"
+          },
+          {
+            "bytes": 1051,
+            "encoded": 751,
+            "duration": 42,
+            "type": "fetch"
+          },
+          {
+            "bytes": 1051,
+            "encoded": 751,
+            "duration": 41.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 1051,
+            "encoded": 751,
+            "duration": 43.90000003576279,
+            "type": "fetch"
+          },
+          {
+            "bytes": 1050,
+            "encoded": 750,
+            "duration": 41.30000001192093,
+            "type": "fetch"
+          }
+        ],
+        "heap": 40449967
+      }
+    },
+    {
+      "route": "settings",
+      "navigation": "cold",
+      "usefulMs": 583.8452079999997,
+      "backendRequests": 30,
+      "frontend": [
+        {
+          "path": "/settings",
+          "prefetch": false,
+          "type": "document"
+        },
+        {
+          "path": "/icon",
+          "prefetch": false,
+          "type": "other"
+        },
+        {
+          "path": "/api/account/members",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/api/account/invitations",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/api/whatsapp/config",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/api/whatsapp/calls/settings",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/api/whatsapp/calls",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/api/whatsapp/calls",
+          "prefetch": false,
+          "type": "fetch"
+        }
+      ],
+      "backendBytes": 7677,
+      "browser": {
+        "timeOrigin": 1793392849730.7,
+        "navigation": [
+          {
+            "ttfbMs": 35.200000047683716,
+            "bytes": 17980,
+            "encoded": 17680
+          }
+        ],
+        "longTasks": [],
+        "interactions": [],
+        "resources": [
+          {
+            "bytes": 9232,
+            "encoded": 8932,
+            "duration": 65.30000001192093,
+            "type": "link"
+          },
+          {
+            "bytes": 9324,
+            "encoded": 9024,
+            "duration": 65.60000002384186,
+            "type": "link"
+          },
+          {
+            "bytes": 9240,
+            "encoded": 8940,
+            "duration": 65.80000001192093,
+            "type": "link"
+          },
+          {
+            "bytes": 48732,
+            "encoded": 48432,
+            "duration": 76.69999998807907,
+            "type": "link"
+          },
+          {
+            "bytes": 1113,
+            "encoded": 813,
+            "duration": 58,
+            "type": "link"
+          },
+          {
+            "bytes": 24437,
+            "encoded": 24137,
+            "duration": 71.20000004768372,
+            "type": "link"
+          },
+          {
+            "bytes": 14276,
+            "encoded": 13976,
+            "duration": 105.10000002384186,
+            "type": "link"
+          },
+          {
+            "bytes": 840,
+            "encoded": 540,
+            "duration": 105.40000003576279,
+            "type": "link"
+          },
+          {
+            "bytes": 3160,
+            "encoded": 2860,
+            "duration": 158.89999997615814,
+            "type": "link"
+          },
+          {
+            "bytes": 784,
+            "encoded": 484,
+            "duration": 155.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 12461,
+            "encoded": 12161,
+            "duration": 166.0999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 13582,
+            "encoded": 13282,
+            "duration": 166.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 61683,
+            "encoded": 61383,
+            "duration": 185.19999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 63182,
+            "encoded": 62882,
+            "duration": 185.5,
+            "type": "script"
+          },
+          {
+            "bytes": 2866,
+            "encoded": 2566,
+            "duration": 202.0999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 9585,
+            "encoded": 9285,
+            "duration": 203.19999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 8819,
+            "encoded": 8519,
+            "duration": 210.0999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 2370,
+            "encoded": 2070,
+            "duration": 208.9000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 52685,
+            "encoded": 52385,
+            "duration": 240.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 17049,
+            "encoded": 16749,
+            "duration": 233.5999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 3862,
+            "encoded": 3562,
+            "duration": 245.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 16013,
+            "encoded": 15713,
+            "duration": 246.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 4970,
+            "encoded": 4670,
+            "duration": 252,
+            "type": "script"
+          },
+          {
+            "bytes": 11377,
+            "encoded": 11077,
+            "duration": 253.5999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 3718,
+            "encoded": 3418,
+            "duration": 282.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 5575,
+            "encoded": 5275,
+            "duration": 283.30000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 4618,
+            "encoded": 4318,
+            "duration": 287.5999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 11449,
+            "encoded": 11149,
+            "duration": 290,
+            "type": "script"
+          },
+          {
+            "bytes": 2477,
+            "encoded": 2177,
+            "duration": 293.7000000476837,
+            "type": "script"
+          },
+          {
+            "bytes": 5879,
+            "encoded": 5579,
+            "duration": 295.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 1362,
+            "encoded": 1062,
+            "duration": 328.2000000476837,
+            "type": "script"
+          },
+          {
+            "bytes": 6226,
+            "encoded": 5926,
+            "duration": 330.2000000476837,
+            "type": "script"
+          },
+          {
+            "bytes": 3647,
+            "encoded": 3347,
+            "duration": 329.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 711,
+            "encoded": 411,
+            "duration": 330,
+            "type": "script"
+          },
+          {
+            "bytes": 2459,
+            "encoded": 2159,
+            "duration": 334.5,
+            "type": "script"
+          },
+          {
+            "bytes": 489,
+            "encoded": 189,
+            "duration": 335.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 43.39999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 511,
+            "encoded": 211,
+            "duration": 128.60000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 318,
+            "encoded": 18,
+            "duration": 127.39999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 420,
+            "encoded": 120,
+            "duration": 5.700000047683716,
+            "type": "fetch"
+          },
+          {
+            "bytes": 316,
+            "encoded": 16,
+            "duration": 125.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 312,
+            "encoded": 12,
+            "duration": 125.79999995231628,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 44.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 43.30000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.90000003576279,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 43.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.69999998807907,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 50.89999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 82.5,
+            "type": "fetch"
+          }
+        ],
+        "heap": 40453848
+      }
+    }
+  ],
+  "checks": [
+    {
+      "route": "inbox",
+      "uiGeometry": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif",
+        "clipped": []
+      }
+    },
+    {
+      "route": "dashboard",
+      "uiGeometry": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif",
+        "clipped": []
+      }
+    },
+    {
+      "route": "pipelines",
+      "uiGeometry": {
+        "viewport": 390,
+        "scrollWidth": 1833,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif",
+        "clipped": [
+          {
+            "tag": "DIV",
+            "className": "crm-stage-column  border-border bg-card/60 flex w-[88vw] max-w-[400px] min-w-[min(88vw,360px)] shrink-0 snap-start flex-",
+            "left": 371,
+            "right": 714
+          },
+          {
+            "tag": "DIV",
+            "className": "-mx-4 -mt-4 h-[3px] rounded-t-xl",
+            "left": 371,
+            "right": 714
+          },
+          {
+            "tag": "DIV",
+            "className": "flex items-center justify-between pt-3",
+            "left": 387,
+            "right": 698
+          },
+          {
+            "tag": "H3",
+            "className": "text-foreground truncate text-sm font-semibold",
+            "left": 387,
+            "right": 446
+          },
+          {
+            "tag": "SPAN",
+            "className": "bg-muted text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+            "left": 659,
+            "right": 698
+          },
+          {
+            "tag": "DIV",
+            "className": "crm-stage-column  border-border bg-card/60 flex w-[88vw] max-w-[400px] min-w-[min(88vw,360px)] shrink-0 snap-start flex-",
+            "left": 726,
+            "right": 1070
+          },
+          {
+            "tag": "DIV",
+            "className": "-mx-4 -mt-4 h-[3px] rounded-t-xl",
+            "left": 726,
+            "right": 1070
+          },
+          {
+            "tag": "DIV",
+            "className": "flex items-center justify-between pt-3",
+            "left": 742,
+            "right": 1054
+          },
+          {
+            "tag": "H3",
+            "className": "text-foreground truncate text-sm font-semibold",
+            "left": 742,
+            "right": 801
+          },
+          {
+            "tag": "SPAN",
+            "className": "bg-muted text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+            "left": 1014,
+            "right": 1054
+          },
+          {
+            "tag": "DIV",
+            "className": "crm-stage-column  border-border bg-card/60 flex w-[88vw] max-w-[400px] min-w-[min(88vw,360px)] shrink-0 snap-start flex-",
+            "left": 1082,
+            "right": 1425
+          },
+          {
+            "tag": "DIV",
+            "className": "-mx-4 -mt-4 h-[3px] rounded-t-xl",
+            "left": 1082,
+            "right": 1425
+          },
+          {
+            "tag": "DIV",
+            "className": "flex items-center justify-between pt-3",
+            "left": 1098,
+            "right": 1409
+          },
+          {
+            "tag": "H3",
+            "className": "text-foreground truncate text-sm font-semibold",
+            "left": 1098,
+            "right": 1157
+          },
+          {
+            "tag": "SPAN",
+            "className": "bg-muted text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+            "left": 1369,
+            "right": 1409
+          },
+          {
+            "tag": "DIV",
+            "className": "crm-stage-column  border-border bg-card/60 flex w-[88vw] max-w-[400px] min-w-[min(88vw,360px)] shrink-0 snap-start flex-",
+            "left": 1437,
+            "right": 1780
+          },
+          {
+            "tag": "DIV",
+            "className": "-mx-4 -mt-4 h-[3px] rounded-t-xl",
+            "left": 1437,
+            "right": 1780
+          },
+          {
+            "tag": "DIV",
+            "className": "flex items-center justify-between pt-3",
+            "left": 1453,
+            "right": 1764
+          },
+          {
+            "tag": "H3",
+            "className": "text-foreground truncate text-sm font-semibold",
+            "left": 1453,
+            "right": 1511
+          },
+          {
+            "tag": "SPAN",
+            "className": "bg-muted text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+            "left": 1725,
+            "right": 1764
+          },
+          {
+            "tag": "DIV",
+            "className": "crm-stage-column  border-border bg-card/60 flex w-[88vw] max-w-[400px] min-w-[min(88vw,360px)] shrink-0 snap-start flex-",
+            "left": 1792,
+            "right": 2135
+          },
+          {
+            "tag": "DIV",
+            "className": "-mx-4 -mt-4 h-[3px] rounded-t-xl",
+            "left": 1792,
+            "right": 2135
+          },
+          {
+            "tag": "DIV",
+            "className": "flex items-center justify-between pt-3",
+            "left": 1808,
+            "right": 2119
+          },
+          {
+            "tag": "H3",
+            "className": "text-foreground truncate text-sm font-semibold",
+            "left": 1808,
+            "right": 1867
+          },
+          {
+            "tag": "SPAN",
+            "className": "bg-muted text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+            "left": 2080,
+            "right": 2119
+          }
+        ]
+      }
+    },
+    {
+      "route": "quotations",
+      "uiGeometry": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif",
+        "clipped": [
+          {
+            "tag": "TABLE",
+            "className": "w-full border-collapse text-sm",
+            "left": 29,
+            "right": 393
+          },
+          {
+            "tag": "THEAD",
+            "className": "",
+            "left": 29,
+            "right": 393
+          },
+          {
+            "tag": "TR",
+            "className": "border-border text-muted-foreground border-b text-start",
+            "left": 29,
+            "right": 393
+          },
+          {
+            "tag": "TH",
+            "className": "py-2 pe-4 font-medium",
+            "left": 312,
+            "right": 393
+          },
+          {
+            "tag": "TBODY",
+            "className": "",
+            "left": 29,
+            "right": 393
+          },
+          {
+            "tag": "TR",
+            "className": "border-border border-b",
+            "left": 29,
+            "right": 393
+          },
+          {
+            "tag": "TD",
+            "className": "text-muted-foreground py-2 pe-4",
+            "left": 312,
+            "right": 393
+          },
+          {
+            "tag": "TR",
+            "className": "border-border border-b",
+            "left": 29,
+            "right": 393
+          },
+          {
+            "tag": "TD",
+            "className": "text-muted-foreground py-2 pe-4",
+            "left": 312,
+            "right": 393
+          },
+          {
+            "tag": "TR",
+            "className": "border-border border-b",
+            "left": 29,
+            "right": 393
+          },
+          {
+            "tag": "TD",
+            "className": "text-muted-foreground py-2 pe-4",
+            "left": 312,
+            "right": 393
+          },
+          {
+            "tag": "TR",
+            "className": "border-border border-b",
+            "left": 29,
+            "right": 393
+          },
+          {
+            "tag": "TD",
+            "className": "text-muted-foreground py-2 pe-4",
+            "left": 312,
+            "right": 393
+          },
+          {
+            "tag": "TR",
+            "className": "border-border border-b",
+            "left": 29,
+            "right": 393
+          },
+          {
+            "tag": "TD",
+            "className": "text-muted-foreground py-2 pe-4",
+            "left": 312,
+            "right": 393
+          },
+          {
+            "tag": "TR",
+            "className": "border-border border-b",
+            "left": 29,
+            "right": 393
+          },
+          {
+            "tag": "TD",
+            "className": "text-muted-foreground py-2 pe-4",
+            "left": 312,
+            "right": 393
+          }
+        ]
+      }
+    },
+    {
+      "route": "settings",
+      "uiGeometry": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif",
+        "clipped": [
+          {
+            "tag": "DIV",
+            "className": "flex shrink-0 gap-1 lg:flex-col lg:gap-1",
+            "left": 134,
+            "right": 559
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 265,
+            "right": 423
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 303,
+            "right": 411
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 427,
+            "right": 559
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 465,
+            "right": 547
+          },
+          {
+            "tag": "DIV",
+            "className": "flex shrink-0 gap-1 lg:flex-col lg:gap-1",
+            "left": 563,
+            "right": 1949
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 563,
+            "right": 682
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 601,
+            "right": 670
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 686,
+            "right": 806
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 724,
+            "right": 794
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 810,
+            "right": 947
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 848,
+            "right": 935
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 951,
+            "right": 1086
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 989,
+            "right": 1074
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 1090,
+            "right": 1254
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 1128,
+            "right": 1242
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 1258,
+            "right": 1459
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 1296,
+            "right": 1447
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 1463,
+            "right": 1617
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 1501,
+            "right": 1605
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 1621,
+            "right": 1728
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 1659,
+            "right": 1716
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 1732,
+            "right": 1949
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 1770,
+            "right": 1937
+          }
+        ]
+      }
+    },
+    "Route-only profile; idle and workspace regressions are covered by the full desktop reports."
+  ],
+  "artifacts": "/var/folders/71/xgyrpmxj75j6x7fpcc7r82sc0000gn/T/wacrm-production-current-mi07Or",
+  "sourceSha256": "c1c62e02506c8e2fdf65bc8f5d95c8434d97f856d866d46cf50811acd9685413",
+  "browserErrors": [],
+  "uiReview": [
+    {
+      "route": "inbox",
+      "locale": "en",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "InboxDeadlines · Qatar timeالعربيةالعربيةEnglishFFixture ope",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "dashboard",
+      "locale": "en",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "DashboardDeadlines · Qatar timeالعربيةالعربيةEnglishFFixture",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "pipelines",
+      "locale": "en",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 1833,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "PipelinesDeadlines · Qatar timeالعربيةالعربيةEnglishFFixture",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 343,
+        "boardParentWidth": 343,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "quotations",
+      "locale": "en",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "QuotationsDeadlines · Qatar timeالعربيةالعربيةEnglishFFixtur",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "settings",
+      "locale": "en",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "SettingsDeadlines · Qatar timeالعربيةالعربيةEnglishFFixture ",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "inbox",
+      "locale": "en",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "InboxDeadlines · Qatar timeالعربيةالعربيةEnglishFFixture ope",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "dashboard",
+      "locale": "en",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "DashboardDeadlines · Qatar timeالعربيةالعربيةEnglishFFixture",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "pipelines",
+      "locale": "en",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 1833,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "PipelinesDeadlines · Qatar timeالعربيةالعربيةEnglishFFixture",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 343,
+        "boardParentWidth": 343,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "quotations",
+      "locale": "en",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "QuotationsDeadlines · Qatar timeالعربيةالعربيةEnglishFFixtur",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "settings",
+      "locale": "en",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "SettingsDeadlines · Qatar timeالعربيةالعربيةEnglishFFixture ",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "inbox",
+      "locale": "ar",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "صندوق الواردالمواعيد · توقيت قطرEnglishالعربيةEnglishFFixtur",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    },
+    {
+      "route": "dashboard",
+      "locale": "ar",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "لوحة التحكمالمواعيد · توقيت قطرEnglishالعربيةEnglishFFixture",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    },
+    {
+      "route": "pipelines",
+      "locale": "ar",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 1833,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "مسارات المبيعات",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 343,
+        "boardParentWidth": 343,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    },
+    {
+      "route": "quotations",
+      "locale": "ar",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "عروض الأسعارالمواعيد · توقيت قطرEnglishالعربيةEnglishFFixtur",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    },
+    {
+      "route": "settings",
+      "locale": "ar",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "الإعداداتالمواعيد · توقيت قطرEnglishالعربيةEnglishFFixture o",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    },
+    {
+      "route": "inbox",
+      "locale": "ar",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "صندوق الواردالمواعيد · توقيت قطرEnglishالعربيةEnglishFFixtur",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    },
+    {
+      "route": "dashboard",
+      "locale": "ar",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "لوحة التحكمالمواعيد · توقيت قطرEnglishالعربيةEnglishFFixture",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    },
+    {
+      "route": "pipelines",
+      "locale": "ar",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 1833,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "مسارات المبيعات",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 343,
+        "boardParentWidth": 343,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    },
+    {
+      "route": "quotations",
+      "locale": "ar",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "عروض الأسعارالمواعيد · توقيت قطرEnglishالعربيةEnglishFFixtur",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    },
+    {
+      "route": "settings",
+      "locale": "ar",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "الإعداداتالمواعيد · توقيت قطرEnglishالعربيةEnglishFFixture o",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    }
+  ],
+  "uiKeyboard": [
+    {
+      "locale": "en",
+      "skipToMain": true,
+      "drawerEscapeAndFocusReturn": true
+    },
+    {
+      "locale": "ar",
+      "skipToMain": true,
+      "drawerEscapeAndFocusReturn": true
+    }
+  ],
+  "serverResources": [
+    {
+      "at": 1793392845748,
+      "rssBytes": 259145728,
+      "cpuPercent": 13.5
+    },
+    {
+      "at": 1793392846748,
+      "rssBytes": 289816576,
+      "cpuPercent": 16.1
+    },
+    {
+      "at": 1793392847750,
+      "rssBytes": 303710208,
+      "cpuPercent": 14
+    },
+    {
+      "at": 1793392848752,
+      "rssBytes": 314900480,
+      "cpuPercent": 4.9
+    },
+    {
+      "at": 1793392849752,
+      "rssBytes": 315981824,
+      "cpuPercent": 12.9
+    },
+    {
+      "at": 1793392850753,
+      "rssBytes": 319209472,
+      "cpuPercent": 44.1
+    },
+    {
+      "at": 1793392851764,
+      "rssBytes": 321519616,
+      "cpuPercent": 30.2
+    },
+    {
+      "at": 1793392852766,
+      "rssBytes": 324468736,
+      "cpuPercent": 28.3
+    },
+    {
+      "at": 1793392853766,
+      "rssBytes": 324714496,
+      "cpuPercent": 12.1
+    },
+    {
+      "at": 1793392854767,
+      "rssBytes": 325713920,
+      "cpuPercent": 20.8
+    },
+    {
+      "at": 1793392855774,
+      "rssBytes": 325844992,
+      "cpuPercent": 25.6
+    },
+    {
+      "at": 1793392856775,
+      "rssBytes": 324517888,
+      "cpuPercent": 25.7
+    },
+    {
+      "at": 1793392857791,
+      "rssBytes": 325484544,
+      "cpuPercent": 20.5
+    },
+    {
+      "at": 1793392858790,
+      "rssBytes": 324976640,
+      "cpuPercent": 23.5
+    },
+    {
+      "at": 1793392859791,
+      "rssBytes": 325648384,
+      "cpuPercent": 19.6
+    },
+    {
+      "at": 1793392860794,
+      "rssBytes": 326123520,
+      "cpuPercent": 44.2
+    },
+    {
+      "at": 1793392861794,
+      "rssBytes": 326516736,
+      "cpuPercent": 22.7
+    },
+    {
+      "at": 1793392862795,
+      "rssBytes": 327139328,
+      "cpuPercent": 24.3
+    }
+  ],
+  "serverOperations": [
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 36.82
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.07
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.64
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 35.89
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.59
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.66
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 41.04
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 70.58
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 43.19
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 77.91
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 27.21
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.81
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.28
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 29.56
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 58.48
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 27.1
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.14
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.02
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.14
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 55.73
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 27.26
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.28
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.78
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 34.62
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 36.72
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 38.75
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 40.4
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 25.84
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.54
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.27
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.54
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.48
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.29
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 55.38
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.52
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 53.37
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 29.68
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.53
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.77
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.08
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.39
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.23
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.7
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.89
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.49
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 59.41
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.73
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.11
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.38
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 27.82
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 25.92
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.45
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.23
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 39.18
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 39.95
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.71
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.36
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.2
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 54.56
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.57
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 54.58
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.23
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 27.45
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.49
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.41
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 54.39
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 115.92
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.group_handoffs",
+      "durationMs": 116.39
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.56
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 29.19
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 57.52
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 28.86
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.88
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.15
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.07
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.84
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.68
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 38.08
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 38.33
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 38.38
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 39.08
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 67.51
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 38.33
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 66.42
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 32.34
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 32.06
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.quotations",
+      "durationMs": 29.58
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.quotation_product_codes",
+      "durationMs": 29.74
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.29
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 61.2
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.26
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 60.71
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 29.3
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.21
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.14
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.38
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.44
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.4
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.79
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.54
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.07
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.84
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.47
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.04
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 56.28
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.77
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 27.92
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.53
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.01
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.17
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.02
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.4
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.04
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.92
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.68
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.52
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.15
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.77
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.68
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 58.91
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.62
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 57.46
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.63
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 57.03
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.89
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 56.9
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.profiles",
+      "durationMs": 28.9
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.account_invitations",
+      "durationMs": 29.03
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 28.86
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.59
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.45
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.13
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 55.06
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 26.98
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.44
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.32
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.51
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.78
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.73
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 37.48
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 40.19
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 67.89
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.6
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 65.11
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 27.61
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.07
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.61
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.03
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 56.36
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 28.66
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.2
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.26
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.67
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.73
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.64
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.94
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.72
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.85
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.53
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.43
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.25
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 53.78
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.74
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 53.86
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.87
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.57
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.87
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 28.32
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 38.69
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.18
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.47
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.63
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.58
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 25.77
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.7
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.51
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 54.82
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 28.72
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.85
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.73
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 39.84
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 40.11
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.58
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.01
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.38
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 29.74
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 58.83
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 29.86
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 58.17
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.95
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 112.85
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 113.14
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 142.57
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.group_handoffs",
+      "durationMs": 27.21
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.17
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.71
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.74
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 55.84
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 27.39
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.98
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.08
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.49
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 34.98
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 35.67
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 35.27
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 33.42
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.13
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.75
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.98
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 62.61
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.13
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 60.84
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 29.02
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 56.6
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 29.22
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 56.23
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.quotations",
+      "durationMs": 28.96
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.quotation_product_codes",
+      "durationMs": 29.14
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 28.42
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.63
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 33.06
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 33.02
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 33.01
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.85
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.6
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.06
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.64
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 32.11
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.08
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.35
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 54.22
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.72
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.96
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 26.76
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.85
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.16
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.14
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.13
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.38
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.48
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 33.58
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 33
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 32.48
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 32.07
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.26
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 62.59
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.46
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 62.02
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.51
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 61.4
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.56
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 60.98
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.profiles",
+      "durationMs": 27.72
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.account_invitations",
+      "durationMs": 27.74
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 28.1
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.66
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.02
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.85
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 56.38
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 26.32
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.42
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.42
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.54
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.17
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.62
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 36.83
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 36.14
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 64.55
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.62
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 64.24
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 26.72
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.11
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.25
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.9
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 55.61
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 29.45
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.99
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 35.13
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 34.32
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 33.65
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.7
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.14
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.87
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.94
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.17
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.83
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 36.62
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 65.1
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 34.31
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.52
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.58
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.45
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.61
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.83
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 62.93
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.35
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.96
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.21
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.31
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 26.74
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.32
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.77
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.23
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.49
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 57.44
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 26.97
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.78
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.3
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 37.16
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 38.47
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.84
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.52
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.06
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.07
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 57.87
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.2
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 56.39
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.31
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 67.36
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 67.69
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 95.52
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.group_handoffs",
+      "durationMs": 29.35
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.66
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.78
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.51
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 56.84
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 26.92
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.83
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.1
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.49
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.66
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 35.13
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 36.3
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.04
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.35
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.46
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.51
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.39
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 59.84
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.43
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 59.1
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.48
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 56.33
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.58
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 55.34
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.quotations",
+      "durationMs": 26.71
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.quotation_product_codes",
+      "durationMs": 26.88
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 28.1
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.63
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.02
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.19
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.3
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.83
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.35
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.78
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.18
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.37
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 25.98
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.58
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 55.07
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.65
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.12
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 29.5
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.34
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.82
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.34
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.5
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.58
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 34.63
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 34.21
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 33.79
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 33.42
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.23
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 63.38
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.31
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 62.81
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.26
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 62.27
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.71
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 62.37
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.profiles",
+      "durationMs": 27.47
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.account_invitations",
+      "durationMs": 27.64
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 27.59
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.95
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.79
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 56.12
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 26.74
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.67
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.7
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.51
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.96
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.01
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.51
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.06
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 54.88
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.15
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 54.2
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 26.74
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.13
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.57
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 29.12
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 57.42
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.88
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 28.46
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.53
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.61
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.92
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.97
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 32.8
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 32.24
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.48
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 60.84
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.84
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 59.6
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 26.37
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.78
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.29
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.3
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 58.4
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 28.81
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.37
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.47
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.51
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.99
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.63
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.01
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.83
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.61
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 25.94
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.93
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.96
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.45
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 54
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.28
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 53.62
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 26.15
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.78
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.09
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.48
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.62
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.3
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.26
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.65
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.33
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.9
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.52
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.35
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 56.62
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 27.35
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.03
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.51
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 35.45
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 35.95
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.31
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.01
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.58
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.55
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 55.4
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.68
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 54.97
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.85
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 62.06
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 86.47
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 113.69
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.group_handoffs",
+      "durationMs": 28.62
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.22
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.83
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.91
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 58.17
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 28.71
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.01
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.25
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.87
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.19
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 35.75
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 36.81
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.45
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.04
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.72
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.96
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.5
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 56.39
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.59
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 55.93
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.79
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 57.25
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.91
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 56.33
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.quotations",
+      "durationMs": 26.69
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.quotation_product_codes",
+      "durationMs": 27.42
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 27.91
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.25
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.84
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.7
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.15
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.97
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.23
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.9
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.6
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.89
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.94
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.27
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.96
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 29.44
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 56.83
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 28.53
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.9
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.24
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.34
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.7
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.85
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.93
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.74
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.32
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.9
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.82
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.56
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 59.81
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.89
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 59.51
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.98
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 59.22
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.81
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 58.93
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.profiles",
+      "durationMs": 27.84
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.account_invitations",
+      "durationMs": 27.52
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 27.6
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.87
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.03
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 54.28
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 26.88
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.71
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.86
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.45
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.96
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.59
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 34.38
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 33.07
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.7
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 61.97
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.6
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 61.15
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 28.88
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.41
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.36
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.64
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.87
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.35
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 33.27
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.76
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.67
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 60.49
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.19
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 59.28
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 28.13
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.35
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.38
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.35
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 55.13
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 26.54
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.07
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.36
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.43
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.18
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.26
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.96
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.21
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.14
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.2
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.02
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.23
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.12
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 58.92
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.37
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 58.77
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.3
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.87
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.31
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 38.93
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 38.76
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.43
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.24
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.52
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.23
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.94
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.94
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.24
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 29.11
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 57.12
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 27.12
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.78
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.71
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 35.95
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 36.54
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.47
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.55
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.16
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 29.48
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 56.54
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.06
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 56.06
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.45
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 88.8
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 87.88
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 116.67
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.group_handoffs",
+      "durationMs": 28.08
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.55
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.91
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.21
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 57.58
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 26.94
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.36
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.24
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 25.75
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.79
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 34.5
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 35.16
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.38
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.34
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.12
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 25.77
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 25.49
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 53.22
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.54
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 53.14
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 25.71
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 52.31
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.1
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 53.11
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.quotations",
+      "durationMs": 27.98
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.quotation_product_codes",
+      "durationMs": 27.03
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 27.77
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.18
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.81
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.99
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.07
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.08
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.87
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.56
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.19
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.57
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.77
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.12
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.14
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.08
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 54.25
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 28.1
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.97
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.4
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.1
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.98
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.05
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 32.34
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.93
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.65
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.3
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.99
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 60.95
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.87
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 60.08
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.7
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 59.61
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.7
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 59.24
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.profiles",
+      "durationMs": 29.5
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.account_invitations",
+      "durationMs": 29.63
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 29.81
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 25.88
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.09
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.61
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 55.08
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 26.73
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.27
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.43
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.23
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.89
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.48
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.45
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.36
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.15
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.61
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.59
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 29.77
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 57.35
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.28
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.2
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.53
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.87
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 30.51
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 59.22
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.82
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 28.47
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.67
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.91
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.81
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.91
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 25.96
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.33
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.41
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.23
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.87
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.04
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.09
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.88
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.48
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.58
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.26
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.31
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.73
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.42
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 54.18
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.67
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 54.43
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.18
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 27.55
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.8
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.46
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.23
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.16
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.95
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.98
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.79
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.45
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.38
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.21
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.99
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.03
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.23
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.27
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.72
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 29.1
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 55.79
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.13
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.53
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.93
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.74
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 56.06
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.21
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 27.8
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.43
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.36
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.91
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.16
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.06
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.63
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.08
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.01
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.37
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.15
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.76
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 54.49
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 27.4
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.83
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.96
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.05
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.81
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.62
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.45
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.69
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.38
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.44
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.13
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.53
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 55.38
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.93
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 54.1
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 33.79
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.3
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.whatsapp_calls",
+      "durationMs": 27.26
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.78
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.22
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.11
+    }
+  ]
+}

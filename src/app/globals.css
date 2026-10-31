@@ -336,13 +336,11 @@ html[data-theme='navy-gold'][data-mode='light'] {
   html {
     @apply font-sans;
   }
-  /* Respect the OS-level "reduce motion" preference outside the dashboard —
-   * covers Tailwind's animate-* utilities (e.g. animate-ping on the
-   * inbox unread dot) and any transition, not just hand-picked spots. */
+  /* Respect reduced motion across the entire workspace, including dashboard decoration. */
   @media (prefers-reduced-motion: reduce) {
-    *:not(:where(.crm-dashboard, .crm-dashboard *)),
-    *:not(:where(.crm-dashboard, .crm-dashboard *))::before,
-    *:not(:where(.crm-dashboard, .crm-dashboard *))::after {
+    *,
+    *::before,
+    *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;

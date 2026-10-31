@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -247,6 +247,7 @@ function StageColumn({
   return (
     <div
       ref={setNodeRef}
+      style={{ '--stage-color': stage.color } as CSSProperties}
       className={`crm-stage-column ${isOver ? 'crm-stage-over' : ''} border-border bg-card/60 flex w-[88vw] max-w-[400px] min-w-[min(88vw,360px)] shrink-0 snap-start flex-col rounded-xl border p-4 lg:w-[360px] lg:min-w-[360px] lg:flex-1 lg:snap-none`}
     >
       {/* 3px colored top border — sits above the column's padding */}

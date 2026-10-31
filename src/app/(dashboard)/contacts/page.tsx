@@ -519,16 +519,20 @@ function ContactsPageInner() {
               return (
                 <span
                   key={id}
-                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                  className="text-foreground inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
                   style={{
                     backgroundColor: tag.color + '20',
-                    color: tag.color,
                   }}
                 >
+                  <i
+                    className="size-1.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: tag.color }}
+                    aria-hidden
+                  />
                   {tag.name}
                   <button
                     onClick={() => toggleTagFilter(id)}
-                    aria-label={`Remove ${tag.name} filter`}
+                    aria-label={t('removeTagFilter', { name: tag.name })}
                     className="hover:opacity-70"
                   >
                     <X className="size-3" />
@@ -699,7 +703,9 @@ function ContactsPageInner() {
                     <Checkbox
                       checked={selected.has(contact.id)}
                       onCheckedChange={() => toggleSelect(contact.id)}
-                      aria-label={`Select ${contact.name || contact.phone}`}
+                      aria-label={t('selectContactRow', {
+                        name: contact.name || contact.phone,
+                      })}
                     />
                   </TableCell>
                   <TableCell className="text-foreground font-medium">
@@ -747,12 +753,16 @@ function ContactsPageInner() {
                         contact.tags.slice(0, 3).map((tag) => (
                           <span
                             key={tag.id}
-                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
+                            className="text-foreground inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
                             style={{
                               backgroundColor: tag.color + '20',
-                              color: tag.color,
                             }}
                           >
+                            <i
+                              className="size-1.5 shrink-0 rounded-full"
+                              style={{ backgroundColor: tag.color }}
+                              aria-hidden
+                            />
                             {tag.name}
                           </span>
                         ))
@@ -760,7 +770,7 @@ function ContactsPageInner() {
                         <span className="text-muted-foreground text-xs">-</span>
                       )}
                       {contact.tags && contact.tags.length > 3 && (
-                        <span className="text-muted-foreground text-[10px]">
+                        <span className="text-muted-foreground text-xs">
                           +{contact.tags.length - 3}
                         </span>
                       )}
@@ -776,6 +786,9 @@ function ContactsPageInner() {
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger
+                        aria-label={t('actionsForContact', {
+                          name: contact.name || contact.phone,
+                        })}
                         render={
                           <Button
                             variant="ghost"
@@ -836,6 +849,7 @@ function ContactsPageInner() {
             <Button
               variant="outline"
               size="icon-sm"
+              aria-label={t('previousPage')}
               disabled={!hasPrev}
               onClick={() => setPage((p) => p - 1)}
               className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
@@ -848,6 +862,7 @@ function ContactsPageInner() {
             <Button
               variant="outline"
               size="icon-sm"
+              aria-label={t('nextPage')}
               disabled={!hasNext}
               onClick={() => setPage((p) => p + 1)}
               className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"

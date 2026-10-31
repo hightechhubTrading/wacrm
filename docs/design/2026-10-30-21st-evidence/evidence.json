@@ -1,0 +1,133 @@
+{
+  "evidence": [
+    {
+      "locale": "en",
+      "width": 390,
+      "mode": "light",
+      "overflow": false,
+      "background": "rgba(0, 0, 0, 0)",
+      "text": "rgb(32, 37, 52)",
+      "inputs": [
+        {
+          "label": "Search deals, customers, phone, or tags…",
+          "font": "14px",
+          "width": 358
+        }
+      ],
+      "smallTargets": []
+    },
+    {
+      "locale": "en",
+      "width": 390,
+      "mode": "dark",
+      "overflow": false,
+      "background": "rgba(0, 0, 0, 0)",
+      "text": "rgb(242, 243, 247)",
+      "inputs": [
+        {
+          "label": "Search deals, customers, phone, or tags…",
+          "font": "14px",
+          "width": 358
+        }
+      ],
+      "smallTargets": []
+    },
+    {
+      "locale": "en",
+      "width": 1280,
+      "mode": "light",
+      "overflow": false,
+      "background": "rgba(0, 0, 0, 0)",
+      "text": "rgb(32, 37, 52)",
+      "inputs": [
+        {
+          "label": "Search deals, customers, phone, or tags…",
+          "font": "14px",
+          "width": 548.9375
+        }
+      ],
+      "smallTargets": []
+    },
+    {
+      "locale": "en",
+      "width": 1280,
+      "mode": "dark",
+      "overflow": false,
+      "background": "rgba(0, 0, 0, 0)",
+      "text": "rgb(242, 243, 247)",
+      "inputs": [
+        {
+          "label": "Search deals, customers, phone, or tags…",
+          "font": "14px",
+          "width": 548.9375
+        }
+      ],
+      "smallTargets": []
+    },
+    {
+      "locale": "ar",
+      "width": 390,
+      "mode": "light",
+      "overflow": false,
+      "background": "rgba(0, 0, 0, 0)",
+      "text": "rgb(32, 37, 52)",
+      "inputs": [
+        {
+          "label": "ابحث عن صفقة أو عميل أو هاتف أو وسم…",
+          "font": "14px",
+          "width": 358
+        }
+      ],
+      "smallTargets": []
+    },
+    {
+      "locale": "ar",
+      "width": 390,
+      "mode": "dark",
+      "overflow": false,
+      "background": "rgba(0, 0, 0, 0)",
+      "text": "rgb(242, 243, 247)",
+      "inputs": [
+        {
+          "label": "ابحث عن صفقة أو عميل أو هاتف أو وسم…",
+          "font": "14px",
+          "width": 358
+        }
+      ],
+      "smallTargets": []
+    },
+    {
+      "locale": "ar",
+      "width": 1280,
+      "mode": "light",
+      "overflow": false,
+      "background": "rgba(0, 0, 0, 0)",
+      "text": "rgb(32, 37, 52)",
+      "inputs": [
+        {
+          "label": "ابحث عن صفقة أو عميل أو هاتف أو وسم…",
+          "font": "14px",
+          "width": 553.921875
+        }
+      ],
+      "smallTargets": []
+    },
+    {
+      "locale": "ar",
+      "width": 1280,
+      "mode": "dark",
+      "overflow": false,
+      "background": "rgba(0, 0, 0, 0)",
+      "text": "rgb(242, 243, 247)",
+      "inputs": [
+        {
+          "label": "ابحث عن صفقة أو عميل أو هاتف أو وسم…",
+          "font": "14px",
+          "width": 553.921875
+        }
+      ],
+      "smallTargets": []
+    }
+  ],
+  "errors": []
+}

@@ -273,6 +273,13 @@ export function DealAiSummary({
           ? 'crm-list-ai-summary crm-glass-summary'
           : 'crm-card-ai-summary crm-glass-summary'
       }
+      data-summary-state={
+        deal.aiSummary
+          ? 'available'
+          : deal.aiSummaryUnavailable
+            ? 'unavailable'
+            : 'pending'
+      }
       aria-label={c('aiSummary')}
     >
       <button

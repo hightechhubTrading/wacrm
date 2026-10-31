@@ -40,6 +40,12 @@ const output = resolve(
 );
 const fixtureLatency = Number(process.env.PERFORMANCE_FIXTURE_LATENCY_MS || 25);
 const routesOnly = process.env.PERFORMANCE_ROUTES_ONLY === '1';
+const uiReviewEvidenceDir = process.env.UI_REVIEW_EVIDENCE_DIR;
+const uiReviewWidths = (process.env.UI_REVIEW_WIDTHS || '390')
+  .split(',')
+  .map(Number)
+  .filter((width) => Number.isInteger(width) && width >= 320);
+const uiReviewTextScale = Number(process.env.UI_REVIEW_TEXT_SCALE || 1);
 const primaryViewport =
   process.env.PERFORMANCE_VIEWPORT === 'mobile'
     ? { width: 390, height: 844 }
@@ -53,6 +59,24 @@ const backend = await startSupabaseFixture({
   latency: fixtureLatency,
   port: priorStamp ? Number(new URL(priorStamp.backend).port) : 0,
 });
+if (process.env.UI_REVIEW_VIEWER === '1') {
+  backend.tables.profiles[0].account_role = 'viewer';
+  backend.tables.profiles[0].role = 'viewer';
+}
+if (process.env.UI_REVIEW_STRESS === '1') {
+  backend.tables.profiles[0].full_name =
+    'فريق متابعة العملاء والمشاريع المتخصصة في الدوحة — Customer Operations';
+  for (const contact of backend.tables.contacts)
+    contact.name = `${contact.name} — شركة المشاريع والخدمات المتخصصة في الدوحة`;
+  for (const deal of backend.tables.deals) {
+    deal.title = `${deal.title} — مشروع متعدد المراحل لخدمة العملاء والمتابعة`;
+    deal.value = 123456789.99;
+  }
+  for (const quotation of backend.tables.quotations) {
+    quotation.client_name = `${quotation.client_name} — شركة المشاريع والخدمات المتخصصة في الدوحة`;
+    quotation.total = 123456789.99;
+  }
+}
 let child, browser;
 let serverLog = '',
   samplesTimer;
@@ -358,6 +382,8 @@ try {
     quotations: 'tbody tr',
     settings: '.crm-settings-content h2',
   };
+  if (process.env.UI_REVIEW_VIEWER === '1')
+    readiness.quotations = 'main#main-content';
   async function recordRoute(route, navigation = 'cold') {
     // Selecting the current route keeps the mobile drawer open; measure actual
     // navigations rather than a no-op selection underneath that drawer.
@@ -369,7 +395,10 @@ try {
       return;
     if (navigation === 'cold') await cdp.send('Network.clearBrowserCache');
     if (navigation === 'warm' && primaryViewport.width < 1024)
-      await page.locator('button[aria-controls="primary-sidebar"]').click();
+      await page
+        .locator('button[aria-controls="primary-sidebar"]')
+        .first()
+        .click();
     const frontendStart = appRequests.length;
     await page.evaluate(() => performance.clearResourceTimings());
     const requestStart = backend.requests.length,
@@ -377,6 +406,44 @@ try {
     if (navigation === 'cold') await page.goto(origin + '/' + route);
     else await page.locator(`a[href="/${route}"]`).first().click();
     await page.locator(readiness[route]).first().waitFor({ timeout: 30000 });
+    if (uiReviewEvidenceDir && navigation === 'cold') {
+      await mkdir(uiReviewEvidenceDir, { recursive: true });
+      const geometry = await page.evaluate(() => {
+        const viewport = document.documentElement.clientWidth;
+        const nodes = Array.from(document.querySelectorAll('body *'));
+        const clipped = nodes.flatMap((node) => {
+          if (!(node instanceof HTMLElement)) return [];
+          const style = getComputedStyle(node);
+          if (style.position === 'fixed' || style.visibility === 'hidden')
+            return [];
+          const rect = node.getBoundingClientRect();
+          if (rect.width < 1 || rect.height < 1 || rect.top > innerHeight)
+            return [];
+          if (rect.left >= -1 && rect.right <= viewport + 1) return [];
+          return [
+            {
+              tag: node.tagName,
+              className: String(node.className).slice(0, 120),
+              left: Math.round(rect.left),
+              right: Math.round(rect.right),
+            },
+          ];
+        });
+        return {
+          viewport,
+          scrollWidth: document.documentElement.scrollWidth,
+          font: getComputedStyle(document.body).fontFamily,
+          clipped: clipped.slice(0, 40),
+        };
+      });
+      report.checks.push({ route, uiGeometry: geometry });
+      await page.screenshot({
+        path: join(
+          uiReviewEvidenceDir,
+          `${route}-${primaryViewport.width}-en-light.png`
+        ),
+      });
+    }
     const usefulMs = performance.now() - started;
     await page.waitForTimeout(100);
     const browser = await page.evaluate(() => ({
@@ -420,18 +487,263 @@ try {
     );
   }
   for (const route of Object.keys(readiness)) await recordRoute(route);
-  for (const route of [
-    'inbox',
-    'dashboard',
-    'pipelines',
-    'quotations',
-    'settings',
-    'inbox',
-  ])
-    await recordRoute(route, 'warm');
-  for (let repeat = 0; repeat < 3; repeat++)
-    for (const route of Object.keys(readiness))
+  if (!uiReviewEvidenceDir)
+    for (const route of [
+      'inbox',
+      'dashboard',
+      'pipelines',
+      'quotations',
+      'settings',
+      'inbox',
+    ])
       await recordRoute(route, 'warm');
+  if (!uiReviewEvidenceDir)
+    for (let repeat = 0; repeat < 3; repeat++)
+      for (const route of Object.keys(readiness))
+        await recordRoute(route, 'warm');
+  if (uiReviewEvidenceDir) {
+    report.uiReview = [];
+    if (process.env.UI_REVIEW_AXE === '1') report.uiAxe = [];
+    const uiReadiness = { ...readiness };
+    for (const route of (process.env.UI_REVIEW_EXTRA_ROUTES || '')
+      .split(',')
+      .filter(Boolean))
+      uiReadiness[route] = 'main#main-content';
+    for (const width of uiReviewWidths)
+      for (const locale of ['en', 'ar'])
+        for (const mode of ['light', 'dark']) {
+          const matrixContext = await newContext({
+            width,
+            height: width < 1024 ? 844 : 900,
+          });
+          const matrixPage = await matrixContext.newPage();
+          const matrixErrors = [];
+          matrixPage.on('pageerror', (error) =>
+            matrixErrors.push(error.message)
+          );
+          for (const route of Object.keys(uiReadiness)) {
+            await matrixPage.goto(`${origin}/${route}`);
+            await matrixPage
+              .locator(uiReadiness[route])
+              .first()
+              .waitFor({ timeout: 30000 });
+            if (
+              await matrixPage.evaluate(
+                (target) => document.documentElement.lang !== target,
+                locale
+              )
+            ) {
+              if (width >= 1024)
+                await matrixPage.setViewportSize({ width: 390, height: 844 });
+              await matrixPage
+                .locator(`header button[lang="${locale}"]:visible`)
+                .click();
+              await matrixPage.locator(`html[lang="${locale}"]`).waitFor();
+              await matrixPage
+                .locator(uiReadiness[route])
+                .first()
+                .waitFor({ timeout: 30000 });
+            }
+            if (
+              await matrixPage.evaluate(
+                (target) => document.documentElement.dataset.mode !== target,
+                mode
+              )
+            ) {
+              if (width >= 1024)
+                await matrixPage.setViewportSize({ width: 390, height: 844 });
+              await matrixPage
+                .locator('header button[title]:not([lang])')
+                .click();
+              await matrixPage.locator(`html[data-mode="${mode}"]`).waitFor();
+            }
+            if (width >= 1024)
+              await matrixPage.setViewportSize({ width, height: 900 });
+            if (uiReviewTextScale !== 1)
+              await matrixPage.evaluate((scale) => {
+                document.documentElement.style.fontSize = `${16 * scale}px`;
+              }, uiReviewTextScale);
+            await matrixPage.waitForTimeout(
+              uiReadiness[route] === 'main#main-content' ? 750 : 250
+            );
+            if (
+              process.env.UI_REVIEW_VIEWER === '1' &&
+              route === 'quotations'
+            ) {
+              await matrixPage
+                .locator('.crm-quotation-list .crm-list-state')
+                .waitFor();
+              assert.equal(
+                await matrixPage.locator('.crm-quotation-list button').count(),
+                0
+              );
+            }
+            const measurement = await matrixPage.evaluate(() => ({
+              lang: document.documentElement.lang,
+              dir: document.documentElement.dir,
+              mode: document.documentElement.dataset.mode,
+              viewport: document.documentElement.clientWidth,
+              scrollWidth: document.documentElement.scrollWidth,
+              scrollLeft: document.documentElement.scrollLeft,
+              bodyLeft: Math.round(document.body.getBoundingClientRect().left),
+              shellLeft: Math.round(
+                document
+                  .querySelector('.crm-workspace')
+                  ?.getBoundingClientRect().left ?? 0
+              ),
+              headerLeft: Math.round(
+                document.querySelector('header')?.getBoundingClientRect()
+                  .left ?? 0
+              ),
+              hitAtHeader: document
+                .elementFromPoint(200, 25)
+                ?.textContent?.trim()
+                .slice(0, 60),
+              windowScrollX: window.scrollX,
+              visualOffsetLeft: window.visualViewport?.offsetLeft,
+              boardWidth: Math.round(
+                document
+                  .querySelector('.pipeline-scroll')
+                  ?.getBoundingClientRect().width ?? 0
+              ),
+              boardParentWidth: Math.round(
+                document
+                  .querySelector('.pipeline-scroll')
+                  ?.parentElement?.getBoundingClientRect().width ?? 0
+              ),
+              mainWidth: Math.round(
+                document.querySelector('.crm-main')?.getBoundingClientRect()
+                  .width ?? 0
+              ),
+              font: getComputedStyle(document.body).fontFamily,
+            }));
+            assert.equal(measurement.lang, locale);
+            assert.equal(measurement.mode, mode);
+            report.uiReview.push({
+              route,
+              locale,
+              mode,
+              width,
+              textScale: uiReviewTextScale,
+              stress: process.env.UI_REVIEW_STRESS === '1',
+              measurement,
+            });
+            if (width === 390 || width === 1280)
+              await matrixPage.screenshot({
+                path: join(
+                  uiReviewEvidenceDir,
+                  `${route}-${width}-${locale}-${mode}${uiReviewTextScale === 1 ? '' : `-text${Math.round(uiReviewTextScale * 100)}`}${process.env.UI_REVIEW_STRESS === '1' ? '-stress' : ''}.png`
+                ),
+              });
+            if (route === 'pipelines' && locale === 'ar' && width === 390) {
+              const session = await matrixContext.newCDPSession(matrixPage);
+              const capture = await session.send('Page.captureScreenshot', {
+                format: 'png',
+                captureBeyondViewport: false,
+                fromSurface: true,
+              });
+              await writeFile(
+                join(
+                  uiReviewEvidenceDir,
+                  `pipelines-cdp-${width}-${locale}-${mode}.png`
+                ),
+                Buffer.from(capture.data, 'base64')
+              );
+              await session.detach();
+            }
+            if (process.env.UI_REVIEW_AXE === '1') {
+              await matrixPage.addScriptTag({
+                path: join(project, 'node_modules/axe-core/axe.min.js'),
+              });
+              const accessibility = await matrixPage.evaluate(async () => {
+                const result = await window.axe.run(document, {
+                  runOnly: {
+                    type: 'tag',
+                    values: [
+                      'wcag2a',
+                      'wcag2aa',
+                      'wcag21a',
+                      'wcag21aa',
+                      'wcag22aa',
+                    ],
+                  },
+                });
+                return result.violations.map((violation) => ({
+                  id: violation.id,
+                  impact: violation.impact,
+                  description: violation.description,
+                  nodes: violation.nodes.map((node) => ({
+                    target: node.target,
+                    failureSummary: node.failureSummary,
+                  })),
+                }));
+              });
+              report.uiAxe.push({
+                route,
+                locale,
+                mode,
+                width,
+                violations: accessibility,
+              });
+            }
+          }
+          if (matrixErrors.length) report.browserErrors.push(...matrixErrors);
+          await matrixContext.close();
+        }
+    report.uiKeyboard = [];
+    if (
+      process.env.UI_REVIEW_VIEWER !== '1' &&
+      process.env.UI_REVIEW_AXE !== '1' &&
+      process.env.UI_REVIEW_STRESS !== '1'
+    )
+      for (const locale of ['en', 'ar']) {
+        const keyboardContext = await newContext({ width: 390, height: 844 });
+        const keyboardPage = await keyboardContext.newPage();
+        await keyboardPage.goto(`${origin}/dashboard`);
+        await keyboardPage.locator(readiness.dashboard).first().waitFor();
+        if (locale === 'ar') {
+          await keyboardPage
+            .locator('header button[lang="ar"]:visible')
+            .evaluate((node) => node.click());
+          await keyboardPage.locator('html[lang="ar"]').waitFor();
+          await keyboardPage.locator(readiness.dashboard).first().waitFor();
+        }
+        const skip = keyboardPage.locator('a[href="#main-content"]');
+        await skip.focus();
+        await keyboardPage.keyboard.press('Enter');
+        assert.equal(
+          await keyboardPage
+            .locator('main#main-content')
+            .evaluate((node) => document.activeElement === node),
+          true
+        );
+        const menu = keyboardPage.locator(
+          'header button[aria-controls="primary-sidebar"]'
+        );
+        await menu.click();
+        await keyboardPage
+          .locator(
+            'header button[aria-controls="primary-sidebar"][aria-expanded="true"]'
+          )
+          .waitFor();
+        await keyboardPage.keyboard.press('Escape');
+        await keyboardPage
+          .locator(
+            'header button[aria-controls="primary-sidebar"][aria-expanded="false"]'
+          )
+          .waitFor();
+        assert.equal(
+          await menu.evaluate((node) => document.activeElement === node),
+          true
+        );
+        report.uiKeyboard.push({
+          locale,
+          skipToMain: true,
+          drawerEscapeAndFocusReturn: true,
+        });
+        await keyboardContext.close();
+      }
+  }
   if (!routesOnly) {
     // Full workspace: deep link beyond the first list page, cached switching,
     // reconnect history, read receipts, old-message paging and typing under events.

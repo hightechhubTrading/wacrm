@@ -1,0 +1,3446 @@
+{
+  "variant": "current",
+  "completed": true,
+  "measuredAt": "2026-10-30T20:49:05.003Z",
+  "environment": {
+    "backend": "Local synthetic Supabase and Realtime fixture; SQL/RLS verified separately",
+    "backendLatencyMs": 25,
+    "bundler": "webpack (matches Dockerfile)",
+    "fixture": {
+      "conversations": 1500,
+      "deals": 1500,
+      "quotations": 1500,
+      "firstThreadMessages": 600
+    },
+    "browser": "Chromium/Chrome, production Next build",
+    "cpuThrottle": 4,
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "routesOnly": true,
+    "network": {
+      "latencyMs": 40,
+      "downloadBytesPerSecond": 5242880,
+      "uploadBytesPerSecond": 1048576
+    },
+    "coldDefinition": "Full document navigation after clearing the browser HTTP cache; warm means Next client navigation.",
+    "timezone": "Europe/Berlin",
+    "note": "Synthetic account and transport; these are not production-user latency measurements."
+  },
+  "routes": [
+    {
+      "route": "inbox",
+      "navigation": "cold",
+      "usefulMs": 1085.2694579999998,
+      "backendRequests": 18,
+      "frontend": [
+        {
+          "path": "/inbox",
+          "prefetch": false,
+          "type": "document"
+        },
+        {
+          "path": "/icon",
+          "prefetch": false,
+          "type": "other"
+        }
+      ],
+      "backendBytes": 68549,
+      "browser": {
+        "timeOrigin": 1793393347012.4,
+        "navigation": [
+          {
+            "ttfbMs": 68.39999997615814,
+            "bytes": 28490,
+            "encoded": 28190
+          }
+        ],
+        "longTasks": [
+          {
+            "start": 510.39999997615814,
+            "duration": 67
+          },
+          {
+            "start": 646.8000000119209,
+            "duration": 63
+          }
+        ],
+        "interactions": [],
+        "resources": [
+          {
+            "bytes": 9232,
+            "encoded": 8932,
+            "duration": 62.80000001192093,
+            "type": "link"
+          },
+          {
+            "bytes": 9324,
+            "encoded": 9024,
+            "duration": 63.299999952316284,
+            "type": "link"
+          },
+          {
+            "bytes": 9240,
+            "encoded": 8940,
+            "duration": 100.09999996423721,
+            "type": "link"
+          },
+          {
+            "bytes": 48732,
+            "encoded": 48432,
+            "duration": 113.19999998807907,
+            "type": "link"
+          },
+          {
+            "bytes": 24437,
+            "encoded": 24137,
+            "duration": 63.69999998807907,
+            "type": "link"
+          },
+          {
+            "bytes": 1113,
+            "encoded": 813,
+            "duration": 52.89999997615814,
+            "type": "link"
+          },
+          {
+            "bytes": 840,
+            "encoded": 540,
+            "duration": 53.5,
+            "type": "link"
+          },
+          {
+            "bytes": 14276,
+            "encoded": 13976,
+            "duration": 61.59999996423721,
+            "type": "link"
+          },
+          {
+            "bytes": 3160,
+            "encoded": 2860,
+            "duration": 118.69999998807907,
+            "type": "link"
+          },
+          {
+            "bytes": 784,
+            "encoded": 484,
+            "duration": 135.9000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 61683,
+            "encoded": 61383,
+            "duration": 143.9000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 63182,
+            "encoded": 62882,
+            "duration": 145,
+            "type": "script"
+          },
+          {
+            "bytes": 13582,
+            "encoded": 13282,
+            "duration": 144.5,
+            "type": "script"
+          },
+          {
+            "bytes": 12461,
+            "encoded": 12161,
+            "duration": 152.5999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 2866,
+            "encoded": 2566,
+            "duration": 160.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 9585,
+            "encoded": 9285,
+            "duration": 181.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 2370,
+            "encoded": 2070,
+            "duration": 186,
+            "type": "script"
+          },
+          {
+            "bytes": 8819,
+            "encoded": 8519,
+            "duration": 187.19999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 17049,
+            "encoded": 16749,
+            "duration": 199.5,
+            "type": "script"
+          },
+          {
+            "bytes": 52685,
+            "encoded": 52385,
+            "duration": 200,
+            "type": "script"
+          },
+          {
+            "bytes": 16013,
+            "encoded": 15713,
+            "duration": 204.5999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 3862,
+            "encoded": 3562,
+            "duration": 232.9000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 4970,
+            "encoded": 4670,
+            "duration": 233.10000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 11377,
+            "encoded": 11077,
+            "duration": 234.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 5575,
+            "encoded": 5275,
+            "duration": 243.9000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 3719,
+            "encoded": 3419,
+            "duration": 243.30000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 4618,
+            "encoded": 4318,
+            "duration": 245.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 2478,
+            "encoded": 2178,
+            "duration": 281.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 3174,
+            "encoded": 2874,
+            "duration": 282.19999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 11451,
+            "encoded": 11151,
+            "duration": 284.0999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 3816,
+            "encoded": 3516,
+            "duration": 285.5999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 11582,
+            "encoded": 11282,
+            "duration": 288.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 3194,
+            "encoded": 2894,
+            "duration": 286.7999999523163,
+            "type": "script"
+          },
+          {
+            "bytes": 1317,
+            "encoded": 1017,
+            "duration": 331.19999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 4864,
+            "encoded": 4564,
+            "duration": 334.0999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 5274,
+            "encoded": 4974,
+            "duration": 334.2999999523163,
+            "type": "script"
+          },
+          {
+            "bytes": 3841,
+            "encoded": 3541,
+            "duration": 334.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 7749,
+            "encoded": 7449,
+            "duration": 336.2999999523163,
+            "type": "script"
+          },
+          {
+            "bytes": 14265,
+            "encoded": 13965,
+            "duration": 337.5,
+            "type": "script"
+          },
+          {
+            "bytes": 68414,
+            "encoded": 68114,
+            "duration": 393.19999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 711,
+            "encoded": 411,
+            "duration": 378,
+            "type": "script"
+          },
+          {
+            "bytes": 1362,
+            "encoded": 1062,
+            "duration": 378.9000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 3646,
+            "encoded": 3346,
+            "duration": 380.30000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 2460,
+            "encoded": 2160,
+            "duration": 380.5,
+            "type": "script"
+          },
+          {
+            "bytes": 489,
+            "encoded": 189,
+            "duration": 379.0999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 5685,
+            "encoded": 5385,
+            "duration": 92.69999998807907,
+            "type": "link"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 47.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 46.39999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 46.40000003576279,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 46,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 45.59999996423721,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 45.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 44.30000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 44,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 44.69999998807907,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 43.30000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.89999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 43.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 88.19999998807907,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 63.19999998807907,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.10000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 44.5,
+            "type": "fetch"
+          }
+        ],
+        "heap": 11592448
+      }
+    },
+    {
+      "route": "dashboard",
+      "navigation": "cold",
+      "usefulMs": 989.0193749999999,
+      "backendRequests": 25,
+      "frontend": [
+        {
+          "path": "/dashboard",
+          "prefetch": false,
+          "type": "document"
+        },
+        {
+          "path": "/api/dashboard/weather",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/automations/new",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/broadcasts/new",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/pipelines",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/contacts",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/icon",
+          "prefetch": false,
+          "type": "other"
+        },
+        {
+          "path": "/automations/new",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/broadcasts/new",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/pipelines",
+          "prefetch": true,
+          "type": "fetch"
+        },
+        {
+          "path": "/contacts",
+          "prefetch": true,
+          "type": "fetch"
+        }
+      ],
+      "backendBytes": 45713,
+      "browser": {
+        "timeOrigin": 1793393348206.6,
+        "navigation": [
+          {
+            "ttfbMs": 49,
+            "bytes": 18531,
+            "encoded": 18231
+          }
+        ],
+        "longTasks": [
+          {
+            "start": 533.7999999523163,
+            "duration": 57
+          },
+          {
+            "start": 746.5999999642372,
+            "duration": 110
+          }
+        ],
+        "interactions": [],
+        "resources": [
+          {
+            "bytes": 9232,
+            "encoded": 8932,
+            "duration": 56.80000001192093,
+            "type": "link"
+          },
+          {
+            "bytes": 9324,
+            "encoded": 9024,
+            "duration": 56.89999997615814,
+            "type": "link"
+          },
+          {
+            "bytes": 9240,
+            "encoded": 8940,
+            "duration": 57.19999998807907,
+            "type": "link"
+          },
+          {
+            "bytes": 48732,
+            "encoded": 48432,
+            "duration": 68.39999997615814,
+            "type": "link"
+          },
+          {
+            "bytes": 24437,
+            "encoded": 24137,
+            "duration": 62.10000002384186,
+            "type": "link"
+          },
+          {
+            "bytes": 1113,
+            "encoded": 813,
+            "duration": 49.799999952316284,
+            "type": "link"
+          },
+          {
+            "bytes": 840,
+            "encoded": 540,
+            "duration": 96.29999995231628,
+            "type": "link"
+          },
+          {
+            "bytes": 14276,
+            "encoded": 13976,
+            "duration": 99.79999995231628,
+            "type": "link"
+          },
+          {
+            "bytes": 784,
+            "encoded": 484,
+            "duration": 149.29999995231628,
+            "type": "script"
+          },
+          {
+            "bytes": 3160,
+            "encoded": 2860,
+            "duration": 151.89999997615814,
+            "type": "link"
+          },
+          {
+            "bytes": 13582,
+            "encoded": 13282,
+            "duration": 160.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 61683,
+            "encoded": 61383,
+            "duration": 179.0999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 63182,
+            "encoded": 62882,
+            "duration": 179.29999995231628,
+            "type": "script"
+          },
+          {
+            "bytes": 12461,
+            "encoded": 12161,
+            "duration": 159.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 2866,
+            "encoded": 2566,
+            "duration": 194.9000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 9585,
+            "encoded": 9285,
+            "duration": 196.4000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 8819,
+            "encoded": 8519,
+            "duration": 204.4000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 2370,
+            "encoded": 2070,
+            "duration": 203.0999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 52685,
+            "encoded": 52385,
+            "duration": 239.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 17049,
+            "encoded": 16749,
+            "duration": 229.29999995231628,
+            "type": "script"
+          },
+          {
+            "bytes": 3862,
+            "encoded": 3562,
+            "duration": 238.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 16013,
+            "encoded": 15713,
+            "duration": 240.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 4970,
+            "encoded": 4670,
+            "duration": 244.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 11377,
+            "encoded": 11077,
+            "duration": 246.5999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 5575,
+            "encoded": 5275,
+            "duration": 275.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 3719,
+            "encoded": 3419,
+            "duration": 282.19999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 4618,
+            "encoded": 4318,
+            "duration": 283,
+            "type": "script"
+          },
+          {
+            "bytes": 11451,
+            "encoded": 11151,
+            "duration": 285.0999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 2478,
+            "encoded": 2178,
+            "duration": 285.7999999523163,
+            "type": "script"
+          },
+          {
+            "bytes": 3174,
+            "encoded": 2874,
+            "duration": 288.0999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 3816,
+            "encoded": 3516,
+            "duration": 323,
+            "type": "script"
+          },
+          {
+            "bytes": 5516,
+            "encoded": 5216,
+            "duration": 324.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 2532,
+            "encoded": 2232,
+            "duration": 326.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 7749,
+            "encoded": 7449,
+            "duration": 329.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 109930,
+            "encoded": 109630,
+            "duration": 348.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 4284,
+            "encoded": 3984,
+            "duration": 330.5,
+            "type": "script"
+          },
+          {
+            "bytes": 18414,
+            "encoded": 18114,
+            "duration": 373.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 1362,
+            "encoded": 1062,
+            "duration": 368.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 3646,
+            "encoded": 3346,
+            "duration": 369.2999999523163,
+            "type": "script"
+          },
+          {
+            "bytes": 711,
+            "encoded": 411,
+            "duration": 370.0999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 2460,
+            "encoded": 2160,
+            "duration": 372,
+            "type": "script"
+          },
+          {
+            "bytes": 489,
+            "encoded": 189,
+            "duration": 393.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 5577,
+            "encoded": 5277,
+            "duration": 96,
+            "type": "link"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 46.80000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 335,
+            "encoded": 35,
+            "duration": 6.699999988079071,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 43.39999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.80000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 43.60000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 44.10000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 46.19999998807907,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 46,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 85.19999998807907,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 88.89999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 83.30000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 83.39999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 470,
+            "encoded": 170,
+            "duration": 54.59999996423721,
+            "type": "fetch"
+          },
+          {
+            "bytes": 469,
+            "encoded": 169,
+            "duration": 54.69999998807907,
+            "type": "fetch"
+          },
+          {
+            "bytes": 464,
+            "encoded": 164,
+            "duration": 54.80000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 464,
+            "encoded": 164,
+            "duration": 54.90000003576279,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.39999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 43.39999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.10000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 1032,
+            "encoded": 732,
+            "duration": 42.90000003576279,
+            "type": "fetch"
+          },
+          {
+            "bytes": 1031,
+            "encoded": 731,
+            "duration": 43.200000047683716,
+            "type": "fetch"
+          },
+          {
+            "bytes": 1024,
+            "encoded": 724,
+            "duration": 41.39999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 1027,
+            "encoded": 727,
+            "duration": 41.40000003576279,
+            "type": "fetch"
+          }
+        ],
+        "heap": 21624214
+      }
+    },
+    {
+      "route": "pipelines",
+      "navigation": "cold",
+      "usefulMs": 1108.4129170000006,
+      "backendRequests": 9,
+      "frontend": [
+        {
+          "path": "/pipelines",
+          "prefetch": false,
+          "type": "document"
+        },
+        {
+          "path": "/icon",
+          "prefetch": false,
+          "type": "other"
+        }
+      ],
+      "backendBytes": 70458,
+      "browser": {
+        "timeOrigin": 1793393349301.6,
+        "navigation": [
+          {
+            "ttfbMs": 34.5,
+            "bytes": 19106,
+            "encoded": 18806
+          }
+        ],
+        "longTasks": [],
+        "interactions": [],
+        "resources": [
+          {
+            "bytes": 9232,
+            "encoded": 8932,
+            "duration": 65.60000002384186,
+            "type": "link"
+          },
+          {
+            "bytes": 9324,
+            "encoded": 9024,
+            "duration": 65.19999998807907,
+            "type": "link"
+          },
+          {
+            "bytes": 9240,
+            "encoded": 8940,
+            "duration": 65.40000003576279,
+            "type": "link"
+          },
+          {
+            "bytes": 48732,
+            "encoded": 48432,
+            "duration": 76.40000003576279,
+            "type": "link"
+          },
+          {
+            "bytes": 1113,
+            "encoded": 813,
+            "duration": 57.30000001192093,
+            "type": "link"
+          },
+          {
+            "bytes": 24437,
+            "encoded": 24137,
+            "duration": 70.5,
+            "type": "link"
+          },
+          {
+            "bytes": 14276,
+            "encoded": 13976,
+            "duration": 108.60000002384186,
+            "type": "link"
+          },
+          {
+            "bytes": 840,
+            "encoded": 540,
+            "duration": 105.60000002384186,
+            "type": "link"
+          },
+          {
+            "bytes": 3160,
+            "encoded": 2860,
+            "duration": 157.69999998807907,
+            "type": "link"
+          },
+          {
+            "bytes": 63182,
+            "encoded": 62882,
+            "duration": 185.19999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 784,
+            "encoded": 484,
+            "duration": 155.0999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 61683,
+            "encoded": 61383,
+            "duration": 184.79999995231628,
+            "type": "script"
+          },
+          {
+            "bytes": 12461,
+            "encoded": 12161,
+            "duration": 165.5,
+            "type": "script"
+          },
+          {
+            "bytes": 13582,
+            "encoded": 13282,
+            "duration": 166.30000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 2866,
+            "encoded": 2566,
+            "duration": 198.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 9585,
+            "encoded": 9285,
+            "duration": 200.10000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 2370,
+            "encoded": 2070,
+            "duration": 209.5,
+            "type": "script"
+          },
+          {
+            "bytes": 8819,
+            "encoded": 8519,
+            "duration": 210.5,
+            "type": "script"
+          },
+          {
+            "bytes": 17049,
+            "encoded": 16749,
+            "duration": 237,
+            "type": "script"
+          },
+          {
+            "bytes": 3862,
+            "encoded": 3562,
+            "duration": 243.5,
+            "type": "script"
+          },
+          {
+            "bytes": 16013,
+            "encoded": 15713,
+            "duration": 246.5999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 52685,
+            "encoded": 52385,
+            "duration": 248.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 4970,
+            "encoded": 4670,
+            "duration": 251.5,
+            "type": "script"
+          },
+          {
+            "bytes": 11377,
+            "encoded": 11077,
+            "duration": 253.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 3719,
+            "encoded": 3419,
+            "duration": 288,
+            "type": "script"
+          },
+          {
+            "bytes": 5575,
+            "encoded": 5275,
+            "duration": 289.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 4618,
+            "encoded": 4318,
+            "duration": 290,
+            "type": "script"
+          },
+          {
+            "bytes": 11451,
+            "encoded": 11151,
+            "duration": 292.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 2478,
+            "encoded": 2178,
+            "duration": 292.7999999523163,
+            "type": "script"
+          },
+          {
+            "bytes": 3174,
+            "encoded": 2874,
+            "duration": 294.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 3816,
+            "encoded": 3516,
+            "duration": 341.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 4864,
+            "encoded": 4564,
+            "duration": 342.2999999523163,
+            "type": "script"
+          },
+          {
+            "bytes": 11582,
+            "encoded": 11282,
+            "duration": 345.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 3918,
+            "encoded": 3618,
+            "duration": 342.4000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 5652,
+            "encoded": 5352,
+            "duration": 343.9000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 16882,
+            "encoded": 16582,
+            "duration": 347,
+            "type": "script"
+          },
+          {
+            "bytes": 1362,
+            "encoded": 1062,
+            "duration": 392.19999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 3389,
+            "encoded": 3089,
+            "duration": 393,
+            "type": "script"
+          },
+          {
+            "bytes": 3646,
+            "encoded": 3346,
+            "duration": 393.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 7749,
+            "encoded": 7449,
+            "duration": 395,
+            "type": "script"
+          },
+          {
+            "bytes": 25648,
+            "encoded": 25348,
+            "duration": 398.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 711,
+            "encoded": 411,
+            "duration": 391,
+            "type": "script"
+          },
+          {
+            "bytes": 489,
+            "encoded": 189,
+            "duration": 437.0999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 2460,
+            "encoded": 2160,
+            "duration": 437.5999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 46.69999998807907,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 43.40000003576279,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 43.60000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.89999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.80000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 44.299999952316284,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 130.80000001192093,
+            "type": "fetch"
+          }
+        ],
+        "heap": 22443884
+      }
+    },
+    {
+      "route": "quotations",
+      "navigation": "cold",
+      "usefulMs": 546.0740829999995,
+      "backendRequests": 6,
+      "frontend": [
+        {
+          "path": "/quotations",
+          "prefetch": false,
+          "type": "document"
+        },
+        {
+          "path": "/icon",
+          "prefetch": false,
+          "type": "other"
+        }
+      ],
+      "backendBytes": 1177,
+      "browser": {
+        "timeOrigin": 1793393350513.3,
+        "navigation": [
+          {
+            "ttfbMs": 35.5,
+            "bytes": 13604,
+            "encoded": 13304
+          }
+        ],
+        "longTasks": [],
+        "interactions": [],
+        "resources": [
+          {
+            "bytes": 9232,
+            "encoded": 8932,
+            "duration": 62.19999998807907,
+            "type": "link"
+          },
+          {
+            "bytes": 9324,
+            "encoded": 9024,
+            "duration": 62.39999997615814,
+            "type": "link"
+          },
+          {
+            "bytes": 9240,
+            "encoded": 8940,
+            "duration": 62.59999996423721,
+            "type": "link"
+          },
+          {
+            "bytes": 48732,
+            "encoded": 48432,
+            "duration": 73.40000003576279,
+            "type": "link"
+          },
+          {
+            "bytes": 1113,
+            "encoded": 813,
+            "duration": 54.700000047683716,
+            "type": "link"
+          },
+          {
+            "bytes": 24437,
+            "encoded": 24137,
+            "duration": 67.80000001192093,
+            "type": "link"
+          },
+          {
+            "bytes": 840,
+            "encoded": 540,
+            "duration": 106.20000004768372,
+            "type": "link"
+          },
+          {
+            "bytes": 14276,
+            "encoded": 13976,
+            "duration": 109.70000004768372,
+            "type": "link"
+          },
+          {
+            "bytes": 3160,
+            "encoded": 2860,
+            "duration": 161.30000001192093,
+            "type": "link"
+          },
+          {
+            "bytes": 61683,
+            "encoded": 61383,
+            "duration": 188.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 63182,
+            "encoded": 62882,
+            "duration": 189.10000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 784,
+            "encoded": 484,
+            "duration": 158.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 13582,
+            "encoded": 13282,
+            "duration": 170,
+            "type": "script"
+          },
+          {
+            "bytes": 12461,
+            "encoded": 12161,
+            "duration": 168.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 2866,
+            "encoded": 2566,
+            "duration": 202.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 9585,
+            "encoded": 9285,
+            "duration": 203.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 8819,
+            "encoded": 8519,
+            "duration": 213.5,
+            "type": "script"
+          },
+          {
+            "bytes": 2370,
+            "encoded": 2070,
+            "duration": 212.19999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 17049,
+            "encoded": 16749,
+            "duration": 237.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 52685,
+            "encoded": 52385,
+            "duration": 248.30000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 16013,
+            "encoded": 15713,
+            "duration": 249.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 3862,
+            "encoded": 3562,
+            "duration": 247,
+            "type": "script"
+          },
+          {
+            "bytes": 4970,
+            "encoded": 4670,
+            "duration": 254.30000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 11377,
+            "encoded": 11077,
+            "duration": 256.5999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 5575,
+            "encoded": 5275,
+            "duration": 285.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 3719,
+            "encoded": 3419,
+            "duration": 288,
+            "type": "script"
+          },
+          {
+            "bytes": 4618,
+            "encoded": 4318,
+            "duration": 289.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 11451,
+            "encoded": 11151,
+            "duration": 292,
+            "type": "script"
+          },
+          {
+            "bytes": 2478,
+            "encoded": 2178,
+            "duration": 296.2999999523163,
+            "type": "script"
+          },
+          {
+            "bytes": 1362,
+            "encoded": 1062,
+            "duration": 297.39999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 11582,
+            "encoded": 11282,
+            "duration": 340.0999999642372,
+            "type": "script"
+          },
+          {
+            "bytes": 3646,
+            "encoded": 3346,
+            "duration": 336,
+            "type": "script"
+          },
+          {
+            "bytes": 4341,
+            "encoded": 4041,
+            "duration": 336.5,
+            "type": "script"
+          },
+          {
+            "bytes": 5392,
+            "encoded": 5092,
+            "duration": 337.5,
+            "type": "script"
+          },
+          {
+            "bytes": 5685,
+            "encoded": 5385,
+            "duration": 106.5,
+            "type": "link"
+          },
+          {
+            "bytes": 711,
+            "encoded": 411,
+            "duration": 337,
+            "type": "script"
+          },
+          {
+            "bytes": 2460,
+            "encoded": 2160,
+            "duration": 339,
+            "type": "script"
+          },
+          {
+            "bytes": 489,
+            "encoded": 189,
+            "duration": 382.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 49,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 43.40000003576279,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 44,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 41.39999997615814,
+            "type": "fetch"
+          }
+        ],
+        "heap": 35087278
+      }
+    },
+    {
+      "route": "settings",
+      "navigation": "cold",
+      "usefulMs": 578.8320000000003,
+      "backendRequests": 15,
+      "frontend": [
+        {
+          "path": "/settings",
+          "prefetch": false,
+          "type": "document"
+        },
+        {
+          "path": "/icon",
+          "prefetch": false,
+          "type": "other"
+        },
+        {
+          "path": "/api/account/members",
+          "prefetch": false,
+          "type": "fetch"
+        },
+        {
+          "path": "/api/whatsapp/config",
+          "prefetch": false,
+          "type": "fetch"
+        }
+      ],
+      "backendBytes": 3141,
+      "browser": {
+        "timeOrigin": 1793393351166,
+        "navigation": [
+          {
+            "ttfbMs": 35.30000001192093,
+            "bytes": 17980,
+            "encoded": 17680
+          }
+        ],
+        "longTasks": [],
+        "interactions": [],
+        "resources": [
+          {
+            "bytes": 9232,
+            "encoded": 8932,
+            "duration": 65.30000001192093,
+            "type": "link"
+          },
+          {
+            "bytes": 9324,
+            "encoded": 9024,
+            "duration": 65,
+            "type": "link"
+          },
+          {
+            "bytes": 9240,
+            "encoded": 8940,
+            "duration": 65.30000001192093,
+            "type": "link"
+          },
+          {
+            "bytes": 48732,
+            "encoded": 48432,
+            "duration": 76.19999998807907,
+            "type": "link"
+          },
+          {
+            "bytes": 1113,
+            "encoded": 813,
+            "duration": 57.60000002384186,
+            "type": "link"
+          },
+          {
+            "bytes": 24437,
+            "encoded": 24137,
+            "duration": 70.70000004768372,
+            "type": "link"
+          },
+          {
+            "bytes": 840,
+            "encoded": 540,
+            "duration": 108.40000003576279,
+            "type": "link"
+          },
+          {
+            "bytes": 14276,
+            "encoded": 13976,
+            "duration": 110.80000001192093,
+            "type": "link"
+          },
+          {
+            "bytes": 3160,
+            "encoded": 2860,
+            "duration": 156.20000004768372,
+            "type": "link"
+          },
+          {
+            "bytes": 61683,
+            "encoded": 61383,
+            "duration": 184.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 63182,
+            "encoded": 62882,
+            "duration": 184.9000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 784,
+            "encoded": 484,
+            "duration": 154.5,
+            "type": "script"
+          },
+          {
+            "bytes": 12461,
+            "encoded": 12161,
+            "duration": 164.80000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 13582,
+            "encoded": 13282,
+            "duration": 165.30000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 2866,
+            "encoded": 2566,
+            "duration": 196,
+            "type": "script"
+          },
+          {
+            "bytes": 9585,
+            "encoded": 9285,
+            "duration": 197.9000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 2370,
+            "encoded": 2070,
+            "duration": 207.9000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 8819,
+            "encoded": 8519,
+            "duration": 208.9000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 17049,
+            "encoded": 16749,
+            "duration": 233.4000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 3862,
+            "encoded": 3562,
+            "duration": 241.30000001192093,
+            "type": "script"
+          },
+          {
+            "bytes": 16013,
+            "encoded": 15713,
+            "duration": 244.20000004768372,
+            "type": "script"
+          },
+          {
+            "bytes": 52685,
+            "encoded": 52385,
+            "duration": 245,
+            "type": "script"
+          },
+          {
+            "bytes": 4970,
+            "encoded": 4670,
+            "duration": 251.4000000357628,
+            "type": "script"
+          },
+          {
+            "bytes": 11377,
+            "encoded": 11077,
+            "duration": 253.10000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 5575,
+            "encoded": 5275,
+            "duration": 281.7000000476837,
+            "type": "script"
+          },
+          {
+            "bytes": 3719,
+            "encoded": 3419,
+            "duration": 282.7000000476837,
+            "type": "script"
+          },
+          {
+            "bytes": 4618,
+            "encoded": 4318,
+            "duration": 287,
+            "type": "script"
+          },
+          {
+            "bytes": 11451,
+            "encoded": 11151,
+            "duration": 288.60000002384186,
+            "type": "script"
+          },
+          {
+            "bytes": 2478,
+            "encoded": 2178,
+            "duration": 293.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 5879,
+            "encoded": 5579,
+            "duration": 294.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 6226,
+            "encoded": 5926,
+            "duration": 328.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 1362,
+            "encoded": 1062,
+            "duration": 327.19999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 3646,
+            "encoded": 3346,
+            "duration": 327.89999997615814,
+            "type": "script"
+          },
+          {
+            "bytes": 711,
+            "encoded": 411,
+            "duration": 328.5,
+            "type": "script"
+          },
+          {
+            "bytes": 2460,
+            "encoded": 2160,
+            "duration": 334,
+            "type": "script"
+          },
+          {
+            "bytes": 489,
+            "encoded": 189,
+            "duration": 334.69999998807907,
+            "type": "script"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 42.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 41.30000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 494,
+            "encoded": 194,
+            "duration": 129.60000002384186,
+            "type": "fetch"
+          },
+          {
+            "bytes": 420,
+            "encoded": 120,
+            "duration": 4.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 51.700000047683716,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 51.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 50.80000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 50.80000001192093,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 49.89999997615814,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 49.5,
+            "type": "fetch"
+          },
+          {
+            "bytes": 0,
+            "encoded": 0,
+            "duration": 90.70000004768372,
+            "type": "fetch"
+          }
+        ],
+        "heap": 35095081
+      }
+    }
+  ],
+  "checks": [
+    {
+      "route": "inbox",
+      "uiGeometry": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif",
+        "clipped": []
+      }
+    },
+    {
+      "route": "dashboard",
+      "uiGeometry": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif",
+        "clipped": [
+          {
+            "tag": "SPAN",
+            "className": "workday-widget_borderLight__wMWdS",
+            "left": -248,
+            "right": 646
+          }
+        ]
+      }
+    },
+    {
+      "route": "pipelines",
+      "uiGeometry": {
+        "viewport": 390,
+        "scrollWidth": 1833,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif",
+        "clipped": [
+          {
+            "tag": "DIV",
+            "className": "crm-stage-column  border-border bg-card/60 flex w-[88vw] max-w-[400px] min-w-[min(88vw,360px)] shrink-0 snap-start flex-",
+            "left": 371,
+            "right": 714
+          },
+          {
+            "tag": "DIV",
+            "className": "-mx-4 -mt-4 h-[3px] rounded-t-xl",
+            "left": 371,
+            "right": 714
+          },
+          {
+            "tag": "DIV",
+            "className": "flex items-center justify-between pt-3",
+            "left": 387,
+            "right": 698
+          },
+          {
+            "tag": "H3",
+            "className": "text-foreground truncate text-sm font-semibold",
+            "left": 387,
+            "right": 446
+          },
+          {
+            "tag": "SPAN",
+            "className": "bg-muted text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+            "left": 659,
+            "right": 698
+          },
+          {
+            "tag": "DIV",
+            "className": "crm-stage-column  border-border bg-card/60 flex w-[88vw] max-w-[400px] min-w-[min(88vw,360px)] shrink-0 snap-start flex-",
+            "left": 726,
+            "right": 1070
+          },
+          {
+            "tag": "DIV",
+            "className": "-mx-4 -mt-4 h-[3px] rounded-t-xl",
+            "left": 726,
+            "right": 1070
+          },
+          {
+            "tag": "DIV",
+            "className": "flex items-center justify-between pt-3",
+            "left": 742,
+            "right": 1054
+          },
+          {
+            "tag": "H3",
+            "className": "text-foreground truncate text-sm font-semibold",
+            "left": 742,
+            "right": 801
+          },
+          {
+            "tag": "SPAN",
+            "className": "bg-muted text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+            "left": 1014,
+            "right": 1054
+          },
+          {
+            "tag": "DIV",
+            "className": "crm-stage-column  border-border bg-card/60 flex w-[88vw] max-w-[400px] min-w-[min(88vw,360px)] shrink-0 snap-start flex-",
+            "left": 1082,
+            "right": 1425
+          },
+          {
+            "tag": "DIV",
+            "className": "-mx-4 -mt-4 h-[3px] rounded-t-xl",
+            "left": 1082,
+            "right": 1425
+          },
+          {
+            "tag": "DIV",
+            "className": "flex items-center justify-between pt-3",
+            "left": 1098,
+            "right": 1409
+          },
+          {
+            "tag": "H3",
+            "className": "text-foreground truncate text-sm font-semibold",
+            "left": 1098,
+            "right": 1157
+          },
+          {
+            "tag": "SPAN",
+            "className": "bg-muted text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+            "left": 1369,
+            "right": 1409
+          },
+          {
+            "tag": "DIV",
+            "className": "crm-stage-column  border-border bg-card/60 flex w-[88vw] max-w-[400px] min-w-[min(88vw,360px)] shrink-0 snap-start flex-",
+            "left": 1437,
+            "right": 1780
+          },
+          {
+            "tag": "DIV",
+            "className": "-mx-4 -mt-4 h-[3px] rounded-t-xl",
+            "left": 1437,
+            "right": 1780
+          },
+          {
+            "tag": "DIV",
+            "className": "flex items-center justify-between pt-3",
+            "left": 1453,
+            "right": 1764
+          },
+          {
+            "tag": "H3",
+            "className": "text-foreground truncate text-sm font-semibold",
+            "left": 1453,
+            "right": 1511
+          },
+          {
+            "tag": "SPAN",
+            "className": "bg-muted text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+            "left": 1725,
+            "right": 1764
+          },
+          {
+            "tag": "DIV",
+            "className": "crm-stage-column  border-border bg-card/60 flex w-[88vw] max-w-[400px] min-w-[min(88vw,360px)] shrink-0 snap-start flex-",
+            "left": 1792,
+            "right": 2135
+          },
+          {
+            "tag": "DIV",
+            "className": "-mx-4 -mt-4 h-[3px] rounded-t-xl",
+            "left": 1792,
+            "right": 2135
+          },
+          {
+            "tag": "DIV",
+            "className": "flex items-center justify-between pt-3",
+            "left": 1808,
+            "right": 2119
+          },
+          {
+            "tag": "H3",
+            "className": "text-foreground truncate text-sm font-semibold",
+            "left": 1808,
+            "right": 1867
+          },
+          {
+            "tag": "SPAN",
+            "className": "bg-muted text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+            "left": 2080,
+            "right": 2119
+          }
+        ]
+      }
+    },
+    {
+      "route": "quotations",
+      "uiGeometry": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif",
+        "clipped": []
+      }
+    },
+    {
+      "route": "settings",
+      "uiGeometry": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif",
+        "clipped": [
+          {
+            "tag": "DIV",
+            "className": "flex shrink-0 gap-1 lg:flex-col lg:gap-1",
+            "left": 134,
+            "right": 559
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 265,
+            "right": 423
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 303,
+            "right": 411
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 427,
+            "right": 559
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 465,
+            "right": 547
+          },
+          {
+            "tag": "DIV",
+            "className": "flex shrink-0 gap-1 lg:flex-col lg:gap-1",
+            "left": 563,
+            "right": 1949
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 563,
+            "right": 682
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 601,
+            "right": 670
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 686,
+            "right": 806
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 724,
+            "right": 794
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 810,
+            "right": 947
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 848,
+            "right": 935
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 951,
+            "right": 1086
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 989,
+            "right": 1074
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 1090,
+            "right": 1254
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 1128,
+            "right": 1242
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 1258,
+            "right": 1459
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 1296,
+            "right": 1447
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 1463,
+            "right": 1617
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 1501,
+            "right": 1605
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 1621,
+            "right": 1728
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 1659,
+            "right": 1716
+          },
+          {
+            "tag": "BUTTON",
+            "className": "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm font-medium whitespace-nowrap transition-colo",
+            "left": 1732,
+            "right": 1949
+          },
+          {
+            "tag": "SPAN",
+            "className": "flex-1",
+            "left": 1770,
+            "right": 1937
+          }
+        ]
+      }
+    },
+    "Route-only profile; idle and workspace regressions are covered by the full desktop reports."
+  ],
+  "artifacts": "/var/folders/71/xgyrpmxj75j6x7fpcc7r82sc0000gn/T/wacrm-production-current-v5RnTF",
+  "sourceSha256": "8404baf29397f0de023c2340436bbd0a6ab06cb62088ebc6d200b97637571a67",
+  "browserErrors": [],
+  "uiReview": [
+    {
+      "route": "inbox",
+      "locale": "en",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "InboxDeadlines · Qatar timeالعربيةالعربيةEnglishFFixture ope",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "dashboard",
+      "locale": "en",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "DashboardDeadlines · Qatar timeالعربيةالعربيةEnglishFFixture",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "pipelines",
+      "locale": "en",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 1833,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "PipelinesDeadlines · Qatar timeالعربيةالعربيةEnglishFFixture",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 343,
+        "boardParentWidth": 343,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "quotations",
+      "locale": "en",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "QuotationsDeadlines · Qatar timeالعربيةالعربيةEnglishFFixtur",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "settings",
+      "locale": "en",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "SettingsDeadlines · Qatar timeالعربيةالعربيةEnglishFFixture ",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "inbox",
+      "locale": "en",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "InboxDeadlines · Qatar timeالعربيةالعربيةEnglishFFixture ope",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "dashboard",
+      "locale": "en",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "DashboardDeadlines · Qatar timeالعربيةالعربيةEnglishFFixture",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "pipelines",
+      "locale": "en",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 1833,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "PipelinesDeadlines · Qatar timeالعربيةالعربيةEnglishFFixture",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 343,
+        "boardParentWidth": 343,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "quotations",
+      "locale": "en",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "QuotationsDeadlines · Qatar timeالعربيةالعربيةEnglishFFixtur",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "settings",
+      "locale": "en",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "en",
+        "dir": "ltr",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "SettingsDeadlines · Qatar timeالعربيةالعربيةEnglishFFixture ",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "Inter, \"Inter Fallback\", tajawal, \"tajawal Fallback\", Arial, sans-serif, sans-serif"
+      }
+    },
+    {
+      "route": "inbox",
+      "locale": "ar",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "صندوق الواردالمواعيد · توقيت قطرEnglishالعربيةEnglishFFixtur",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    },
+    {
+      "route": "dashboard",
+      "locale": "ar",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "لوحة التحكمالمواعيد · توقيت قطرEnglishالعربيةEnglishFFixture",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    },
+    {
+      "route": "pipelines",
+      "locale": "ar",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 1833,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "مسارات المبيعات",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 343,
+        "boardParentWidth": 343,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    },
+    {
+      "route": "quotations",
+      "locale": "ar",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "عروض الأسعارالمواعيد · توقيت قطرEnglishالعربيةEnglishFFixtur",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    },
+    {
+      "route": "settings",
+      "locale": "ar",
+      "mode": "light",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "light",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "الإعداداتالمواعيد · توقيت قطرEnglishالعربيةEnglishFFixture o",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    },
+    {
+      "route": "inbox",
+      "locale": "ar",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "صندوق الواردالمواعيد · توقيت قطرEnglishالعربيةEnglishFFixtur",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    },
+    {
+      "route": "dashboard",
+      "locale": "ar",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "لوحة التحكمالمواعيد · توقيت قطرEnglishالعربيةEnglishFFixture",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    },
+    {
+      "route": "pipelines",
+      "locale": "ar",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 1833,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "مسارات المبيعات",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 343,
+        "boardParentWidth": 343,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    },
+    {
+      "route": "quotations",
+      "locale": "ar",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "عروض الأسعارالمواعيد · توقيت قطرEnglishالعربيةEnglishFFixtur",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    },
+    {
+      "route": "settings",
+      "locale": "ar",
+      "mode": "dark",
+      "width": 390,
+      "textScale": 1,
+      "measurement": {
+        "lang": "ar",
+        "dir": "rtl",
+        "mode": "dark",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "scrollLeft": 0,
+        "bodyLeft": 0,
+        "shellLeft": 0,
+        "headerLeft": 0,
+        "hitAtHeader": "الإعداداتالمواعيد · توقيت قطرEnglishالعربيةEnglishFFixture o",
+        "windowScrollX": 0,
+        "visualOffsetLeft": 0,
+        "boardWidth": 0,
+        "boardParentWidth": 0,
+        "mainWidth": 390,
+        "font": "tajawal, \"tajawal Fallback\", Arial, sans-serif, Inter, \"Inter Fallback\", sans-serif"
+      }
+    }
+  ],
+  "uiKeyboard": [],
+  "serverResources": [
+    {
+      "at": 1793393347077,
+      "rssBytes": 256557056,
+      "cpuPercent": 2.6
+    },
+    {
+      "at": 1793393348075,
+      "rssBytes": 279953408,
+      "cpuPercent": 28.7
+    },
+    {
+      "at": 1793393349076,
+      "rssBytes": 284917760,
+      "cpuPercent": 17.7
+    },
+    {
+      "at": 1793393350076,
+      "rssBytes": 288079872,
+      "cpuPercent": 11.8
+    },
+    {
+      "at": 1793393351078,
+      "rssBytes": 289685504,
+      "cpuPercent": 11.1
+    },
+    {
+      "at": 1793393352079,
+      "rssBytes": 295911424,
+      "cpuPercent": 9.8
+    },
+    {
+      "at": 1793393353081,
+      "rssBytes": 297467904,
+      "cpuPercent": 13
+    },
+    {
+      "at": 1793393354081,
+      "rssBytes": 300122112,
+      "cpuPercent": 12.7
+    },
+    {
+      "at": 1793393355083,
+      "rssBytes": 300892160,
+      "cpuPercent": 19.8
+    },
+    {
+      "at": 1793393356082,
+      "rssBytes": 301596672,
+      "cpuPercent": 24.4
+    },
+    {
+      "at": 1793393357090,
+      "rssBytes": 301924352,
+      "cpuPercent": 9.2
+    },
+    {
+      "at": 1793393358082,
+      "rssBytes": 302235648,
+      "cpuPercent": 19.1
+    },
+    {
+      "at": 1793393359084,
+      "rssBytes": 300335104,
+      "cpuPercent": 29.3
+    },
+    {
+      "at": 1793393360086,
+      "rssBytes": 299171840,
+      "cpuPercent": 31.7
+    },
+    {
+      "at": 1793393361086,
+      "rssBytes": 299188224,
+      "cpuPercent": 3.3
+    },
+    {
+      "at": 1793393362088,
+      "rssBytes": 299843584,
+      "cpuPercent": 36.8
+    },
+    {
+      "at": 1793393363088,
+      "rssBytes": 300236800,
+      "cpuPercent": 19.8
+    },
+    {
+      "at": 1793393364088,
+      "rssBytes": 300318720,
+      "cpuPercent": 6.8
+    }
+  ],
+  "serverOperations": [
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 35.87
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.62
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.32
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 32.5
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 34.07
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 36.39
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 38.15
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 39.46
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.75
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.57
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.64
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.46
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.06
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.9
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.85
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.07
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.75
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.44
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.55
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.44
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.1
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 59.58
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.profiles",
+      "durationMs": 29.19
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.51
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.48
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.94
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.51
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.39
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.63
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.02
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.66
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 34.04
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 34.25
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 33.43
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 32.86
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.97
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.48
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.7
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.86
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.93
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.42
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.09
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 33.22
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.28
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 62.76
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.profiles",
+      "durationMs": 27.38
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.54
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.79
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.9
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 33.06
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 33.24
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.42
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.78
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.76
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.86
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.3
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.55
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.42
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.96
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.8
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.36
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.92
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.7
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.55
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.12
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.21
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 26.62
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 58.92
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.profiles",
+      "durationMs": 28.2
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.67
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.78
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.82
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.16
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.26
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.95
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 33.98
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 36.05
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 34.83
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 32.47
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 32.67
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.84
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.92
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.97
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.18
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.42
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.52
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.19
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.03
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.5
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.51
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 33.26
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 27.64
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 62.1
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.profiles",
+      "durationMs": 28.04
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.64
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.05
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 26.5
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.9
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.22
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.87
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.3
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 32.16
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 32.28
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.31
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.63
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.9
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 32.28
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 32.12
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.15
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 28.12
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 29.28
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.68
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.12
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.25
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 27.92
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 30.03
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.auth.user",
+      "durationMs": 31.5
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.rpc.account_profile",
+      "durationMs": 28.2
+    },
+    {
+      "event": "crm-performance",
+      "operation": "account.resolve",
+      "durationMs": 60.82
+    },
+    {
+      "event": "crm-performance",
+      "operation": "supabase.table.profiles",
+      "durationMs": 28.92
+    }
+  ]
+}

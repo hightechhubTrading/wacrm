@@ -68,6 +68,7 @@ export function WorkdayWidget() {
   };
 
   useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     // Match a clock's second hand: 0 seconds at the top, 15 on the right.
     const sync = () => {
       const animation = borderLight.current?.getAnimations()[0];

@@ -126,4 +126,4 @@ Generated from project sources at 2026-10-30T08:07:47.316Z.
 
 ## Decisions
 
-- None recorded
+- 2026-10-30: The user selected a more expressive CRM direction. Use stronger stage-color cues, tinted dashboard hierarchy, and selective action emphasis while preserving operational readability, existing themes, and product behavior.

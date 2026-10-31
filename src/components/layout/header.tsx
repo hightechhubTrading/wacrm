@@ -62,8 +62,8 @@ export function Header({ sidebarOpen, onOpenSidebar }: HeaderProps) {
     'U';
 
   return (
-    <header className="border-border bg-background flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4 lg:px-6">
-      <div className="flex min-w-0 items-center gap-2">
+    <header className="border-border bg-background flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-3 border-b px-4 py-1.5 sm:h-14 sm:flex-nowrap sm:py-0 lg:px-6">
+      <div className="flex min-w-0 shrink-0 items-center gap-2 sm:shrink">
         {/* Hamburger — mobile only. 44×44 hit target per Apple HIG. */}
         <button
           type="button"
@@ -85,7 +85,7 @@ export function Header({ sidebarOpen, onOpenSidebar }: HeaderProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-1 sm:gap-2">
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-1 sm:flex-nowrap sm:gap-2">
         <LanguageSwitcher />
         <ModeToggle />
 

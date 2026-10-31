@@ -4,8 +4,10 @@ import { WorkspaceSelect } from './workspace-select';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
+import { useAuth } from '@/hooks/use-auth';
+import { useCan } from '@/hooks/use-can';
 import { Button } from '@/components/ui/button';
-import { FileText, Plus, Search } from 'lucide-react';
+import { FileText, LockKeyhole, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Quotation } from '@/lib/quotations/types';
 import {
@@ -25,6 +27,8 @@ import {
 // (see the auth comments on src/app/api/quotations/route.ts).
 export function QuotationList() {
   const t = useTranslations('Workspace');
+  const { profileLoading } = useAuth();
+  const canAccess = useCan('send-messages');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [revision, setRevision] = useState(0);
@@ -56,6 +60,7 @@ export function QuotationList() {
   }, [search]);
 
   useEffect(() => {
+    if (profileLoading || !canAccess) return;
     const controller = new AbortController();
     setLoading(true);
     setLoadError(false);
@@ -82,9 +87,10 @@ export function QuotationList() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [status, revision, page, querySearch]);
+  }, [status, revision, page, querySearch, profileLoading, canAccess]);
 
   useEffect(() => {
+    if (profileLoading || !canAccess) return;
     let cancelled = false;
     fetch('/api/quotation-product-codes')
       .then((res) => (res.ok ? res.json() : []))
@@ -103,7 +109,7 @@ export function QuotationList() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [profileLoading, canAccess]);
 
   // Standalone creation -- no deal or contact required, per spec Goals:
   // "a quotation can exist standalone... optionally linked... later."
@@ -136,6 +142,18 @@ export function QuotationList() {
     }
   }
 
+  if (!profileLoading && !canAccess) {
+    return (
+      <div className="crm-quotation-list">
+        <div className="crm-list-state" role="status">
+          <LockKeyhole size={30} aria-hidden />
+          <h2>{t('quotationAccessTitle')}</h2>
+          <p>{t('quotationAccessHint')}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="crm-quotation-list space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -144,7 +162,11 @@ export function QuotationList() {
           onValueChange={(v) => v && setProductCode(v)}
           disabled={loadingCodes || creating || productCodes.length === 0}
         >
-          <SelectTrigger size="sm" className="w-48">
+          <SelectTrigger
+            size="sm"
+            className="w-48"
+            aria-label={t('productCode')}
+          >
             <SelectValue
               placeholder={loadingCodes ? t('loading') : t('noCodes')}
             />
