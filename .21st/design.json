@@ -395,6 +395,11 @@
       "date": "2026-10-30",
       "decision": "Use a more expressive CRM direction grounded in the supplied course dashboard, dark CRM and mobile references. Apply stronger stage-color cues, tinted dashboard hierarchy and selective action emphasis while preserving operational readability, existing themes and product behavior.",
       "source": "User choice in this conversation"
+    },
+    {
+      "date": "2026-10-31",
+      "decision": "Use warm paper-white surfaces across the light theme instead of pure white or cool blue-white. Keep dark mode and the six saved accent colors.",
+      "source": "User request in this conversation"
     }
   ],
   "evidence": [

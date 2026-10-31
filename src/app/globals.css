@@ -131,32 +131,32 @@ html[data-mode='dark'] {
 }
 
 html[data-mode='light'] {
-  --background: oklch(0.99 0.002 260);
-  --foreground: oklch(0.21 0.01 260);
-  --card: oklch(1 0 0);
-  --card-2: oklch(0.985 0.002 260);
-  --card-foreground: oklch(0.21 0.01 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.01 260);
-  --secondary: oklch(0.967 0.003 260);
-  --secondary-foreground: oklch(0.25 0.01 260);
-  --muted: oklch(0.967 0.003 260);
-  --muted-foreground: oklch(0.52 0.015 260);
-  --accent: oklch(0.96 0.004 260);
-  --accent-foreground: oklch(0.25 0.01 260);
+  --background: #f7f5ef;
+  --foreground: #292822;
+  --card: #fcfaf5;
+  --card-2: #f3f0e8;
+  --card-foreground: #292822;
+  --popover: #fcfaf5;
+  --popover-foreground: #292822;
+  --secondary: #efebe2;
+  --secondary-foreground: #37352f;
+  --muted: #efebe2;
+  --muted-foreground: #625e55;
+  --accent: #ede8de;
+  --accent-foreground: #37352f;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0.004 260);
-  --input: oklch(0.922 0.004 260);
+  --border: #ded8cb;
+  --input: #c9c2b3;
   --chart-2: oklch(0.6 0.1 260);
   --chart-3: oklch(0.7 0.06 260);
   --chart-4: oklch(0.8 0.04 260);
   --chart-5: oklch(0.87 0.03 260);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0.002 260);
-  --sidebar-foreground: oklch(0.21 0.01 260);
-  --sidebar-accent: oklch(0.96 0.004 260);
-  --sidebar-accent-foreground: oklch(0.25 0.01 260);
-  --sidebar-border: oklch(0.922 0.004 260);
+  --sidebar: #f3f0e8;
+  --sidebar-foreground: #292822;
+  --sidebar-accent: #e9e4d9;
+  --sidebar-accent-foreground: #37352f;
+  --sidebar-border: #ded8cb;
 }
 
 /* ---- ACCENT: primary color ---- */
@@ -288,26 +288,26 @@ html[data-theme='navy-gold'][data-mode='dark'] {
  * secondary text. The neutrals carry a faint 245° tint so the light
  * mode still reads as the same brand rather than generic grey. */
 html[data-theme='navy-gold'][data-mode='light'] {
-  --background: oklch(0.985 0.004 245);
+  --background: #f7f5ef;
   --foreground: oklch(0.285 0.034 245);
-  --card: oklch(1 0 0);
-  --card-2: oklch(0.975 0.005 245);
+  --card: #fcfaf5;
+  --card-2: #f3f0e8;
   --card-foreground: oklch(0.285 0.034 245);
-  --popover: oklch(1 0 0);
+  --popover: #fcfaf5;
   --popover-foreground: oklch(0.285 0.034 245);
-  --secondary: oklch(0.955 0.007 245);
+  --secondary: #efebe2;
   --secondary-foreground: oklch(0.356 0.039 249);
-  --muted: oklch(0.955 0.007 245);
+  --muted: #efebe2;
   --muted-foreground: oklch(0.5 0.025 248);
-  --accent: oklch(0.945 0.009 245);
+  --accent: #ede8de;
   --accent-foreground: oklch(0.356 0.039 249);
-  --border: oklch(0.9 0.012 247);
-  --input: oklch(0.9 0.012 247);
-  --sidebar: oklch(0.975 0.005 245);
+  --border: #ded8cb;
+  --input: #c9c2b3;
+  --sidebar: #f3f0e8;
   --sidebar-foreground: oklch(0.285 0.034 245);
-  --sidebar-accent: oklch(0.945 0.009 245);
+  --sidebar-accent: #e9e4d9;
   --sidebar-accent-foreground: oklch(0.356 0.039 249);
-  --sidebar-border: oklch(0.9 0.012 247);
+  --sidebar-border: #ded8cb;
 
   /* Brand gold at L 0.806 is ~1.8:1 on white — `text-primary` and
    * `border-primary` are used widely (sidebar active pill, badges,

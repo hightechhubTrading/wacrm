@@ -43,21 +43,21 @@ html[data-theme='navy-gold'] {
   --crm-dark-accent: #e7c66e;
 }
 html[data-mode='light'][data-theme]:has(.crm-workspace) {
-  --background: #f7f8fc;
-  --card: #fff;
-  --card-2: #f0f2f7;
-  --popover: #fff;
-  --popover-foreground: #202534;
-  --foreground: #202534;
-  --card-foreground: #202534;
-  --muted: #e9ecf3;
-  --muted-foreground: #555d70;
-  --border: #e0e4ee;
-  --input: #c4cad7;
-  --secondary: #e9ecf3;
-  --secondary-foreground: #202534;
-  --accent: #e9ecf3;
-  --accent-foreground: #202534;
+  --background: #f7f5ef;
+  --card: #fcfaf5;
+  --card-2: #f3f0e8;
+  --popover: #fcfaf5;
+  --popover-foreground: #292822;
+  --foreground: #292822;
+  --card-foreground: #292822;
+  --muted: #efebe2;
+  --muted-foreground: #625e55;
+  --border: #ded8cb;
+  --input: #c9c2b3;
+  --secondary: #efebe2;
+  --secondary-foreground: #37352f;
+  --accent: #ede8de;
+  --accent-foreground: #37352f;
   --primary: var(--crm-light-accent, #6331b9);
   --primary-foreground: #fff;
   --ring: var(--primary);
@@ -93,13 +93,13 @@ html[data-theme='navy-gold'] {
   --muted-foreground: #b0b5c5;
 }
 .crm-workspace[data-mode='light'] {
-  --background: #f7f8fc;
-  --card: #fff;
-  --muted: #e9ecf3;
-  --border: #e0e4ee;
-  --foreground: #202534;
-  --card-foreground: #202534;
-  --muted-foreground: #555d70;
+  --background: #f7f5ef;
+  --card: #fcfaf5;
+  --muted: #efebe2;
+  --border: #ded8cb;
+  --foreground: #292822;
+  --card-foreground: #292822;
+  --muted-foreground: #625e55;
   --primary: var(--crm-light-accent, #6331b9);
   --primary-foreground: #fff;
   --ring: var(--primary);

@@ -127,3 +127,4 @@ Generated from project sources at 2026-10-30T08:07:47.316Z.
 ## Decisions
 
 - 2026-10-30: The user selected a more expressive CRM direction. Use stronger stage-color cues, tinted dashboard hierarchy, and selective action emphasis while preserving operational readability, existing themes, and product behavior.
+- 2026-10-31: Light mode uses warm paper-white background, card, popover, sidebar, and control surfaces. Preserve dark mode and all saved accent choices.
