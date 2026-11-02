@@ -64,7 +64,7 @@ export function ProductCatalogForm({
     product?.parent_id ?? initialParentId
   );
   const [status, setStatus] = useState<ReviewStatus>(
-    product?.status ?? 'draft'
+    product?.status ?? 'approved'
   );
   const [aliases, setAliases] = useState(product?.aliases?.join(', ') ?? '');
   const [specifications, setSpecifications] = useState(
@@ -301,7 +301,7 @@ export function ProductCatalogForm({
               disabled={!canEdit || saving}
               onChange={(e) => setUnit(e.target.value)}
             >
-              <option value="">{l('Not confirmed', 'غير مؤكدة')}</option>
+              <option value="">{l('Not recorded', 'غير مسجلة')}</option>
               {['piece', 'm', 'm2', 'pair', 'set', 'job'].map((u) => (
                 <option key={u}>{u}</option>
               ))}
@@ -406,7 +406,7 @@ export function ProductCatalogForm({
       >
         <div className="bg-muted/50 rounded-xl p-4 text-sm leading-relaxed">
           {l(
-            'An approved estimate helps the assistant answer price questions immediately. Each product and variant keeps its own price.',
+            'Recorded estimates help the assistant answer price questions. Each product and variant retains its documented price basis.',
             'السعر الاسترشادي المعتمد يساعد المساعد على الإجابة مباشرة. لكل منتج ونوع فرعي سعره الخاص.'
           )}
         </div>
@@ -508,7 +508,7 @@ export function ProductCatalogForm({
         {field(
           'product-limitations',
           l(
-            'Limits & details the team must confirm',
+            'Missing limits and details',
             'الحدود والتفاصيل التي يؤكدها الفريق'
           ),
           limitations,
@@ -536,7 +536,7 @@ export function ProductCatalogForm({
       <div className="border-border flex flex-wrap items-end justify-between gap-4 border-t pt-5">
         <div className="max-w-xs space-y-2">
           <Label htmlFor="product-status">
-            {l('Assistant access', 'استخدام المساعد')}
+            {l('Record preparation', 'حالة تنظيم السجل')}
           </Label>
           <CatalogSelect
             id="product-status"
@@ -545,19 +545,16 @@ export function ProductCatalogForm({
             onChange={(e) => setStatus(e.target.value as ReviewStatus)}
           >
             <option value="draft">
-              {l('Draft · team review only', 'مسودة · لمراجعة الفريق')}
+              {l('Incomplete record', 'سجل غير مكتمل')}
             </option>
             <option value="approved">
-              {l(
-                'Approved · available to the assistant',
-                'معتمد · متاح للمساعد'
-              )}
+              {l('Documented · ready', 'موثق · جاهز')}
             </option>
           </CatalogSelect>
           <p className="text-muted-foreground text-xs">
             {l(
-              'A draft parent also hides its children from the assistant.',
-              'المنتج الرئيسي غير المعتمد يحجب أنواعه الفرعية عن المساعد.'
+              'Customer visibility is controlled separately. An incomplete parent keeps its branch out of automatic replies.',
+              'عرض المعلومات للعملاء منفصل. السجل الرئيسي غير المكتمل يحجب أنواعه عن الرد الآلي.'
             )}
           </p>
         </div>

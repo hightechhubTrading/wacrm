@@ -139,7 +139,9 @@ function ProductCatalogContent() {
     }
   };
   const selected = items.find((p) => p.id === selection);
-  const visibleToAi = new Set(approvedCatalogRows(items).map((p) => p.id));
+  const documented = new Set(
+    approvedCatalogRows(items, { includeInternal: true }).map((p) => p.id)
+  );
   const matches = (p: Product) =>
     (inventoryFilter === 'all' ||
       (p.inventory_type ?? 'product') === inventoryFilter) &&
@@ -148,10 +150,10 @@ function ProductCatalogContent() {
       .includes(search.toLocaleLowerCase()) &&
     (filter === 'all' ||
       (filter === 'draft'
-        ? !visibleToAi.has(p.id)
+        ? !documented.has(p.id)
         : filter === 'unpriced'
           ? p.kind !== 'family' && (p.price_min == null || p.price_max == null)
-          : visibleToAi.has(p.id)));
+          : documented.has(p.id)));
   const rows: { product: Product; depth: number }[] = [];
   const visited = new Set<string>();
   const visit = (p: Product, depth: number) => {
@@ -332,9 +334,9 @@ function ProductCatalogContent() {
             </span>
             <span>
               <strong className="text-foreground me-1 font-medium tabular-nums">
-                {visibleToAi.size}
+                {documented.size}
               </strong>
-              {l('available to assistant', 'متاح للمساعد')}
+              {l('documented records', 'سجل موثق')}
             </span>
             <span>
               <strong className="text-foreground me-1 font-medium tabular-nums">
@@ -379,8 +381,8 @@ function ProductCatalogContent() {
               <div className="flex flex-wrap gap-1">
                 {[
                   ['all', l('All', 'الكل')],
-                  ['approved', l('Approved', 'معتمد')],
-                  ['draft', l('Review', 'للمراجعة')],
+                  ['approved', l('Documented', 'موثق')],
+                  ['draft', l('Needs preparation', 'يحتاج تنظيم')],
                   ['unpriced', l('No estimate', 'بدون سعر')],
                 ].map(([id, label]) => (
                   <button
@@ -455,18 +457,21 @@ function ProductCatalogContent() {
                           dir="auto"
                           className="block text-sm leading-snug font-medium"
                         >
-                          {p.name}
+                          {ar && p.name_ar ? p.name_ar : p.name}
                         </span>
                         <span className="text-muted-foreground mt-1.5 block text-xs">
-                          {visibleToAi.has(p.id)
-                            ? l('Approved', 'معتمد')
-                            : l('Needs review', 'للمراجعة')}{' '}
+                          {documented.has(p.id)
+                            ? l('Documented', 'موثق')
+                            : l('Needs preparation', 'يحتاج تنظيم')}{' '}
                           ·{' '}
                           {p.kind === 'family'
                             ? `${items.filter((c) => c.parent_id === p.id).length} ${l('products', 'منتج')}`
                             : p.price_min != null && p.price_max != null
                               ? `${p.price_min}–${p.price_max} ${p.price_unit === 'per_square_meter' ? ' / m²' : ''}`
-                              : l('Team confirms price', 'الفريق يؤكد السعر')}
+                              : l(
+                                  'No fixed price recorded',
+                                  'لا يوجد سعر ثابت مسجل'
+                                )}
                         </span>
                       </span>
                       <ChevronRight className="text-muted-foreground mt-1 size-3 shrink-0 rtl:rotate-180" />
@@ -516,7 +521,7 @@ function ProductCatalogContent() {
                           : l('Product editor', 'محرر المنتج')}
                       </p>
                       <h3 dir="auto" className="text-lg font-semibold">
-                        {selected?.name ?? l('New entry', 'إدخال جديد')}
+                        {(ar && selected?.name_ar ? selected.name_ar : selected?.name) ?? l('New entry', 'إدخال جديد')}
                       </h3>
                     </div>
                     {selected && canEdit && (

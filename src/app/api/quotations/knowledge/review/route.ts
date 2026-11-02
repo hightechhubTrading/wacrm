@@ -30,27 +30,8 @@ export async function POST(request: Request) {
         { error: 'Source record not found.' },
         { status: 404 }
       );
-    if (
-      b.status === 'approved' &&
-      ['price', 'grid'].includes(r.kind) &&
-      !b.configuration.pricing
-    )
-      return NextResponse.json(
-        { error: 'Selling prices require an explicit QAR pricing rule.' },
-        { status: 400 }
-      );
-    if (
-      b.status === 'approved' &&
-      r.kind === 'supplier' &&
-      !b.configuration.supplierCost
-    )
-      return NextResponse.json(
-        {
-          error:
-            'Supplier costs require confirmed units, currency and landed charges.',
-        },
-        { status: 400 }
-      );
+    // Accepting documented evidence is separate from preparing a calculation.
+    // Missing pricing/cost rules remain non-applicable in calculation validators.
     const pricing = b.configuration.pricing;
     if (
       pricing?.column &&

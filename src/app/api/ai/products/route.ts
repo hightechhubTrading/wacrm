@@ -133,7 +133,7 @@ export async function POST(request: Request) {
     try {
       metadata = {
         ...parseCatalogMetadata(body),
-        status: body.status ?? 'draft',
+        status: body.status ?? 'approved',
       };
     } catch (err) {
       return NextResponse.json(

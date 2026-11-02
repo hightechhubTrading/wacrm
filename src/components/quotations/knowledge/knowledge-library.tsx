@@ -21,8 +21,8 @@ export function KnowledgeLibrary() {
       </h1>
       <p className="text-muted-foreground max-w-3xl">
         {ar
-          ? 'راجع المنتجات والأسعار والمكونات والمواصفات وسجل الأعمال قبل استخدامها. البيانات الأصلية محفوظة وكل اعتماد مسجل.'
-          : 'Review products, prices, components, specifications and job history before use. Original values are preserved and each review is recorded.'}
+          ? 'سجلات الشركة منظمة للعمل اليومي. نوحد الأسماء والأوصاف ونحفظ الأكواد والقيم والمراجع الأصلية للتتبع. إعداد الحساب منفصل عن المعلومات الموثقة.'
+          : 'Company records, organized for everyday work. Product names and descriptions are standardized; original codes, values and references remain traceable. Calculation setup is separate from documented facts.'}
       </p>
       <div className="flex flex-wrap gap-3">
         <Link

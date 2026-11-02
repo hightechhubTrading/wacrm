@@ -88,8 +88,8 @@ export function QuotationKnowledgePanel({
         if (!product)
           throw Error(
             ar
-              ? 'راجع واعتمد الصنف المحدد في المخزون المشترك أولاً.'
-              : 'Review and approve the exact shared inventory item first.'
+              ? 'اختر صنفاً محدداً ومجهزاً من الكتالوج لهذا المصدر.'
+              : 'Select a specific prepared catalogue item for this source.'
           );
         const updatedItem = {
           ...item,
@@ -168,8 +168,8 @@ export function QuotationKnowledgePanel({
       </summary>
       <p className="text-muted-foreground text-sm">
         {ar
-          ? 'اختر مصادر معتمدة لهذا البند. راجع المواصفات ونطاق السعر قبل الاستخدام.'
-          : 'Select approved sources for this line. Check specifications and price scope before applying.'}{' '}
+          ? 'استخدم معلومات المنتج الموثقة وقواعد التسعير المجهزة لهذا البند. يطبق الحساب التكوين المحدد.'
+          : 'Use documented product facts and prepared pricing rules for this line. The calculation uses the selected configuration.'}{' '}
         <Link
           href="/quotations/knowledge"
           target="_blank"

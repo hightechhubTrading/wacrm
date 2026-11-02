@@ -24,7 +24,7 @@ describe('reviewed quotation prices', () => {
   it('requires approval and explicit reviewed pricing', () => {
     expect(() =>
       calculatePrice({ ...record, review_status: 'pending' }, item)
-    ).toThrow('approval');
+    ).toThrow('preparation');
     expect(() =>
       calculatePrice({ ...record, configuration: {} }, item)
     ).toThrow('rule');
@@ -38,7 +38,7 @@ describe('reviewed quotation prices', () => {
         },
         item
       )
-    ).toThrow('approval');
+    ).toThrow('preparation');
   });
   it('converts dimensions without charging for the opening count twice', () => {
     for (const scale of [

@@ -374,7 +374,7 @@ function App(){const[d,set]=React.useState({items:[{id:'33333333-3333-4333-8333-
           })
           .click();
         await page
-          .getByLabel(locale === 'ar' ? 'حالة المراجعة' : 'Review status')
+          .getByLabel(locale === 'ar' ? 'حالة التنظيم' : 'Preparation status')
           .waitFor();
         assert.ok(
           await page.evaluate(

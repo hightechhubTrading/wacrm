@@ -98,15 +98,17 @@ export function SourceReview({
   return (
     <div className="space-y-3 border-t pt-3">
       <h3 className="font-semibold">
-        {ar ? 'مراجعة مسؤول الحساب' : 'Account administrator review'}
+        {ar
+          ? 'تنظيم المصدر وإعداد الحساب'
+          : 'Source preparation and calculation setup'}
       </h3>
       <p className="text-muted-foreground">
         {ar
-          ? 'اعتمد فقط ما أكدته الشركة. اذكر مصدر التأكيد وأي حدود للتطبيق.'
-          : 'Approve only confirmed rules. Record who confirmed them, the evidence and applicable limits.'}
+          ? 'سجلات الشركة تثبت المعلومات. جهز الحساب وفق الوحدات والأعمدة واترك الاختيارات التجارية الناقصة مفتوحة.'
+          : 'Company records establish the facts. Prepare calculation settings from their units and columns; leave missing commercial choices open.'}
       </p>
       <label className="block">
-        {ar ? 'حالة المراجعة' : 'Review status'}
+        {ar ? 'حالة التنظيم' : 'Preparation status'}
         <select
           className="bg-background ms-2 rounded border p-2"
           value={status}

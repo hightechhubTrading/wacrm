@@ -52,7 +52,7 @@ describe('quotation knowledge route boundaries', () => {
     expect((await response.json()).records).toEqual([]);
     expect(h.rpc).not.toHaveBeenCalled();
   });
-  it('requires an admin, confirmation notes and explicit selling-price configuration', async () => {
+  it('records company evidence without inventing a calculation rule and still requires preparation notes', async () => {
     const response = await review(
       request('/review', {
         id: 'record',
@@ -63,8 +63,11 @@ describe('quotation knowledge route boundaries', () => {
       })
     );
     expect(h.role).toHaveBeenCalledWith('admin');
-    expect(response.status).toBe(400);
-    expect(h.rpc).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(h.rpc).toHaveBeenCalledWith(
+      'review_quotation_knowledge',
+      expect.objectContaining({ p_configuration: {} })
+    );
     expect(
       (
         await review(

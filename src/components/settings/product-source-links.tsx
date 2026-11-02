@@ -4,7 +4,8 @@ import { useLocale } from 'next-intl';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import type { KnowledgeRecord } from '@/lib/quotations/knowledge/types';
-import { recordLabel } from '@/lib/quotations/knowledge/calculations';
+import { recordDisplayLabel } from '@/lib/quotations/knowledge/normalization';
+import { knowledgeLabel } from '@/lib/quotations/knowledge/ui-copy';
 export function ProductSourceLinks({ productId }: { productId: string }) {
   const ar = useLocale() === 'ar';
   const [links, setLinks] = useState<
@@ -34,8 +35,8 @@ export function ProductSourceLinks({ productId }: { productId: string }) {
       </h3>
       <p className="text-muted-foreground text-sm">
         {ar
-          ? 'العروض والمعرفة تستخدمان معرف الصنف نفسه. تحتاج المصادر غير المؤكدة إلى مراجعة قبل تطبيقها.'
-          : 'Knowledge and quotations use the same item ID. Unconfirmed source evidence requires review before use.'}
+          ? 'العروض والمعرفة تستخدمان معرف الصنف نفسه. نحفظ الأدلة من سجلات الشركة ونجهز إعدادات الحساب بشكل منفصل.'
+          : 'Knowledge and quotations use the same item ID. Company evidence is retained; calculation settings are prepared separately.'}
       </p>
       {error && (
         <p role="alert" className="text-destructive text-sm">
@@ -47,13 +48,14 @@ export function ProductSourceLinks({ productId }: { productId: string }) {
           <li key={link.source?.id ?? index} className="space-y-1 py-2">
             <strong>
               {link.source
-                ? recordLabel(link.source)
+                ? recordDisplayLabel(link.source, ar)
                 : ar
                   ? 'مصدر مقيد الصلاحية'
                   : 'Restricted source'}
             </strong>
             <p>
-              {link.relationship} · {link.source?.review_status}
+              {link.relationship} ·{' '}
+              {link.source ? knowledgeLabel(link.source.review_status, ar) : ''}
             </p>
             {link.source && (
               <small className="text-muted-foreground break-all">

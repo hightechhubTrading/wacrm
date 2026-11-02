@@ -34,6 +34,16 @@ describe('catalog review boundaries', () => {
       ]).map((p) => p.id)
     ).toEqual(['public']);
   });
+  it('lists documented internal inventory independently of customer visibility', () => {
+    const rows = [
+      { id: 'internal', status: 'approved', customer_visible: false },
+      { id: 'incomplete', status: 'draft', customer_visible: false },
+    ];
+    expect(
+      approvedCatalogRows(rows, { includeInternal: true }).map((r) => r.id)
+    ).toEqual(['internal']);
+    expect(approvedCatalogRows(rows)).toEqual([]);
+  });
   it('requires a complete range and unit on the exact product', () => {
     expect(
       catalogPriceError({

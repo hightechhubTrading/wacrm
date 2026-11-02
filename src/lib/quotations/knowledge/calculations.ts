@@ -36,7 +36,7 @@ export function snapshot(r: KnowledgeRecord): KnowledgeSnapshot {
     !r.reviewed_at ||
     !validConfiguration(r.configuration)
   )
-    throw Error('This source needs approval.');
+    throw Error('This source needs preparation.');
   return {
     recordId: r.id,
     batchId: r.batch_id,
@@ -63,7 +63,8 @@ export function calculatePrice(
     item.productId !== r.configuration.catalogItemId
   )
     throw Error('This rule belongs to a different catalog product.');
-  if (!p) throw Error('This source has no approved selling-price rule.');
+  if (!p)
+    throw Error('Set the calculation rule for this documented price first.');
   if (
     p.column &&
     p.column !== 'confirmed' &&

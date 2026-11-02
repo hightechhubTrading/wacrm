@@ -7,7 +7,14 @@ import {
   KNOWLEDGE_KINDS,
   type KnowledgeRecord,
 } from '@/lib/quotations/knowledge/types';
-import { recordLabel } from '@/lib/quotations/knowledge/calculations';
+import {
+  recordDisplayLabel,
+  normalizedScreenName,
+  sourceProvenance,
+  sourceReadyToApply,
+  sourceFieldLabel,
+  sourceDisplayValue,
+} from '@/lib/quotations/knowledge/normalization';
 import { knowledgeLabel } from '@/lib/quotations/knowledge/ui-copy';
 import { SourceReview } from './source-review';
 export function SourceBrowser({
@@ -195,9 +202,11 @@ export function SourceBrowser({
               className="flex min-w-0 flex-wrap items-center gap-2 p-3"
             >
               <div className="min-w-0 flex-1">
-                <strong className="break-words">{recordLabel(r)}</strong>
+                <strong className="break-words">
+                  {recordDisplayLabel(r, ar)}
+                </strong>
                 <p className="text-muted-foreground text-xs break-all">
-                  {r.source}:{r.source_row} ·{' '}
+                  {sourceProvenance(r.kind, ar)} · {r.source}:{r.source_row} ·{' '}
                   {knowledgeLabel(r.review_status, ar)} · v{r.review_version}
                 </p>
               </div>
@@ -216,10 +225,16 @@ export function SourceBrowser({
                 <Button
                   type="button"
                   size="sm"
-                  disabled={disabled || r.review_status !== 'approved'}
+                  disabled={disabled || !sourceReadyToApply(r)}
                   onClick={() => onSelect(r)}
                 >
-                  {ar ? 'اختيار' : 'Select'}
+                  {sourceReadyToApply(r)
+                    ? ar
+                      ? 'اختيار'
+                      : 'Select'
+                    : ar
+                      ? 'يحتاج إعداد التسعير'
+                      : 'Setup needed'}
                 </Button>
               )}
             </li>
@@ -259,7 +274,7 @@ export function SourceBrowser({
       {selected && (
         <section className="bg-muted/30 space-y-3 rounded-md border p-3">
           <div className="flex items-center justify-between">
-            <strong>{recordLabel(selected)}</strong>
+            <strong>{recordDisplayLabel(selected, ar)}</strong>
             <Button
               type="button"
               size="sm"
@@ -275,16 +290,48 @@ export function SourceBrowser({
               {selected.data.__parse_review_note}
             </p>
           )}
+          <p className="text-muted-foreground text-sm">
+            {ar
+              ? 'المصدر هو سجلات الشركة. ننظم الصياغة مع حفظ الأرقام والأكواد والمراجع الأصلية. حالة الإعداد تخص التطبيق الآلي على العروض.'
+              : 'Company records establish the evidence. Wording is standardized while values, codes and references are preserved. Setup status controls automatic application to quotations.'}
+          </p>
+          {selected.review_status === 'approved' &&
+            !sourceReadyToApply(selected) && (
+              <p className="rounded border p-3 text-sm">
+                {ar
+                  ? 'القيمة موثقة. التطبيق الآلي يحتاج إعداد عمود السعر أو الوحدة أو التحويل والتكلفة حسب نوع السجل.'
+                  : 'The recorded value is documented. Automatic application still needs its price column, unit, conversion or cost settings, depending on the record.'}
+              </p>
+            )}
           <dl className="space-y-2">
             {Object.entries(selected.data)
               .filter(([, v]) => v)
               .map(([k, v]) => (
                 <div key={k}>
-                  <dt className="text-muted-foreground text-xs">{k}</dt>
-                  <dd className="break-words whitespace-pre-wrap">{v}</dd>
+                  <dt className="text-muted-foreground text-xs">
+                    {sourceFieldLabel(k)}
+                  </dt>
+                  <dd className="break-words whitespace-pre-wrap">
+                    {k === 'product' && selected.kind === 'grid'
+                      ? normalizedScreenName(
+                          `${selected.data.product} ${selected.data.mesh_and_motor}`
+                        )
+                      : k === 'product_en' ||
+                          k === 'name_text_as_extracted (Turkish / English)'
+                        ? recordDisplayLabel(selected, ar)
+                        : sourceDisplayValue(k, v)}
+                  </dd>
                 </div>
               ))}
           </dl>
+          <details className="rounded border p-3 text-sm">
+            <summary className="cursor-pointer">
+              {ar ? 'السجل الأصلي للتتبع' : 'Original record for traceability'}
+            </summary>
+            <pre className="mt-2 break-words whitespace-pre-wrap">
+              {JSON.stringify(selected.data, null, 2)}
+            </pre>
+          </details>
           {selected.review_notes && <p>{selected.review_notes}</p>}
           {result.canReview && !onSelect && (
             <SourceReview

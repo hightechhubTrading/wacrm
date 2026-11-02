@@ -183,7 +183,7 @@ export function approvedCatalogRows<
     superseded_by?: string | null;
     customer_visible?: boolean;
   },
->(rows: T[]): T[] {
+>(rows: T[], options: { includeInternal?: boolean } = {}): T[] {
   const byId = new Map(rows.map((r) => [r.id, r]));
   return rows.filter((row) => {
     const seen = new Set<string>();
@@ -192,7 +192,7 @@ export function approvedCatalogRows<
       if (
         seen.has(current.id) ||
         current.superseded_by ||
-        current.customer_visible === false ||
+        (!options.includeInternal && current.customer_visible === false) ||
         (current.status ?? 'approved') !== 'approved'
       )
         return false;

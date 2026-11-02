@@ -81,7 +81,9 @@ export function CatalogCollectionPanel({
     void fetchQuestions(controller.signal);
     return () => controller.abort();
   }, [accountId, fetchQuestions]);
-  const available = new Set(approvedCatalogRows(products).map((p) => p.id));
+  const available = new Set(
+    approvedCatalogRows(products, { includeInternal: true }).map((p) => p.id)
+  );
   const leaves = collectionProductRows(products);
   const gapLabel = {
     price: l('Price / unit', 'السعر والوحدة'),
@@ -120,13 +122,13 @@ export function CatalogCollectionPanel({
         [l('Product information collection', 'استكمال معلومات المنتجات')],
         [
           l(
-            'Approved records can still have missing details. Draft entries are proposals: confirm whether supplied; do not treat them as unavailable.',
-            'قد تنقص تفاصيل السجلات المعتمدة. المسودات مقترحات: أكد توفرها ولا تعتبرها غير متاحة.'
+            'Company records establish the facts. Standardize names, codes and wording directly; collect only missing or conflicting details.',
+            'سجلات الشركة تثبت المعلومات. نظم الأسماء والأكواد والصياغة مباشرة واستكمل فقط النواقص والتعارضات.'
           ),
         ],
         [
           l(
-            'Some draft proposals overlap approved products. Confirm the same product or a distinct system before adding it.',
+            'Reconcile duplicate descriptions against source codes and specifications. Keep supplier references attached to the shared item.',
             'قد تتكرر المسودات مع منتجات معتمدة. أكد هل هي نفس المنتج أم نظام مستقل قبل إضافتها.'
           ),
         ],
@@ -187,7 +189,7 @@ export function CatalogCollectionPanel({
         return sheet;
       };
       addProducts(l('Recorded products', 'المنتجات المسجلة'), true);
-      addProducts(l('Confirm supplied', 'تأكيد المنتجات المتوفرة'), false);
+      addProducts(l('Needs preparation', 'يحتاج تنظيم'), false);
       const qs = book.addWorksheet(
         l('Questions and answers', 'الأسئلة والإجابات'),
         { views: [{ state: 'frozen', ySplit: 1, rightToLeft: ar }] }
@@ -274,8 +276,8 @@ export function CatalogCollectionPanel({
           </h3>
           <p className="text-muted-foreground mt-1 max-w-2xl text-sm">
             {l(
-              'Review recorded facts, confirm proposed products and collect answers here. Answers are kept separate from the assistant’s approved knowledge.',
-              'راجع المعلومات المسجلة وأكد المنتجات المقترحة واجمع الإجابات هنا. تبقى الإجابات منفصلة عن معرفة المساعد المعتمدة.'
+              'Use the documented answers from company records. Keep only missing details, conflicts and operational decisions in the open questions.',
+              'استخدم الإجابات المثبتة بسجلات الشركة. الأسئلة المفتوحة للنواقص والتعارضات والقرارات التشغيلية فقط.'
             )}
           </p>
         </div>
@@ -315,7 +317,7 @@ export function CatalogCollectionPanel({
       <div className="flex flex-wrap gap-2">
         {[
           ['approved', l('Recorded products', 'المنتجات المسجلة')],
-          ['draft', l('Confirm supplied', 'تأكيد التوفر')],
+          ['draft', l('Needs preparation', 'يحتاج تنظيم')],
         ].map(([id, label]) => (
           <Button
             key={id}
@@ -412,7 +414,10 @@ export function CatalogCollectionPanel({
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h4 className="font-medium">
-          {l('Questions & client answers', 'الأسئلة وإجابات العميل')}
+          {l(
+            'Open details & recorded answers',
+            'التفاصيل الناقصة والإجابات المسجلة'
+          )}
         </h4>
         <div className="flex gap-2">
           <CatalogSelect
@@ -469,8 +474,8 @@ export function CatalogCollectionPanel({
                   <span className="text-muted-foreground mt-2 block text-xs">
                     {q.findings.some((f) => f.coverage === 'partial')
                       ? l(
-                          'Archive adds partial answers · confirmation still needed',
-                          'الأرشيف يضيف إجابات جزئية · ما زال التأكيد مطلوباً'
+                          'Documented answer · remaining detail open',
+                          'إجابة موثقة · تفاصيل متبقية'
                         )
                       : l(
                           'Archive reviewed · see findings and remaining questions',
@@ -578,7 +583,7 @@ export function CatalogCollectionPanel({
           {(
             [
               ['question', l('Question', 'السؤال')],
-              ['answer', l('Client answer', 'إجابة العميل')],
+              ['answer', l('Recorded answer', 'الإجابة المسجلة')],
               [
                 'evidence',
                 l('Evidence / attachment reference', 'مرجع الدليل أو الملف'),
