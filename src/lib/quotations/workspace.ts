@@ -48,6 +48,12 @@ export function draftFromQuotation(
 ): QuotationDraft {
   const defaults =
     applyDefaults && q.status === 'draft' && (q.workspaceVersion ?? 0) === 0;
+  const catalogueSeed =
+    q.status === 'draft' && (q.workspaceVersion ?? 0) === 0 && !q.items.length
+      ? q.documentDetails?.catalogueSeed
+      : undefined;
+  const documentDetails = { ...q.documentDetails };
+  delete documentDetails.catalogueSeed;
   const validity = new Date(
     `${new Date(q.createdAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Qatar' })}T12:00:00Z`
   );
@@ -77,29 +83,31 @@ export function draftFromQuotation(
     documentDetails: {
       included: DEFAULT_INCLUDED,
       excluded: DEFAULT_EXCLUDED,
-      ...q.documentDetails,
+      ...documentDetails,
     },
-    items: [...q.items]
-      .sort((a, b) => a.position - b.position)
-      .map((i) => ({
-        id: i.id,
-        itemType: i.itemType,
-        parentItemId: i.parentItemId ?? undefined,
-        productId: i.productId ?? undefined,
-        kind: i.kind ?? undefined,
-        itemCode: i.itemCode ?? undefined,
-        description: i.description ?? '',
-        descriptionAr: i.descriptionAr ?? '',
-        specification: i.specification ?? '',
-        unit: i.unit ?? 'piece',
-        measurementUnit: i.measurementUnit ?? 'mm',
-        sizeW: i.sizeW ?? undefined,
-        sizeH: i.sizeH ?? undefined,
-        qty: i.qty ?? 1,
-        unitPrice: i.unitPrice ?? undefined,
-        discountType: i.discountType ?? undefined,
-        discountValue: i.discountValue ?? undefined,
-      })),
+    items: catalogueSeed
+      ? [{ ...catalogueSeed.item }]
+      : [...q.items]
+          .sort((a, b) => a.position - b.position)
+          .map((i) => ({
+            id: i.id,
+            itemType: i.itemType,
+            parentItemId: i.parentItemId ?? undefined,
+            productId: i.productId ?? undefined,
+            kind: i.kind ?? undefined,
+            itemCode: i.itemCode ?? undefined,
+            description: i.description ?? '',
+            descriptionAr: i.descriptionAr ?? '',
+            specification: i.specification ?? '',
+            unit: i.unit ?? 'piece',
+            measurementUnit: i.measurementUnit ?? 'mm',
+            sizeW: i.sizeW ?? undefined,
+            sizeH: i.sizeH ?? undefined,
+            qty: i.qty ?? 1,
+            unitPrice: i.unitPrice ?? undefined,
+            discountType: i.discountType ?? undefined,
+            discountValue: i.discountValue ?? undefined,
+          })),
     orderDiscount: q.discountType
       ? { discountType: q.discountType, discountValue: q.discountValue ?? 0 }
       : undefined,
@@ -240,6 +248,7 @@ export function validateDraft(
       ].includes(key)
     )
       return 'invalidDraft';
+    if (val === undefined) continue;
     if (
       key !== 'knowledge' &&
       key !== 'shopDrawingDays' &&

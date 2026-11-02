@@ -2707,7 +2707,8 @@
       "uncertaintyPrompt": "Can you guarantee delivery tomorrow and confirm the final price?",
       "note": "Test messages stay in this playground and are not sent to customers. Tests use your provider key.",
       "usageError": "Couldn’t load AI usage. Try again."
-    }
+    },
+    "blankQuotationFallback": "Blank quotation"
   },
   "SalesAssistance": {
     "title": "Sales assistance",

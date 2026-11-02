@@ -4,6 +4,13 @@ import {
   createQuotation,
   type CreateQuotationInput,
 } from '@/lib/quotations/crud';
+import { loadQuotationCatalogue } from '@/lib/quotations/catalogue-server';
+import {
+  parseCatalogueSelection,
+  catalogueItem,
+  catalogueTerms,
+  cataloguePaymentOptions,
+} from '@/lib/quotations/catalogue';
 import { mapQuotationRow } from '@/lib/quotations/types';
 
 // Explicit allow-list of what a caller may set on create. Everything
@@ -87,7 +94,57 @@ export async function POST(request: Request) {
     // loosely-typed, already-whitelisted data meets createQuotation's
     // real input contract. `productCode` is guaranteed present by the
     // check above.
+    let catalogue;
+    if (body.catalogueSelection !== undefined) {
+      try {
+        const selection = parseCatalogueSelection(body.catalogueSelection);
+        const items = await loadQuotationCatalogue(ctx.supabase, ctx.accountId);
+        const product = items.find(
+          (p) => p.id === selection.productId && p.kind !== 'family'
+        );
+        if (!product)
+          return NextResponse.json(
+            { error: 'Catalogue product not found in this account.' },
+            { status: 404 }
+          );
+        const options = cataloguePaymentOptions(
+          product.sources.find((s) => s.kind === 'product')?.data
+            .standard_payment ?? ''
+        );
+        if (
+          selection.paymentOption !== undefined &&
+          !options[selection.paymentOption]
+        )
+          return NextResponse.json(
+            { error: 'Choose a recorded payment option.' },
+            { status: 400 }
+          );
+        catalogue = {
+          catalogueSeed: catalogueItem(
+            product,
+            crypto.randomUUID(),
+            'D01',
+            selection.price,
+            typeof fields.currency === 'string' ? fields.currency : 'QAR'
+          ),
+          catalogueTerms: selection.applyTerms
+            ? catalogueTerms(product, selection.paymentOption)
+            : undefined,
+        };
+      } catch (e) {
+        return NextResponse.json(
+          {
+            error:
+              e instanceof Error
+                ? e.message
+                : 'Could not load catalogue selection.',
+          },
+          { status: 400 }
+        );
+      }
+    }
     const quotation = await createQuotation({
+      ...catalogue,
       ...fields,
       accountId: ctx.accountId,
       createdBy: ctx.userId,

@@ -1,5 +1,13 @@
 'use client';
 
+import { CataloguePicker } from './catalogue-picker';
+import {
+  catalogueItem,
+  catalogueTerms,
+  quotationSpecification,
+  type CatalogueTerms,
+} from '@/lib/quotations/catalogue';
+import type { QuotationKnowledge } from '@/lib/quotations/knowledge/types';
 import { pricingTone, toneClasses } from '@/lib/ui-colors';
 import { WorkspaceSelect } from './workspace-select';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -35,7 +43,6 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
-  PRODUCT_STARTERS,
   ACCESSORY_STARTERS,
   nextItemCode,
   convertDimensions,
@@ -60,9 +67,11 @@ function ItemName({
   disabled,
   onChange,
   accessory = false,
+  onBrowse,
 }: {
   accessory?: boolean;
   item: QuotationItemToSave;
+  onBrowse: () => void;
   disabled: boolean;
   onChange: (patch: Partial<QuotationItemToSave>) => void;
 }) {
@@ -126,10 +135,7 @@ function ItemName({
         type="button"
         className="qw-library-button"
         disabled={disabled}
-        onClick={() => {
-          setBrowse(true);
-          setOpen(true);
-        }}
+        onClick={onBrowse}
       >
         {t('browseCatalog')}
       </button>
@@ -147,7 +153,10 @@ function ItemName({
                   productId: row.id,
                   description: row.name,
                   descriptionAr: row.name_ar ?? undefined,
-                  specification: row.description ?? undefined,
+                  specification: quotationSpecification({
+                    specifications: row.description ?? '',
+                    description: row.description ?? '',
+                  }),
                   unit: row.unit_of_measure ?? undefined,
                   unitPrice: row.default_unit_price ?? undefined,
                 });
@@ -180,11 +189,18 @@ export function WorkspaceItems({
   onChange,
   disabled,
   currency,
+  onCatalogueCapture,
 }: {
   items: QuotationItemToSave[];
   onChange: (items: QuotationItemToSave[]) => void;
   disabled: boolean;
   currency: string;
+  onCatalogueCapture?: (
+    knowledge: QuotationKnowledge | undefined,
+    terms: CatalogueTerms | undefined,
+    itemId: string,
+    resetPricing?: boolean
+  ) => void;
 }) {
   const t = useTranslations('QuotationWorkspace');
   const locale = useLocale();
@@ -192,12 +208,22 @@ export function WorkspaceItems({
     removed: QuotationItemToSave[];
     index: number;
   } | null>(null);
+  const [catalogueTarget, setCatalogueTarget] = useState<{
+    item?: QuotationItemToSave;
+    parent?: QuotationItemToSave;
+    kind?: 'Included' | 'Accessory' | 'Optional';
+  } | null>(null);
   const [catalogBusy, setCatalogBusy] = useState<string | null>(null);
   const [catalogError, setCatalogError] = useState(false);
   const [expandedAccessoryId, setExpandedAccessoryId] = useState<string | null>(
     null
   );
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(() => {
+    const products = items.filter(
+      (i) => i.itemType === 'line' && !i.parentItemId
+    );
+    return products.length === 1 ? products[0].id : null;
+  });
   const [discounts, setDiscounts] = useState<Set<string>>(new Set());
   const latestItems = useRef(items);
   useEffect(() => {
@@ -212,7 +238,19 @@ export function WorkspaceItems({
     });
   const patch = (id: string, value: Partial<QuotationItemToSave>) =>
     onChange(items.map((i) => (i.id === id ? { ...i, ...value } : i)));
-  const unitOptions = ['piece', 'm2', 'set', 'pair', 'job', 'm'];
+  const unitOptions = Array.from(
+    new Set([
+      'piece',
+      'm2',
+      'set',
+      'pair',
+      'job',
+      'm',
+      ...items
+        .map((i) => i.unit)
+        .filter((u): u is string => !!u && u !== 'per_product'),
+    ])
+  );
   const unitLabel = (unit: string) =>
     t.has(`unit_${unit}`) ? t(`unit_${unit}`) : unit;
   function add(
@@ -762,6 +800,7 @@ export function WorkspaceItems({
         <label className="qw-product-name">
           <span>{child ? t('accessoryName') : t('productName')}</span>
           <ItemName
+            onBrowse={() => setCatalogueTarget({ item })}
             item={item}
             accessory={child}
             disabled={disabled}
@@ -1091,6 +1130,16 @@ export function WorkspaceItems({
                             <ChevronDown size={13} aria-hidden />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="start">
+                            <DropdownMenuItem
+                              onClick={() =>
+                                setCatalogueTarget({ parent: item, kind })
+                              }
+                            >
+                              {locale === 'ar'
+                                ? 'من الكتالوج المشترك'
+                                : 'From shared catalogue'}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             {(kind === 'Optional'
                               ? ACCESSORY_STARTERS.filter((s) =>
                                   ['lock', 'handle'].includes(s.key)
@@ -1194,33 +1243,25 @@ export function WorkspaceItems({
         );
       })}
       <div className="qw-item-tools">
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={disabled}
-              />
-            }
-          >
-            <Plus size={15} />
-            {t('addProduct')}
-            <ChevronDown size={13} aria-hidden />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            {PRODUCT_STARTERS.map((starter) => (
-              <DropdownMenuItem key={starter.key} onClick={() => add(starter)}>
-                {t(starter.key)}
-              </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => add()}>
-              {t('customProduct')}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          onClick={() => setCatalogueTarget({})}
+        >
+          <Plus size={15} />
+          {t('addProduct')}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={disabled}
+          onClick={() => add()}
+        >
+          {t('customProduct')}
+        </Button>
         <Button
           type="button"
           variant="ghost"
@@ -1242,6 +1283,95 @@ export function WorkspaceItems({
           </Button>
         )}
       </div>
+      {catalogueTarget && (
+        <CataloguePicker
+          open={!!catalogueTarget}
+          creating={disabled}
+          initialType={
+            catalogueTarget.parent || catalogueTarget.item?.parentItemId
+              ? 'equipment'
+              : catalogueTarget.item?.kind === 'Service'
+                ? 'service'
+                : 'product'
+          }
+          allowPrice={
+            (catalogueTarget.kind ?? catalogueTarget.item?.kind) !== 'Included'
+          }
+          onOpenChange={(v) => {
+            if (!v) setCatalogueTarget(null);
+          }}
+          defaultApplyTerms={
+            !items.some((i) => !i.parentItemId && i.itemType === 'line')
+          }
+          onSelect={(product, selection) => {
+            if (!catalogueTarget || disabled) return;
+            const target = catalogueTarget.item,
+              parent = catalogueTarget.parent;
+            const built = catalogueItem(
+              product,
+              target?.id ?? crypto.randomUUID(),
+              target?.itemCode ?? nextItemCode(items, parent ? 'A' : 'D'),
+              (catalogueTarget.kind ?? target?.kind) === 'Included'
+                ? undefined
+                : selection.price,
+              currency
+            );
+            let line = { ...built.item };
+            if (target)
+              line = {
+                ...target,
+                ...line,
+                qty: target.qty,
+                measurementUnit: target.measurementUnit,
+                sizeW: target.sizeW,
+                sizeH: target.sizeH,
+                kind: target.kind,
+                parentItemId: target.parentItemId,
+                ...(target.productId === product.id && !selection.price
+                  ? { unitPrice: target.unitPrice, unit: target.unit }
+                  : {}),
+              };
+            if (parent)
+              line = {
+                ...line,
+                parentItemId: parent.id,
+                kind: catalogueTarget.kind ?? 'Accessory',
+                qty: parent.qty ?? 1,
+              };
+            if (line.kind === 'Included')
+              line = {
+                ...line,
+                unit: 'per_product',
+                unitPrice: undefined,
+                qty: 1,
+              };
+            if (target)
+              onChange(items.map((i) => (i.id === target.id ? line : i)));
+            else if (parent) {
+              const index = items.reduce(
+                (n, i, index) =>
+                  i.id === parent.id || i.parentItemId === parent.id
+                    ? index + 1
+                    : n,
+                0
+              );
+              onChange([...items.slice(0, index), line, ...items.slice(index)]);
+            } else {
+              onChange([...items, line]);
+              setExpandedId(line.id);
+            }
+            onCatalogueCapture?.(
+              built.knowledge,
+              selection.applyTerms
+                ? catalogueTerms(product, selection.paymentOption)
+                : undefined,
+              line.id,
+              !target || target.productId !== product.id || !!selection.price
+            );
+            setCatalogueTarget(null);
+          }}
+        />
+      )}
       {catalogError && (
         <p role="alert" className="qw-error">
           {t('catalogError')}

@@ -1,5 +1,10 @@
 'use client';
 
+import { CataloguePicker } from '@/components/quotations/catalogue-picker';
+import type {
+  CatalogueProduct,
+  CatalogueSelection,
+} from '@/lib/quotations/catalogue';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -56,6 +61,8 @@ export function QuotationsDialog({
 }: QuotationsDialogProps) {
   const t = useTranslations('Pipelines.quotationsDialog');
   const tStatus = useTranslations('QuotationWorkspace');
+  const tWorkspace = useTranslations('Workspace');
+  const [catalogueOpen, setCatalogueOpen] = useState(false);
   const tList = useTranslations('Workspace');
   const [paging, setPaging] = useState({ dealId, page: 1 });
   const page = paging.dealId === dealId ? paging.page : 1;
@@ -125,16 +132,25 @@ export function QuotationsDialog({
     };
   }, [open]);
 
-  async function createNew() {
+  async function createNew(
+    product?: CatalogueProduct,
+    selection?: CatalogueSelection
+  ) {
     if (!productCode) return;
     setCreating(true);
     try {
       const res = await fetch('/api/quotations', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           dealId,
           contactId: contactId ?? undefined,
-          productCode,
+          productCode:
+            product?.productCode &&
+            productCodes.some((c) => c.code === product.productCode)
+              ? product.productCode
+              : productCode,
+          ...(selection ? { catalogueSelection: selection } : {}),
           currency: 'QAR',
         }),
       });
@@ -259,13 +275,32 @@ export function QuotationsDialog({
               </Select>
             )}
             <Button
-              onClick={createNew}
+              onClick={() => setCatalogueOpen(true)}
               disabled={creating || loadingCodes || !productCode}
               className="bg-primary text-primary-foreground hover:bg-primary/90 w-full"
             >
               <Plus className="mr-1 h-4 w-4" />
               {creating ? t('creating') : t('newQuotation')}
             </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              disabled={creating || loadingCodes || !productCode}
+              onClick={() => void createNew()}
+            >
+              {tWorkspace('blankQuotationFallback')}
+            </Button>
+            {catalogueOpen && (
+              <CataloguePicker
+                open
+                onOpenChange={setCatalogueOpen}
+                onSelect={(p, s) => void createNew(p, s)}
+                creating={creating}
+                productCode={productCode}
+                defaultApplyTerms
+              />
+            )}
             {!loadingCodes && productCodes.length === 0 && (
               <p className="text-muted-foreground text-xs">
                 No product codes configured yet — add one under{' '}

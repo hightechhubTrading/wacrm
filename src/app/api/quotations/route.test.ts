@@ -1,6 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-const h = vi.hoisted(() => ({ requireRole: vi.fn() }));
+const h = vi.hoisted(() => ({ requireRole: vi.fn(), catalogue: vi.fn() }));
+vi.mock('@/lib/quotations/catalogue-server', () => ({
+  loadQuotationCatalogue: h.catalogue,
+}));
 vi.mock('@/lib/auth/account', () => ({
   requireRole: h.requireRole,
   toErrorResponse: (err: unknown) =>
@@ -8,13 +11,11 @@ vi.mock('@/lib/auth/account', () => ({
 }));
 
 vi.mock('@/lib/quotations/crud', () => ({
-  createQuotation: vi
-    .fn()
-    .mockResolvedValue({
-      id: 'q-1',
-      reference: 'HT-26-PIV-001',
-      status: 'draft',
-    }),
+  createQuotation: vi.fn().mockResolvedValue({
+    id: 'q-1',
+    reference: 'HT-26-PIV-001',
+    status: 'draft',
+  }),
 }));
 
 import { GET, POST } from './route';
@@ -342,5 +343,82 @@ describe('GET /api/quotations', () => {
     const req = new Request('http://test/api/quotations');
     const res = await GET(req);
     expect(res.status).toBe(401);
+  });
+});
+
+describe('catalogue-backed creation boundary', () => {
+  it('re-resolves the product in the caller account instead of accepting submitted prices', async () => {
+    const { createQuotation } = await import('@/lib/quotations/crud');
+    h.requireRole.mockResolvedValue({
+      accountId: 'acc-1',
+      userId: 'u-1',
+      supabase: makeCreateSupabase(),
+    });
+    h.catalogue.mockResolvedValue([
+      {
+        id: '11111111-1111-4111-8111-111111111111',
+        kind: 'product',
+        inventory_type: 'product',
+        name: 'Current shared name',
+        name_ar: null,
+        description: 'Current specification',
+        specifications: 'Current technical details',
+        unit_of_measure: 'm2',
+        price_min: 3600,
+        price_max: 3600,
+        sources: [],
+      },
+    ]);
+    const r = await POST(
+      new Request('http://test/api/quotations', {
+        method: 'POST',
+        body: JSON.stringify({
+          productCode: 'PIV',
+          currency: 'QAR',
+          catalogueSelection: {
+            productId: '11111111-1111-4111-8111-111111111111',
+            applyTerms: true,
+            unitPrice: 1,
+          },
+          total: 1,
+        }),
+      })
+    );
+    expect(r.status).toBe(201);
+    expect(h.catalogue).toHaveBeenCalledWith(expect.anything(), 'acc-1');
+    expect(createQuotation).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        catalogueSeed: expect.objectContaining({
+          item: expect.objectContaining({
+            description: 'Current shared name',
+            unitPrice: 3600,
+            specification: 'Current technical details',
+          }),
+        }),
+      })
+    );
+  });
+  it('rejects a product absent from the caller catalogue before creating a reference', async () => {
+    const { createQuotation } = await import('@/lib/quotations/crud');
+    vi.mocked(createQuotation).mockClear();
+    h.requireRole.mockResolvedValue({
+      accountId: 'acc-1',
+      userId: 'u-1',
+      supabase: makeCreateSupabase(),
+    });
+    h.catalogue.mockResolvedValue([]);
+    const r = await POST(
+      new Request('http://test/api/quotations', {
+        method: 'POST',
+        body: JSON.stringify({
+          productCode: 'PIV',
+          catalogueSelection: {
+            productId: '11111111-1111-4111-8111-111111111111',
+          },
+        }),
+      })
+    );
+    expect(r.status).toBe(404);
+    expect(createQuotation).not.toHaveBeenCalled();
   });
 });

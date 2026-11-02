@@ -9,6 +9,8 @@ import {
 import { mapQuotationRow, type Quotation } from './types';
 
 export interface CreateQuotationInput {
+  catalogueSeed?: import('./catalogue').CatalogueSeed;
+  catalogueTerms?: import('./catalogue').CatalogueTerms;
   accountId: string;
   productCode: string;
   currency: string;
@@ -58,6 +60,24 @@ export async function createQuotation(
       client_phone: input.clientPhone ?? null,
       client_company: input.clientCompany ?? null,
       status: 'draft',
+      ...(input.catalogueSeed
+        ? {
+            subject: input.catalogueSeed.item.description,
+            delivery_terms: input.catalogueTerms?.deliveryTerms ?? '',
+            payment_terms: input.catalogueTerms?.paymentTerms ?? '',
+            warranty_terms: input.catalogueTerms?.warrantyTerms ?? '',
+            document_details: {
+              catalogueSeed: { item: input.catalogueSeed.item },
+              ...(input.catalogueSeed.knowledge
+                ? { knowledge: input.catalogueSeed.knowledge }
+                : {}),
+              included:
+                input.catalogueSeed.item.specification ||
+                input.catalogueSeed.item.description ||
+                '',
+            },
+          }
+        : {}),
     })
     .select()
     .single();

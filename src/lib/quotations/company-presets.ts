@@ -68,7 +68,12 @@ const PRESET_PRODUCT_NAMES: Record<SpecificationPresetKey, RegExp> = {
 };
 
 export function specificationPresetsForItem(item: QuotationItemToSave) {
-  if (item.itemType !== 'line' || item.parentItemId || item.kind === 'Service')
+  if (
+    item.productId ||
+    item.itemType !== 'line' ||
+    item.parentItemId ||
+    item.kind === 'Service'
+  )
     return [];
   const names = [item.description, item.descriptionAr].map((name) =>
     (name ?? '')

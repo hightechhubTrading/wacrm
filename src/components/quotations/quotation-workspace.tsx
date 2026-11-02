@@ -36,6 +36,7 @@ import type {
 } from '@/lib/quotations/types';
 import { QuotationFollowup } from './knowledge/quotation-followup';
 import { QuotationKnowledgePanel } from './knowledge/quotation-knowledge-panel';
+import { applyCatalogueCapture } from '@/lib/quotations/catalogue';
 import { WorkspaceItems } from './workspace-items';
 import { QuotationDatePicker } from './quotation-date-picker';
 import {
@@ -922,6 +923,17 @@ export function QuotationWorkspace({
               onChange={(items) => setField('items', items)}
               disabled={disabled}
               currency={quotation.currency}
+              onCatalogueCapture={(knowledge, terms, itemId, resetPricing) =>
+                setDraft((d) =>
+                  applyCatalogueCapture(
+                    d,
+                    knowledge,
+                    terms,
+                    itemId,
+                    resetPricing
+                  )
+                )
+              }
             />
             <QuotationKnowledgePanel
               draft={draft}

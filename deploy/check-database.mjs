@@ -244,6 +244,32 @@ export async function checkDeploymentDatabase({
         'Database preflight failed for shared inventory. Apply migration 091 before deploying this revision.'
       );
   }
+  const details = await fetchImpl(
+    new URL('/rest/v1/rpc/quotation_document_details_valid', url),
+    {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        p: {
+          knowledge: { prices: {}, references: [] },
+          catalogueSeed: {
+            item: {
+              id: '10000000-0000-4000-8000-000000000001',
+              productId: '20000000-0000-4000-8000-000000000001',
+              itemType: 'line',
+              description: 'Synthetic schema probe',
+              qty: 1,
+            },
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(15000),
+    }
+  );
+  if (!details.ok || (await details.json().catch(() => false)) !== true)
+    throw new Error(
+      'Database preflight failed for quotation creation. Apply migration 092 before deploying this revision.'
+    );
 }
 
 /** Signature/cache checks without a customer/account/user identity. Service-role

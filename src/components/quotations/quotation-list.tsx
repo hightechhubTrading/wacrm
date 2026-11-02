@@ -1,5 +1,10 @@
 'use client';
 
+import { CataloguePicker } from './catalogue-picker';
+import type {
+  CatalogueProduct,
+  CatalogueSelection,
+} from '@/lib/quotations/catalogue';
 import { WorkspaceSelect } from './workspace-select';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -40,6 +45,7 @@ export function QuotationList() {
   const [querySearch, setQuerySearch] = useState('');
   const pageSize = 25;
   const [creating, setCreating] = useState(false);
+  const [catalogueOpen, setCatalogueOpen] = useState(false);
 
   // Product codes are admin-managed (Task 15's Settings page, GET/POST
   // /api/quotation-product-codes) rather than hardcoded here -- a code
@@ -115,13 +121,25 @@ export function QuotationList() {
   // "a quotation can exist standalone... optionally linked... later."
   // The deal-card entry point (Task 14) is a second, pre-filled path into
   // the same createQuotation call; this is the one with no prerequisites.
-  async function createStandalone() {
+  async function createStandalone(
+    product?: CatalogueProduct,
+    selection?: CatalogueSelection
+  ) {
     if (!productCode) return;
     setCreating(true);
     try {
       const res = await fetch('/api/quotations', {
         method: 'POST',
-        body: JSON.stringify({ productCode, currency: 'QAR' }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productCode:
+            product?.productCode &&
+            productCodes.some((c) => c.code === product.productCode)
+              ? product.productCode
+              : productCode,
+          currency: 'QAR',
+          ...(selection ? { catalogueSelection: selection } : {}),
+        }),
       });
       if (!res.ok) {
         // A rejected create (e.g. a whitelist-validated field failing,
@@ -181,7 +199,7 @@ export function QuotationList() {
         </Select>
         <Button
           type="button"
-          onClick={createStandalone}
+          onClick={() => setCatalogueOpen(true)}
           disabled={creating || !productCode}
           className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-8 items-center rounded-lg px-3 text-sm font-medium disabled:opacity-50"
         >
@@ -189,6 +207,25 @@ export function QuotationList() {
           {creating ? t('creating') : t('newQuotation')}
         </Button>
       </div>
+      {catalogueOpen && (
+        <CataloguePicker
+          open={catalogueOpen}
+          onOpenChange={setCatalogueOpen}
+          onSelect={(p, s) => void createStandalone(p, s)}
+          creating={creating}
+          productCode={productCode}
+          defaultApplyTerms
+        />
+      )}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled={creating || !productCode}
+        onClick={() => void createStandalone()}
+      >
+        {t('blankQuotationFallback')}
+      </Button>
       {!loadingCodes && productCodes.length === 0 && (
         <p className="text-muted-foreground text-xs">
           <Link

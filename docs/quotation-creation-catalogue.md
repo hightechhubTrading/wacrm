@@ -1,0 +1,13 @@
+# Quotations from the shared catalogue
+
+New quotation, quotation creation from a deal, Add product, Browse catalogue and accessory selection now use the same canonical `ai_products` inventory maintained in Knowledge. Search covers normalized English, Arabic, aliases and company codes. Products, equipment, materials and services have separate filters; browsing is no longer limited to the first 20 matches. Existing project Dialog/Button/Input components and design tokens are reused.
+
+Selection fills the documented name, Arabic name, specifications and quantity unit. New drafts can also take the recorded delivery, payment and warranty terms. Multiple payment plans require an explicit selection; an unspecified milestone remains unspecified. Legacy example specification presets are hidden for catalogue-linked items. Included equipment remains included rather than becoming a second charge.
+
+Fixed QAR prices can fill automatically. A range never silently supplies its minimum. Staff may explicitly select a linked price-list row and O/P/R/S column; the quote captures that source and choice. Supplier EUR grids and offers are visible as reference data, without assumed exchange rates or margins. Existing issued quotations retain their snapshots.
+
+The creation API resolves IDs and source choices again under the caller's account and ignores submitted catalogue amounts/descriptions. A new draft persists its initial item as `document_details.catalogueSeed`; the first normal workspace save consumes it into `quotation_items`. Migration 092 extends the existing document-detail validator to accept the seed and source knowledge, checks seed ownership/readiness, and rejects seeds on issued/versioned quotes. Deployment preflight checks this schema before promotion. Normal save/PDF validation still verifies source snapshots.
+
+Fifteen previously unprojected company service rows now have canonical entries: removal, delivery, painting and two civil-work services. Thirteen single-price rows retain their recorded fixed amounts. The two civil-work rows retain separate selectable column rates. Original source data and existing quotation numbering remain intact.
+
+Validation: 1,620 tests passed, 68 skipped; 33 deployment-preflight tests; disposable database checks for metadata, account ownership and seed consumption; TypeScript; targeted lint and 21st review; eight English/Arabic, light/dark, mobile/desktop creation journeys with intercepted writes. A live owner-scoped transaction verified source proof, draft creation, dimensions and the QAR 888.03 area total, then rolled back. Private fixtures, screenshots and database evidence remain in `.local/quotation-creation/`.
