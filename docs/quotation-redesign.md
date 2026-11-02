@@ -49,3 +49,5 @@ Commercial-term presets deployed at application revision `ebb130636c6382f008ebdd
 Each instalment is capped at `100 − the other instalments`. Dropdown choices above that limit are disabled, custom input is clamped to it, and adding a payment is disabled at 100%. Reducing an existing share frees capacity without changing the other payments. Shared draft validation also rejects totals above 100%; issue still requires exactly 100% with defined milestones.
 
 Verification: 1,637 tests pass; TypeScript, production build and changed-file lint pass. Three complete shutter/garage/mixed browser journeys verify disabled excessive choices, custom `999%` capped to the remaining allocation, and the add-payment limit, followed by normal save/document generation.
+
+Payment cap deployed at application revision `189a67be18e34b7abdc401ec53b7fbfb935351a7`; exact live revision, database preflight and public route checks pass. Candidate resources are cleaned up. Temporary SSH access was removed, authentication denial verified and local keys deleted.
