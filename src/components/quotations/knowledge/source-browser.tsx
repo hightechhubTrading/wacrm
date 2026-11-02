@@ -286,7 +286,9 @@ export function SourceBrowser({
           </div>
           {selected.data.__parse_review_note && (
             <p className="text-warning text-sm">
-              {ar ? 'مراجعة تنسيق المصدر: ' : 'Source parsing review: '}
+              {ar
+                ? 'تنسيق المصدر الذي تم إصلاحه: '
+                : 'Repaired source formatting: '}
               {selected.data.__parse_review_note}
             </p>
           )}
@@ -305,7 +307,7 @@ export function SourceBrowser({
             )}
           <dl className="space-y-2">
             {Object.entries(selected.data)
-              .filter(([, v]) => v)
+              .filter(([k, v]) => v && !k.startsWith('__'))
               .map(([k, v]) => (
                 <div key={k}>
                   <dt className="text-muted-foreground text-xs">

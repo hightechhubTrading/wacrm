@@ -200,6 +200,12 @@ export function sourceFieldLabel(key: string) {
   );
 }
 export function sourceDisplayValue(key: string, value: string) {
+  if (
+    /(?:^|[_\s])(?:file|filename|ref|reference|code|path|folder)(?:$|[_\s])/i.test(
+      key
+    )
+  )
+    return value;
   if (['item_en', 'description', 'component', 'item'].includes(key))
     return normalizedItemName(value);
   if (key === 'product_en') return cleanCompanyText(value);
@@ -228,4 +234,28 @@ export function normalizedScreenName(text: string) {
       ? 'Somfy'
       : '';
   return [system, fabric, motor].filter(Boolean).join(' · ');
+}
+
+/** Normalize equivalent quantity-unit names only. Purchasing lengths/conversions
+ * such as 6M and 1-6M remain as written until their meaning is established. */
+export function normalizedQuantityUnit(
+  value: string | null | undefined
+): string | null {
+  if (!value?.trim()) return null;
+  const units: Record<string, string> = {
+    'per unit': 'piece',
+    'per motor': 'piece',
+    'per pc': 'piece',
+    'per piece': 'piece',
+    'per unit (as written)': 'piece',
+    pec: 'piece',
+    pcs: 'piece',
+    'per m': 'm',
+    mts: 'm',
+    'per m2': 'm2',
+    'per set': 'set',
+    pair: 'pair',
+    roll: 'roll',
+  };
+  return units[value.trim().toLowerCase()] ?? value.trim();
 }

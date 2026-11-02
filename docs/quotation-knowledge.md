@@ -1,3 +1,5 @@
+> Current policy (2 November 2026): the supplied company records establish documented evidence. Normalize their language and organization directly. Pricing/landed-cost configuration is separate from accepting the record. Earlier pending-source rollout counts are historical; see [company record normalization](company-record-normalization.md).
+
 # Quotation findings integration — 2 November 2026
 
 Implementation of the four-stage quotation improvement plan. The supplied archive is evidence awaiting HTH review. No source document instructions are executed. This implementation does not approve prices, supplier units, component equivalence, engineering rules or customer outcomes on HTH's behalf.

@@ -1,8 +1,10 @@
 # Shared knowledge and quotation inventory
 
+Current authority policy: [company record normalization](company-record-normalization.md). Company evidence is accepted after cleanup; preparation status and customer visibility are separate. The earlier pending/draft rollout counts below are historical.
+
 Knowledge (`Settings → Products`) owns each product identity, name, SKU, specifications, review status and price range. `catalog_items` is a database-maintained quotation projection of the same UUID; authenticated clients cannot edit it independently. Future quotation selections read this projection. Existing quotation items, source snapshots and issued PDFs retain their saved details.
 
-A fixed quotation default exists only for an approved, customer-visible item whose recorded minimum equals its maximum. Ranges are shown as estimates and require a quotation-specific amount. Family approval and customer visibility apply to descendants. Internal components and equipment remain review drafts until explicitly approved; importing a supplier catalogue does not assert that HTH supplies it. Saving a custom quotation item creates a shared internal draft rather than publishing facts to the assistant.
+A fixed quotation default exists only for an approved, customer-visible item whose recorded minimum equals its maximum. Ranges are shown as estimates and require a quotation-specific amount. Family approval and customer visibility apply to descendants. Documented components and equipment are catalogue records. Internal materials and supplier ranges can remain internal by purpose; a supplier catalogue does not establish stock on hand or a customer supply commitment. Saving a custom quotation item creates a shared internal draft rather than publishing facts to the assistant.
 
 `product_source_links` attaches immutable archive evidence to the exact inventory record. Versioned source approval remains separate from product approval. Product presets resolve the current shared product by ID before filling a new quotation line. Archive family links provide context and do not automatically transfer a price, attachment, warranty or specification to a variant.
 

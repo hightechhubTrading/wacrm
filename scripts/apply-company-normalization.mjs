@@ -23,6 +23,7 @@ const allowed = [
   'limitations',
   'source_notes',
   'aliases',
+  'specifications',
 ];
 for (const p of plan.products)
   if (
@@ -40,7 +41,8 @@ console.log(
     apply: process.argv.includes('--apply'),
   })
 );
-if (!process.argv.includes('--apply')) process.exit(0);
+if (!process.argv.includes('--apply') && !process.argv.includes('--prepare'))
+  process.exit(0);
 process.loadEnvFile('.env.local');
 const linked = fs.readFileSync('supabase/.temp/project-ref', 'utf8').trim();
 if (
@@ -76,24 +78,19 @@ for (const p of plan.products) {
   sql.push(
     `DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM ai_products WHERE id=${lit(p.id)} AND account_id=${a} AND updated_at=${lit(p.expectedUpdatedAt)}::timestamptz) THEN RAISE EXCEPTION 'Product changed during normalization';END IF;END $$;`
   );
-  const assignments = Object.keys(p.patch)
-    .map(
-      (k) =>
-        `${k}=(SELECT ${k} FROM jsonb_populate_record(NULL::ai_products,${json(p.patch)}))`
-    )
-    .join(',');
+  const fields = Object.keys(p.patch);
   sql.push(
-    `UPDATE ai_products SET ${assignments} WHERE account_id=${a} AND id=${lit(p.id)};`
+    `UPDATE ai_products SET (${fields.join(',')})=(SELECT ${fields.map((k) => `f.${k}`).join(',')} FROM jsonb_populate_record(NULL::ai_products,${json(p.patch)}) f) WHERE account_id=${a} AND id=${lit(p.id)};`
   );
 }
 for (const q of plan.answers) {
   sql.push(
-    `DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM ai_catalog_questions WHERE id=${lit(q.id)} AND account_id=${a} AND updated_at=${lit(q.expectedUpdatedAt)}::timestamptz AND answer='') THEN RAISE EXCEPTION 'Staff answer changed';END IF;END $$;UPDATE ai_catalog_questions SET answer=${lit(q.answer)},evidence=${lit(q.evidence)} WHERE id=${lit(q.id)} AND account_id=${a};`
+    `DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM ai_catalog_questions WHERE id=${lit(q.id)} AND account_id=${a} AND updated_at=${lit(q.expectedUpdatedAt)}::timestamptz AND answer='') THEN RAISE EXCEPTION 'Staff answer changed';END IF;END $$;UPDATE ai_catalog_questions SET answer=${lit(q.answer)},evidence=${lit(q.evidence)}${q.status === 'closed' ? ",status='closed'" : ''} WHERE id=${lit(q.id)} AND account_id=${a};`
   );
 }
 for (const f of plan.findingChanges)
   sql.push(
-    `UPDATE catalog_question_findings SET finding=${lit(f.finding)} WHERE account_id=${a} AND question_id=${lit(f.question_id)} AND source_record_id=(SELECT id FROM source_map WHERE record_key=${lit(f.source_key)}) AND finding=${lit(f.previous)};`
+    `UPDATE catalog_question_findings SET finding=${lit(f.finding)}${f.coverage === 'answers' ? ",coverage='answers',remaining_question=''" : ''} WHERE account_id=${a} AND question_id=${lit(f.question_id)} AND source_record_id=(SELECT id FROM source_map WHERE record_key=${lit(f.source_key)}) AND finding=${lit(f.previous)};`
   );
 for (const q of plan.questionChanges)
   sql.push(
@@ -104,20 +101,41 @@ for (const [code, label] of Object.entries(plan.productCodes))
     `INSERT INTO quotation_product_codes(account_id,code,label) VALUES(${a},${lit(code)},${lit(label)}) ON CONFLICT(account_id,code) DO UPDATE SET label=EXCLUDED.label;`
   );
 // The existing versioned RPC audits evidence acceptance; calculation settings stay explicit.
-for (const r of plan.sources) {
+for (const r of plan.sources)
   if (!['approved', 'rejected'].includes(r.status))
     throw Error('Invalid source state');
-  sql.push(
-    `SELECT review_quotation_knowledge((SELECT id FROM source_map WHERE record_key=${lit(r.key)}),0,${lit(r.status)},${lit(r.status === 'approved' ? 'Normalized from the supplied company archive under the owner’s instruction. The record establishes the documented facts. Automatic pricing and landed-cost calculation require explicit settings; no unspecified column, currency, unit or charge is inferred.' : 'Superseded extraction retained for traceability; use its normalized successor.')},${json(r.configuration)});`
-  );
-}
+sql.push(`DO $process$ DECLARE entry jsonb; source_id uuid; BEGIN
+ FOR entry IN SELECT value FROM jsonb_array_elements(${json(plan.sources)}) LOOP
+  SELECT id INTO source_id FROM source_map WHERE record_key=entry->>'key';
+  PERFORM review_quotation_knowledge(source_id,0,entry->>'status',CASE WHEN entry->>'status'='approved' THEN 'Normalized from supplied company records under the owner’s instruction. Recorded facts are accepted; missing price columns, units, currencies or landed charges remain separate calculation settings.' ELSE 'Superseded extraction retained for traceability; use its normalized successor.' END,entry->'configuration');
+ END LOOP;
+END $process$;`);
 sql.push('COMMIT;');
 const file = path + '.sql';
 fs.writeFileSync(file, sql.join('\n'), { mode: 0o600 });
+if (process.argv.includes('--prepare')) {
+  console.log('Reviewed SQL prepared; no database changes.');
+  process.exit(0);
+}
 const r = spawnSync('supabase', ['db', 'query', '--linked', '--file', file], {
   encoding: 'utf8',
   maxBuffer: 8 * 1024 * 1024,
 });
-if (r.status !== 0) throw Error(r.stderr || r.stdout);
+if (r.status !== 0) {
+  fs.writeFileSync(
+    path + '.error.log',
+    JSON.stringify({
+      status: r.status,
+      signal: r.signal,
+      error: r.error?.message,
+      stdout: r.stdout,
+      stderr: r.stderr,
+    }),
+    { mode: 0o600 }
+  );
+  throw Error(
+    'Normalization transaction did not report success; inspect the private error log and database state before retrying.'
+  );
+}
 fs.writeFileSync(path + '.result.json', r.stdout, { mode: 0o600 });
 console.log('Company normalization committed.');

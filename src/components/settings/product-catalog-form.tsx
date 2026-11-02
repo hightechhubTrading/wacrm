@@ -302,7 +302,17 @@ export function ProductCatalogForm({
               onChange={(e) => setUnit(e.target.value)}
             >
               <option value="">{l('Not recorded', 'غير مسجلة')}</option>
-              {['piece', 'm', 'm2', 'pair', 'set', 'job'].map((u) => (
+              {Array.from(
+                new Set([
+                  'piece',
+                  'm',
+                  'm2',
+                  'pair',
+                  'set',
+                  'job',
+                  ...(unit ? [unit] : []),
+                ])
+              ).map((u) => (
                 <option key={u}>{u}</option>
               ))}
             </CatalogSelect>

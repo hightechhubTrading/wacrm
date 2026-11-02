@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   normalizedItemName,
   normalizedScreenName,
+  normalizedQuantityUnit,
+  sourceDisplayValue,
   recordDisplayLabel,
   sourceReadyToApply,
 } from './normalization';
@@ -22,6 +24,21 @@ const record: KnowledgeRecord = {
   configuration: {},
 };
 describe('company record normalization', () => {
+  it('normalizes count units without guessing purchasing-length conversions', () => {
+    expect(normalizedQuantityUnit('per motor')).toBe('piece');
+    expect(normalizedQuantityUnit('per m')).toBe('m');
+    expect(normalizedQuantityUnit('6M')).toBe('6M');
+    expect(normalizedQuantityUnit('1-6M')).toBe('1-6M');
+    expect(normalizedQuantityUnit('')).toBeNull();
+  });
+  it('preserves literal file paths and identifiers in the cleaned view', () => {
+    expect(
+      sourceDisplayValue('source_file', 'Company Qutations/REF-01.pdf')
+    ).toBe('Company Qutations/REF-01.pdf');
+    expect(sourceDisplayValue('source_code_or_size', 'CR NO 250')).toBe(
+      'CR NO 250'
+    );
+  });
   it('uses the explicit fabric to correct a conflicting supplier screen title', () => {
     expect(
       normalizedScreenName(

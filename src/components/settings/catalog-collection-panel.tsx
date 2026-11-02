@@ -294,8 +294,8 @@ export function CatalogCollectionPanel({
       {!loading && questions.some((q) => q.findings?.length) && (
         <p className="text-muted-foreground text-sm" role="status">
           {l(
-            `${questions.filter((q) => q.findings?.some((f) => f.coverage === 'partial')).length} questions have partial archive answers. ${questions.filter((q) => q.findings?.length && q.findings.every((f) => f.coverage === 'not_answered')).length} remain unanswered by the archive. Findings do not close questions or replace confirmed answers.`,
-            `${questions.filter((q) => q.findings?.some((f) => f.coverage === 'partial')).length} سؤالاً لها إجابات جزئية من الأرشيف. ${questions.filter((q) => q.findings?.length && q.findings.every((f) => f.coverage === 'not_answered')).length} لم يجب عنها الأرشيف. النتائج لا تغلق الأسئلة ولا تستبدل الإجابات المؤكدة.`
+            `${questions.filter((q) => q.findings?.some((f) => f.coverage === 'partial')).length} questions have partial archive answers. ${questions.filter((q) => q.findings?.length && q.findings.every((f) => f.coverage === 'not_answered')).length} remain unanswered by the archive. ${questions.filter((q) => q.findings?.some((f) => f.coverage === 'answers')).length} have documented resolutions. Open questions cover the remaining details.`,
+            `${questions.filter((q) => q.findings?.some((f) => f.coverage === 'partial')).length} سؤالاً لها إجابات جزئية من الأرشيف. ${questions.filter((q) => q.findings?.length && q.findings.every((f) => f.coverage === 'not_answered')).length} لم يجب عنها الأرشيف. ${questions.filter((q) => q.findings?.some((f) => f.coverage === 'answers')).length} لها إجابات موثقة مكتملة. الأسئلة المفتوحة للتفاصيل المتبقية.`
           )}
         </p>
       )}
