@@ -54,6 +54,29 @@ const ROTATED = {
 };
 
 describe("middleware — refreshed auth cookies survive redirects", () => {
+  it.each(['/quotations', '/quotations/example', '/quotations/knowledge'])(
+    'redirects logged-out quotation visitors from %s while preserving cleared cookies',
+    async (path) => {
+      refreshedCookies = [{ ...ROTATED, value: 'cleared' }];
+      const response = await middleware(new NextRequest('https://app.test' + path));
+      expect(response.status).toBe(307);
+      expect(response.headers.get('location')).toBe('https://app.test/login');
+      expect(response.cookies.get(ROTATED.name)?.value).toBe('cleared');
+    },
+  );
+
+  it.each(['/quotations', '/quotations/knowledge'])(
+    'preserves authenticated quotation navigation at %s',
+    async (path) => {
+      mockUser = { id: 'user-1' };
+      refreshedCookies = [ROTATED];
+      const response = await middleware(new NextRequest('https://app.test' + path));
+      expect(response.status).toBe(200);
+      expect(response.headers.get('location')).toBeNull();
+      expect(response.cookies.get(ROTATED.name)?.value).toBe(ROTATED.value);
+    },
+  );
+
   it("carries the rotated token when redirecting a signed-in user off /login", async () => {
     mockUser = { id: "user-1" };
     refreshedCookies = [ROTATED];
