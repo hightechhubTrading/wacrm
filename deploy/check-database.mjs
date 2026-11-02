@@ -217,6 +217,33 @@ export async function checkDeploymentDatabase({
         'Database preflight failed for quotation knowledge. Apply migration 090 before deploying this revision.'
       );
   }
+  for (const [table, columns] of [
+    [
+      'ai_products',
+      'id,inventory_type,sku,name_ar,unit_of_measure,customer_visible',
+    ],
+    [
+      'catalog_items',
+      'id,price_min,price_max,price_unit,review_status,customer_visible',
+    ],
+    ['product_source_links', 'product_id,source_record_id,relationship'],
+    [
+      'catalog_question_findings',
+      'question_id,coverage,finding,remaining_question',
+    ],
+  ]) {
+    const endpoint = new URL('/rest/v1/' + table, url);
+    endpoint.searchParams.set('select', columns);
+    endpoint.searchParams.set('limit', '0');
+    const response = await fetchImpl(endpoint, {
+      headers,
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok)
+      throw new Error(
+        'Database preflight failed for shared inventory. Apply migration 091 before deploying this revision.'
+      );
+  }
 }
 
 /** Signature/cache checks without a customer/account/user identity. Service-role

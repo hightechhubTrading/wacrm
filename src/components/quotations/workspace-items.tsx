@@ -67,6 +67,7 @@ function ItemName({
   onChange: (patch: Partial<QuotationItemToSave>) => void;
 }) {
   const t = useTranslations('QuotationWorkspace');
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   const [browse, setBrowse] = useState(false);
   const [results, setResults] = useState<
@@ -76,6 +77,9 @@ function ItemName({
       name_ar?: string;
       description?: string;
       default_unit_price: number | null;
+      price_min?: number | null;
+      price_max?: number | null;
+      price_unit?: string | null;
       unit_of_measure?: string;
       sku?: string;
       category?: string;
@@ -142,10 +146,10 @@ function ItemName({
                 onChange({
                   productId: row.id,
                   description: row.name,
-                  descriptionAr: row.name_ar ?? item.descriptionAr,
-                  specification: row.description ?? item.specification,
-                  unit: row.unit_of_measure ?? item.unit,
-                  unitPrice: row.default_unit_price ?? item.unitPrice,
+                  descriptionAr: row.name_ar ?? undefined,
+                  specification: row.description ?? undefined,
+                  unit: row.unit_of_measure ?? undefined,
+                  unitPrice: row.default_unit_price ?? undefined,
                 });
                 setOpen(false);
               }}
@@ -158,7 +162,12 @@ function ItemName({
                     .join(' · ')}
                 </small>
               </span>
-              <small>{row.default_unit_price?.toLocaleString() ?? '—'}</small>
+              <small>
+                {row.default_unit_price?.toLocaleString() ??
+                  (row.price_min != null && row.price_max != null
+                    ? `${row.price_min.toLocaleString()}–${row.price_max.toLocaleString()} (${locale === 'ar' ? 'استرشادي' : 'estimate'})`
+                    : '—')}
+              </small>
             </button>
           ))}
         </div>
@@ -317,7 +326,11 @@ export function WorkspaceItems({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: item.description,
-          category: item.parentItemId ? 'accessory' : 'product',
+          category: item.parentItemId
+            ? 'component'
+            : item.kind === 'Service'
+              ? 'service'
+              : 'product',
           nameAr: item.descriptionAr,
           description: item.specification,
           defaultUnitPrice: item.unitPrice,
@@ -374,7 +387,11 @@ export function WorkspaceItems({
           )}
           {!item.productId && item.itemType === 'line' && (
             <DropdownMenuItem
-              disabled={!item.description?.trim() || catalogBusy !== null}
+              disabled={
+                !!item.productId ||
+                !item.description?.trim() ||
+                catalogBusy !== null
+              }
               onClick={() => saveCatalog(item)}
             >
               {catalogBusy === item.id ? t('saving') : t('saveCatalog')}

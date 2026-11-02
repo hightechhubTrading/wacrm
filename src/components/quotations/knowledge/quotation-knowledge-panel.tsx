@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocale } from 'next-intl';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,11 @@ export function QuotationKnowledgePanel({
   disabled: boolean;
 }) {
   const ar = useLocale() === 'ar';
+  const latest = useRef({ draft, disabled });
+  useEffect(() => {
+    latest.current = { draft, disabled };
+  }, [draft, disabled]);
+  const [applying, setApplying] = useState(false);
   const [itemId, setItemId] = useState('');
   const [tab, setTab] = useState('');
   const [error, setError] = useState('');
@@ -48,22 +53,53 @@ export function QuotationKnowledgePanel({
       documentDetails: { ...draft.documentDetails, knowledge },
     });
   }
-  function select(r: KnowledgeRecord) {
-    if (disabled || !item) return;
+  async function select(r: KnowledgeRecord) {
+    if (disabled || applying || !item) return;
+    setApplying(true);
     setError('');
     try {
       if (r.kind === 'product') {
         const s = snapshot(r);
+        if (!r.configuration.catalogItemId)
+          throw Error(
+            ar
+              ? 'اربط المصدر بصنف في المخزون المشترك أولاً.'
+              : 'Link this source to a shared inventory item first.'
+          );
+        const response = await fetch(
+          '/api/catalog-items?id=' +
+            encodeURIComponent(r.configuration.catalogItemId)
+        );
+        const rows = await response.json();
+        if (
+          latest.current.disabled ||
+          JSON.stringify(latest.current.draft.items) !==
+            JSON.stringify(draft.items)
+        )
+          throw Error(
+            ar
+              ? 'تغير العرض. اختر المنتج مرة أخرى.'
+              : 'The quotation changed. Select the product again.'
+          );
+        const product =
+          response.ok && Array.isArray(rows)
+            ? rows.find((p) => p.id === r.configuration.catalogItemId)
+            : null;
+        if (!product)
+          throw Error(
+            ar
+              ? 'راجع واعتمد الصنف المحدد في المخزون المشترك أولاً.'
+              : 'Review and approve the exact shared inventory item first.'
+          );
         const updatedItem = {
           ...item,
-          productId: r.configuration.catalogItemId,
-          description: r.data.product_en,
-          descriptionAr: r.data.product_ar,
-          specification: r.data.what_is_included,
-          unit: ['WS', 'PIV'].includes(r.configuration.family ?? r.data.code)
-            ? 'm2'
-            : item.unit,
-          unitPrice: undefined as number | undefined,
+          productId: product.id,
+          description: product.name,
+          descriptionAr: product.name_ar ?? undefined,
+          specification: product.description ?? undefined,
+          unit: product.unit_of_measure ?? undefined,
+          unitPrice: (product.default_unit_price ?? undefined) as
+            number | undefined,
         };
         const prices = { ...k.prices };
         delete prices[item.id];
@@ -119,6 +155,8 @@ export function QuotationKnowledgePanel({
       setTab('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to apply source.');
+    } finally {
+      setApplying(false);
     }
   }
   return (
@@ -138,6 +176,14 @@ export function QuotationKnowledgePanel({
           className="underline"
         >
           {ar ? 'مراجعة المصادر' : 'Review sources'}
+        </Link>
+        {' · '}
+        <Link
+          href={`/settings?tab=products${item?.productId ? `&product=${item.productId}` : ''}`}
+          target="_blank"
+          className="underline"
+        >
+          {ar ? 'المخزون المشترك للمنتجات' : 'Shared product inventory'}
         </Link>
       </p>
       {!item ? (
@@ -215,6 +261,7 @@ export function QuotationKnowledgePanel({
               kinds={[tab]}
               approvedOnly
               onSelect={select}
+              disabled={disabled || applying}
             />
           )}
           {error && (

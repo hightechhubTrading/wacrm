@@ -1,9 +1,16 @@
 /** Shared catalog contracts. No prices/specifications are inherited across entries. */
 export const CATALOG_FIELDS =
-  'superseded_by, parent_id, kind, status, aliases, specifications, limitations, source_url, source_notes';
+  'superseded_by, parent_id, kind, status, aliases, specifications, limitations, source_url, source_notes, inventory_type, sku, name_ar, description_ar, unit_of_measure, customer_visible';
 export type CatalogKind = 'family' | 'product' | 'variant';
 export type ReviewStatus = 'draft' | 'approved';
+export type InventoryType = 'product' | 'component' | 'equipment' | 'service';
 export interface CatalogMetadata {
+  inventory_type?: InventoryType;
+  sku?: string | null;
+  name_ar?: string | null;
+  description_ar?: string | null;
+  unit_of_measure?: string | null;
+  customer_visible?: boolean;
   superseded_by?: string | null;
   parent_id: string | null;
   kind: CatalogKind;
@@ -19,6 +26,12 @@ export function catalogMetadata(
   row: Partial<CatalogMetadata>
 ): CatalogMetadata {
   return {
+    inventory_type: row.inventory_type ?? 'product',
+    sku: row.sku ?? null,
+    name_ar: row.name_ar ?? null,
+    description_ar: row.description_ar ?? null,
+    unit_of_measure: row.unit_of_measure ?? null,
+    customer_visible: row.customer_visible ?? true,
     superseded_by: row.superseded_by ?? null,
     parent_id: row.parent_id ?? null,
     kind: row.kind ?? 'product',
@@ -49,6 +62,37 @@ export function parseCatalogMetadata(
   body: Record<string, unknown>
 ): Partial<CatalogMetadata> {
   const out: Partial<CatalogMetadata> = {};
+  if ('inventory_type' in body) {
+    if (
+      !['product', 'component', 'equipment', 'service'].includes(
+        String(body.inventory_type)
+      )
+    )
+      throw new Error('Choose an inventory type.');
+    out.inventory_type = body.inventory_type as InventoryType;
+  }
+  if ('customer_visible' in body) {
+    if (typeof body.customer_visible !== 'boolean')
+      throw new Error('Choose customer visibility.');
+    out.customer_visible = body.customer_visible;
+  }
+  for (const key of [
+    'sku',
+    'name_ar',
+    'description_ar',
+    'unit_of_measure',
+  ] as const) {
+    if (key in body) {
+      const value = body[key];
+      if (
+        value !== null &&
+        (typeof value !== 'string' ||
+          value.length > (key === 'description_ar' ? 12000 : 500))
+      )
+        throw new Error('Invalid inventory field.');
+      out[key] = typeof value === 'string' ? value.trim() || null : null;
+    }
+  }
   if ('kind' in body) {
     if (!['family', 'product', 'variant'].includes(String(body.kind)))
       throw new Error('Choose a family, product or variant.');
@@ -137,6 +181,7 @@ export function approvedCatalogRows<
     parent_id?: string | null;
     status?: string;
     superseded_by?: string | null;
+    customer_visible?: boolean;
   },
 >(rows: T[]): T[] {
   const byId = new Map(rows.map((r) => [r.id, r]));
@@ -147,6 +192,7 @@ export function approvedCatalogRows<
       if (
         seen.has(current.id) ||
         current.superseded_by ||
+        current.customer_visible === false ||
         (current.status ?? 'approved') !== 'approved'
       )
         return false;

@@ -37,7 +37,7 @@ test('accepts the required columns and denied identity-free conversion probe', a
       return validFetch(url);
     },
   });
-  assert.equal(requests.length, 27);
+  assert.equal(requests.length, 31);
   for (const r of requests.slice(0, 8))
     assert.equal(r.url.searchParams.get('limit'), '0');
   assert.equal(JSON.parse(requests[8].init.body).p_conversation_id, null);
@@ -282,5 +282,26 @@ for (const table of [
             : validFetch(url),
       }),
       /migration 090/
+    );
+  });
+
+for (const table of [
+  'ai_products',
+  'catalog_items',
+  'product_source_links',
+  'catalog_question_findings',
+])
+  test('rejects missing shared inventory fields in ' + table, async () => {
+    await assert.rejects(
+      checkDeploymentDatabase({
+        ...options,
+        fetchImpl: async (url) =>
+          new URL(url).pathname.endsWith('/' + table) &&
+          (table !== 'ai_products' ||
+            new URL(url).searchParams.get('select')?.includes('inventory_type'))
+            ? new Response('{}', { status: 404 })
+            : validFetch(url),
+      }),
+      /migration 091/
     );
   });

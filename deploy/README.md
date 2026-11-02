@@ -216,3 +216,5 @@ sales-note tables. Source import is a separate account-admin action, with every
 row initially pending. The private prepared pack is gitignored and must not be
 included in a Docker image or public repository. Implementation, test commands,
 review requirements and current rollout status: [quotation knowledge](../docs/quotation-knowledge.md).
+
+Shared inventory follow-up: migration `091_shared_product_inventory.sql` is recorded live as `20261102160000`. Preflight requires canonical inventory fields, the quotation projection and product/question evidence relationships. See [shared product inventory](../docs/shared-product-inventory.md) for semantics, private reconciliation and verification. Apply the reviewed timestamped migration before promoting this revision; do not push the numeric migration folder wholesale.

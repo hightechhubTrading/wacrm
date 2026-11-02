@@ -15,11 +15,13 @@ export function SourceBrowser({
   onInspect,
   kinds,
   approvedOnly = false,
+  disabled = false,
 }: {
   onSelect?: (r: KnowledgeRecord) => void;
   onInspect?: (r: KnowledgeRecord) => void;
   kinds?: string[];
   approvedOnly?: boolean;
+  disabled?: boolean;
 }) {
   const ar = useLocale() === 'ar';
   const [query, setQuery] = useState('');
@@ -214,7 +216,7 @@ export function SourceBrowser({
                 <Button
                   type="button"
                   size="sm"
-                  disabled={r.review_status !== 'approved'}
+                  disabled={disabled || r.review_status !== 'approved'}
                   onClick={() => onSelect(r)}
                 >
                   {ar ? 'اختيار' : 'Select'}

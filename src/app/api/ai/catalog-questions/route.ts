@@ -17,7 +17,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from('ai_catalog_questions')
       .select(
-        'id,product_id,question,answer,evidence,confirmed_by,confirmed_on,status'
+        'id,product_id,question,answer,evidence,confirmed_by,confirmed_on,status,findings:catalog_question_findings(id,source_record_id,coverage,finding,remaining_question,source:quotation_knowledge_records(source,source_row,record_key))'
       )
       .eq('account_id', accountId)
       .order('created_at');
@@ -25,7 +25,7 @@ export async function GET() {
       return NextResponse.json(
         {
           error:
-            'Could not load collection questions. Check that migration 078 is applied.',
+            'Could not load collection questions. Check that migrations 078 and 091 are applied.',
         },
         { status: 500 }
       );

@@ -32,6 +32,7 @@ const record = {
   reviewed_at: '2026-11-02T00:00:00Z',
   configuration: {
     family: 'WS',
+    catalogItemId: '11111111-1111-4111-8111-111111111111',
     pricing: { basis: 'area', rate: 390, currency: 'QAR', column: 'confirmed' },
   },
 };
@@ -49,7 +50,7 @@ try {
     join(root, 'main.tsx'),
     `import React from 'react';import {createRoot} from 'react-dom/client';import {NextIntlClientProvider} from 'next-intl';import {QuotationKnowledgePanel} from ${JSON.stringify(join(project, 'src/components/quotations/knowledge/quotation-knowledge-panel.tsx'))};import {KnowledgeLibrary} from ${JSON.stringify(join(project, 'src/components/quotations/knowledge/knowledge-library.tsx'))};import {QuotationFollowup} from ${JSON.stringify(join(project, 'src/components/quotations/knowledge/quotation-followup.tsx'))};import ${JSON.stringify(join(project, 'src/app/globals.css'))};
 const params=new URLSearchParams(location.search),locale=params.get('locale')||'en';document.documentElement.dir=locale==='ar'?'rtl':'ltr';document.documentElement.lang=locale;
-function App(){const[d,set]=React.useState({items:[{id:'33333333-3333-4333-8333-333333333333',itemCode:'D01',itemType:'line',description:'Window shutter',sizeW:138,sizeH:165,measurementUnit:'cm',qty:1,unit:'m2'}],documentDetails:{}});return <NextIntlClientProvider locale={locale} messages={{}} timeZone="Europe/Berlin"><main className="mx-auto max-w-3xl p-4">{params.get('screen')==='library'?<KnowledgeLibrary/>:<><label>Fixture width<input aria-label="Fixture width" type="number" value={d.items[0].sizeW} onChange={e=>set({...d,items:d.items.map(i=>({...i,sizeW:Number(e.target.value)}))})}/></label><QuotationKnowledgePanel draft={d} onChange={set} disabled={params.get('locked')==='true'}/><QuotationFollowup quotationId="fixture"/><output id="draft">{JSON.stringify(d)}</output></>}</main></NextIntlClientProvider>};createRoot(document.getElementById('root')).render(<App/>);`
+function App(){const[d,set]=React.useState({items:[{id:'33333333-3333-4333-8333-333333333333',itemCode:'D01',itemType:'line',description:'Window shutter',productId:'11111111-1111-4111-8111-111111111111',sizeW:138,sizeH:165,measurementUnit:'cm',qty:1,unit:'m2'}],documentDetails:{}});return <NextIntlClientProvider locale={locale} messages={{}} timeZone="Europe/Berlin"><main className="mx-auto max-w-3xl p-4">{params.get('screen')==='library'?<KnowledgeLibrary/>:<><label>Fixture width<input aria-label="Fixture width" type="number" value={d.items[0].sizeW} onChange={e=>set({...d,items:d.items.map(i=>({...i,sizeW:Number(e.target.value)}))})}/></label><QuotationKnowledgePanel draft={d} onChange={set} disabled={params.get('locked')==='true'}/><QuotationFollowup quotationId="fixture"/><output id="draft">{JSON.stringify(d)}</output></>}</main></NextIntlClientProvider>};createRoot(document.getElementById('root')).render(<App/>);`
   );
   const config = {
     configFile: false,
@@ -99,7 +100,14 @@ function App(){const[d,set]=React.useState({items:[{id:'33333333-3333-4333-8333-
           const url = new URL(route.request().url());
           let body = [];
           if (url.pathname === '/api/catalog-items')
-            body = [{ id: record.id, name: 'Fixture product' }];
+            body = [
+              {
+                id: record.id,
+                name: 'Fixture product',
+                description: 'Current shared inventory specification',
+                unit_of_measure: 'm2',
+              },
+            ];
           else if (url.pathname.endsWith('/followup')) {
             if (route.request().method() === 'PUT') {
               followed = true;
@@ -168,6 +176,24 @@ function App(){const[d,set]=React.useState({items:[{id:'33333333-3333-4333-8333-
         });
         await page.goto(origin + '?locale=' + locale);
         await page.locator('summary').first().click();
+        await page
+          .getByRole('button', {
+            name: locale === 'ar' ? 'مواصفات المنتج' : 'Product preset',
+            exact: true,
+          })
+          .click();
+        await page
+          .getByRole('button', {
+            name: locale === 'ar' ? 'اختيار' : 'Select',
+            exact: true,
+          })
+          .click();
+        await page.waitForFunction(
+          () =>
+            JSON.parse(document.querySelector('#draft').textContent).items[0]
+              .specification === 'Current shared inventory specification'
+        );
+
         await page
           .getByRole('button', {
             name: locale === 'ar' ? 'سعر القائمة' : 'List price',

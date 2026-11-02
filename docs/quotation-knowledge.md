@@ -80,3 +80,7 @@ Migration 090 is applied to the linked production database as `20261102103055`. 
 - The temporary deployment SSH key was removed; a new authentication attempt with it was denied. Local temporary key files were deleted. The private source pack is absent from the image and no candidate environment files remain on the server.
 
 The live review interface is [Quotation source library](https://wacrm.srv1795091.hstgr.cloud/quotations/knowledge). The next required input is HTH's confirmation of price-column meanings, supplier units/currencies and missing production rules. Current technical index references still require the underlying approved files for actual customer attachments.
+
+## Shared inventory follow-up — 2 November 2026
+
+The subsequent [shared inventory reconciliation](shared-product-inventory.md) connects this source library to the existing knowledge product editor and quotation picker. It supersedes the earlier separate-catalogue counts above: both product projections now have 317 shared identities; source approvals remain pending. The business confirmations the user does not currently have are recorded as open questions in knowledge, with partial archive findings kept separate from staff answers.

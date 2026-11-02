@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useLocale } from 'next-intl';
 import { Download, Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -192,6 +193,8 @@ export function CatalogCollectionPanel({
         l('Evidence', 'الدليل'),
         l('Confirmed by', 'أكدها'),
         l('Date', 'التاريخ'),
+        l('Archive findings', 'نتائج الأرشيف'),
+        l('Still unanswered', 'المتبقي دون إجابة'),
       ]);
       for (const q of questions)
         qs.addRow([
@@ -203,6 +206,16 @@ export function CatalogCollectionPanel({
           q.evidence,
           q.confirmed_by,
           q.confirmed_on,
+          q.findings
+            ?.map(
+              (f) =>
+                `${f.coverage}: ${f.finding} [${f.source?.record_key ?? f.source_record_id}]`
+            )
+            .join('\n'),
+          q.findings
+            ?.map((f) => f.remaining_question)
+            .filter(Boolean)
+            .join('\n'),
         ]);
       qs.columns.forEach((c, i) => {
         c.width = i === 1 || i === 3 ? 65 : 25;
@@ -269,6 +282,14 @@ export function CatalogCollectionPanel({
           {l('Client workbook', 'ملف للعميل')}
         </Button>
       </header>
+      {!loading && questions.some((q) => q.findings?.length) && (
+        <p className="text-muted-foreground text-sm" role="status">
+          {l(
+            `${questions.filter((q) => q.findings?.some((f) => f.coverage === 'partial')).length} questions have partial archive answers. ${questions.filter((q) => q.findings?.length && q.findings.every((f) => f.coverage === 'not_answered')).length} remain unanswered by the archive. Findings do not close questions or replace confirmed answers.`,
+            `${questions.filter((q) => q.findings?.some((f) => f.coverage === 'partial')).length} سؤالاً لها إجابات جزئية من الأرشيف. ${questions.filter((q) => q.findings?.length && q.findings.every((f) => f.coverage === 'not_answered')).length} لم يجب عنها الأرشيف. النتائج لا تغلق الأسئلة ولا تستبدل الإجابات المؤكدة.`
+          )}
+        </p>
+      )}
       {error && (
         <div
           role="alert"
@@ -437,6 +458,19 @@ export function CatalogCollectionPanel({
                 <span className="mt-1 block text-sm" dir="auto">
                   {q.question}
                 </span>
+                {!!q.findings?.length && (
+                  <span className="text-muted-foreground mt-2 block text-xs">
+                    {q.findings.some((f) => f.coverage === 'partial')
+                      ? l(
+                          'Archive adds partial answers · confirmation still needed',
+                          'الأرشيف يضيف إجابات جزئية · ما زال التأكيد مطلوباً'
+                        )
+                      : l(
+                          'Archive reviewed · see findings and remaining questions',
+                          'تمت مراجعة الأرشيف · اعرض النتائج والأسئلة المتبقية'
+                        )}
+                  </span>
+                )}
                 {q.answer && (
                   <span
                     className="text-muted-foreground mt-2 block text-sm"
@@ -469,6 +503,50 @@ export function CatalogCollectionPanel({
               'حفظ الإجابة لا ينشرها للمساعد. راجعها ثم حدث المنتج المحدد أو مستند معرفة مخصص.'
             )}
           </p>
+          {!!editing.findings?.length && (
+            <section
+              className="space-y-3 border-b pb-4"
+              aria-label={l('Archive findings', 'نتائج الأرشيف')}
+            >
+              <h4 className="font-medium">
+                {l('What the findings answer', 'ما الذي تجيب عنه النتائج')}
+              </h4>
+              {editing.findings.map((f) => (
+                <div key={f.id} className="space-y-2 text-sm" dir="auto">
+                  <strong>
+                    {f.coverage === 'partial'
+                      ? l('Partial answer', 'إجابة جزئية')
+                      : f.coverage === 'answers'
+                        ? l(
+                            'Answer found · review required',
+                            'إجابة موجودة · تحتاج مراجعة'
+                          )
+                        : l('Still unanswered', 'لم تتم الإجابة بعد')}
+                  </strong>
+                  <p>{f.finding}</p>
+                  {f.remaining_question && (
+                    <p className="text-muted-foreground">
+                      {l('Still needed: ', 'ما زال مطلوباً: ')}
+                      {f.remaining_question}
+                    </p>
+                  )}
+                  <p className="text-muted-foreground break-all">
+                    {f.source?.record_key ??
+                      l(
+                        'Restricted source reference',
+                        'مرجع المصدر مقيد الصلاحية'
+                      )}
+                  </p>
+                </div>
+              ))}
+              <Link
+                href="/settings?tab=products&catalog=sources"
+                className="text-sm underline"
+              >
+                {l('Review original sources', 'مراجعة المصادر الأصلية')}
+              </Link>
+            </section>
+          )}
           <div className="space-y-2">
             <Label htmlFor="cq-product">{l('Product', 'المنتج')}</Label>
             <CatalogSelect

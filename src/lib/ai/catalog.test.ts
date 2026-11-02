@@ -20,6 +20,20 @@ describe('catalog review boundaries', () => {
     ];
     expect(approvedCatalogRows(rows).map((r) => r.id)).toEqual(['good']);
   });
+  it('excludes internal items and descendants even when marked approved', () => {
+    expect(
+      approvedCatalogRows([
+        { id: 'internal', status: 'approved', customer_visible: false },
+        {
+          id: 'child',
+          parent_id: 'internal',
+          status: 'approved',
+          customer_visible: true,
+        },
+        { id: 'public', status: 'approved', customer_visible: true },
+      ]).map((p) => p.id)
+    ).toEqual(['public']);
+  });
   it('requires a complete range and unit on the exact product', () => {
     expect(
       catalogPriceError({

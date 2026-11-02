@@ -18,6 +18,7 @@ import {
   catalogPriceError,
   type CatalogKind,
   type ReviewStatus,
+  type InventoryType,
 } from '@/lib/ai/catalog';
 import { CatalogSelect } from './catalog-select';
 import type { Product } from './product-catalog-types';
@@ -40,6 +41,15 @@ export function ProductCatalogForm({
   const ar = useLocale() === 'ar';
   const l = (en: string, arabic: string) => (ar ? arabic : en);
   const [tab, setTab] = useState('details');
+  const [inventoryType, setInventoryType] = useState<InventoryType>(
+    product?.inventory_type ?? 'product'
+  );
+  const [sku, setSku] = useState(product?.sku ?? '');
+  const [nameAr, setNameAr] = useState(product?.name_ar ?? '');
+  const [unit, setUnit] = useState(product?.unit_of_measure ?? '');
+  const [customerVisible, setCustomerVisible] = useState(
+    product?.customer_visible ?? true
+  );
   const [name, setName] = useState(product?.name ?? '');
   const [tagLabel, setTagLabel] = useState(product?.tag_label ?? '');
   const [description, setDescription] = useState(product?.description ?? '');
@@ -81,6 +91,11 @@ export function ProductCatalogForm({
   const save = async () => {
     const payload = {
       name: name.trim(),
+      inventory_type: inventoryType,
+      sku: sku.trim() || null,
+      name_ar: nameAr.trim() || null,
+      unit_of_measure: unit || null,
+      customer_visible: customerVisible,
       description: description.trim(),
       tag_label: tagLabel.trim(),
       kind,
@@ -231,6 +246,81 @@ export function ProductCatalogForm({
         className="space-y-5"
       >
         {field('product-name', l('Product name', 'اسم المنتج'), name, setName)}
+        <p className="text-muted-foreground text-sm">
+          {l(
+            'This shared record is used by knowledge and future quotations. Issued quotations keep their saved details.',
+            'هذا السجل مشترك بين المعرفة والعروض الجديدة. تحتفظ العروض الصادرة بتفاصيلها المحفوظة.'
+          )}
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {field(
+            'inventory-sku',
+            l('Item code / SKU', 'كود الصنف'),
+            sku,
+            setSku
+          )}
+          {field(
+            'product-name-ar',
+            l('Arabic name', 'الاسم بالعربية'),
+            nameAr,
+            setNameAr
+          )}
+          <div className="space-y-2">
+            <Label htmlFor="inventory-type">
+              {l('Inventory category', 'تصنيف المخزون')}
+            </Label>
+            <CatalogSelect
+              id="inventory-type"
+              value={inventoryType}
+              disabled={!canEdit || saving}
+              onChange={(e) => {
+                const t = e.target.value as InventoryType;
+                setInventoryType(t);
+                if (t === 'component') setCustomerVisible(false);
+              }}
+            >
+              {[
+                ['product', 'Finished product', 'منتج نهائي'],
+                ['component', 'Internal component', 'مكون داخلي'],
+                ['equipment', 'Equipment', 'معدات'],
+                ['service', 'Service', 'خدمة'],
+              ].map(([v, en, ar]) => (
+                <option key={v} value={v}>
+                  {l(en, ar)}
+                </option>
+              ))}
+            </CatalogSelect>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="inventory-unit">
+              {l('Quantity unit', 'وحدة الكمية')}
+            </Label>
+            <CatalogSelect
+              id="inventory-unit"
+              value={unit}
+              disabled={!canEdit || saving}
+              onChange={(e) => setUnit(e.target.value)}
+            >
+              <option value="">{l('Not confirmed', 'غير مؤكدة')}</option>
+              {['piece', 'm', 'm2', 'pair', 'set', 'job'].map((u) => (
+                <option key={u}>{u}</option>
+              ))}
+            </CatalogSelect>
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={customerVisible}
+            disabled={!canEdit || saving}
+            onChange={(e) => setCustomerVisible(e.target.checked)}
+          />
+          {l(
+            'Eligible for customer knowledge and quotation selection after approval',
+            'متاح لمعرفة العملاء واختيار العروض بعد الاعتماد'
+          )}
+        </label>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="product-kind">

@@ -1,6 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { SourceBrowser } from '@/components/quotations/knowledge/source-browser';
+import { ProductSourceLinks } from './product-source-links';
 import { useLocale } from 'next-intl';
 import { toast } from 'sonner';
 import {
@@ -29,6 +32,16 @@ import { CatalogCollectionPanel } from './catalog-collection-panel';
 import type { Product } from './product-catalog-types';
 
 export function ProductCatalogPanel() {
+  return (
+    <Suspense fallback={null}>
+      <ProductCatalogContent />
+    </Suspense>
+  );
+}
+function ProductCatalogContent() {
+  const params = useSearchParams();
+  const initialId = params.get('product');
+  const initialSection = params.get('catalog');
   const { accountId, accountRole, profileLoading } = useAuth();
   const canEdit = accountRole ? canEditSettings(accountRole) : false;
   const ar = useLocale() === 'ar';
@@ -36,7 +49,7 @@ export function ProductCatalogPanel() {
   const [items, setItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selection, setSelection] = useState<string | null>(null);
+  const [selection, setSelection] = useState<string | null>(initialId);
   const editorRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (selection && window.matchMedia('(max-width: 1279px)').matches)
@@ -44,8 +57,22 @@ export function ProductCatalogPanel() {
   }, [selection]);
   const [newParent, setNewParent] = useState('');
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('approved');
-  const [section, setSection] = useState('products');
+  const [filter, setFilter] = useState(initialId ? 'all' : 'approved');
+  const [inventoryFilter, setInventoryFilter] = useState('all');
+  const [section, setSection] = useState(
+    ['products', 'collection', 'company', 'sources'].includes(
+      initialSection ?? ''
+    )
+      ? initialSection!
+      : 'products'
+  );
+  useEffect(() => {
+    if (
+      initialSection &&
+      ['products', 'collection', 'company', 'sources'].includes(initialSection)
+    )
+      setSection(initialSection);
+  }, [initialSection]);
   const [importing, setImporting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const fetchItems = useCallback(async (signal?: AbortSignal) => {
@@ -68,11 +95,11 @@ export function ProductCatalogPanel() {
     if (!accountId) return;
     const controller = new AbortController();
     setItems([]);
-    setSelection(null);
+    setSelection(initialId);
     setLoading(true);
     void fetchItems(controller.signal);
     return () => controller.abort();
-  }, [accountId, fetchItems]);
+  }, [accountId, fetchItems, initialId]);
   const reload = () => fetchItems();
   const remove = async (id: string) => {
     try {
@@ -114,7 +141,9 @@ export function ProductCatalogPanel() {
   const selected = items.find((p) => p.id === selection);
   const visibleToAi = new Set(approvedCatalogRows(items).map((p) => p.id));
   const matches = (p: Product) =>
-    `${p.name} ${p.aliases?.join(' ')} ${p.description}`
+    (inventoryFilter === 'all' ||
+      (p.inventory_type ?? 'product') === inventoryFilter) &&
+    `${p.name} ${p.sku ?? ''} ${p.aliases?.join(' ')} ${p.description}`
       .toLocaleLowerCase()
       .includes(search.toLocaleLowerCase()) &&
     (filter === 'all' ||
@@ -145,7 +174,7 @@ export function ProductCatalogPanel() {
     <section
       className="min-w-0 space-y-6"
       aria-label={l(
-        'Company knowledge and products',
+        'Knowledge, products and inventory',
         'معلومات الشركة والمنتجات'
       )}
     >
@@ -155,7 +184,10 @@ export function ProductCatalogPanel() {
             {l('Assistant workspace', 'مساحة عمل المساعد')}
           </p>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-            {l('Knowledge & products', 'المعرفة والمنتجات')}
+            {l(
+              'Knowledge, products and inventory',
+              'المعرفة والمنتجات والمخزون'
+            )}
           </h2>
           <p className="text-muted-foreground mt-2 max-w-xl text-sm leading-relaxed">
             {l(
@@ -178,7 +210,11 @@ export function ProductCatalogPanel() {
         {[
           ['products', l('Products', 'المنتجات')],
           ['company', l('Knowledge library', 'مكتبة المعرفة')],
-          ['collection', l('Collect information', 'استكمال المعلومات')],
+          [
+            'collection',
+            l('Open questions & findings', 'الأسئلة المفتوحة والنتائج'),
+          ],
+          ['sources', l('Sources & pricing', 'المصادر والأسعار')],
           ['research', l('HTH research', 'مراجع هاي تك')],
         ].map(([id, label]) => (
           <Button
@@ -192,6 +228,7 @@ export function ProductCatalogPanel() {
           </Button>
         ))}
       </nav>
+      {section === 'sources' && <SourceBrowser />}
       {section === 'collection' && (
         <CatalogCollectionPanel
           key={accountId}
@@ -258,6 +295,31 @@ export function ProductCatalogPanel() {
             ))}
           </div>
         </div>
+      )}
+      {section === 'products' && (
+        <label className="flex flex-wrap items-center gap-2 text-sm">
+          {l('Inventory category', 'تصنيف المخزون')}
+          <select
+            className="bg-background rounded-md border p-2"
+            value={inventoryFilter}
+            onChange={(e) => {
+              setInventoryFilter(e.target.value);
+              if (e.target.value !== 'all') setFilter('all');
+            }}
+          >
+            {[
+              ['all', 'All inventory', 'كل الأصناف'],
+              ['product', 'Finished products', 'منتجات نهائية'],
+              ['component', 'Internal components', 'مكونات داخلية'],
+              ['equipment', 'Equipment', 'معدات'],
+              ['service', 'Services', 'خدمات'],
+            ].map(([v, en, ar]) => (
+              <option key={v} value={v}>
+                {l(en, ar)}
+              </option>
+            ))}
+          </select>
+        </label>
       )}
       {section === 'products' && (
         <>
@@ -417,7 +479,11 @@ export function ProductCatalogPanel() {
               ref={editorRef}
               className="border-border bg-card min-w-0 scroll-mt-6 rounded-2xl border p-5 sm:p-6"
             >
-              {!selection ? (
+              {loading || profileLoading ? (
+                <p role="status">
+                  {l('Loading product…', 'جارٍ تحميل المنتج…')}
+                </p>
+              ) : !selection ? (
                 <div className="flex min-h-80 flex-col items-start justify-center">
                   <FolderOpen className="text-primary mb-5 size-7" />
                   <h3 className="text-lg font-medium">
@@ -479,6 +545,10 @@ export function ProductCatalogPanel() {
                   />
                   {selected && (
                     <div className="border-border mt-7 border-t pt-5">
+                      <ProductSourceLinks
+                        key={selected.id}
+                        productId={selected.id}
+                      />
                       <CustomerGuideEditor
                         key={`${accountId}-${selected.id}`}
                         productId={selected.id}

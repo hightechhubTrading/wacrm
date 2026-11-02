@@ -25,6 +25,18 @@ export function KnowledgeLibrary() {
           : 'Review products, prices, components, specifications and job history before use. Original values are preserved and each review is recorded.'}
       </p>
       <div className="flex flex-wrap gap-3">
+        <Link
+          href="/settings?tab=products"
+          className="rounded border px-3 py-2"
+        >
+          {ar ? 'المخزون المشترك للمنتجات' : 'Shared product inventory'}
+        </Link>
+        <Link
+          href="/settings?tab=products&catalog=collection"
+          className="rounded border px-3 py-2"
+        >
+          {ar ? 'الأسئلة المفتوحة والنتائج' : 'Open questions and findings'}
+        </Link>
         <button
           className="rounded border px-3 py-2"
           aria-pressed={!history && !followups}

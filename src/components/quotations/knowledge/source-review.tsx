@@ -28,9 +28,13 @@ export function SourceReview({
   useEffect(() => {
     const c = new AbortController();
     const timer = setTimeout(() => {
-      fetch('/api/catalog-items?q=' + encodeURIComponent(catalogQuery), {
-        signal: c.signal,
-      })
+      fetch(
+        '/api/catalog-items?includeDraft=true&q=' +
+          encodeURIComponent(catalogQuery),
+        {
+          signal: c.signal,
+        }
+      )
         .then((r) => (r.ok ? r.json() : []))
         .then(setCatalogRows)
         .catch(() => {});

@@ -1,6 +1,15 @@
+export interface CatalogQuestionFinding {
+  id: string;
+  source_record_id: string;
+  coverage: 'partial' | 'answers' | 'not_answered';
+  finding: string;
+  remaining_question: string;
+  source?: { source: string; source_row: number; record_key: string };
+}
 /** Collection answers are staff work, never approved product evidence. */
 export interface CatalogQuestion {
   id: string;
+  findings?: CatalogQuestionFinding[];
   product_id: string | null;
   question: string;
   answer: string;
