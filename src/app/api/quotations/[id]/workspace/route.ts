@@ -1,3 +1,4 @@
+import { verifyKnowledgeSnapshots } from '@/lib/quotations/knowledge/server';
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import {
@@ -20,6 +21,25 @@ export async function PUT(
         { error: invalid ?? 'invalidDraft' },
         { status: 400 }
       );
+    const { data: previous } = await ctx.supabase
+      .from('quotations')
+      .select('document_details')
+      .eq('id', id)
+      .eq('account_id', ctx.accountId)
+      .maybeSingle();
+    if (!previous)
+      return NextResponse.json(
+        { error: 'Quotation not found' },
+        { status: 404 }
+      );
+    const sourceError = await verifyKnowledgeSnapshots(
+      ctx.supabase,
+      ctx.accountId,
+      body.draft,
+      previous.document_details?.knowledge
+    );
+    if (sourceError)
+      return NextResponse.json({ error: sourceError }, { status: 400 });
     const { error } = await ctx.supabase.rpc('save_quotation_workspace', {
       p_id: id,
       p_version: body.version,

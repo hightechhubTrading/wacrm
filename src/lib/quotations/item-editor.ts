@@ -1,6 +1,7 @@
 import type { QuotationItemToSave } from './crud';
 
 export const PRODUCT_STARTERS = [
+  { key: 'windowShutter', en: 'Window shutter', ar: 'شتر نافذة' },
   { key: 'pivotDoor', en: 'Pivot door', ar: 'باب محوري' },
   { key: 'rollerShutter', en: 'Roll-up shutter', ar: 'باب رول' },
   {

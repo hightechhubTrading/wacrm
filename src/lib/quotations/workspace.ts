@@ -10,6 +10,8 @@ import type {
   QuotationDocumentDetails,
   QuotationItem,
 } from './types';
+import { validQuotationKnowledge } from './knowledge/validation';
+import { knowledgeExportError } from './knowledge/calculations';
 
 export type QuotationWithItems = Quotation & { items: QuotationItem[] };
 export interface QuotationDraft {
@@ -168,7 +170,8 @@ export type DraftError =
   | 'areaDimensionsRequired'
   | 'validityRequired'
   | 'termsRequired'
-  | 'unsupportedCurrency';
+  | 'unsupportedCurrency'
+  | 'staleKnowledgePrice';
 const uuid =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const finite = (n: unknown): n is number =>
@@ -233,10 +236,12 @@ export function validateDraft(
         'shopDrawingDays',
         'paymentSchedule',
         'commercialPreset',
+        'knowledge',
       ].includes(key)
     )
       return 'invalidDraft';
     if (
+      key !== 'knowledge' &&
       key !== 'shopDrawingDays' &&
       key !== 'paymentSchedule' &&
       (typeof val !== 'string' || val.length > 10000)
@@ -248,6 +253,11 @@ export function validateDraft(
     (!finite(details.shopDrawingDays) ||
       details.shopDrawingDays < 0 ||
       !Number.isInteger(details.shopDrawingDays))
+  )
+    return 'invalidDraft';
+  if (
+    details.knowledge !== undefined &&
+    !validQuotationKnowledge(details.knowledge)
   )
     return 'invalidDraft';
   const ids = new Set<string>();
@@ -358,6 +368,8 @@ export function validateDraft(
       return 'invalidSchedule';
   }
   if (forExport) {
+    if (knowledgeExportError(d.items, details.knowledge))
+      return 'staleKnowledgePrice';
     if (currency !== 'QAR') return 'unsupportedCurrency';
     if (!d.clientName.trim() && !d.clientCompany.trim())
       return 'customerRequired';

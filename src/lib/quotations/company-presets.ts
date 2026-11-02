@@ -79,6 +79,12 @@ export function specificationPresetsForItem(item: QuotationItemToSave) {
       .replace(/[^\p{L}\p{N}]+/gu, ' ')
       .trim()
   );
+  // Window shutters use aluminium profiles and their own reviewed presets.
+  // The generic English word "shutter" must not select a steel roll-door example.
+  if (
+    names.some((name) => /\bwindow\s+shutters?\b|(?:نوافذ|نافذة)/u.test(name))
+  )
+    return [];
   const matches = SPECIFICATION_PRESETS.filter((preset) =>
     names.some((name) => PRESET_PRODUCT_NAMES[preset.key].test(name))
   );
@@ -176,6 +182,45 @@ export function changeComponentKind(
 }
 export const COMMERCIAL_PRESETS = [
   {
+    key: 'archiveVillaTerms',
+    validityDays: 10,
+    deliveryTerms:
+      'Proposed delivery: 10–20 days from receipt of the advance payment; confirm for this order.\nمدة مقترحة: 10–20 يوماً من استلام الدفعة المقدمة؛ تُؤكد لهذا الطلب.',
+    warrantyTerms: undefined,
+    schedule: {
+      advance: 100,
+      delivery: 0,
+      completion: 0,
+      deliveryTrigger: 'on_delivery' as const,
+    },
+  },
+  {
+    key: 'archiveFabricatedTerms',
+    validityDays: 10,
+    deliveryTerms:
+      'Delivery period to be confirmed for this product and scope, from receipt of the advance payment.\nتُؤكد مدة التسليم حسب المنتج ونطاق العمل من تاريخ استلام الدفعة المقدمة.',
+    warrantyTerms: undefined,
+    schedule: {
+      advance: 70,
+      delivery: 0,
+      completion: 30,
+      deliveryTrigger: 'on_delivery' as const,
+    },
+  },
+  {
+    key: 'archiveContractorTerms',
+    validityDays: 10,
+    deliveryTerms:
+      'Delivery programme to be agreed for the project, including advance payment and drawing approval prerequisites.\nيُتفق على برنامج التسليم للمشروع مع تحديد متطلبات الدفعة المقدمة واعتماد المخططات.',
+    warrantyTerms: undefined,
+    schedule: {
+      advance: 60,
+      delivery: 30,
+      completion: 10,
+      deliveryTrigger: 'on_delivery' as const,
+    },
+  },
+  {
     key: 'shutterTerms',
     deliveryTerms:
       '5–7 days after receiving the advance payment.\n5–7 أيام بعد استلام الدفعة المقدمة.',
@@ -209,7 +254,10 @@ export function applyCommercialPreset(
   const preset = COMMERCIAL_PRESETS.find((p) => p.key === key);
   if (!preset) return draft;
   const validUntil = new Date(`${today}T12:00:00Z`);
-  validUntil.setUTCDate(validUntil.getUTCDate() + 15);
+  validUntil.setUTCDate(
+    validUntil.getUTCDate() +
+      ('validityDays' in preset ? preset.validityDays : 15)
+  );
   return {
     ...draft,
     deliveryTerms: preset.deliveryTerms,

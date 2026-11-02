@@ -34,6 +34,8 @@ import type {
   QuotationDocumentDetails,
   QuotationStatus,
 } from '@/lib/quotations/types';
+import { QuotationFollowup } from './knowledge/quotation-followup';
+import { QuotationKnowledgePanel } from './knowledge/quotation-knowledge-panel';
 import { WorkspaceItems } from './workspace-items';
 import { QuotationDatePicker } from './quotation-date-picker';
 import {
@@ -775,6 +777,7 @@ export function QuotationWorkspace({
           {quotation.currency} {money(totals.total)}
         </strong>
       </div>
+      <QuotationFollowup key={quotation.id} quotationId={quotation.id} />
       <div className="qw-columns">
         <main
           className={`qw-editor ${mobileView === 'preview' ? 'qw-mobile-hidden' : ''}`}
@@ -919,6 +922,11 @@ export function QuotationWorkspace({
               onChange={(items) => setField('items', items)}
               disabled={disabled}
               currency={quotation.currency}
+            />
+            <QuotationKnowledgePanel
+              draft={draft}
+              onChange={setDraft}
+              disabled={disabled}
             />
             <div className="qw-totals">
               <div className="qw-order-discount">

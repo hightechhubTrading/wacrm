@@ -193,6 +193,30 @@ export async function checkDeploymentDatabase({
     throw new Error(
       'Database preflight failed for activity write authorization. Apply migration 089 before deploying this revision.'
     );
+  for (const [table, columns] of [
+    ['quotation_knowledge_batches', 'id,account_id,source_version,sources'],
+    [
+      'quotation_knowledge_records',
+      'id,account_id,batch_id,review_status,review_version,configuration',
+    ],
+    ['quotation_knowledge_reviews', 'record_id,version,status,configuration'],
+    [
+      'quotation_sales_notes',
+      'quotation_id,account_id,reason,follow_up_date,version',
+    ],
+  ]) {
+    const endpoint = new URL('/rest/v1/' + table, url);
+    endpoint.searchParams.set('select', columns);
+    endpoint.searchParams.set('limit', '0');
+    const response = await fetchImpl(endpoint, {
+      headers,
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok)
+      throw new Error(
+        'Database preflight failed for quotation knowledge. Apply migration 090 before deploying this revision.'
+      );
+  }
 }
 
 /** Signature/cache checks without a customer/account/user identity. Service-role

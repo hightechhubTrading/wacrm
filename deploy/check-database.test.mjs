@@ -37,7 +37,7 @@ test('accepts the required columns and denied identity-free conversion probe', a
       return validFetch(url);
     },
   });
-  assert.equal(requests.length, 23);
+  assert.equal(requests.length, 27);
   for (const r of requests.slice(0, 8))
     assert.equal(r.url.searchParams.get('limit'), '0');
   assert.equal(JSON.parse(requests[8].init.body).p_conversation_id, null);
@@ -265,3 +265,22 @@ test('rejects an unexpectedly writable identity-free activity probe', async () =
     /migration 089/
   );
 });
+
+for (const table of [
+  'quotation_knowledge_batches',
+  'quotation_knowledge_records',
+  'quotation_knowledge_reviews',
+  'quotation_sales_notes',
+])
+  test('rejects missing ' + table + ' before promotion', async () => {
+    await assert.rejects(
+      checkDeploymentDatabase({
+        ...options,
+        fetchImpl: async (url) =>
+          new URL(url).pathname.endsWith('/' + table)
+            ? new Response('{}', { status: 404 })
+            : validFetch(url),
+      }),
+      /migration 090/
+    );
+  });

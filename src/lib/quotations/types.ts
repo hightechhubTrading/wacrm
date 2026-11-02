@@ -2,6 +2,7 @@
 export type QuotationStatus = 'draft' | 'sent' | 'won' | 'lost' | 'expired';
 
 export interface QuotationDocumentDetails {
+  knowledge?: import('./knowledge/types').QuotationKnowledge;
   consultant?: string;
   subjectAr?: string;
   included?: string;

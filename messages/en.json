@@ -3025,7 +3025,12 @@
     "deleteShort": "Delete",
     "baseProductTotal": "Product total",
     "duplicateSection": "Duplicate section",
-    "deleteSection": "Delete section"
+    "deleteSection": "Delete section",
+    "windowShutter": "Window shutter",
+    "staleKnowledgePrice": "Reapply the source price after dimension changes, or record a manual override.",
+    "archiveVillaTerms": "Archive villa suggestion · 100% advance, review delivery, 10-day validity",
+    "archiveFabricatedTerms": "Archive fabrication suggestion · 70% / 30%, confirm delivery",
+    "archiveContractorTerms": "Archive contractor suggestion · 60% / 30% / 10%, project programme"
   },
   "Calling": {
     "title": "WhatsApp calls",

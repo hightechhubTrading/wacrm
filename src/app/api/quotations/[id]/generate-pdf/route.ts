@@ -1,3 +1,4 @@
+import { verifyKnowledgeSnapshots } from '@/lib/quotations/knowledge/server';
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { generateQuotationPdf } from '@/lib/quotations/pdf';
@@ -31,32 +32,53 @@ export async function POST(_request: Request, { params }: Params) {
       .select('*, quotation_items(*)')
       .eq('id', id)
       .maybeSingle();
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    if (!row) return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    if (!row)
+      return NextResponse.json(
+        { error: 'Quotation not found' },
+        { status: 404 }
+      );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { quotation_items, ...quotationRow } = row as Record<string, any>;
     const quotation = mapQuotationRow(quotationRow);
     const items = (quotation_items ?? []).map(mapQuotationItemRow);
-    const invalid = validateDraft(draftFromQuotation({ ...quotation, items }, false), true, quotation.currency);
+    const invalid = validateDraft(
+      draftFromQuotation({ ...quotation, items }, false),
+      true,
+      quotation.currency
+    );
     if (invalid) return NextResponse.json({ error: invalid }, { status: 400 });
+
+    const sourceError = await verifyKnowledgeSnapshots(
+      ctx.supabase,
+      ctx.accountId,
+      draftFromQuotation({ ...quotation, items }, false),
+      undefined,
+      true
+    );
+    if (sourceError)
+      return NextResponse.json({ error: sourceError }, { status: 400 });
 
     // A quotation that's already been sent gets a bumped revision on
     // every re-generate, so a re-sent PDF is visibly distinct from the
     // one the client already has; a still-draft quotation keeps its
     // current revision.
-    const revision = quotation.status === 'sent' ? quotation.revision + 1 : quotation.revision;
+    const revision =
+      quotation.status === 'sent' ? quotation.revision + 1 : quotation.revision;
 
     const { storagePath, publicUrl } = await generateQuotationPdf(
       { ...quotation, revision },
-      items,
+      items
     );
 
     const { error: updateErr } = await ctx.supabase
       .from('quotations')
       .update({ pdf_storage_path: storagePath, revision })
       .eq('id', id);
-    if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 400 });
+    if (updateErr)
+      return NextResponse.json({ error: updateErr.message }, { status: 400 });
 
     return NextResponse.json({ storagePath, publicUrl, revision });
   } catch (err) {

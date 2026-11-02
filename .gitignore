@@ -60,3 +60,9 @@ supabase/.temp/
 
 # Also ignore a local build-cache symlink when the project drive is full.
 /.next
+
+# Private quotation archive import packs and browser evidence
+/.local/
+
+# Python importer test caches
+__pycache__/

@@ -49,6 +49,9 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Quotation source parsing tests
+        run: python3 scripts/test_prepare_hth_quotation_knowledge.py
+
       - name: Deployment database preflight tests
         run: node --test deploy/check-database.test.mjs
 

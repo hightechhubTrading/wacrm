@@ -269,6 +269,10 @@ describe('product-specific specification examples', () => {
     ).toEqual([key]);
   });
   it.each([
+    'Window shutter',
+    'Window shutters (aluminium roller)',
+    'شتر نافذة',
+    'نوافذ شتر',
     'UPVC door / window',
     'Door',
     'Sliding gate',

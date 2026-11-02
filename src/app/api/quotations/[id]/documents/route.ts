@@ -1,3 +1,4 @@
+import { verifyKnowledgeSnapshots } from '@/lib/quotations/knowledge/server';
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { generateQuotationPdf } from '@/lib/quotations/pdf';
@@ -58,6 +59,15 @@ export async function POST(
       return NextResponse.json({ error: 'conflict' }, { status: 409 });
     const invalid = validateDraft(draftFromQuotation(q), true, q.currency);
     if (invalid) return NextResponse.json({ error: invalid }, { status: 400 });
+    const sourceError = await verifyKnowledgeSnapshots(
+      ctx.supabase,
+      ctx.accountId,
+      draftFromQuotation(q, false),
+      undefined,
+      true
+    );
+    if (sourceError)
+      return NextResponse.json({ error: sourceError }, { status: 400 });
     const { data: existing } = await ctx.supabase
       .from('quotation_documents')
       .select('id,storage_path,revision')

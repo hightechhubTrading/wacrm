@@ -207,3 +207,12 @@ preflight/auth/public-browser/PDF checks passed; the previous app revision
 `1b0b4f9caef5418a746096634b3a29999838306d` remains `wacrm:rollback`.
 See [the experience release evidence](../docs/experience-execution.md#authorized-production-release--30-october-2026).
 The user authorized rollout separately from the team-owned staff/device pilot.
+
+## Quotation archive knowledge prerequisite
+
+The quotation findings integration requires **090_quotation_knowledge.sql** before
+promotion. Startup preflight checks its source batches, records, review audit and
+sales-note tables. Source import is a separate account-admin action, with every
+row initially pending. The private prepared pack is gitignored and must not be
+included in a Docker image or public repository. Implementation, test commands,
+review requirements and current rollout status: [quotation knowledge](../docs/quotation-knowledge.md).
