@@ -59,3 +59,5 @@ A reported 40% / 30% / 70% schedule exposed a gap in existing editor state. New 
 Migration 094 enforces the aggregate limit inside the existing document-details validator, including legacy schedules, so an older browser cannot persist an excessive total. It does not rewrite existing quotations. A live audit before the change found zero saved overallocated drafts. The migration transaction verified acceptance of 100% and rejection of 140%.
 
 Verification: 1,639 unit tests pass (68 skipped), production build, TypeScript and changed-file lint pass. Eight browser checks reproduce the loaded 40/30/70 case across English/Arabic, light/dark and mobile/desktop. Disposable database tests reject the same invalid payload.
+
+Loaded-allocation repair deployed at application revision `a74f7e43dc9b3bf6f53bc17ed554adecc92fd9ae`; migration 094 is recorded as `20261102233347`. Live revision and authentication checks pass; no candidate resources remain. Temporary SSH access is revoked, authentication denial verified, and keys deleted. Existing open tabs need a reload to use the new editor; the database guard protects their saves immediately.
