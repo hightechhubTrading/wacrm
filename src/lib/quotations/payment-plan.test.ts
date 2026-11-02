@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   paymentAmounts,
+  remainingPaymentShare,
+  capPaymentShare,
   mergePaymentOptions,
   paymentOptions,
   optionPlan,
@@ -110,4 +112,25 @@ describe('structured company payment terms', () => {
       paymentAmounts({ stages: [{ percent: 70, event: 'acceptance' }] }, 100)
     ).toEqual([70]);
   });
+});
+
+it('caps each instalment at the remaining allocation and rejects excessive totals even in drafts', () => {
+  const plan = {
+    stages: [
+      { percent: 70, event: 'acceptance' as const },
+      { percent: 30, event: 'delivery' as const },
+    ],
+  };
+  expect(remainingPaymentShare(plan, 0)).toBe(70);
+  expect(capPaymentShare(plan, 0, 85)).toBe(70);
+  expect(capPaymentShare(plan, 1, 999)).toBe(30);
+  expect(capPaymentShare(plan, 0, -1)).toBe(0);
+  expect(
+    validPaymentPlan({
+      stages: [...plan.stages, { percent: 1, event: 'completion' }],
+    })
+  ).toBe(false);
+  expect(
+    validPaymentPlan({ stages: [{ percent: 60, event: 'acceptance' }] })
+  ).toBe(true);
 });

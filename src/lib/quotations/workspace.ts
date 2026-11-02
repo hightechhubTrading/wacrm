@@ -441,6 +441,7 @@ export function validateDraft(
       return 'invalidSchedule';
     if (
       vals.some((v) => !finite(v) || v < 0 || v > 100) ||
+      vals.reduce((a, b) => a + b, 0) > 100 + 1e-8 ||
       (forExport && Math.abs(vals.reduce((a, b) => a + b, 0) - 100) > 0.001)
     )
       return 'invalidSchedule';

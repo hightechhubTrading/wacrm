@@ -433,6 +433,37 @@ try {
             }
           }
 
+          assert.equal(
+            await page
+              .getByRole('button', {
+                name: l('+ Add instalment', '+ إضافة دفعة'),
+                exact: true,
+              })
+              .isDisabled(),
+            true
+          );
+          const firstShare = page.getByLabel(l('Percentage', 'النسبة') + ' 1', {
+            exact: true,
+          });
+          if (scenario !== 'shutter') {
+            assert.equal(
+              await firstShare
+                .locator('option[value="100"]')
+                .evaluate((e) => e.disabled),
+              true
+            );
+            await firstShare.selectOption('custom');
+            const overflowShare = page.getByLabel(
+              l('Percentage', 'النسبة') + ' 1' + l(' — custom', ' — مخصص'),
+              { exact: true }
+            );
+            await overflowShare.fill('999');
+            assert.equal(
+              await overflowShare.inputValue(),
+              scenario === 'garage' ? '70' : '60'
+            );
+          }
+
           await page.evaluate(() => scrollTo(0, 0));
           await page.screenshot({
             path: path.join(

@@ -142,6 +142,26 @@ export function paymentOptionLabel(option: PaymentOption, ar = false): string {
   }
   return ar ? 'شروط دفع تحتاج إلى استكمال' : 'Payment terms to complete';
 }
+/** Maximum this instalment can take without changing any other instalment. */
+export function remainingPaymentShare(
+  plan: PaymentPlan,
+  index: number
+): number {
+  const allocated = plan.stages.reduce(
+    (sum, stage, i) => sum + (i === index ? 0 : stage.percent),
+    0
+  );
+  return Math.max(0, Math.round((100 - allocated) * 1e10) / 1e10);
+}
+export function capPaymentShare(
+  plan: PaymentPlan,
+  index: number,
+  value: number
+): number {
+  return Number.isFinite(value)
+    ? Math.min(remainingPaymentShare(plan, index), Math.max(0, value))
+    : 0;
+}
 export function validPaymentPlan(
   value: unknown,
   forIssue = false
@@ -173,6 +193,7 @@ export function validPaymentPlan(
     )
   )
     return false;
+  if (p.stages.reduce((n, s) => n + s.percent, 0) > 100 + 1e-8) return false;
   return (
     !forIssue ||
     (Math.abs(p.stages.reduce((n, s) => n + s.percent, 0) - 100) < 0.00000001 &&

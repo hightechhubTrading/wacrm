@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   PAYMENT_EVENTS,
+  capPaymentShare,
+  remainingPaymentShare,
   paymentAmounts,
   eventLabel,
   paymentOptionLabel,
@@ -42,7 +44,17 @@ export function PaymentPlanEditor({
     if (plan)
       onChange({
         ...plan,
-        stages: plan.stages.map((s, j) => (i === j ? { ...s, ...value } : s)),
+        stages: plan.stages.map((s, j) =>
+          i === j
+            ? {
+                ...s,
+                ...value,
+                ...(value.percent !== undefined
+                  ? { percent: capPaymentShare(plan, i, value.percent) }
+                  : {}),
+              }
+            : s
+        ),
       });
   }
   return (
@@ -136,6 +148,7 @@ export function PaymentPlanEditor({
                     <PercentageField
                       label={l('Percentage', 'النسبة') + ' ' + (i + 1)}
                       value={s.percent}
+                      maximum={remainingPaymentShare(plan, i)}
                       disabled={disabled}
                       onChange={(percent) => patch(i, { percent })}
                     />
@@ -200,7 +213,7 @@ export function PaymentPlanEditor({
               type="button"
               variant="ghost"
               size="sm"
-              disabled={disabled || plan.stages.length >= 12}
+              disabled={disabled || plan.stages.length >= 12 || sum >= 100}
               onClick={() =>
                 onChange({
                   ...plan,
@@ -246,11 +259,13 @@ export function PaymentPlanEditor({
 function PercentageField({
   label,
   value,
+  maximum,
   disabled,
   onChange,
 }: {
   label: string;
   value: number;
+  maximum: number;
   disabled: boolean;
   onChange: (value: number) => void;
 }) {
@@ -273,7 +288,7 @@ function PercentageField({
         }}
       >
         {shares.map((p) => (
-          <option key={p} value={p}>
+          <option key={p} value={p} disabled={p > maximum}>
             {p}
           </option>
         ))}
@@ -284,7 +299,7 @@ function PercentageField({
           aria-label={label + (ar ? ' — مخصص' : ' — custom')}
           type="number"
           min="0"
-          max="100"
+          max={maximum}
           step="any"
           value={value}
           disabled={disabled}

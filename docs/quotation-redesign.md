@@ -43,3 +43,9 @@ Commercial delivery/warranty choices now come from the selected product families
 Verification: 1,636 tests pass (68 skipped), TypeScript and production build pass, changed-file lint is clean, and 21st review reports no findings. The 24 editor journeys additionally verify prefilled delivery/warranty dropdowns and custom delivery edits surviving the dropdown transition and save.
 
 Commercial-term presets deployed at application revision `ebb130636c6382f008ebdd19c46280fc04f4ce89`. Exact live revision and public authentication checks pass; no candidate containers/environment files remain. Temporary SSH access was removed and authentication denial verified. Custom 17.5% entry was additionally checked through a full save/document journey.
+
+## Payment allocation limit
+
+Each instalment is capped at `100 − the other instalments`. Dropdown choices above that limit are disabled, custom input is clamped to it, and adding a payment is disabled at 100%. Reducing an existing share frees capacity without changing the other payments. Shared draft validation also rejects totals above 100%; issue still requires exactly 100% with defined milestones.
+
+Verification: 1,637 tests pass; TypeScript, production build and changed-file lint pass. Three complete shutter/garage/mixed browser journeys verify disabled excessive choices, custom `999%` capped to the remaining allocation, and the add-payment limit, followed by normal save/document generation.
