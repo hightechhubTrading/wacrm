@@ -29,3 +29,9 @@ The shared company catalogue now drives quotation selection, configuration, pric
 Migration 093 is additive and already applied with ledger version `20261102210635`. The first attempted catalogue transaction was rejected by the existing hierarchy constraint and fully rolled back; the final update preserves that hierarchy and enforces leaf-only quotation selection instead.
 
 Application deployment verification is recorded after promotion; private logs are under `.local/quotation-redesign` and are excluded from the repository.
+
+## Live rollout
+
+Application revision `11d5286dfde948b5d72e1a9485156ef4885f5c85` is deployed at https://wacrm.srv1795091.hstgr.cloud. The resource-capped updater completed its candidate checks, database preflight and promotion. Exact live revision verification passed. Login returns 200, the protected quotations page redirects to login, and signed-out quotation/catalogue APIs return 401. No candidate containers or candidate environment files remain; the private source pack is absent from the image.
+
+The post-deployment comparison confirms all 9 quotations, 11 line items, 3 issued documents, 46 questions and 6,756 source-record review states remain unchanged. Temporary SSH access was removed, subsequent authentication was denied and local temporary keys were deleted. The previous application image remains available as `wacrm:rollback`.
