@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useLocale } from 'next-intl';
 import { Download, Plus, Loader2 } from 'lucide-react';
@@ -40,6 +40,13 @@ export function CatalogCollectionPanel({
   const l = (en: string, arabic: string) => (ar ? arabic : en);
   const [questions, setQuestions] = useState<CatalogQuestion[]>([]);
   const [editing, setEditing] = useState<CatalogQuestion | null>(null);
+  const editorRef = useRef<HTMLFormElement>(null);
+  const editingId = editing?.id;
+  useEffect(() => {
+    if (!editingId) return;
+    editorRef.current?.focus({ preventScroll: true });
+    editorRef.current?.scrollIntoView({ block: 'start' });
+  }, [editingId]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -491,7 +498,10 @@ export function CatalogCollectionPanel({
       )}
       {editing && (
         <form
-          className="border-border space-y-4 rounded-xl border p-5"
+          ref={editorRef}
+          tabIndex={-1}
+          aria-label={l('Question and findings', 'السؤال والنتائج')}
+          className="border-border scroll-mt-6 space-y-4 rounded-xl border p-5"
           onSubmit={(e) => {
             e.preventDefault();
             void save();

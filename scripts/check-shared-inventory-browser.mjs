@@ -224,6 +224,12 @@ try {
         await page
           .getByText('Archive has O390 and P350; neither column is confirmed.')
           .waitFor();
+        assert.equal(
+          await page.evaluate(() =>
+            document.activeElement?.getAttribute('aria-label')
+          ),
+          locale === 'ar' ? 'السؤال والنتائج' : 'Question and findings'
+        );
         assert.equal(await page.locator('#cq-answer').inputValue(), '');
         assert.equal(await page.locator('#cq-status').inputValue(), 'open');
         assert.ok(

@@ -11,7 +11,10 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 if (
   !uuid.test(plan.accountId) ||
   !uuid.test(plan.userId) ||
-  !/^[a-f0-9]{64}$/.test(plan.sourceVersion)
+  !/^[a-f0-9]{64}$/.test(plan.sourceVersion) ||
+  !Number.isSafeInteger(plan.sourceCount) ||
+  plan.sourceCount < 1 ||
+  plan.sourceCount > 1000000
 )
   throw Error('Invalid account, actor or source version');
 for (const p of plan.products)
