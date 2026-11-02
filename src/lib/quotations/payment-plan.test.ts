@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   paymentAmounts,
+  fitPaymentPlan,
   remainingPaymentShare,
   capPaymentShare,
   mergePaymentOptions,
@@ -133,4 +134,19 @@ it('caps each instalment at the remaining allocation and rejects excessive total
   expect(
     validPaymentPlan({ stages: [{ percent: 60, event: 'acceptance' }] })
   ).toBe(true);
+});
+
+it('repairs the reported 40 / 30 / 70 draft to 40 / 30 / 30 without changing milestones', () => {
+  const plan = {
+    stages: [
+      { percent: 40, event: 'acceptance' as const },
+      { percent: 30, event: 'before_installation' as const },
+      { percent: 70, event: 'unspecified' as const },
+    ],
+  };
+  expect(fitPaymentPlan(plan).stages.map((s) => s.percent)).toEqual([
+    40, 30, 30,
+  ]);
+  expect(plan.stages[2].percent).toBe(70);
+  expect(fitPaymentPlan(plan).stages[2].event).toBe('unspecified');
 });

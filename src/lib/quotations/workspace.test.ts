@@ -279,3 +279,34 @@ describe('area-priced document validation and output', () => {
     expect(validateDraft(d)).toBe('invalidItem');
   });
 });
+
+it('repairs loaded overallocated drafts but preserves stored baselines and issued snapshots', () => {
+  const over = {
+    ...quote,
+    documentDetails: {
+      paymentPlan: {
+        stages: [
+          { percent: 40, event: 'acceptance' as const },
+          { percent: 30, event: 'before_installation' as const },
+          { percent: 70, event: 'unspecified' as const },
+        ],
+      },
+    },
+  };
+  expect(
+    draftFromQuotation(over).documentDetails.paymentPlan?.stages.map(
+      (s) => s.percent
+    )
+  ).toEqual([40, 30, 30]);
+  expect(
+    draftFromQuotation(over, false).documentDetails.paymentPlan?.stages.map(
+      (s) => s.percent
+    )
+  ).toEqual([40, 30, 70]);
+  expect(
+    draftFromQuotation({
+      ...over,
+      status: 'sent',
+    }).documentDetails.paymentPlan?.stages.map((s) => s.percent)
+  ).toEqual([40, 30, 70]);
+});

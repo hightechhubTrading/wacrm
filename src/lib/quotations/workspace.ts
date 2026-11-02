@@ -1,3 +1,4 @@
+import { fitPaymentPlan } from './payment-plan';
 import {
   validPaymentPlan,
   legacyPaymentPlan,
@@ -81,6 +82,9 @@ export function draftFromQuotation(
       if (options.length === 1)
         documentDetails.paymentPlan = optionPlan(options[0]);
     }
+  }
+  if (q.status === 'draft' && applyDefaults && documentDetails.paymentPlan) {
+    documentDetails.paymentPlan = fitPaymentPlan(documentDetails.paymentPlan);
   }
   const validity = new Date(
     `${new Date(q.createdAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Qatar' })}T12:00:00Z`

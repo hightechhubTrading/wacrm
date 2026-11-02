@@ -162,6 +162,20 @@ export function capPaymentShare(
     ? Math.min(remainingPaymentShare(plan, index), Math.max(0, value))
     : 0;
 }
+/** Repair an old overallocated draft, preserving earlier instalments in their entered order. */
+export function fitPaymentPlan(plan: PaymentPlan): PaymentPlan {
+  let available = 100;
+  return {
+    ...plan,
+    stages: plan.stages.map((stage) => {
+      const percent = Number.isFinite(stage.percent)
+        ? Math.min(available, Math.max(0, stage.percent))
+        : stage.percent;
+      available = Math.max(0, Math.round((available - percent) * 1e10) / 1e10);
+      return { ...stage, percent };
+    }),
+  };
+}
 export function validPaymentPlan(
   value: unknown,
   forIssue = false

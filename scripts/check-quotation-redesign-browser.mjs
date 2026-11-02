@@ -143,6 +143,14 @@ try {
             },
             items: [],
           };
+          if (process.env.QUOTATION_OVERALLOCATION)
+            initial.documentDetails.paymentPlan = {
+              stages: [
+                { percent: 40, event: 'acceptance' },
+                { percent: 30, event: 'before_installation' },
+                { percent: 70, event: 'unspecified' },
+              ],
+            };
           let saved = null;
           let previewRequests = 0;
           let current = initial;
@@ -219,6 +227,48 @@ try {
             t = messages.QuotationWorkspace,
             l = (en, a) => (locale === 'ar' ? a : en);
           await page.goto(server.resolvedUrls.local[0]);
+          if (process.env.QUOTATION_OVERALLOCATION) {
+            await page
+              .getByRole('button', { name: new RegExp(t.commercialTerms) })
+              .first()
+              .click();
+            for (const [i, value] of [
+              [1, '40'],
+              [2, '30'],
+              [3, '30'],
+            ]) {
+              assert.equal(
+                await page
+                  .getByLabel(l('Percentage', 'النسبة') + ' ' + i, {
+                    exact: true,
+                  })
+                  .inputValue(),
+                value
+              );
+            }
+            assert.equal(
+              await page
+                .getByRole('button', {
+                  name: l('+ Add instalment', '+ إضافة دفعة'),
+                  exact: true,
+                })
+                .isDisabled(),
+              true
+            );
+            await page
+              .getByRole('status')
+              .filter({
+                hasText: l(
+                  'The previous schedule exceeded',
+                  'تجاوز الجدول السابق'
+                ),
+              })
+              .waitFor();
+            await page.close();
+            cases++;
+            continue;
+          }
+
           await page
             .getByRole('button', { name: new RegExp(t.productsServices) })
             .first()
@@ -585,7 +635,9 @@ try {
         }
   assert.deepEqual(failures, []);
   console.log(
-    `${cases} full workspace journeys passed: product selection, correct rate/unit, dimensions, included equipment, structured payments, saved snapshots and customer documents. No live writes.`
+    process.env.QUOTATION_OVERALLOCATION
+      ? `${cases} loaded-overallocation repair checks passed, including Arabic/mobile/dark states. No live writes.`
+      : `${cases} full workspace journeys passed: product selection, correct rate/unit, dimensions, included equipment, structured payments, saved snapshots and customer documents. No live writes.`
   );
 } catch (error) {
   if (browser)

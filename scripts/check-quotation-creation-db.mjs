@@ -35,6 +35,15 @@ try {
     )
   );
   await db.exec(
+    await readFile(
+      new URL(
+        '../supabase/migrations/094_quotation_payment_allocation_limit.sql',
+        import.meta.url
+      ),
+      'utf8'
+    )
+  );
+  await db.exec(
     'CREATE TRIGGER check_details BEFORE INSERT OR UPDATE OF document_details ON quotations FOR EACH ROW EXECUTE FUNCTION validate_quotation_document_details()'
   );
   const seed = {
@@ -75,6 +84,15 @@ try {
     { paymentPlan: { stages: [{ percent: 100, event: 'invented' }] } },
     { paymentPlan: { stages: [{ percent: '100', event: 'acceptance' }] } },
     { paymentPlan: { stages: [] } },
+    {
+      paymentPlan: {
+        stages: [
+          { percent: 40, event: 'acceptance' },
+          { percent: 30, event: 'before_installation' },
+          { percent: 70, event: 'unspecified' },
+        ],
+      },
+    },
     { itemOptions: { foreign: { drawingReference: 'W-01' } } },
     { itemOptions: { [item]: { selections: { finish: 12 } } } },
     { itemOptions: { [item]: { unexpected: true } } },

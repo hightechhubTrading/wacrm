@@ -12,6 +12,7 @@ import {
 import { PaymentPlanEditor } from './payment-plan-editor';
 import {
   validPaymentPlan,
+  fitPaymentPlan,
   type PaymentOption,
 } from '@/lib/quotations/payment-plan';
 import {
@@ -1098,6 +1099,19 @@ export function QuotationWorkspace({
           </section>
           <section className="qw-section" hidden={stage !== 2}>
             <h2>{t('commercialTerms')}</h2>
+            {initial.documentDetails?.paymentPlan &&
+              initial.documentDetails.paymentPlan.stages.reduce(
+                (sum, stage) => sum + stage.percent,
+                0
+              ) > 100 &&
+              dirty && (
+                <p role="status" className="qp-guidance">
+                  {l(
+                    'The previous schedule exceeded 100%. Excess allocation was removed from the last payments; review the corrected schedule before saving.',
+                    'تجاوز الجدول السابق 100%. تم تخفيض النسبة الزائدة من الدفعات الأخيرة؛ راجع الجدول المصحح قبل الحفظ.'
+                  )}
+                </p>
+              )}
             <PaymentPlanEditor
               plan={details.paymentPlan}
               options={recordedPaymentOptions}
@@ -1111,7 +1125,7 @@ export function QuotationWorkspace({
                   paymentTerms: '',
                   documentDetails: {
                     ...d.documentDetails,
-                    paymentPlan: plan,
+                    paymentPlan: plan ? fitPaymentPlan(plan) : undefined,
                     paymentSchedule: undefined,
                     commercialPreset: undefined,
                   },
