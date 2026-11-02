@@ -143,14 +143,13 @@ describe('catalogue quotation creation', () => {
   it('offers documented payment choices and keeps unspecified milestones explicit', () => {
     expect(cataloguePaymentOptions('60/30/10 (or 60/40)')).toHaveLength(2);
     expect(catalogueTerms(product).paymentTerms).toBe('');
-    expect(catalogueTerms(product, 0).paymentTerms).toBe(
-      '100% advance payment.'
-    );
+    expect(catalogueTerms(product, 0).paymentTerms).toBe('100% on acceptance');
     expect(catalogueTerms(product).warrantyTerms).toBe('Warranty: 1 year.');
     expect(catalogueTerms({ ...product, sources: [] })).toEqual({
       deliveryTerms: '',
       paymentTerms: '',
       warrantyTerms: '',
+      paymentPlan: undefined,
     });
   });
   it('hydrates a persisted creation seed once and never replaces saved or issued item snapshots', () => {

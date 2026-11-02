@@ -26,11 +26,48 @@ export async function GET(request: Request) {
       });
     const kind = u.searchParams.get('kind');
     const state = u.searchParams.get('status');
+    const productId = u.searchParams.get('productId');
+    const productIds: string[] = [];
+    if (productId) {
+      if (!/^[0-9a-f-]{36}$/i.test(productId))
+        return NextResponse.json(
+          { error: 'Invalid product ID' },
+          { status: 400 }
+        );
+      let id: string | null = productId;
+      while (id && !productIds.includes(id) && productIds.length < 20) {
+        const response = await ctx.supabase
+          .from('ai_products')
+          .select('id,parent_id')
+          .eq('account_id', ctx.accountId)
+          .eq('id', id)
+          .maybeSingle();
+        const product = response.data as {id:string;parent_id:string|null}|null;
+        if (response.error)
+          return NextResponse.json(
+            { error: 'Product sources unavailable' },
+            { status: 503 }
+          );
+        if (!product) {
+          if (!productIds.length)
+            return NextResponse.json(
+              { error: 'Product not found' },
+              { status: 404 }
+            );
+          break;
+        }
+        productIds.push(product.id);
+        id = product.parent_id;
+      }
+    }
     let q = ctx.supabase
       .from('quotation_knowledge_records')
-      .select('*', { count: 'exact' })
+      .select(productId ? '*,product_source_links!inner(product_id)' : '*', {
+        count: 'exact',
+      })
       .eq('account_id', ctx.accountId)
       .eq('batch_id', batchId);
+    if (productId) q = q.in('product_source_links.product_id', productIds);
     if (kind && KNOWLEDGE_KINDS.includes(kind as never)) q = q.eq('kind', kind);
     if (state && ['approved', 'pending', 'rejected'].includes(state))
       q = q.eq('review_status', state);

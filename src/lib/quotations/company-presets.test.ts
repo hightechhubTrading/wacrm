@@ -123,6 +123,9 @@ describe('HTH quotation packages and terms', () => {
       3
     );
     const d = draftFromQuotation(q);
+    d.documentDetails.paymentPlan = {
+      stages: [{ percent: 100, event: 'acceptance' }],
+    };
     d.items = items;
     const preset = applyCommercialPreset(d, 'shutterTerms', '2026-10-14');
     expect(validateDraft(preset, true)).toBeNull();
@@ -147,6 +150,9 @@ describe('HTH quotation packages and terms', () => {
     optional.unitPrice = 3000;
     expect(computeQuotationTotals(items).total).toBe(35500);
     const d = draftFromQuotation(q);
+    d.documentDetails.paymentPlan = {
+      stages: [{ percent: 100, event: 'acceptance' }],
+    };
     d.items = items;
     expect(validateDraft(d, true)).toBeNull();
     const rendered = draftQuotation(q, d);
@@ -219,7 +225,7 @@ describe('HTH quotation packages and terms', () => {
     draft.items = [product];
     const rendered = draftQuotation(q, draft);
     const html = buildQuotationHtml(rendered, rendered.items);
-    expect(html).toContain('Before installation and completion');
+    expect(html).toContain('Before installation');
     expect(html).toContain('30–35 days after receiving');
     expect(html).not.toContain('On delivery to site');
   });

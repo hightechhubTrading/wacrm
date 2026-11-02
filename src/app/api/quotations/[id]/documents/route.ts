@@ -57,7 +57,9 @@ export async function POST(
     };
     if (body?.version !== q.workspaceVersion)
       return NextResponse.json({ error: 'conflict' }, { status: 409 });
-    const invalid = validateDraft(draftFromQuotation(q), true, q.currency);
+    const documentDraft = draftFromQuotation(q, false);
+    if (q.status === 'draft') documentDraft.documentDetails.formatVersion = 2;
+    const invalid = validateDraft(documentDraft, true, q.currency);
     if (invalid) return NextResponse.json({ error: invalid }, { status: 400 });
     const sourceError = await verifyKnowledgeSnapshots(
       ctx.supabase,

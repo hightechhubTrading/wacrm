@@ -1,4 +1,10 @@
 import {
+  validPaymentPlan,
+  legacyPaymentPlan,
+  paymentOptions,
+  optionPlan,
+} from './payment-plan';
+import {
   computeQuotationTotals,
   billableQuantity,
   isNonChargeable,
@@ -31,10 +37,8 @@ export interface QuotationDraft {
   items: QuotationItemToSave[];
   orderDiscount?: OrderDiscount;
 }
-export const DEFAULT_INCLUDED =
-  'Supply of materials · توريد المواد\nInstallation at site · التركيب في الموقع\nTesting and commissioning · الاختبار والتشغيل';
-export const DEFAULT_EXCLUDED =
-  'Civil works · الأعمال المدنية\nRelated electrical works · الأعمال الكهربائية المرتبطة\nFoundation works · أعمال الأساسات\nBuilder’s work openings · فتحات الأعمال الإنشائية';
+import { DEFAULT_INCLUDED, DEFAULT_EXCLUDED } from './commercial-defaults';
+export { DEFAULT_INCLUDED, DEFAULT_EXCLUDED } from './commercial-defaults';
 export const DEFAULT_COMMERCIAL_TERMS = {
   deliveryTerms:
     'Delivery period to be agreed from receipt of the advance payment.\nتُحدد مدة التسليم من تاريخ استلام الدفعة المقدمة.',
@@ -54,6 +58,30 @@ export function draftFromQuotation(
       : undefined;
   const documentDetails = { ...q.documentDetails };
   delete documentDetails.catalogueSeed;
+  if (
+    q.status === 'draft' &&
+    applyDefaults &&
+    documentDetails.included &&
+    [catalogueSeed?.item, ...q.items].some(
+      (i) =>
+        i &&
+        (documentDetails.included === i.specification ||
+          documentDetails.included === i.description)
+    )
+  )
+    documentDetails.included = DEFAULT_INCLUDED;
+  if (q.status === 'draft' && applyDefaults) documentDetails.formatVersion = 2;
+  if (q.status === 'draft' && applyDefaults && !documentDetails.paymentPlan) {
+    if (documentDetails.paymentSchedule) {
+      documentDetails.paymentPlan = legacyPaymentPlan(
+        documentDetails.paymentSchedule
+      );
+    } else {
+      const options = paymentOptions(q.paymentTerms ?? '');
+      if (options.length === 1)
+        documentDetails.paymentPlan = optionPlan(options[0]);
+    }
+  }
   const validity = new Date(
     `${new Date(q.createdAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Qatar' })}T12:00:00Z`
   );
@@ -171,6 +199,7 @@ export type DraftError =
   | 'invalidItem'
   | 'invalidDiscount'
   | 'invalidSchedule'
+  | 'configurationRequired'
   | 'customerRequired'
   | 'subjectRequired'
   | 'itemsRequired'
@@ -243,6 +272,9 @@ export function validateDraft(
         'repPhone',
         'shopDrawingDays',
         'paymentSchedule',
+        'formatVersion',
+        'paymentPlan',
+        'itemOptions',
         'commercialPreset',
         'knowledge',
       ].includes(key)
@@ -253,6 +285,9 @@ export function validateDraft(
       key !== 'knowledge' &&
       key !== 'shopDrawingDays' &&
       key !== 'paymentSchedule' &&
+      key !== 'formatVersion' &&
+      key !== 'paymentPlan' &&
+      key !== 'itemOptions' &&
       (typeof val !== 'string' || val.length > 10000)
     )
       return 'invalidDraft';
@@ -357,6 +392,40 @@ export function validateDraft(
     )
   )
     return 'invalidDiscount';
+  if (
+    details.paymentPlan !== undefined &&
+    !validPaymentPlan(details.paymentPlan, forExport)
+  )
+    return 'invalidSchedule';
+  if (
+    details.itemOptions !== undefined &&
+    (!details.itemOptions ||
+      typeof details.itemOptions !== 'object' ||
+      Array.isArray(details.itemOptions) ||
+      Object.entries(details.itemOptions).some(
+        ([id, o]) =>
+          !uuid.test(id) ||
+          !o ||
+          typeof o !== 'object' ||
+          Object.keys(o).some(
+            (k) => !['drawingReference', 'selections'].includes(k)
+          ) ||
+          (o.drawingReference !== undefined &&
+            (typeof o.drawingReference !== 'string' ||
+              o.drawingReference.length > 1000)) ||
+          (o.selections !== undefined &&
+            (!o.selections ||
+              typeof o.selections !== 'object' ||
+              Array.isArray(o.selections) ||
+              Object.entries(o.selections).some(
+                ([k, v]) =>
+                  k.length > 100 || typeof v !== 'string' || v.length > 1000
+              )))
+      ))
+  )
+    return 'invalidDraft';
+  if (details.formatVersion !== undefined && details.formatVersion !== 2)
+    return 'invalidDraft';
   if (details.paymentSchedule) {
     const vals = [
       details.paymentSchedule.advance,
@@ -389,7 +458,7 @@ export function validateDraft(
     if (!lines.length) return 'itemsRequired';
     if (
       d.items.some((i) => i.itemType === 'line' && !i.description?.trim()) ||
-      lines.some((i) => i.unitPrice === undefined)
+      lines.some((i) => i.unitPrice === undefined || (!!i.productId && !i.unit))
     )
       return 'priceRequired';
     if (
@@ -403,8 +472,24 @@ export function validateDraft(
       return 'areaDimensionsRequired';
     if (!d.validUntil) return 'validityRequired';
     if (
+      d.items.some(
+        (i) =>
+          details.itemOptions?.[i.id]?.selections?.finish === 'Custom' &&
+          !details.itemOptions[i.id].selections?.customFinish?.trim()
+      )
+    )
+      return 'configurationRequired';
+    if (
+      details.formatVersion === 2 &&
+      !details.paymentPlan &&
+      !details.paymentSchedule
+    )
+      return 'invalidSchedule';
+    if (
       !d.deliveryTerms.trim() ||
-      (!d.paymentTerms.trim() && !details.paymentSchedule)
+      (!d.paymentTerms.trim() &&
+        !details.paymentSchedule &&
+        !details.paymentPlan)
     )
       return 'termsRequired';
   }

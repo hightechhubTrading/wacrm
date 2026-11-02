@@ -35,6 +35,9 @@ const quote: QuotationWithItems = {
 const id = '33333333-3333-4333-8333-333333333333';
 function draft() {
   const d = draftFromQuotation(quote);
+  d.documentDetails.paymentPlan = {
+    stages: [{ percent: 100, event: 'acceptance' }],
+  };
   d.items = [
     {
       id,
@@ -99,7 +102,8 @@ describe('quotation workspace', () => {
     expect(validateDraft(d, true)).toBe('validityRequired');
     d.validUntil = '2026-11-15';
     d.paymentTerms = '';
-    expect(validateDraft(d, true)).toBe('termsRequired');
+    d.documentDetails.paymentPlan = undefined;
+    expect(validateDraft(d, true)).toBe('invalidSchedule');
   });
   it('rejects malformed values, duplicate ids, nested children and excessive discounts', () => {
     const d = draft();
@@ -152,7 +156,7 @@ describe('quotation workspace', () => {
     expect(html).toContain('Within 30 days of approval');
     expect(html).toContain('Prepared by Nader');
     expect(html).not.toContain('<script>');
-    expect(html).toContain('Discount · الخصم: −20');
+    expect(html.replace(/<[^>]*>/g, '')).toContain('Discount · الخصم−20');
   });
   it('keeps children next to parents regardless of insertion order', () => {
     const d = draft();
@@ -270,7 +274,7 @@ describe('area-priced document validation and output', () => {
     const html = buildQuotationHtml(snapshot, snapshot.items);
     expect(html).toContain('6 m² × 2 = 12 m²');
     expect(html).toContain('QAR / m²');
-    expect(html).toContain('openings · فتحات');
+    expect(html).toContain('2 openings</span>');
     d.items[0].measurementUnit = 'inch';
     expect(validateDraft(d)).toBe('invalidItem');
   });

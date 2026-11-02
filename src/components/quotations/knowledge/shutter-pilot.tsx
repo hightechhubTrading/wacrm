@@ -54,9 +54,11 @@ export function ShutterPilot({
   disabled,
   initial,
   onSave,
+  defaultAutomatic = true,
 }: {
   item: QuotationItemToSave;
   disabled: boolean;
+  defaultAutomatic?: boolean;
   initial?: ShutterCostDraft;
   onSave: (estimate: ShutterCostDraft) => void;
 }) {
@@ -69,7 +71,9 @@ export function ShutterPilot({
     initial.qty === (item.qty ?? 1);
   const saved = compatible ? initial : undefined;
   const [enabled, setEnabled] = useState(!!saved);
-  const [automatic, setAutomatic] = useState(saved?.automatic ?? true);
+  const [automatic, setAutomatic] = useState(
+    saved?.automatic ?? defaultAutomatic
+  );
   const [offers, setOffers] = useState<Record<string, KnowledgeRecord>>(() =>
     Object.fromEntries(
       Object.entries(saved?.offers ?? {}).map(([key, s]) => [

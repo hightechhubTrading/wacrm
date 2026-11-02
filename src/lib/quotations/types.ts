@@ -2,6 +2,9 @@
 export type QuotationStatus = 'draft' | 'sent' | 'won' | 'lost' | 'expired';
 
 export interface QuotationDocumentDetails {
+  formatVersion?: 2;
+  paymentPlan?: import('./payment-plan').PaymentPlan;
+  itemOptions?: Record<string, import('./product-profile').ItemOptions>;
   catalogueSeed?: import('./catalogue').CatalogueSeed;
   knowledge?: import('./knowledge/types').QuotationKnowledge;
   consultant?: string;

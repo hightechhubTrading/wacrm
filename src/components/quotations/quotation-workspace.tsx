@@ -2,9 +2,27 @@
 import { recordReliability } from '@/lib/inbox/reliability';
 
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
+import { quotationDelivery } from '@/lib/quotations/product-profile';
+import { catalogueTerms } from '@/lib/quotations/catalogue';
+import { PaymentPlanEditor } from './payment-plan-editor';
+import {
+  validPaymentPlan,
+  type PaymentOption,
+} from '@/lib/quotations/payment-plan';
+import {
+  productPaymentOptions,
+  type CatalogueProduct,
+} from '@/lib/quotations/catalogue';
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { WorkspaceSelect } from './workspace-select';
 
 import './workspace.css';
+import './product-workspace.css';
 import { useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
@@ -25,7 +43,6 @@ import { createClient } from '@/lib/supabase/client';
 import { computeQuotationTotals } from '@/lib/quotations/totals';
 import {
   draftFromQuotation,
-  DEFAULT_COMMERCIAL_TERMS,
   validateDraft,
   type QuotationDraft,
   type QuotationWithItems,
@@ -39,10 +56,6 @@ import { QuotationKnowledgePanel } from './knowledge/quotation-knowledge-panel';
 import { applyCatalogueCapture } from '@/lib/quotations/catalogue';
 import { WorkspaceItems } from './workspace-items';
 import { QuotationDatePicker } from './quotation-date-picker';
-import {
-  COMMERCIAL_PRESETS,
-  applyCommercialPreset,
-} from '@/lib/quotations/company-presets';
 
 type DocumentRow = {
   id: string;
@@ -69,12 +82,32 @@ export function QuotationWorkspace({
     'save' | 'pdf' | 'send' | 'revise' | 'status' | null
   >(null);
   const [error, setError] = useState<string | null>(null);
-  const [showPreview, setShowPreview] = useState(true);
-  const [stage, setStage] = useState(0);
+  const [stage, setStage] = useState(
+    initial.items.length || initial.documentDetails?.catalogueSeed ? 1 : 0
+  );
   const [zoom, setZoom] = useState<number | 'fit'>('fit');
   const [expanded, setExpanded] = useState(false);
-  const [mobileView, setMobileView] = useState<'edit' | 'preview'>('edit');
   const [html, setHtml] = useState('');
+  const [sourceItem, setSourceItem] = useState<string | null>(null);
+  const [catalogue, setCatalogue] = useState<CatalogueProduct[]>([]);
+  useEffect(() => {
+    const c = new AbortController();
+    fetch('/api/quotations/catalogue', { signal: c.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => {
+        if (b && !c.signal.aborted) setCatalogue(b.items);
+      })
+      .catch(() => {});
+    return () => c.abort();
+  }, []);
+  const recordedPaymentOptions: PaymentOption[] = [];
+  for (const product of catalogue.filter((p) =>
+    draft.items.some((i) => i.productId === p.id)
+  ))
+    for (const option of productPaymentOptions(product))
+      if (!recordedPaymentOptions.some((o) => o.key === option.key))
+        recordedPaymentOptions.push(option);
+  const l = (en: string, ar: string) => (locale === 'ar' ? ar : en);
   const [previewError, setPreviewError] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(true);
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
@@ -100,6 +133,14 @@ export function QuotationWorkspace({
   const locked = quotation.status !== 'draft';
   const disabled = busy !== null || locked;
   const totals = computeQuotationTotals(draft.items, draft.orderDiscount);
+  const unpriced = draft.items.some(
+    (i) =>
+      i.itemType === 'line' &&
+      !['Included', 'Optional'].includes(i.kind ?? '') &&
+      (i.unitPrice === undefined ||
+        !i.unit ||
+        (i.unit === 'm2' && (!i.sizeW || !i.sizeH)))
+  );
   const translateError = (code: string) => (t.has(code) ? t(code) : code);
   const money = (n: number) =>
     n.toLocaleString(locale, {
@@ -183,6 +224,7 @@ export function QuotationWorkspace({
     };
   }, [dirty, t]);
   useEffect(() => {
+    if (!expanded) return;
     const controller = new AbortController();
     setPreviewLoading(true);
     const timer = setTimeout(() => {
@@ -219,7 +261,7 @@ export function QuotationWorkspace({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [draft, quotation.id]);
+  }, [draft, quotation.id, expanded]);
   useEffect(() => {
     const element = previewRef.current;
     if (!element) return;
@@ -228,7 +270,7 @@ export function QuotationWorkspace({
     );
     observer.observe(element);
     return () => observer.disconnect();
-  }, [showPreview, mobileView, expanded]);
+  }, [expanded]);
   useEffect(() => {
     if (contactQuery.length < 2) {
       setContacts([]);
@@ -315,6 +357,7 @@ export function QuotationWorkspace({
   async function persist(revise = false): Promise<QuotationWithItems | null> {
     const invalid = validateDraft(draft);
     if (invalid) {
+      setExpanded(false);
       setError(t(invalid));
       return null;
     }
@@ -362,6 +405,7 @@ export function QuotationWorkspace({
   async function exportDocument(send = false) {
     const invalid = validateDraft(draft, true, quotation.currency);
     if (invalid) {
+      setExpanded(false);
       setError(t(invalid));
       setStage(
         [
@@ -375,13 +419,11 @@ export function QuotationWorkspace({
             ? 2
             : 1
       );
-      setMobileView('edit');
       return;
     }
     if (send && !draft.clientPhone.trim()) {
       setError(t('phoneRequired'));
       setStage(0);
-      setMobileView('edit');
       return;
     }
     setBusy(send ? 'send' : 'pdf');
@@ -492,7 +534,7 @@ export function QuotationWorkspace({
   const previewPanel = (
     <aside
       ref={previewRef}
-      className={`qw-preview ${expanded ? 'qw-preview-expanded' : ''} ${mobileView === 'edit' ? 'qw-mobile-hidden' : ''}`}
+      className={`qw-preview ${expanded ? 'qw-preview-expanded' : ''}`}
       aria-label={t('documentPreview')}
     >
       <div className="qw-preview-toolbar">
@@ -603,7 +645,7 @@ export function QuotationWorkspace({
     </aside>
   );
   return (
-    <div className={`qw-workspace ${showPreview ? '' : 'qw-no-preview'}`}>
+    <div className="qw-workspace qp-workspace">
       <header className="qw-header">
         <div className="qw-heading">
           <Button
@@ -651,7 +693,10 @@ export function QuotationWorkspace({
             type="button"
             variant="ghost"
             className="qw-desktop-preview-toggle"
-            onClick={() => setShowPreview((v) => !v)}
+            ref={expandReviewRef}
+            onClick={() => {
+              setExpanded(true);
+            }}
           >
             <Eye size={16} />
             {t('preview')}
@@ -733,22 +778,6 @@ export function QuotationWorkspace({
       {expired && !['won', 'lost'].includes(quotation.status) && (
         <p className="qw-alert">{t('expiredHint')}</p>
       )}
-      <nav className="qw-mobile-tabs" aria-label={t('view')}>
-        <button
-          type="button"
-          aria-pressed={mobileView === 'edit'}
-          onClick={() => setMobileView('edit')}
-        >
-          {t('edit')}
-        </button>
-        <button
-          type="button"
-          aria-pressed={mobileView === 'preview'}
-          onClick={() => setMobileView('preview')}
-        >
-          {t('preview')}
-        </button>
-      </nav>
       <nav className="qw-stage-nav" aria-label={t('workflow')}>
         {['customerProject', 'productsServices', 'commercialTerms'].map(
           (label, index) => (
@@ -759,7 +788,6 @@ export function QuotationWorkspace({
               aria-current={stage === index ? 'step' : undefined}
               onClick={() => {
                 setStage(index);
-                setMobileView('edit');
               }}
             >
               <span>{index + 1}</span>
@@ -778,11 +806,8 @@ export function QuotationWorkspace({
           {quotation.currency} {money(totals.total)}
         </strong>
       </div>
-      <QuotationFollowup key={quotation.id} quotationId={quotation.id} />
       <div className="qw-columns">
-        <main
-          className={`qw-editor ${mobileView === 'preview' ? 'qw-mobile-hidden' : ''}`}
-        >
+        <main className="qw-editor">
           <section className="qw-section" hidden={stage !== 0}>
             <div className="qw-section-title">
               <h2>{t('customerProject')}</h2>
@@ -923,6 +948,39 @@ export function QuotationWorkspace({
               onChange={(items) => setField('items', items)}
               disabled={disabled}
               currency={quotation.currency}
+              itemOptions={details.itemOptions}
+              onOptionsChange={(v) => {
+                setError(null);
+                setDraft((d) => {
+                  const previous = quotationDelivery(
+                      d.items,
+                      d.documentDetails.itemOptions ?? {}
+                    ),
+                    next = quotationDelivery(d.items, v),
+                    plain = (s: string) =>
+                      s
+                        .replace(/^Delivery\s*(?:\/\s*installation)?:\s*/i, '')
+                        .replace(/\.$/, '')
+                        .trim();
+                  const auto =
+                    !d.deliveryTerms ||
+                    plain(d.deliveryTerms) === plain(previous) ||
+                    (d.items.filter(
+                      (i) => i.itemType === 'line' && !i.parentItemId
+                    ).length === 1 &&
+                      catalogue.some(
+                        (p) =>
+                          plain(catalogueTerms(p).deliveryTerms) ===
+                          plain(d.deliveryTerms)
+                      ));
+                  return {
+                    ...d,
+                    deliveryTerms: auto && next ? next : d.deliveryTerms,
+                    documentDetails: { ...d.documentDetails, itemOptions: v },
+                  };
+                });
+              }}
+              onTools={setSourceItem}
               onCatalogueCapture={(knowledge, terms, itemId, resetPricing) =>
                 setDraft((d) =>
                   applyCatalogueCapture(
@@ -934,11 +992,6 @@ export function QuotationWorkspace({
                   )
                 )
               }
-            />
-            <QuotationKnowledgePanel
-              draft={draft}
-              onChange={setDraft}
-              disabled={disabled}
             />
             <div className="qw-totals">
               <div className="qw-order-discount">
@@ -1014,7 +1067,12 @@ export function QuotationWorkspace({
                 <div className="qw-grand-total">
                   <dt>{t('total')}</dt>
                   <dd>
-                    {money(totals.total)} <small>{quotation.currency}</small>
+                    {unpriced ? '—' : money(totals.total)}{' '}
+                    <small>
+                      {unpriced
+                        ? l('Pricing incomplete', 'التسعير غير مكتمل')
+                        : quotation.currency}
+                    </small>
                   </dd>
                 </div>
               </dl>
@@ -1022,66 +1080,33 @@ export function QuotationWorkspace({
           </section>
           <section className="qw-section" hidden={stage !== 2}>
             <h2>{t('commercialTerms')}</h2>
-            <div className="qw-commercial-preset">
-              <label>
-                {t('commercialPreset')}
-                <WorkspaceSelect
-                  aria-label={t('commercialPreset')}
-                  disabled={disabled}
-                  value={details.commercialPreset ?? ''}
-                  onValueChange={(value) => {
-                    if (!value) {
-                      setDetail('commercialPreset', undefined);
-                      return;
-                    }
-                    setError(null);
-                    setDraft((d) =>
-                      applyCommercialPreset(
-                        d,
-                        value,
-                        new Date().toLocaleDateString('en-CA', {
-                          timeZone: 'Asia/Qatar',
-                        })
-                      )
-                    );
-                  }}
-                >
-                  <option value="">{t('customTerms')}</option>
-                  {COMMERCIAL_PRESETS.map((preset) => (
-                    <option key={preset.key} value={preset.key}>
-                      {t(preset.key)}
-                    </option>
-                  ))}
-                </WorkspaceSelect>
-              </label>
-              <p>{t('commercialReviewHint')}</p>
-            </div>
-            <div className="qw-form-grid">
-              {(
-                ['deliveryTerms', 'warrantyTerms', 'paymentTerms'] as const
-              ).map((key) => (
-                <label
-                  key={key}
-                  className={key === 'paymentTerms' ? 'qw-full' : ''}
-                >
-                  {t(
-                    key === 'paymentTerms' && details.paymentSchedule
-                      ? 'additionalPaymentNotes'
-                      : key
-                  )}
+            <PaymentPlanEditor
+              plan={details.paymentPlan}
+              options={recordedPaymentOptions}
+              total={totals.total}
+              currency={quotation.currency}
+              disabled={disabled}
+              onChange={(plan) => {
+                setError(null);
+                setDraft((d) => ({
+                  ...d,
+                  paymentTerms: '',
+                  documentDetails: {
+                    ...d.documentDetails,
+                    paymentPlan: plan,
+                    paymentSchedule: undefined,
+                    commercialPreset: undefined,
+                  },
+                }));
+              }}
+            />
+            <div className="qp-commercial-fields">
+              {(['deliveryTerms', 'warrantyTerms'] as const).map((key) => (
+                <label key={key}>
+                  {t(key)}
                   <textarea
-                    aria-label={t(
-                      key === 'paymentTerms' && details.paymentSchedule
-                        ? 'additionalPaymentNotes'
-                        : key
-                    )}
-                    placeholder={
-                      key === 'paymentTerms' && details.paymentSchedule
-                        ? t('paymentNotesPlaceholder')
-                        : DEFAULT_COMMERCIAL_TERMS[key]
-                    }
-                    dir="auto"
                     rows={3}
+                    dir="auto"
                     value={draft[key]}
                     disabled={disabled}
                     onChange={(e) => setField(key, e.target.value)}
@@ -1089,102 +1114,6 @@ export function QuotationWorkspace({
                 </label>
               ))}
             </div>
-            <details
-              className="qw-details"
-              open={details.paymentSchedule ? true : undefined}
-            >
-              <summary>{t('paymentSchedule')}</summary>
-              <p className="qw-hint">{t('scheduleHint')}</p>
-              {!details.paymentSchedule ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={disabled}
-                  onClick={() =>
-                    setDetail('paymentSchedule', {
-                      advance: 0,
-                      delivery: 0,
-                      completion: 0,
-                    })
-                  }
-                >
-                  {t('addSchedule')}
-                </Button>
-              ) : (
-                <>
-                  <div className="qw-form-grid qw-three">
-                    {(['advance', 'delivery', 'completion'] as const).map(
-                      (key) => (
-                        <label key={key}>
-                          {t(
-                            key === 'delivery' &&
-                              details.paymentSchedule?.deliveryTrigger ===
-                                'before_installation'
-                              ? 'beforeInstallation'
-                              : key
-                          )}{' '}
-                          (%)
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="any"
-                            disabled={disabled}
-                            value={details.paymentSchedule![key]}
-                            onChange={(e) =>
-                              setDetail('paymentSchedule', {
-                                ...details.paymentSchedule!,
-                                [key]: Number(e.target.value),
-                              })
-                            }
-                          />
-                        </label>
-                      )
-                    )}
-                  </div>
-                  <label className="qw-balance-trigger">
-                    {t('balanceDue')}
-                    <WorkspaceSelect
-                      aria-label={t('balanceDue')}
-                      disabled={disabled}
-                      value={
-                        details.paymentSchedule.deliveryTrigger ?? 'on_delivery'
-                      }
-                      onValueChange={(value) =>
-                        setDetail('paymentSchedule', {
-                          ...details.paymentSchedule!,
-                          deliveryTrigger: value as
-                            'before_installation' | 'on_delivery',
-                        })
-                      }
-                    >
-                      <option value="before_installation">
-                        {t('beforeInstallation')}
-                      </option>
-                      <option value="on_delivery">{t('delivery')}</option>
-                    </WorkspaceSelect>
-                  </label>
-                  <p className="qw-hint">
-                    {t('scheduleTotal', {
-                      total:
-                        details.paymentSchedule.advance +
-                        details.paymentSchedule.delivery +
-                        details.paymentSchedule.completion,
-                    })}
-                  </p>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={disabled}
-                    onClick={() => setDetail('paymentSchedule', undefined)}
-                  >
-                    {t('removeSchedule')}
-                  </Button>
-                </>
-              )}
-            </details>
             <details className="qw-details">
               <summary>{t('scopeNotes')}</summary>
               <div className="qw-form-grid">
@@ -1249,9 +1178,7 @@ export function QuotationWorkspace({
             </Button>
             <Button
               onClick={() =>
-                stage < 2
-                  ? setStage(stage + 1)
-                  : (setShowPreview(true), setMobileView('preview'))
+                stage < 2 ? setStage(stage + 1) : setExpanded(true)
               }
             >
               {stage < 2 ? t('nextStage') : t('reviewDocument')}
@@ -1310,7 +1237,134 @@ export function QuotationWorkspace({
             )}
           </footer>
         </main>
-        {!expanded && previewPanel}
+        <aside
+          className="qp-quote-summary"
+          aria-label={l('Quotation summary', 'ملخص عرض السعر')}
+        >
+          <span className="qp-eyebrow">
+            {l('Quotation summary', 'ملخص عرض السعر')}
+          </span>
+          <h3>
+            {draft.clientCompany ||
+              draft.clientName ||
+              l('New customer', 'عميل جديد')}
+          </h3>
+          <p>{draft.projectName || draft.subject}</p>
+          <dl>
+            <div>
+              <dt>{t('subtotal')}</dt>
+              <dd>{money(totals.subtotal)}</dd>
+            </div>
+            {totals.discountAmount > 0 && (
+              <div>
+                <dt>{t('discount')}</dt>
+                <dd>−{money(totals.discountAmount)}</dd>
+              </div>
+            )}
+            <div className="qp-summary-total">
+              <dt>{t('total')}</dt>
+              <dd>
+                {unpriced ? '—' : money(totals.total)}{' '}
+                <small>
+                  {unpriced
+                    ? l('Pricing incomplete', 'التسعير غير مكتمل')
+                    : quotation.currency}
+                </small>
+              </dd>
+            </div>
+          </dl>
+          <div className="qp-readiness">
+            {[
+              [
+                0,
+                !!(draft.clientName || draft.clientCompany) &&
+                  !!draft.subject.trim() &&
+                  !!draft.validUntil,
+                l('Customer & project', 'العميل والمشروع'),
+              ],
+              [
+                1,
+                draft.items.some((i) => i.itemType === 'line') &&
+                  !draft.items.some(
+                    (i) =>
+                      i.itemType === 'line' &&
+                      !['Included', 'Optional'].includes(i.kind ?? '') &&
+                      (i.unitPrice === undefined ||
+                        !i.unit ||
+                        (i.unit === 'm2' && (!i.sizeW || !i.sizeH)))
+                  ),
+                l('Products & pricing', 'المنتجات والتسعير'),
+              ],
+              [
+                2,
+                !!details.paymentPlan &&
+                  validPaymentPlan(details.paymentPlan, true) &&
+                  !!draft.deliveryTerms.trim(),
+                l('Payment & delivery', 'الدفع والتسليم'),
+              ],
+            ].map(([index, ready, label]) => (
+              <button
+                type="button"
+                key={String(index)}
+                onClick={() => {
+                  setStage(Number(index));
+                }}
+              >
+                <span className={ready ? 'qp-good' : 'qp-incomplete'}>
+                  {ready ? '✓' : '○'}
+                </span>
+                {label}
+              </button>
+            ))}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setExpanded(true);
+            }}
+          >
+            <Eye size={15} />
+            {t('reviewDocument')}
+          </Button>
+          <p className="qp-subtle">
+            {l(
+              'Unpriced items and incomplete payment events must be completed before issue.',
+              'يجب استكمال البنود غير المسعرة ومواعيد الدفعات قبل إصدار العرض.'
+            )}
+          </p>
+          <details className="qp-followup">
+            <summary>{l('Sales follow-up', 'متابعة المبيعات')}</summary>
+            <QuotationFollowup key={quotation.id} quotationId={quotation.id} />
+          </details>
+        </aside>
+        <Dialog
+          open={!!sourceItem}
+          onOpenChange={(v) => {
+            if (!v) setSourceItem(null);
+          }}
+        >
+          <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-4xl">
+            <DialogTitle>
+              {l('Sources & costing', 'المصادر والتكلفة')}
+            </DialogTitle>
+            <DialogDescription>
+              {draft.items.find((i) => i.id === sourceItem)?.description}
+            </DialogDescription>
+            {sourceItem && (
+              <QuotationKnowledgePanel
+                key={sourceItem}
+                initialItemId={sourceItem}
+                draft={draft}
+                onChange={(d) => {
+                  setError(null);
+                  setDraft(d);
+                }}
+                disabled={disabled}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
         <DialogPrimitive.Root open={expanded} onOpenChange={setExpanded}>
           <DialogPrimitive.Portal>
             <DialogPrimitive.Backdrop className="qw-review-backdrop" />

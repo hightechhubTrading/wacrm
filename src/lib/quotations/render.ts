@@ -4,11 +4,15 @@
 // pdf.test.ts, mocked above) never has to actually launch a browser
 // in the test suite — only this thin wrapper touches Playwright.
 import { chromium } from 'playwright';
+import { DOCUMENT_PDF_OPTIONS } from './document-layout';
 
 export async function renderHtmlToPdf(html: string): Promise<Buffer> {
   const browser = await chromium.launch();
   try {
-    const page = await browser.newPage({ javaScriptEnabled: false, serviceWorkers: 'block' });
+    const page = await browser.newPage({
+      javaScriptEnabled: false,
+      serviceWorkers: 'block',
+    });
     // The template is self-contained (including fonts). Reject all network
     // requests even if a future field escapes validation/HTML encoding.
     await page.route('**/*', (route) => route.abort());
@@ -19,15 +23,7 @@ export async function renderHtmlToPdf(html: string): Promise<Buffer> {
     // self-contained document.
     await page.setContent(html, { waitUntil: 'load' });
     await page.evaluate(() => document.fonts.ready);
-    return await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      preferCSSPageSize: true,
-      displayHeaderFooter: true,
-      headerTemplate: '<span></span>',
-      footerTemplate:
-        '<div style="font-family:Arial,sans-serif;font-size:9px;color:#5c7085;width:100%;text-align:right;padding:0 16mm;box-sizing:border-box">Page <span class="pageNumber"></span> / <span class="totalPages"></span></div>',
-    });
+    return await page.pdf(DOCUMENT_PDF_OPTIONS);
   } finally {
     await browser.close();
   }

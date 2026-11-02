@@ -27,3 +27,5 @@ The public login responds 200, protected knowledge pages redirect to login, and 
 ## Quotation creation follow-up
 
 The [creation workflow update](quotation-creation-catalogue.md) connects New quotation, deal quotations, Add product and accessory selection directly to this shared catalogue, including recorded specifications, price choices, commercial terms and services. Its rollout evidence supersedes the historical counts above.
+
+The subsequent [quotation redesign](quotation-redesign.md) replaces the initial editor and payment-term presentation and records current verification.

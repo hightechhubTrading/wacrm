@@ -84,7 +84,12 @@ function makeListSupabase(result: {
 // existing tests that don't care about this lookup keep working.
 function makeCreateSupabase(profileResult?: { data: unknown; error: unknown }) {
   const single = vi.fn(() =>
-    Promise.resolve(profileResult ?? { data: { id: 'profile-1' }, error: null })
+    Promise.resolve(
+      profileResult ?? {
+        data: { id: 'profile-1', full_name: 'Sales Person' },
+        error: null,
+      }
+    )
   );
   const eq = vi.fn(() => ({ single }));
   const select = vi.fn(() => ({ eq }));
@@ -131,7 +136,11 @@ describe('POST /api/quotations', () => {
     const res = await POST(req);
     expect(res.status).toBe(201);
     expect(createQuotation).toHaveBeenCalledWith(
-      expect.objectContaining({ assignedTo: 'profile-1', createdBy: 'u-1' })
+      expect.objectContaining({
+        assignedTo: 'profile-1',
+        createdBy: 'u-1',
+        preparedBy: 'Sales Person',
+      })
     );
   });
 
@@ -359,6 +368,7 @@ describe('catalogue-backed creation boundary', () => {
         id: '11111111-1111-4111-8111-111111111111',
         kind: 'product',
         inventory_type: 'product',
+        productCode: 'PIV',
         name: 'Current shared name',
         name_ar: null,
         description: 'Current specification',
@@ -373,7 +383,7 @@ describe('catalogue-backed creation boundary', () => {
       new Request('http://test/api/quotations', {
         method: 'POST',
         body: JSON.stringify({
-          productCode: 'PIV',
+          productCode: 'D',
           currency: 'QAR',
           catalogueSelection: {
             productId: '11111111-1111-4111-8111-111111111111',
@@ -388,6 +398,7 @@ describe('catalogue-backed creation boundary', () => {
     expect(h.catalogue).toHaveBeenCalledWith(expect.anything(), 'acc-1');
     expect(createQuotation).toHaveBeenLastCalledWith(
       expect.objectContaining({
+        productCode: 'PIV',
         catalogueSeed: expect.objectContaining({
           item: expect.objectContaining({
             description: 'Current shared name',

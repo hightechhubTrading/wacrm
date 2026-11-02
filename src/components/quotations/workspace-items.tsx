@@ -1,195 +1,50 @@
 'use client';
-
+import './product-workspace.css';
+import { useEffect, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
+import {
+  Plus,
+  Copy,
+  Trash2,
+  ArrowUp,
+  ArrowDown,
+  BookOpen,
+  ChevronLeft,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { changeComponentKind } from '@/lib/quotations/company-presets';
 import { CataloguePicker } from './catalogue-picker';
 import {
   catalogueItem,
+  cataloguePriceRows,
   catalogueTerms,
-  quotationSpecification,
+  type CatalogueProduct,
   type CatalogueTerms,
 } from '@/lib/quotations/catalogue';
-import type { QuotationKnowledge } from '@/lib/quotations/knowledge/types';
-import { pricingTone, toneClasses } from '@/lib/ui-colors';
-import { WorkspaceSelect } from './workspace-select';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useLocale, useTranslations } from 'next-intl';
 import {
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  Plus,
-  Trash2,
-  MoreHorizontal,
-  Ruler,
-  PackagePlus,
-} from 'lucide-react';
-import {
-  specificationPresetsForItem,
-  applySpecificationPreset,
-  changeComponentKind,
-} from '@/lib/quotations/company-presets';
-import type { QuotationItemToSave } from '@/lib/quotations/crud';
+  productProfile,
+  productItemReference,
+  type ItemOptions,
+} from '@/lib/quotations/product-profile';
+import { nextItemCode, convertDimensions } from '@/lib/quotations/item-editor';
 import {
   computeQuotationTotals,
   areaPerItem,
   billableQuantity,
+  isNonChargeable,
 } from '@/lib/quotations/totals';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
-import {
-  ACCESSORY_STARTERS,
-  nextItemCode,
-  convertDimensions,
-} from '@/lib/quotations/item-editor';
-
-function ProductDisclosure({
-  children,
-  open,
-}: {
-  children: ReactNode;
-  open: boolean;
-}) {
-  return (
-    <details className="qw-focused-product" open={open}>
-      {children}
-    </details>
-  );
-}
-
-function ItemName({
-  item,
-  disabled,
-  onChange,
-  accessory = false,
-  onBrowse,
-}: {
-  accessory?: boolean;
-  item: QuotationItemToSave;
-  onBrowse: () => void;
-  disabled: boolean;
-  onChange: (patch: Partial<QuotationItemToSave>) => void;
-}) {
-  const t = useTranslations('QuotationWorkspace');
-  const locale = useLocale();
-  const [open, setOpen] = useState(false);
-  const [browse, setBrowse] = useState(false);
-  const [results, setResults] = useState<
-    {
-      id: string;
-      name: string;
-      name_ar?: string;
-      description?: string;
-      default_unit_price: number | null;
-      price_min?: number | null;
-      price_max?: number | null;
-      price_unit?: string | null;
-      unit_of_measure?: string;
-      sku?: string;
-      category?: string;
-    }[]
-  >([]);
-  useEffect(() => {
-    if (!open) return;
-    const controller = new AbortController();
-    const timer = setTimeout(() => {
-      fetch(
-        `/api/catalog-items?q=${encodeURIComponent(browse ? '' : (item.description ?? ''))}`,
-        { signal: controller.signal }
-      )
-        .then((r) => (r.ok ? r.json() : []))
-        .then(setResults)
-        .catch(() => {});
-    }, 250);
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [item.description, open, browse]);
-  return (
-    <div
-      className="qw-catalog"
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
-      }}
-    >
-      <Input
-        aria-label={t(accessory ? 'accessoryName' : 'productName')}
-        placeholder={t('productNamePlaceholder')}
-        value={item.description ?? ''}
-        disabled={disabled}
-        onChange={(e) => {
-          onChange({ description: e.target.value, productId: undefined });
-          setResults([]);
-          setBrowse(false);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-      />
-      <button
-        type="button"
-        className="qw-library-button"
-        disabled={disabled}
-        onClick={onBrowse}
-      >
-        {t('browseCatalog')}
-      </button>
-      {item.productId && (
-        <small className="qw-hint">{t('catalogLinked')}</small>
-      )}
-      {open && results.length > 0 && (
-        <div className="qw-catalog-results">
-          {results.map((row) => (
-            <button
-              key={row.id}
-              type="button"
-              onClick={() => {
-                onChange({
-                  productId: row.id,
-                  description: row.name,
-                  descriptionAr: row.name_ar ?? undefined,
-                  specification: quotationSpecification({
-                    specifications: row.description ?? '',
-                    description: row.description ?? '',
-                  }),
-                  unit: row.unit_of_measure ?? undefined,
-                  unitPrice: row.default_unit_price ?? undefined,
-                });
-                setOpen(false);
-              }}
-            >
-              <span>
-                {row.name}
-                <small>
-                  {[row.sku, row.category, row.unit_of_measure]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </small>
-              </span>
-              <small>
-                {row.default_unit_price?.toLocaleString() ??
-                  (row.price_min != null && row.price_max != null
-                    ? `${row.price_min.toLocaleString()}–${row.price_max.toLocaleString()} (${locale === 'ar' ? 'استرشادي' : 'estimate'})`
-                    : '—')}
-              </small>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+import type { QuotationItemToSave } from '@/lib/quotations/crud';
+import type { QuotationKnowledge } from '@/lib/quotations/knowledge/types';
 export function WorkspaceItems({
   items,
   onChange,
   disabled,
   currency,
   onCatalogueCapture,
+  itemOptions = {},
+  onOptionsChange,
+  onTools,
 }: {
   items: QuotationItemToSave[];
   onChange: (items: QuotationItemToSave[]) => void;
@@ -201,1181 +56,1030 @@ export function WorkspaceItems({
     itemId: string,
     resetPricing?: boolean
   ) => void;
+  itemOptions?: Record<string, ItemOptions>;
+  onOptionsChange?: (v: Record<string, ItemOptions>) => void;
+  onTools?: (id: string) => void;
 }) {
-  const t = useTranslations('QuotationWorkspace');
-  const locale = useLocale();
-  const [undo, setUndo] = useState<{
-    removed: QuotationItemToSave[];
-    index: number;
-  } | null>(null);
-  const [catalogueTarget, setCatalogueTarget] = useState<{
-    item?: QuotationItemToSave;
-    parent?: QuotationItemToSave;
-    kind?: 'Included' | 'Accessory' | 'Optional';
-  } | null>(null);
-  const [catalogBusy, setCatalogBusy] = useState<string | null>(null);
-  const [catalogError, setCatalogError] = useState(false);
-  const [expandedAccessoryId, setExpandedAccessoryId] = useState<string | null>(
-    null
-  );
-  const [expandedId, setExpandedId] = useState<string | null>(() => {
-    const products = items.filter(
-      (i) => i.itemType === 'line' && !i.parentItemId
-    );
-    return products.length === 1 ? products[0].id : null;
-  });
-  const [discounts, setDiscounts] = useState<Set<string>>(new Set());
-  const latestItems = useRef(items);
+  const t = useTranslations('QuotationWorkspace'),
+    ar = useLocale() === 'ar',
+    l = (en: string, a: string) => (ar ? a : en);
+  const [selectedId, setSelectedId] = useState<string | null>(
+      items.find((i) => i.itemType === 'line' && !i.parentItemId)?.id ?? null
+    ),
+    [mobileEditor, setMobileEditor] = useState(
+      items.filter((i) => i.itemType === 'line' && !i.parentItemId).length === 1
+    ),
+    [products, setProducts] = useState<CatalogueProduct[]>([]),
+    [target, setTarget] = useState<{
+      item?: QuotationItemToSave;
+      parent?: QuotationItemToSave;
+    } | null>(null),
+    [undo, setUndo] = useState<QuotationItemToSave[] | null>(null);
   useEffect(() => {
-    latestItems.current = items;
-  }, [items]);
-  const totals = computeQuotationTotals(items);
-  const roots = items.filter((i) => !i.parentItemId);
-  const money = (n: number) =>
-    n.toLocaleString(locale, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  const patch = (id: string, value: Partial<QuotationItemToSave>) =>
-    onChange(items.map((i) => (i.id === id ? { ...i, ...value } : i)));
-  const unitOptions = Array.from(
-    new Set([
-      'piece',
-      'm2',
-      'set',
-      'pair',
-      'job',
-      'm',
-      ...items
-        .map((i) => i.unit)
-        .filter((u): u is string => !!u && u !== 'per_product'),
-    ])
-  );
-  const unitLabel = (unit: string) =>
-    t.has(`unit_${unit}`) ? t(`unit_${unit}`) : unit;
-  function add(
-    starter?: { en: string; ar: string; service?: boolean },
-    parent?: QuotationItemToSave,
-    itemType: 'line' | 'section' = 'line',
-    componentKind: 'Included' | 'Accessory' | 'Optional' = 'Accessory'
-  ) {
-    const item: QuotationItemToSave = {
-      id: crypto.randomUUID(),
-      itemType,
-      description: starter?.en ?? '',
-      descriptionAr: starter?.ar ?? '',
-      qty: parent && componentKind === 'Included' ? 1 : (parent?.qty ?? 1),
-      unit:
-        parent && componentKind === 'Included'
-          ? 'per_product'
-          : starter?.service
-            ? 'job'
-            : 'piece',
-      measurementUnit: 'mm',
-      parentItemId: parent?.id,
-      kind: parent ? componentKind : starter?.service ? 'Service' : undefined,
-      itemCode:
-        itemType === 'section'
-          ? undefined
-          : nextItemCode(items, parent ? 'A' : starter?.service ? 'S' : 'D'),
-    };
-    if (!parent) setExpandedId(item.id);
-    else setExpandedAccessoryId(item.id);
-    if (parent) {
-      const index = items.reduce(
-        (n, i, index) =>
-          i.id === parent.id || i.parentItemId === parent.id ? index + 1 : n,
-        0
-      );
-      onChange([...items.slice(0, index), item, ...items.slice(index)]);
-    } else onChange([...items, item]);
+    const c = new AbortController();
+    fetch('/api/quotations/catalogue', { signal: c.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => {
+        if (b && !c.signal.aborted) setProducts(b.items);
+      })
+      .catch(() => {});
+    return () => c.abort();
+  }, []);
+  const roots = items.filter((i) => !i.parentItemId),
+    selected =
+      items.find((i) => i.id === selectedId && !i.parentItemId) ??
+      roots.find((i) => i.itemType === 'line'),
+    children = items.filter((i) => i.parentItemId === selected?.id),
+    product = products.find((p) => p.id === selected?.productId),
+    profile = product ? productProfile(product) : undefined,
+    totals = computeQuotationTotals(items),
+    money = (n: number) =>
+      new Intl.NumberFormat(ar ? 'ar-QA' : 'en-QA', {
+        style: 'currency',
+        currency,
+      }).format(n);
+  function patch(id: string, values: Partial<QuotationItemToSave>) {
+    onChange(items.map((i) => (i.id === id ? { ...i, ...values } : i)));
   }
   function remove(id: string) {
-    setUndo({
-      removed: items.filter((i) => i.id === id || i.parentItemId === id),
-      index: items.findIndex((i) => i.id === id),
-    });
+    setUndo(items);
     onChange(items.filter((i) => i.id !== id && i.parentItemId !== id));
   }
-  function restore() {
-    if (!undo) return;
-    const restored = undo.removed.filter(
-      (i) => !items.some((existing) => existing.id === i.id)
-    );
-    const index = Math.min(undo.index, items.length);
-    onChange([...items.slice(0, index), ...restored, ...items.slice(index)]);
-    setUndo(null);
-  }
   function duplicate(item: QuotationItemToSave) {
-    const id = crypto.randomUUID();
-    const copied = {
-      ...item,
-      id,
-      itemCode:
-        item.itemType === 'section'
-          ? undefined
-          : nextItemCode(
-              items,
-              item.parentItemId ? 'A' : item.kind === 'Service' ? 'S' : 'D'
-            ),
-    };
-    if (!item.parentItemId) setExpandedId(id);
-    else setExpandedAccessoryId(id);
-    const group = [copied];
-    const working = [...items, copied];
-    for (const child of items.filter((i) => i.parentItemId === item.id)) {
-      const next = {
-        ...child,
-        id: crypto.randomUUID(),
-        parentItemId: id,
-        itemCode: nextItemCode(working, 'A'),
+    const id = crypto.randomUUID(),
+      p = products.find((p) => p.id === item.productId),
+      copy = {
+        ...item,
+        id,
+        itemCode: p
+          ? productItemReference(p, items)
+          : nextItemCode(items, item.itemCode?.replace(/\d+$/, '') || 'ITEM'),
       };
-      group.push(next);
-      working.push(next);
-    }
-    const end = items.reduce(
-      (n, i, index) =>
-        i.id === item.id || i.parentItemId === item.id ? index + 1 : n,
-      0
-    );
-    onChange([...items.slice(0, end), ...group, ...items.slice(end)]);
-  }
-  function move(id: string, delta: number) {
-    const index = roots.findIndex((i) => i.id === id);
-    if (index + delta < 0 || index + delta >= roots.length) return;
-    const reordered = [...roots];
-    [reordered[index], reordered[index + delta]] = [
-      reordered[index + delta],
-      reordered[index],
+    const additions = [
+      copy,
+      ...items
+        .filter((i) => i.parentItemId === item.id)
+        .map((c, index) => ({
+          ...c,
+          id: crypto.randomUUID(),
+          parentItemId: id,
+          itemCode: nextItemCode(items, 'ACC') + '-' + (index + 1),
+        })),
     ];
+    onChange([...items, ...additions]);
+    if (itemOptions[item.id])
+      onOptionsChange?.({
+        ...itemOptions,
+        [id]: structuredClone(itemOptions[item.id]),
+      });
+    setSelectedId(id);
+  }
+  function move(item: QuotationItemToSave, delta: number) {
+    const index = roots.findIndex((i) => i.id === item.id),
+      other = roots[index + delta];
+    if (!other) return;
+    const order = [...roots];
+    [order[index], order[index + delta]] = [order[index + delta], order[index]];
     onChange(
-      reordered.flatMap((i) => [
-        i,
-        ...items.filter((c) => c.parentItemId === i.id),
-      ])
+      order.flatMap((r) => [r, ...items.filter((i) => i.parentItemId === r.id)])
     );
   }
-  async function saveCatalog(item: QuotationItemToSave) {
-    setCatalogBusy(item.id);
-    setCatalogError(false);
-    try {
-      const res = await fetch('/api/catalog-items', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: item.description,
-          category: item.parentItemId
-            ? 'component'
-            : item.kind === 'Service'
-              ? 'service'
-              : 'product',
-          nameAr: item.descriptionAr,
-          description: item.specification,
-          defaultUnitPrice: item.unitPrice,
-          unitOfMeasure: item.unit,
-        }),
-      });
-      if (!res.ok) throw new Error();
-      const row = await res.json();
-      onChange(
-        latestItems.current.map((current) =>
-          current.id === item.id ? { ...current, productId: row.id } : current
-        )
-      );
-    } catch {
-      setCatalogError(true);
-    } finally {
-      setCatalogBusy(null);
-    }
+  function option(key: string, value: string) {
+    if (!selected) return;
+    const current = itemOptions[selected.id] ?? {};
+    onOptionsChange?.({
+      ...itemOptions,
+      [selected.id]:
+        key === 'drawingReference'
+          ? { ...current, drawingReference: value }
+          : {
+              ...current,
+              selections: {
+                ...current.selections,
+                [key]: value,
+                ...(key === 'finish' && value !== 'Custom'
+                  ? { customFinish: '' }
+                  : {}),
+                ...(key === 'finish' &&
+                (product?.deliveryPeriod || product?.customDeliveryPeriod)
+                  ? {
+                      deliveryPeriod:
+                        value === 'Custom'
+                          ? (product.customDeliveryPeriod ??
+                            product.deliveryPeriod)
+                          : product.deliveryPeriod,
+                    }
+                  : {}),
+              },
+            },
+    });
   }
-  function options(item: QuotationItemToSave, index: number, child: boolean) {
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
+  function custom(section = false) {
+    const item: QuotationItemToSave = {
+      id: crypto.randomUUID(),
+      itemType: section ? 'section' : 'line',
+      itemCode: section ? undefined : nextItemCode(items, 'ITEM'),
+      description: '',
+      qty: 1,
+      unit: section ? undefined : 'piece',
+      measurementUnit: 'cm',
+    };
+    onChange([...items, item]);
+    setSelectedId(item.id);
+    setMobileEditor(true);
+  }
+  const numeric = (
+    item: QuotationItemToSave,
+    key: 'qty' | 'unitPrice' | 'sizeW' | 'sizeH' | 'discountValue',
+    label: string,
+    min = 0
+  ) => (
+    <label>
+      {label}
+      <Input
+        aria-label={label}
+        type="number"
+        min={min}
+        step="any"
+        value={item[key] ?? ''}
+        disabled={disabled}
+        onChange={(e) =>
+          patch(item.id, {
+            [key]: e.target.value === '' ? undefined : Number(e.target.value),
+          })
+        }
+      />
+    </label>
+  );
+  const missing = (i: QuotationItemToSave) =>
+    !isNonChargeable(i) &&
+    (i.unitPrice === undefined ||
+      !i.unit ||
+      (i.unit === 'm2' && (!i.sizeW || !i.sizeH)));
+  return (
+    <div className={`qp-items ${mobileEditor ? 'qp-editing' : ''}`}>
+      <aside
+        className="qp-item-list"
+        aria-label={l('Quotation items', 'بنود عرض السعر')}
+      >
+        <div className="qp-list-heading">
+          <strong>
+            {l('Items', 'البنود')}{' '}
+            <small>{roots.filter((i) => i.itemType === 'line').length}</small>
+          </strong>
+          <Button
+            type="button"
+            size="sm"
+            disabled={disabled}
+            onClick={() => setTarget({})}
+          >
+            <Plus size={15} />
+            {l('Add item', 'إضافة بند')}
+          </Button>
+        </div>
+        <div className="qp-item-rows">
+          {roots.map((item) =>
+            item.itemType === 'section' ? (
+              <button
+                type="button"
+                className="qp-list-section"
+                key={item.id}
+                onClick={() => {
+                  setSelectedId(item.id);
+                  setMobileEditor(true);
+                }}
+              >
+                {item.description || l('Section', 'قسم')}
+              </button>
+            ) : (
+              <button
+                key={item.id}
+                type="button"
+                className="qp-item-row"
+                aria-pressed={selected?.id === item.id}
+                onClick={() => {
+                  setSelectedId(item.id);
+                  setMobileEditor(true);
+                }}
+              >
+                <span className="qp-row-code" dir="ltr">
+                  {item.itemCode || '—'}
+                </span>
+                <strong dir="auto">
+                  {ar && item.descriptionAr
+                    ? item.descriptionAr
+                    : item.description || l('Custom item', 'بند مخصص')}
+                </strong>
+                <small>
+                  {item.qty ?? 1} ×{' '}
+                  {item.unit ?? l('Choose unit', 'حدد الوحدة')}
+                  {items.some((i) => i.parentItemId === item.id)
+                    ? ' · ' + l('With equipment', 'مع المعدات')
+                    : ''}
+                </small>
+                <span
+                  className={missing(item) ? 'qp-incomplete' : 'qp-row-total'}
+                >
+                  {missing(item)
+                    ? l('Needs pricing', 'يحتاج إلى تسعير')
+                    : money(
+                        (totals.itemTotals[item.id] ?? 0) +
+                          items
+                            .filter((i) => i.parentItemId === item.id)
+                            .reduce(
+                              (n, i) => n + (totals.itemTotals[i.id] ?? 0),
+                              0
+                            )
+                      )}
+                </span>
+              </button>
+            )
+          )}
+        </div>
+        {!roots.length && (
+          <p className="qp-empty-list">
+            {l(
+              'Add a product or service to start your quotation.',
+              'أضف منتجاً أو خدمة لبدء عرض السعر.'
+            )}
+          </p>
+        )}
+        <details className="qp-list-more">
+          <summary>{l('Other item actions', 'إجراءات أخرى للبنود')}</summary>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={disabled}
+            onClick={() => custom()}
+          >
+            {l('Custom item', 'بند مخصص')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={disabled}
+            onClick={() => custom(true)}
+          >
+            {l('Section heading', 'عنوان قسم')}
+          </Button>
+          {undo && (
             <Button
               type="button"
+              size="sm"
               variant="ghost"
-              size="icon"
               disabled={disabled}
-              aria-label={t('itemOptions')}
-            />
-          }
-        >
-          <MoreHorizontal size={17} />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          {!child && (
-            <>
-              <DropdownMenuItem
-                disabled={index === 0}
-                onClick={() => move(item.id, -1)}
-              >
-                <ChevronUp size={15} />
-                {t('moveUp')}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={index === roots.length - 1}
-                onClick={() => move(item.id, 1)}
-              >
-                <ChevronDown size={15} />
-                {t('moveDown')}
-              </DropdownMenuItem>
-            </>
-          )}
-          {!item.productId && item.itemType === 'line' && (
-            <DropdownMenuItem
-              disabled={
-                !!item.productId ||
-                !item.description?.trim() ||
-                catalogBusy !== null
-              }
-              onClick={() => saveCatalog(item)}
+              onClick={() => {
+                onChange(undo);
+                setUndo(null);
+              }}
             >
-              {catalogBusy === item.id ? t('saving') : t('saveCatalog')}
-            </DropdownMenuItem>
+              {l('Undo removal', 'تراجع عن الحذف')}
+            </Button>
           )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  }
-  function dimensions(item: QuotationItemToSave) {
-    return (
-      <fieldset className="qw-measurements">
-        <legend>
-          <Ruler size={15} />
-          {t(item.unit === 'm2' ? 'areaDimensions' : 'openingDimensions')}
-        </legend>
-        <div className="qw-measurement-fields">
-          <label>
-            {t('width')}
-            <div className="qw-measure-input">
-              <Input
-                type="number"
-                min="0"
-                step="any"
-                aria-label={t('width')}
-                placeholder={t('width')}
-                value={item.sizeW ?? ''}
-                disabled={disabled}
-                onChange={(e) =>
-                  patch(item.id, {
-                    sizeW:
-                      e.target.value === ''
-                        ? undefined
-                        : Number(e.target.value),
-                  })
-                }
-              />
-              <span>{item.measurementUnit ?? 'mm'}</span>
-            </div>
-          </label>
-          <span aria-hidden className="qw-measure-times">
-            ×
-          </span>
-          <label>
-            {t('height')}
-            <div className="qw-measure-input">
-              <Input
-                type="number"
-                min="0"
-                step="any"
-                aria-label={t('height')}
-                placeholder={t('height')}
-                value={item.sizeH ?? ''}
-                disabled={disabled}
-                onChange={(e) =>
-                  patch(item.id, {
-                    sizeH:
-                      e.target.value === ''
-                        ? undefined
-                        : Number(e.target.value),
-                  })
-                }
-              />
-              <span>{item.measurementUnit ?? 'mm'}</span>
-            </div>
-          </label>
-          <label>
-            {t('measurementUnit')}
-            <WorkspaceSelect
-              aria-label={t('measurementUnit')}
-              disabled={disabled}
-              value={item.measurementUnit ?? 'mm'}
-              onValueChange={(value) =>
-                patch(item.id, convertDimensions(item, value))
-              }
-            >
-              {['mm', 'cm', 'm'].map((unit) => (
-                <option key={unit} value={unit}>
-                  {t(`dimension_${unit}`)}
-                </option>
-              ))}
-            </WorkspaceSelect>
-          </label>
-        </div>
-        <p>
-          {t(
-            item.unit === 'm2' ? 'areaDimensionsHint' : 'measurementPricingHint'
-          )}
-        </p>
-      </fieldset>
-    );
-  }
-  function pricing(item: QuotationItemToSave) {
-    const unit = item.unit ?? 'piece';
-    const hasPrice = item.unitPrice !== undefined;
-    const discounted = !!item.discountValue;
-    const optional = item.kind === 'Optional';
-    const referenceTotal = optional
-      ? computeQuotationTotals([{ ...item, kind: 'Accessory' }]).itemTotals[
-          item.id
-        ]
-      : totals.itemTotals[item.id];
-    return (
-      <div className="qw-product-pricing">
-        <div className="qw-price-fields">
-          <label>
-            {t(unit === 'm2' ? 'openingCount' : 'quantityFull')}
-            <Input
-              aria-label={t(unit === 'm2' ? 'openingCount' : 'quantityFull')}
-              type="number"
-              min="0.001"
-              step="any"
-              disabled={disabled}
-              value={item.qty ?? ''}
-              onChange={(e) =>
-                patch(item.id, {
-                  qty:
-                    e.target.value === '' ? undefined : Number(e.target.value),
-                })
-              }
-            />
-          </label>
-          <label>
-            {t('pricingMethod')}
-            <WorkspaceSelect
-              aria-label={t('pricingMethod')}
-              disabled={disabled}
-              value={unit}
-              onValueChange={(value) => patch(item.id, { unit: value })}
-            >
-              {!unitOptions.includes(unit) && (
-                <option value={unit}>{unitLabel(unit)}</option>
+        </details>
+      </aside>
+      <div className="qp-item-editor">
+        {!selected ? (
+          <div className="qp-editor-empty">
+            <BookOpen size={28} />
+            <h3>
+              {l(
+                'Build the offer around the product',
+                'ابدأ العرض باختيار المنتج'
               )}
-              {unitOptions.map((u) => (
-                <option value={u} key={u} data-description={t(`unitHelp_${u}`)}>
-                  {unitLabel(u)}
-                </option>
-              ))}
-            </WorkspaceSelect>
-          </label>
-          <label>
-            {t(optional ? 'optionalUnitPrice' : 'priceForUnit', {
-              unit: unitLabel(unit),
-              currency,
-            })}
-            <Input
-              aria-label={t('unitPrice')}
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder={t(optional ? 'priceOnRequest' : 'enterPrice')}
-              value={item.unitPrice ?? ''}
-              disabled={disabled}
-              onChange={(e) =>
-                patch(item.id, {
-                  unitPrice:
-                    e.target.value === '' ? undefined : Number(e.target.value),
-                })
-              }
-            />
-          </label>
-          <div className="qw-product-amount">
-            <span>
-              {t(
-                optional
-                  ? 'optionalReferenceTotal'
-                  : item.parentItemId
-                    ? 'itemTotal'
-                    : 'baseProductTotal'
+            </h3>
+            <p>
+              {l(
+                'Choose an item from the catalogue. Its units, specifications and applicable options appear here.',
+                'اختر بنداً من الكتالوج لعرض وحداته ومواصفاته وخياراته هنا.'
               )}
-            </span>
-            <strong>
-              {hasPrice ? `${money(referenceTotal ?? 0)} ${currency}` : '—'}
-            </strong>
-          </div>
-        </div>
-        {unit === 'm2' && dimensions(item)}
-        {unit === 'm2' && (
-          <p className="qw-area-equation">
-            {(item.sizeW ?? 0) > 0 && (item.sizeH ?? 0) > 0
-              ? t('areaCalculation', {
-                  area: areaPerItem(item).toLocaleString(locale, {
-                    maximumFractionDigits: 6,
-                  }),
-                  qty: item.qty ?? 1,
-                  totalArea: billableQuantity(item).toLocaleString(locale, {
-                    maximumFractionDigits: 6,
-                  }),
-                  price: money(item.unitPrice ?? 0),
-                  currency,
-                })
-              : t('areaDimensionsHint')}
-          </p>
-        )}
-        <div className="qw-calculation">
-          <span>
-            {unit === 'm2'
-              ? ''
-              : hasPrice
-                ? t('priceCalculation', {
-                    qty: item.qty ?? 1,
-                    unit: unitLabel(unit),
-                    price: money(item.unitPrice!),
-                    currency,
-                  })
-                : t(optional ? 'optionalPriceHint' : 'priceNeeded')}
-            {discounted &&
-              ` · ${t('discountApplied', { amount: money(billableQuantity(item) * (item.unitPrice ?? 0) - (totals.itemTotals[item.id] ?? 0)), currency })}`}
-          </span>
-          {!optional && !discounted && !discounts.has(item.id) && (
-            <button
+            </p>
+            <Button
               type="button"
               disabled={disabled}
-              onClick={() => setDiscounts((prev) => new Set(prev).add(item.id))}
+              onClick={() => setTarget({})}
             >
-              {t('addItemDiscount')}
-            </button>
-          )}
-        </div>
-        {(discounted || discounts.has(item.id)) && (
-          <div className="qw-item-discount">
-            <label>
-              {t('itemDiscount')}
-              <div className="qw-inline">
-                <Input
-                  aria-label={t('itemDiscount')}
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={item.discountValue ?? 0}
-                  disabled={disabled}
-                  onChange={(e) =>
-                    patch(item.id, {
-                      discountType: item.discountType ?? 'percent',
-                      discountValue: Number(e.target.value),
-                    })
-                  }
-                />
-                <WorkspaceSelect
-                  aria-label={t('discountType')}
-                  disabled={disabled}
-                  value={item.discountType ?? 'percent'}
-                  onValueChange={(value) =>
-                    patch(item.id, {
-                      discountType: value as 'fixed' | 'percent',
-                    })
-                  }
-                >
-                  <option value="percent">%</option>
-                  <option value="fixed">{currency}</option>
-                </WorkspaceSelect>
-                <button
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => {
-                    patch(item.id, {
-                      discountType: undefined,
-                      discountValue: undefined,
-                    });
-                    setDiscounts((prev) => {
-                      const next = new Set(prev);
-                      next.delete(item.id);
-                      return next;
-                    });
-                  }}
-                >
-                  {t('remove')}
-                </button>
-              </div>
-            </label>
-          </div>
-        )}
-      </div>
-    );
-  }
-  function line(item: QuotationItemToSave, index: number, child = false) {
-    const parent = items.find((i) => i.id === item.parentItemId);
-    const specificationPresets = specificationPresetsForItem(item);
-    const codeLike = /^[A-Z]{1,3}\d{1,4}$/i.test(
-      item.description?.trim() ?? ''
-    );
-    return (
-      <div
-        key={item.id}
-        className={child ? 'qw-extra-line' : 'qw-product-line'}
-        data-kind={item.kind}
-      >
-        {child && (
-          <div className="qw-product-heading">
-            {child && parent ? (
-              <WorkspaceSelect
-                className="qw-component-kind"
-                aria-label={t('componentPricing')}
-                value={
-                  item.kind === 'Included'
-                    ? 'Included'
-                    : item.kind === 'Optional'
-                      ? 'Optional'
-                      : 'Accessory'
-                }
-                disabled={disabled}
-                onValueChange={(value) =>
-                  patch(
-                    item.id,
-                    changeComponentKind(
-                      item,
-                      parent,
-                      value as 'Included' | 'Accessory' | 'Optional'
-                    )
-                  )
-                }
-              >
-                <option
-                  value="Included"
-                  data-tone="success"
-                  data-description={t('includedPricingHelp')}
-                >
-                  {t('includedComponent')}
-                </option>
-                <option
-                  value="Accessory"
-                  data-tone="info"
-                  data-description={t('chargedPricingHelp')}
-                >
-                  {t('chargedComponent')}
-                </option>
-                <option
-                  value="Optional"
-                  data-tone="optional"
-                  data-description={t('optionalPricingHelp')}
-                >
-                  {t('optionalComponent')}
-                </option>
-              </WorkspaceSelect>
-            ) : (
-              <strong>
-                {child
-                  ? t('extraItem')
-                  : item.kind === 'Service'
-                    ? t('serviceItem', { number: index + 1 })
-                    : t('productItem', { number: index + 1 })}
-              </strong>
-            )}
-            <label className="qw-code-field">
-              <span>{t('drawingCode')}</span>
-              <Input
-                aria-label={t('itemCode')}
-                placeholder="D01"
-                value={item.itemCode ?? ''}
-                disabled={disabled}
-                onChange={(e) => patch(item.id, { itemCode: e.target.value })}
-              />
-            </label>
-            {options(item, index, child)}
-          </div>
-        )}
-        {child && (
-          <p className="qw-component-explanation">
-            {t(
-              item.kind === 'Included'
-                ? 'includedPricingHelp'
-                : item.kind === 'Optional'
-                  ? 'optionalPricingHelp'
-                  : 'chargedPricingHelp'
-            )}
-          </p>
-        )}
-        <label className="qw-product-name">
-          <span>{child ? t('accessoryName') : t('productName')}</span>
-          <ItemName
-            onBrowse={() => setCatalogueTarget({ item })}
-            item={item}
-            accessory={child}
-            disabled={disabled}
-            onChange={(value) =>
-              patch(
-                item.id,
-                item.kind === 'Included'
-                  ? { ...value, unit: 'per_product', unitPrice: undefined }
-                  : value
-              )
-            }
-          />
-        </label>
-        {codeLike && (
-          <p className="qw-code-hint">
-            {t('codeHint')}
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() =>
-                patch(item.id, { itemCode: item.description, description: '' })
-              }
-            >
-              {t('useAsCode')}
-            </button>
-          </p>
-        )}
-        {item.kind === 'Included' ? (
-          <div className="qw-included-component">
-            <label>
-              {t('includedQuantity')}
-              <Input
-                type="number"
-                aria-label={t('includedQuantity')}
-                min="0.001"
-                step="any"
-                value={item.qty ?? ''}
-                disabled={disabled}
-                onChange={(e) =>
-                  patch(item.id, {
-                    qty:
-                      e.target.value === ''
-                        ? undefined
-                        : Number(e.target.value),
-                  })
-                }
-              />
-            </label>
-            <span>{t('includedPriceHint')}</span>
+              {l('Choose a product', 'اختيار منتج')}
+            </Button>
           </div>
         ) : (
           <>
-            {pricing(item)}
-            {item.kind === 'Optional' && (
-              <div className="qw-optional-action">
-                <span>{t('notInTotal')}</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={disabled || item.unitPrice === undefined}
-                  onClick={() => patch(item.id, { kind: 'Accessory' })}
-                >
-                  {t('acceptUpgrade')}
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-        {!child && (
-          <details className="qw-secondary-panel">
-            <summary>{t('specificationsAndDimensions')}</summary>
-            <label>
-              {t('drawingCode')}
-              <Input
-                aria-label={t('itemCode')}
-                placeholder="D01"
-                value={item.itemCode ?? ''}
-                disabled={disabled}
-                onChange={(e) => patch(item.id, { itemCode: e.target.value })}
-              />
-            </label>
-            {!child && item.kind !== 'Service' && (
-              <div className="qw-specification-presets">
-                <label>
-                  {t('specificationTemplate')}
-                  <WorkspaceSelect
-                    aria-label={t('specificationTemplate')}
-                    value=""
-                    disabled={disabled || specificationPresets.length === 0}
-                    onValueChange={(value) =>
-                      onChange(applySpecificationPreset(items, item.id, value))
-                    }
-                  >
-                    <option value="">
-                      {t(
-                        specificationPresets.length
-                          ? 'chooseSpecification'
-                          : 'noMatchingSpecifications'
-                      )}
-                    </option>
-                    {specificationPresets.map((preset) => (
-                      <option key={preset.key} value={preset.key}>
-                        {t(preset.key)}
-                      </option>
-                    ))}
-                  </WorkspaceSelect>
-                </label>
+            <Button
+              className="qp-back-items"
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setMobileEditor(false)}
+            >
+              <ChevronLeft size={14} />
+              {l('All items', 'كل البنود')}
+            </Button>
+            <div className="qp-editor-heading">
+              <div>
+                <span className="qp-eyebrow">
+                  {selected.itemCode} {product?.sku ? ' · ' + product.sku : ''}
+                </span>
+                <h3 dir="auto">
+                  {selected.description || l('Custom item', 'بند مخصص')}
+                </h3>
                 <p>
-                  {t(
-                    specificationPresets.length
-                      ? 'specificationReviewHint'
-                      : 'noMatchingSpecificationsHint'
-                  )}
+                  {product?.familyName ?? l('Quotation item', 'بند عرض السعر')}
                 </p>
               </div>
-            )}
-            {!child && (
-              <label className="qw-product-spec">
-                <span>{t('materialsFinish')}</span>
-                <textarea
-                  rows={2}
-                  dir="auto"
-                  aria-label={t('materialsFinish')}
-                  placeholder={t('specificationPlaceholder')}
+              <div className="qp-editor-actions">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  aria-label={t('duplicateProduct')}
                   disabled={disabled}
-                  value={item.specification ?? ''}
+                  onClick={() => duplicate(selected)}
+                >
+                  <Copy size={16} />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  aria-label={t('deleteProduct')}
+                  disabled={disabled}
+                  onClick={() => remove(selected.id)}
+                >
+                  <Trash2 size={16} />
+                </Button>
+              </div>
+            </div>
+            {selected.itemType === 'section' ? (
+              <label>
+                {t('sectionName')}
+                <Input
+                  value={selected.description ?? ''}
+                  disabled={disabled}
                   onChange={(e) =>
-                    patch(item.id, { specification: e.target.value })
+                    patch(selected.id, { description: e.target.value })
                   }
                 />
               </label>
-            )}
-            {!child &&
-              item.kind !== 'Service' &&
-              item.unit !== 'm2' &&
-              dimensions(item)}
-          </details>
-        )}
-        <details className="qw-details qw-language-details">
-          <summary>{t('arabicAndNotes')}</summary>
-          <label>
-            {t('descriptionAr')}
-            <Input
-              aria-label={t('descriptionAr')}
-              dir="rtl"
-              placeholder={t('arabicNamePlaceholder')}
-              disabled={disabled}
-              value={item.descriptionAr ?? ''}
-              onChange={(e) =>
-                patch(item.id, { descriptionAr: e.target.value })
-              }
-            />
-          </label>
-          {child && (
-            <label>
-              {t('materialsFinish')}
-              <Input
-                aria-label={t('materialsFinish')}
-                value={item.specification ?? ''}
-                placeholder={t('specificationPlaceholder')}
-                disabled={disabled}
-                onChange={(e) =>
-                  patch(item.id, { specification: e.target.value })
-                }
-              />
-            </label>
-          )}
-        </details>
-      </div>
-    );
-  }
-  return (
-    <div className="qw-company-items">
-      <p className="qw-items-guide">{t('itemsGuide')}</p>
-      {roots.length === 0 && (
-        <div className="qw-empty">
-          <strong>{t('companyItemsEmpty')}</strong>
-          <p>{t('companyItemsEmptyHint')}</p>
-        </div>
-      )}
-      {roots.map((item, index) => {
-        const children = items.filter((i) => i.parentItemId === item.id);
-        return (
-          <div key={item.id} className="qw-product-group">
-            {item.itemType === 'section' ? (
-              <div className="qw-section-row">
-                <Input
-                  aria-label={t('sectionName')}
-                  placeholder={t('sectionPlaceholder')}
-                  value={item.description ?? ''}
-                  disabled={disabled}
-                  onChange={(e) =>
-                    patch(item.id, { description: e.target.value })
-                  }
-                />
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  disabled={disabled}
-                  aria-label={t('duplicateSection')}
-                  onClick={() => duplicate(item)}
-                >
-                  <Copy size={15} />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  disabled={disabled}
-                  className="ui-danger-action"
-                  aria-label={t('deleteSection')}
-                  onClick={() => remove(item.id)}
-                >
-                  <Trash2 size={15} />
-                </Button>
-                {options(item, index, false)}
-              </div>
             ) : (
-              <ProductDisclosure open={expandedId === item.id}>
-                <summary
-                  onClick={(event) => {
-                    event.preventDefault();
-                    setExpandedId(expandedId === item.id ? null : item.id);
-                  }}
-                >
-                  <strong>
-                    <ChevronDown
-                      size={16}
-                      className="qw-disclosure-icon"
-                      aria-hidden
-                    />
-                    {item.kind ? `${item.kind} · ` : ''}
-                    {item.description || t('productName')}
-                  </strong>
-                  <span>
-                    {money(
-                      (totals.itemTotals[item.id] ?? 0) +
-                        children.reduce(
-                          (sum, child) =>
-                            sum + (totals.itemTotals[child.id] ?? 0),
-                          0
-                        )
-                    )}{' '}
-                    {currency}
-                  </span>
-                  <small>
-                    {item.itemCode} ·{' '}
-                    {t('summaryQuantity', { qty: item.qty ?? 1 })}
-                    {item.unit === 'm2'
-                      ? ` · ${billableQuantity(item).toLocaleString(locale, { maximumFractionDigits: 4 })} m²`
-                      : ''}
-                  </small>
-                  <div
-                    className="qw-visible-item-actions"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                    }}
-                  >
+              <>
+                <section className="qp-editor-block">
+                  <div className="qp-section-heading">
+                    <h4>{l('Configuration', 'التكوين')}</h4>
                     <Button
+                      type="button"
                       size="sm"
                       variant="ghost"
                       disabled={disabled}
-                      className="text-info"
-                      aria-label={t('duplicateProduct')}
-                      onClick={() => duplicate(item)}
+                      onClick={() => setTarget({ item: selected })}
                     >
-                      <Copy size={15} />
-                      {t('duplicate')}
+                      {l('Change product', 'تغيير المنتج')}
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={disabled}
-                      className="ui-danger-action"
-                      aria-label={t('deleteProduct')}
-                      onClick={() => remove(item.id)}
-                    >
-                      <Trash2 size={15} />
-                      {t('deleteShort')}
-                    </Button>
-                    {options(item, index, false)}
                   </div>
-                </summary>
-                {line(item, index)}
-                <details className="qw-product-extras qw-secondary-panel">
-                  <summary>
-                    {t('accessoriesCount', { count: children.length })}
-                  </summary>
-                  <div className="qw-extras-heading">
-                    <div>
-                      <strong>
-                        <PackagePlus size={16} />
-                        {t('packageContents')}
-                      </strong>
-                      <p>{t('componentGuide')}</p>
-                      <details className="qw-pricing-help">
-                        <summary>{t('pricingHelpTitle')}</summary>
-                        <p>{t('pricingExample')}</p>
-                      </details>
-                    </div>
-                  </div>
-                  <div className="qw-component-add-actions">
-                    {(['Included', 'Accessory', 'Optional'] as const).map(
-                      (kind) => (
-                        <DropdownMenu key={kind}>
-                          <DropdownMenuTrigger
-                            render={
-                              <Button
-                                type="button"
-                                variant={
-                                  kind === 'Included' ? 'outline' : 'ghost'
-                                }
-                                size="sm"
-                                disabled={disabled}
-                              />
-                            }
-                          >
-                            <Plus size={14} />
-                            {t(
-                              kind === 'Included'
-                                ? 'addIncluded'
-                                : kind === 'Optional'
-                                  ? 'addOptional'
-                                  : 'addCharged'
-                            )}
-                            <ChevronDown size={13} aria-hidden />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start">
-                            <DropdownMenuItem
-                              onClick={() =>
-                                setCatalogueTarget({ parent: item, kind })
-                              }
-                            >
-                              {locale === 'ar'
-                                ? 'من الكتالوج المشترك'
-                                : 'From shared catalogue'}
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {(kind === 'Optional'
-                              ? ACCESSORY_STARTERS.filter((s) =>
-                                  ['lock', 'handle'].includes(s.key)
-                                )
-                              : ACCESSORY_STARTERS
-                            ).map((starter) => (
-                              <DropdownMenuItem
-                                key={starter.key}
-                                onClick={() => add(starter, item, 'line', kind)}
-                              >
-                                {t(starter.key)}
-                              </DropdownMenuItem>
-                            ))}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => add(undefined, item, 'line', kind)}
-                            >
-                              {t('customAccessory')}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )
+                  <div className="qp-field-grid">
+                    {numeric(
+                      selected,
+                      'qty',
+                      selected.unit === 'm2'
+                        ? l('Number of openings', 'عدد الفتحات')
+                        : selected.unit === 'm'
+                          ? l('Chargeable length (m)', 'الطول المحتسب (م)')
+                          : selected.unit === 'job'
+                            ? l('Number of jobs', 'عدد الأعمال')
+                            : t('quantity')
                     )}
+                    <label>
+                      {l('Drawing / opening reference', 'مرجع المخطط / الفتحة')}
+                      <Input
+                        value={itemOptions[selected.id]?.drawingReference ?? ''}
+                        placeholder={l('e.g. W-01', 'مثال: W-01')}
+                        disabled={disabled}
+                        onChange={(e) =>
+                          option('drawingReference', e.target.value)
+                        }
+                      />
+                    </label>
+                    {profile?.fields.map((f) => (
+                      <label key={f.key}>
+                        {ar ? f.ar : f.en}
+                        {f.options ? (
+                          <select
+                            aria-label={ar ? f.ar : f.en}
+                            disabled={disabled}
+                            value={
+                              itemOptions[selected.id]?.selections?.[f.key] ??
+                              ''
+                            }
+                            onChange={(e) => option(f.key, e.target.value)}
+                          >
+                            <option value="">{l('Select', 'اختر')}</option>
+                            {f.options.map((o) => (
+                              <option key={o} value={o}>
+                                {ar
+                                  ? ({
+                                      White: 'أبيض',
+                                      Beige: 'بيج',
+                                      Custom: 'لون مخصص',
+                                    }[o] ?? o)
+                                  : o}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <Input
+                            disabled={disabled}
+                            value={
+                              itemOptions[selected.id]?.selections?.[f.key] ??
+                              ''
+                            }
+                            onChange={(e) => option(f.key, e.target.value)}
+                          />
+                        )}
+                      </label>
+                    ))}
                   </div>
-                  {children.map((child) => (
-                    <details
-                      key={child.id}
-                      className="qw-compact-accessory"
-                      open={expandedAccessoryId === child.id}
-                    >
-                      <summary
-                        onClick={(event) => {
-                          event.preventDefault();
-                          setExpandedAccessoryId(
-                            expandedAccessoryId === child.id ? null : child.id
-                          );
-                        }}
-                      >
-                        <strong>
-                          {child.description || t('accessoryName')}
-                        </strong>
-                        <span className={toneClasses(pricingTone(child.kind))}>
-                          {t(
-                            child.kind === 'Included'
-                              ? 'includedShort'
-                              : child.kind === 'Optional'
-                                ? 'optionalShort'
-                                : 'chargedShort'
-                          )}
+                  {itemOptions[selected.id]?.selections?.finish ===
+                    'Custom' && (
+                    <label>
+                      {l('Custom colour / finish', 'اللون / التشطيب المخصص')}
+                      <Input
+                        disabled={disabled}
+                        value={
+                          itemOptions[selected.id]?.selections?.customFinish ??
+                          ''
+                        }
+                        onChange={(e) => option('customFinish', e.target.value)}
+                      />
+                      {product?.customDeliveryPeriod && (
+                        <span className="qp-subtle">
+                          {l(
+                            'Recorded delivery for custom colours: ',
+                            'مدة التسليم المسجلة للألوان المخصصة: '
+                          ) + product.customDeliveryPeriod}
                         </span>
-                        <div
-                          className="qw-visible-item-actions"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                          }}
-                        >
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            disabled={disabled}
-                            aria-label={t('duplicateAccessory')}
-                            onClick={() => duplicate(child)}
-                          >
-                            <Copy size={15} />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            disabled={disabled}
-                            className="ui-danger-action"
-                            aria-label={t('deleteAccessory')}
-                            onClick={() => remove(child.id)}
-                          >
-                            <Trash2 size={15} />
-                          </Button>
-                        </div>
-                      </summary>
-                      {line(child, index, true)}
-                    </details>
-                  ))}
-                  {children.length > 0 && (
-                    <div className="qw-group-total">
-                      <span>{t('productWithExtras')}</span>
-                      <strong>
-                        {money(
-                          (totals.itemTotals[item.id] ?? 0) +
-                            children.reduce(
-                              (sum, i) => sum + (totals.itemTotals[i.id] ?? 0),
-                              0
+                      )}
+                    </label>
+                  )}
+                  {(selected.unit === 'm2' ||
+                    selected.sizeW !== undefined ||
+                    selected.sizeH !== undefined ||
+                    product?.inventory_type === 'product') && (
+                    <div className="qp-dimensions">
+                      {numeric(selected, 'sizeW', t('width'))}
+                      <span aria-hidden>×</span>
+                      {numeric(selected, 'sizeH', t('height'))}
+                      <label>
+                        {t('measurementUnit')}
+                        <select
+                          aria-label={t('measurementUnit')}
+                          value={selected.measurementUnit ?? 'cm'}
+                          disabled={disabled}
+                          onChange={(e) =>
+                            patch(
+                              selected.id,
+                              convertDimensions(selected, e.target.value)
                             )
-                        )}{' '}
-                        {currency}
-                      </strong>
+                          }
+                        >
+                          {['mm', 'cm', 'm'].map((u) => (
+                            <option key={u}>{u}</option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
                   )}
+                  {selected.unit === 'm2' &&
+                    !!selected.sizeW &&
+                    !!selected.sizeH && (
+                      <p className="qp-area" dir="auto">
+                        {areaPerItem(selected).toLocaleString(undefined, {
+                          maximumFractionDigits: 4,
+                        })}{' '}
+                        m² × {selected.qty ?? 1} ={' '}
+                        <strong>
+                          {billableQuantity(selected).toLocaleString(
+                            undefined,
+                            { maximumFractionDigits: 4 }
+                          )}{' '}
+                          m²
+                        </strong>
+                      </p>
+                    )}
+                </section>
+                <section className="qp-editor-block">
+                  <div className="qp-section-heading">
+                    <h4>{l('Price', 'السعر')}</h4>
+                    {onTools && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onTools(selected.id)}
+                      >
+                        {l('Sources & costing', 'المصادر والتكلفة')}
+                      </Button>
+                    )}
+                  </div>
+                  {product && cataloguePriceRows(product).length > 0 && (
+                    <label>
+                      {l('Recorded selling rates', 'أسعار البيع المسجلة')}
+                      <select
+                        aria-label={l(
+                          'Recorded selling rates',
+                          'أسعار البيع المسجلة'
+                        )}
+                        disabled={disabled}
+                        value=""
+                        onChange={(e) => {
+                          if (!e.target.value) return;
+                          const [recordId, column] = e.target.value.split(':');
+                          try {
+                            const built = catalogueItem(
+                              product,
+                              selected.id,
+                              selected.itemCode ??
+                                productItemReference(product, items),
+                              { recordId, column: column as 'O' },
+                              currency
+                            );
+                            patch(selected.id, {
+                              unit: built.item.unit,
+                              unitPrice: built.item.unitPrice,
+                            });
+                            onCatalogueCapture?.(
+                              built.knowledge,
+                              undefined,
+                              selected.id,
+                              true
+                            );
+                          } catch (error) {
+                            window.alert(
+                              error instanceof Error
+                                ? error.message
+                                : String(error)
+                            );
+                          }
+                        }}
+                      >
+                        <option value="">
+                          {l(
+                            'Choose a recorded rate or enter your own below',
+                            'اختر سعراً مسجلاً أو أدخل السعر أدناه'
+                          )}
+                        </option>
+                        {cataloguePriceRows(product).flatMap((r) =>
+                          ['O', 'P', 'R', 'S']
+                            .filter((c) => r.data['col_' + c])
+                            .map((c) => (
+                              <option
+                                key={r.id + ':' + c}
+                                value={r.id + ':' + c}
+                              >
+                                {r.data.item_en} · {c}: {r.data['col_' + c]} QAR
+                                / {r.data.unit.replace(/^per /, '')}
+                              </option>
+                            ))
+                        )}
+                      </select>
+                    </label>
+                  )}
+                  <div className="qp-price-grid">
+                    <label>
+                      {t('pricingMethod')}
+                      <select
+                        aria-label={t('pricingMethod')}
+                        value={selected.unit ?? ''}
+                        disabled={disabled}
+                        onChange={(e) =>
+                          patch(selected.id, {
+                            unit: e.target.value || undefined,
+                          })
+                        }
+                      >
+                        <option value="">
+                          {l('Choose pricing unit', 'حدد وحدة التسعير')}
+                        </option>
+                        {Array.from(
+                          new Set(
+                            [
+                              'm2',
+                              'piece',
+                              'm',
+                              'job',
+                              'set',
+                              'pair',
+                              selected.unit,
+                            ].filter(Boolean)
+                          )
+                        ).map((u) => (
+                          <option key={u} value={u}>
+                            {t.has('unit_' + u) ? t('unit_' + u) : u}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {numeric(
+                      selected,
+                      'unitPrice',
+                      selected.unit === 'm2'
+                        ? l('Rate per m²', 'سعر المتر المربع')
+                        : l('Unit rate', 'سعر الوحدة')
+                    )}
+                    <div className="qp-line-total">
+                      <small>{l('Item total', 'إجمالي البند')}</small>
+                      <strong>
+                        {missing(selected)
+                          ? '—'
+                          : money(totals.itemTotals[selected.id] ?? 0)}
+                      </strong>
+                    </div>
+                  </div>
+                  {missing(selected) && (
+                    <p className="qp-incomplete" role="status">
+                      {l(
+                        'Complete the pricing unit, rate and required dimensions before issuing.',
+                        'أكمل وحدة التسعير والسعر والأبعاد المطلوبة قبل إصدار العرض.'
+                      )}
+                    </p>
+                  )}
+                  <details className="qp-secondary">
+                    <summary>{t('itemDiscount')}</summary>
+                    <div className="qp-field-grid">
+                      <label>
+                        {t('discountType')}
+                        <select
+                          disabled={disabled}
+                          value={selected.discountType ?? 'percent'}
+                          onChange={(e) =>
+                            patch(selected.id, {
+                              discountType: e.target.value as
+                                'percent' | 'fixed',
+                            })
+                          }
+                        >
+                          <option value="percent">%</option>
+                          <option value="fixed">{currency}</option>
+                        </select>
+                      </label>
+                      {numeric(selected, 'discountValue', t('discount'))}
+                    </div>
+                  </details>
+                </section>
+                <section className="qp-editor-block">
+                  <div className="qp-section-heading">
+                    <h4>{l('Equipment & extras', 'المعدات والإضافات')}</h4>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={disabled}
+                      onClick={() => setTarget({ parent: selected })}
+                    >
+                      <Plus size={14} />
+                      {l('Add equipment', 'إضافة معدات')}
+                    </Button>
+                  </div>
+                  {!children.length && (
+                    <p className="qp-subtle">
+                      {l(
+                        'Add the motor, controls or accessories required for this configuration.',
+                        'أضف المحرك أو وحدات التحكم أو الملحقات المطلوبة لهذا التكوين.'
+                      )}
+                    </p>
+                  )}
+                  {children.map((child) => (
+                    <div className="qp-equipment-row" key={child.id}>
+                      <div>
+                        <strong dir="auto">{child.description}</strong>
+                        <small>{child.itemCode}</small>
+                      </div>
+                      <label>
+                        <span className="sr-only">
+                          {l('Equipment charge', 'احتساب المعدات')}
+                        </span>
+                        <select
+                          value={child.kind ?? 'Accessory'}
+                          disabled={disabled}
+                          aria-label={
+                            l('Equipment charge', 'احتساب المعدات') +
+                            ' ' +
+                            child.itemCode
+                          }
+                          onChange={(e) => {
+                            patch(
+                              child.id,
+                              changeComponentKind(
+                                child,
+                                selected,
+                                e.target.value as
+                                  'Included' | 'Accessory' | 'Optional'
+                              )
+                            );
+                            onCatalogueCapture?.(
+                              undefined,
+                              undefined,
+                              child.id,
+                              true
+                            );
+                          }}
+                        >
+                          <option value="Included">
+                            {l('Included', 'مشمول')}
+                          </option>
+                          <option value="Accessory">
+                            {l('Additional charge', 'تكلفة إضافية')}
+                          </option>
+                          <option value="Optional">
+                            {l('Optional', 'اختياري')}
+                          </option>
+                        </select>
+                      </label>
+                      {numeric(child, 'qty', t('quantity'))}
+                      {child.kind !== 'Included' &&
+                        numeric(child, 'unitPrice', l('Rate', 'السعر'))}
+                      {child.kind !== 'Included' &&
+                        products.find((p) => p.id === child.productId) && (
+                          <label className="qp-equipment-rates">
+                            <span>
+                              {l(
+                                'Recorded equipment rate',
+                                'سعر المعدات المسجل'
+                              )}
+                            </span>
+                            <select
+                              aria-label={
+                                l(
+                                  'Recorded equipment rate',
+                                  'سعر المعدات المسجل'
+                                ) +
+                                ' ' +
+                                child.itemCode
+                              }
+                              value=""
+                              disabled={disabled}
+                              onChange={(e) => {
+                                if (!e.target.value) return;
+                                const [recordId, column] =
+                                    e.target.value.split(':'),
+                                  p = products.find(
+                                    (p) => p.id === child.productId
+                                  )!;
+                                const built = catalogueItem(
+                                  p,
+                                  child.id,
+                                  child.itemCode ?? '',
+                                  { recordId, column: column as 'O' },
+                                  currency
+                                );
+                                patch(child.id, {
+                                  unit: built.item.unit,
+                                  unitPrice: built.item.unitPrice,
+                                });
+                                onCatalogueCapture?.(
+                                  built.knowledge,
+                                  undefined,
+                                  child.id,
+                                  true
+                                );
+                              }}
+                            >
+                              <option value="">
+                                {l('Choose a rate', 'اختر سعراً')}
+                              </option>
+                              {cataloguePriceRows(
+                                products.find((p) => p.id === child.productId)!
+                              ).flatMap((r) =>
+                                ['O', 'P', 'R', 'S']
+                                  .filter(
+                                    (c) =>
+                                      r.data['col_' + c] &&
+                                      Number.isFinite(
+                                        Number(r.data['col_' + c])
+                                      )
+                                  )
+                                  .map((c) => (
+                                    <option
+                                      key={r.id + c}
+                                      value={r.id + ':' + c}
+                                    >
+                                      {c}: {r.data['col_' + c]} QAR ·{' '}
+                                      {r.data.item_en}
+                                    </option>
+                                  ))
+                              )}
+                            </select>
+                          </label>
+                        )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t('deleteAccessory')}
+                        disabled={disabled}
+                        onClick={() => remove(child.id)}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
+                  ))}
+                </section>
+                <details
+                  className="qp-editor-block qp-description"
+                  open={!selected.productId}
+                >
+                  <summary>{l('Quotation description', 'وصف العرض')}</summary>
+                  <p className="qp-subtle">
+                    {l(
+                      'These details appear in the customer document.',
+                      'تظهر هذه التفاصيل في مستند العميل.'
+                    )}
+                  </p>
+                  <label>
+                    {l('Selected specification', 'المواصفات المختارة')}
+                    <textarea
+                      rows={4}
+                      value={selected.specification ?? ''}
+                      disabled={disabled}
+                      onChange={(e) =>
+                        patch(selected.id, { specification: e.target.value })
+                      }
+                    />
+                  </label>
+                  <details className="qp-secondary">
+                    <summary>
+                      {l(
+                        'Names, Arabic description & item reference',
+                        'الأسماء والوصف العربي ومرجع البند'
+                      )}
+                    </summary>
+                    <div className="qp-field-grid">
+                      <label>
+                        {t('productName')}
+                        <Input
+                          value={selected.description ?? ''}
+                          disabled={disabled}
+                          onChange={(e) =>
+                            patch(selected.id, { description: e.target.value })
+                          }
+                        />
+                      </label>
+                      <label>
+                        {l('Arabic product name', 'اسم المنتج بالعربية')}
+                        <Input
+                          dir="rtl"
+                          value={selected.descriptionAr ?? ''}
+                          disabled={disabled}
+                          onChange={(e) =>
+                            patch(selected.id, {
+                              descriptionAr: e.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        {l('Quotation item reference', 'مرجع بند العرض')}
+                        <Input
+                          value={selected.itemCode ?? ''}
+                          disabled={disabled}
+                          onChange={(e) =>
+                            patch(selected.id, { itemCode: e.target.value })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </details>
                 </details>
-              </ProductDisclosure>
+              </>
             )}
-          </div>
-        );
-      })}
-      <div className="qw-item-tools">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={disabled}
-          onClick={() => setCatalogueTarget({})}
-        >
-          <Plus size={15} />
-          {t('addProduct')}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={disabled}
-          onClick={() => add()}
-        >
-          {t('customProduct')}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={disabled}
-          onClick={() => add(undefined, undefined, 'section')}
-        >
-          {t('addSection')}
-        </Button>
-        {undo && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={disabled}
-            onClick={restore}
-          >
-            {t('undoRemove')}
-          </Button>
+            <div className="qp-editor-footer">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={disabled || roots.indexOf(selected) === 0}
+                onClick={() => move(selected, -1)}
+              >
+                <ArrowUp size={14} />
+                {l('Move up', 'نقل للأعلى')}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={
+                  disabled || roots.indexOf(selected) === roots.length - 1
+                }
+                onClick={() => move(selected, 1)}
+              >
+                <ArrowDown size={14} />
+                {l('Move down', 'نقل للأسفل')}
+              </Button>
+            </div>
+          </>
         )}
       </div>
-      {catalogueTarget && (
+      {target && (
         <CataloguePicker
-          open={!!catalogueTarget}
-          creating={disabled}
-          initialType={
-            catalogueTarget.parent || catalogueTarget.item?.parentItemId
-              ? 'equipment'
-              : catalogueTarget.item?.kind === 'Service'
-                ? 'service'
-                : 'product'
-          }
-          allowPrice={
-            (catalogueTarget.kind ?? catalogueTarget.item?.kind) !== 'Included'
-          }
+          open
           onOpenChange={(v) => {
-            if (!v) setCatalogueTarget(null);
+            if (!v) setTarget(null);
           }}
-          defaultApplyTerms={
-            !items.some((i) => !i.parentItemId && i.itemType === 'line')
-          }
-          onSelect={(product, selection) => {
-            if (!catalogueTarget || disabled) return;
-            const target = catalogueTarget.item,
-              parent = catalogueTarget.parent;
-            const built = catalogueItem(
-              product,
-              target?.id ?? crypto.randomUUID(),
-              target?.itemCode ?? nextItemCode(items, parent ? 'A' : 'D'),
-              (catalogueTarget.kind ?? target?.kind) === 'Included'
-                ? undefined
-                : selection.price,
-              currency
+          creating={disabled}
+          initialType={target.parent ? 'equipment' : 'product'}
+          componentMode={!!target.parent}
+          productCode={profile?.code}
+          defaultApplyTerms={!roots.some((i) => i.itemType === 'line')}
+          allowPrice
+          onSelect={(p, selection) => {
+            setProducts((current) =>
+              current.some((x) => x.id === p.id)
+                ? current.map((x) => (x.id === p.id ? p : x))
+                : [...current, p]
             );
-            let line = { ...built.item };
-            if (target)
-              line = {
-                ...target,
-                ...line,
-                qty: target.qty,
-                measurementUnit: target.measurementUnit,
-                sizeW: target.sizeW,
-                sizeH: target.sizeH,
-                kind: target.kind,
-                parentItemId: target.parentItemId,
-                ...(target.productId === product.id && !selection.price
-                  ? { unitPrice: target.unitPrice, unit: target.unit }
-                  : {}),
-              };
-            if (parent)
-              line = {
-                ...line,
-                parentItemId: parent.id,
-                kind: catalogueTarget.kind ?? 'Accessory',
-                qty: parent.qty ?? 1,
-              };
-            if (line.kind === 'Included')
-              line = {
-                ...line,
-                unit: 'per_product',
-                unitPrice: undefined,
-                qty: 1,
-              };
-            if (target)
-              onChange(items.map((i) => (i.id === target.id ? line : i)));
-            else if (parent) {
-              const index = items.reduce(
-                (n, i, index) =>
-                  i.id === parent.id || i.parentItemId === parent.id
-                    ? index + 1
-                    : n,
-                0
+            const old = target.item,
+              parent = target.parent,
+              id = old?.id ?? crypto.randomUUID(),
+              built = catalogueItem(
+                p,
+                id,
+                old?.productId === p.id && old.itemCode
+                  ? old.itemCode
+                  : productItemReference(
+                      p,
+                      items.filter((i) => i.id !== id)
+                    ),
+                selection.price,
+                currency
               );
-              onChange([...items.slice(0, index), line, ...items.slice(index)]);
-            } else {
-              onChange([...items, line]);
-              setExpandedId(line.id);
-            }
-            onCatalogueCapture?.(
-              built.knowledge,
-              selection.applyTerms
-                ? catalogueTerms(product, selection.paymentOption)
-                : undefined,
-              line.id,
-              !target || target.productId !== product.id || !!selection.price
+            const line: QuotationItemToSave = {
+              ...built.item,
+              ...(old
+                ? {
+                    qty: old.qty,
+                    sizeW: old.sizeW,
+                    sizeH: old.sizeH,
+                    measurementUnit: old.measurementUnit,
+                    parentItemId: old.parentItemId,
+                    kind: old.parentItemId ? old.kind : built.item.kind,
+                    ...(old.productId === p.id && !selection.price
+                      ? { unitPrice: old.unitPrice, unit: old.unit }
+                      : {}),
+                  }
+                : {}),
+              ...(parent
+                ? {
+                    parentItemId: parent.id,
+                    kind: selection.componentKind ?? 'Accessory',
+                    unit:
+                      selection.componentKind === 'Included'
+                        ? 'per_product'
+                        : built.item.unit,
+                    qty:
+                      selection.componentKind === 'Included'
+                        ? 1
+                        : (parent.qty ?? 1),
+                    unitPrice:
+                      selection.componentKind === 'Included'
+                        ? undefined
+                        : built.item.unitPrice,
+                  }
+                : {}),
+            };
+            onChange(
+              old
+                ? items.map((i) => (i.id === id ? line : i))
+                : [...items, line]
             );
-            setCatalogueTarget(null);
+            if (!parent && (!old || old.productId !== p.id))
+              onOptionsChange?.({
+                ...itemOptions,
+                [id]: {
+                  drawingReference: old
+                    ? itemOptions[id]?.drawingReference
+                    : undefined,
+                  ...(p.deliveryPeriod
+                    ? { selections: { deliveryPeriod: p.deliveryPeriod } }
+                    : {}),
+                },
+              });
+            onCatalogueCapture?.(
+              parent && selection.componentKind === 'Included'
+                ? undefined
+                : built.knowledge,
+              selection.applyTerms
+                ? catalogueTerms(p, selection.paymentOption)
+                : undefined,
+              id,
+              !old || old.productId !== p.id || !!selection.price
+            );
+            if (!parent) {
+              setSelectedId(id);
+              setMobileEditor(true);
+            }
+            setTarget(null);
           }}
         />
-      )}
-      {catalogError && (
-        <p role="alert" className="qw-error">
-          {t('catalogError')}
-        </p>
       )}
     </div>
   );

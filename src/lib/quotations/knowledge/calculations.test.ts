@@ -317,6 +317,9 @@ describe('landed costs and review validation', () => {
     };
     const d = draftFromQuotation(q);
     d.items = [{ ...item, unitPrice: result.unitPrice }];
+    d.documentDetails.paymentPlan = {
+      stages: [{ percent: 100, event: 'acceptance' }],
+    };
     d.documentDetails.knowledge = {
       prices: { [item.id]: result.snapshot },
       references: [],

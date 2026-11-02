@@ -252,6 +252,14 @@ export async function checkDeploymentDatabase({
       body: JSON.stringify({
         p: {
           knowledge: { prices: {}, references: [] },
+          formatVersion: 2,
+          paymentPlan: { stages: [{ percent: 100, event: 'acceptance' }] },
+          itemOptions: {
+            '10000000-0000-4000-8000-000000000001': {
+              drawingReference: 'Synthetic W-01',
+              selections: { finish: 'White' },
+            },
+          },
           catalogueSeed: {
             item: {
               id: '10000000-0000-4000-8000-000000000001',
@@ -268,7 +276,7 @@ export async function checkDeploymentDatabase({
   );
   if (!details.ok || (await details.json().catch(() => false)) !== true)
     throw new Error(
-      'Database preflight failed for quotation creation. Apply migration 092 before deploying this revision.'
+      'Database preflight failed for quotation creation. Apply migration 093 before deploying this revision.'
     );
 }
 

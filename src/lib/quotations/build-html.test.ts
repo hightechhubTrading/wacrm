@@ -1,19 +1,53 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { buildQuotationHtml } from './build-html';
 import type { Quotation, QuotationItem } from './types';
 
 const quotation: Quotation = {
-  id: 'q-1', accountId: 'acc-1', reference: 'HT-26-RSD-015', revision: 0, status: 'draft',
-  clientName: null, clientPhone: null, clientCompany: 'Al Sulaiti Villas', location: null,
-  projectName: null, subject: 'Roll Up Shutter', currency: 'QAR', contactId: null, dealId: null,
-  assignedTo: null, discountType: null, discountValue: null, subtotal: 3600, discountAmount: 0,
-  total: 3600, validUntil: '2026-03-07', pdfStoragePath: null, createdAt: '2026-03-01T10:00:00Z',
+  id: 'q-1',
+  accountId: 'acc-1',
+  reference: 'HT-26-RSD-015',
+  revision: 0,
+  status: 'draft',
+  clientName: null,
+  clientPhone: null,
+  clientCompany: 'Al Sulaiti Villas',
+  location: null,
+  projectName: null,
+  subject: 'Roll Up Shutter',
+  currency: 'QAR',
+  contactId: null,
+  dealId: null,
+  assignedTo: null,
+  discountType: null,
+  discountValue: null,
+  subtotal: 3600,
+  discountAmount: 0,
+  total: 3600,
+  validUntil: '2026-03-07',
+  pdfStoragePath: null,
+  createdAt: '2026-03-01T10:00:00Z',
 };
-const items: QuotationItem[] = [{
-  id: 'i-1', quotationId: 'q-1', parentItemId: null, productId: null, position: 0, itemType: 'line',
-  kind: null, itemCode: 'D01', description: 'Electric roll-up door', descriptionAr: null,
-  sizeW: 3.66, sizeH: 2.6, qty: 1, unitPrice: 3600, discountType: null, discountValue: null, lineTotal: 3600,
-}];
+const items: QuotationItem[] = [
+  {
+    id: 'i-1',
+    quotationId: 'q-1',
+    parentItemId: null,
+    productId: null,
+    position: 0,
+    itemType: 'line',
+    kind: null,
+    itemCode: 'D01',
+    description: 'Electric roll-up door',
+    descriptionAr: null,
+    sizeW: 3.66,
+    sizeH: 2.6,
+    qty: 1,
+    unitPrice: 3600,
+    discountType: null,
+    discountValue: null,
+    lineTotal: 3600,
+  },
+];
 
 describe('buildQuotationHtml', () => {
   it('substitutes the reference and total into the template', () => {
@@ -66,7 +100,6 @@ describe('buildQuotationHtml', () => {
     // <dt>Company</dt><dd>________________</dd> placeholder chunk, which
     // would show up as a stray "________________" surviving in the output.
     expect(html).not.toContain('________________');
-    expect(html).toContain('<dt>Company</dt><dd>Acme $&amp; Co</dd>');
   });
 
   it('clears payment-schedule percentages and lead-time placeholders, without leaving raw text or the "todo" flagging class', () => {
@@ -116,10 +149,54 @@ describe('buildQuotationHtml', () => {
   });
 });
 
-
 it('escapes untrusted numeric JSON at the HTML sink even if validation was bypassed', () => {
-  const poisoned = { ...quotation, documentDetails: { shopDrawingDays: '</span><iframe src="http://127.0.0.1/marker"></iframe>' as unknown as number } };
+  const poisoned = {
+    ...quotation,
+    documentDetails: {
+      shopDrawingDays:
+        '</span><iframe src="http://127.0.0.1/marker"></iframe>' as unknown as number,
+    },
+  };
   const html = buildQuotationHtml(poisoned, items);
   expect(html).not.toContain('<iframe');
   expect(html).toContain('&lt;iframe');
+});
+
+it('prints the escaped offer preparer beside a dedicated sales seal and a sales-only signoff', () => {
+  const html = buildQuotationHtml(
+    {
+      ...quotation,
+      documentDetails: { preparedBy: 'Maya <Sales>', repPhone: '+97450000000' },
+    },
+    items
+  );
+  expect(html).toContain('Maya &lt;Sales&gt;');
+  expect(html).toContain('SALES DEPARTMENT');
+  expect(html).toContain('قسم المبيعات');
+  expect(html).toContain('For High Tech Hub Trading');
+  expect(html).not.toContain('Customer acceptance');
+  expect(html).not.toContain('Acceptance confirms');
+  expect(html).toContain('class="sig-value stamp-slot"');
+  expect(html).not.toContain('class="offer-authorization"');
+  expect(html).not.toContain('<Sales>');
+});
+
+it('automatically fills the bottom name, sales seal and current Qatar date instead of the draft creation date', () => {
+  vi.useFakeTimers();
+  try {
+    vi.setSystemTime(new Date('2026-11-02T22:30:00Z'));
+    const html = buildQuotationHtml(
+      { ...quotation, documentDetails: { preparedBy: 'Sales Person' } },
+      items
+    );
+    expect(html).toContain(
+      'class="sig-value sales-name" dir="auto">Sales Person</div>'
+    );
+    expect(html).toContain('class="sig-value stamp-slot"><svg');
+    expect(html).toContain(
+      'class="sig-value signed-date">03 / 11 / 2026</div>'
+    );
+  } finally {
+    vi.useRealTimers();
+  }
 });

@@ -3,25 +3,13 @@
   "project": {
     "name": "hightechhub",
     "productType": null,
-    "stack": [
-      "nextjs",
-      "react",
-      "shadcn",
-      "tailwind-v4"
-    ]
+    "stack": ["nextjs", "react", "shadcn", "tailwind-v4"]
   },
   "sources": {
-    "tokens": [
-      "src/app/globals.css"
-    ],
-    "components": [
-      "src/components/ui"
-    ],
+    "tokens": ["src/app/globals.css"],
+    "components": ["src/components/ui"],
     "assets": [],
-    "instructions": [
-      "AGENTS.md",
-      "CLAUDE.md"
-    ]
+    "instructions": ["AGENTS.md", "CLAUDE.md"]
   },
   "design": {
     "colorMode": "light-and-dark",
@@ -400,6 +388,11 @@
       "date": "2026-10-31",
       "decision": "Use warm paper-white surfaces across the light theme instead of pure white or cool blue-white. Keep dark mode and the six saved accent colors.",
       "source": "User request in this conversation"
+    },
+    {
+      "date": "2026-11-03",
+      "decision": "Quotations use a product list, one configuration editor and a persistent summary. Customer PDFs use chocolate brown hierarchy, inline commercial facts and full-width specifications. Sales signoff auto-fills preparer and Qatar generation date; the dedicated navy sales seal floats across its line. Acceptance is digital, so no customer approval block appears in the PDF.",
+      "source": "User direction and PDF revisions in this conversation"
     }
   ],
   "evidence": [

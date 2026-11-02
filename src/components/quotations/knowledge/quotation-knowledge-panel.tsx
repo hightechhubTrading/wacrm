@@ -20,10 +20,12 @@ export function QuotationKnowledgePanel({
   draft,
   onChange,
   disabled,
+  initialItemId,
 }: {
   draft: QuotationDraft;
   onChange: (d: QuotationDraft) => void;
   disabled: boolean;
+  initialItemId?: string;
 }) {
   const ar = useLocale() === 'ar';
   const latest = useRef({ draft, disabled });
@@ -31,7 +33,7 @@ export function QuotationKnowledgePanel({
     latest.current = { draft, disabled };
   }, [draft, disabled]);
   const [applying, setApplying] = useState(false);
-  const [itemId, setItemId] = useState('');
+  const [itemId, setItemId] = useState(initialItemId ?? '');
   const [tab, setTab] = useState('');
   const [error, setError] = useState('');
   const [overrideReason, setOverrideReason] = useState('');
@@ -160,7 +162,7 @@ export function QuotationKnowledgePanel({
     }
   }
   return (
-    <details className="mt-5 space-y-3 rounded-md border p-3">
+    <details open={!!initialItemId} className="space-y-3">
       <summary className="cursor-pointer font-semibold">
         {ar
           ? 'المنتجات والأسعار المعتمدة وحساب المواد'
@@ -190,7 +192,7 @@ export function QuotationKnowledgePanel({
         <p>{ar ? 'أضف منتجاً أولاً.' : 'Add a product first.'}</p>
       ) : (
         <>
-          <label className="block text-sm">
+          <label className={initialItemId ? 'hidden' : 'block text-sm'}>
             {ar ? 'البند' : 'Quotation line'}
             <select
               className="bg-background ms-2 max-w-full rounded border p-2"
@@ -210,7 +212,6 @@ export function QuotationKnowledgePanel({
           </label>
           <div className="flex flex-wrap gap-2">
             {[
-              ['product', ar ? 'مواصفات المنتج' : 'Product preset'],
               ['price', ar ? 'سعر القائمة' : 'List price'],
               ['grid', ar ? 'شبكة أسعار المورد' : 'Supplier grid'],
               ['submittal', ar ? 'مرجع فني' : 'Technical reference'],
@@ -260,6 +261,7 @@ export function QuotationKnowledgePanel({
               key={tab}
               kinds={[tab]}
               approvedOnly
+              productId={initialItemId ? item.productId : undefined}
               onSelect={select}
               disabled={disabled || applying}
             />
@@ -330,18 +332,31 @@ export function QuotationKnowledgePanel({
               </Button>
             </div>
           )}
-          <ShutterPilot
-            key={`${item.id}:${item.sizeW}:${item.sizeH}:${item.measurementUnit}:${item.qty}`}
-            item={item}
-            disabled={disabled}
-            initial={k.costEstimates?.[item.id]}
-            onSave={(estimate) =>
-              update({
-                ...k,
-                costEstimates: { ...k.costEstimates, [item.id]: estimate },
-              })
-            }
-          />
+          {(/window.*shutter|شتر.*نوافذ/i.test(item.description ?? '') ||
+            /^WS\d/.test(item.itemCode ?? '')) &&
+            (!initialItemId ||
+              /(^|\D)55(\D|$)/.test(
+                draft.documentDetails.itemOptions?.[item.id]?.selections
+                  ?.profile ?? ''
+              )) && (
+              <ShutterPilot
+                key={`${item.id}:${item.sizeW}:${item.sizeH}:${item.measurementUnit}:${item.qty}`}
+                item={item}
+                defaultAutomatic={
+                  !/manual\s+(?:window\s+)?shutter|شتر.*يدوي/i.test(
+                    item.description ?? ''
+                  )
+                }
+                disabled={disabled}
+                initial={k.costEstimates?.[item.id]}
+                onSave={(estimate) =>
+                  update({
+                    ...k,
+                    costEstimates: { ...k.costEstimates, [item.id]: estimate },
+                  })
+                }
+              />
+            )}
         </>
       )}
       {!!k.manualOverrides?.length && (

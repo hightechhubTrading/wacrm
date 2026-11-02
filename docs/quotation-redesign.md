@@ -1,0 +1,31 @@
+# Quotation redesign
+
+The shared company catalogue now drives quotation selection, configuration, pricing evidence and item references. Names and wording are normalized from documented company records; missing commercial decisions remain explicit.
+
+## Requirements and implementation
+
+| Requirement                          | Implementation and evidence                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One product inventory                | `catalogue-server.ts` reads canonical prepared products and source links. `sellableCatalogue` exposes leaf configurations while retaining the three-level family/product/variant tree. 334 canonical and projected identities retained; 45 targeted SKU, unit and specification updates applied.                                                                                                                             |
+| Product references and configuration | `product-profile.ts` derives WS/SEC/MOT/service references and documented units. Drawing/opening references remain separate from internal SKU and line reference. Configuration controls depend on the selected product.                                                                                                                                                                                                     |
+| Pricing                              | Only exact recorded rates are selectable; source snapshots retain provenance. No range minimum or currency conversion is inferred. Missing unit/rate/dimensions blocks issue. Included, additional and optional equipment are explicit choices.                                                                                                                                                                              |
+| Structured payments                  | `payment-plan.ts` normalizes equivalent source wording and separates percentages from events. Unknown ranges/events remain incomplete. Issue requires 100% and specified events. Currency rounding preserves the exact quotation total.                                                                                                                                                                                      |
+| Editor                               | One product list, one item editor and persistent summary. One catalogue picker groups products/equipment/services and configurations. Source/cost tools are scoped to the selected product. Commercial terms appear once; preview uses a dedicated modal.                                                                                                                                                                    |
+| PDF                                  | Chocolate brown commercial hierarchy, compact bilingual rows, inline facts and full-width selected specifications. Sales name comes from the creating user's profile. The navy sales-only seal overlays the bottom stamp area; name/date sit on their lines. Date uses Qatar's current business date at generation. Customer approval fields are omitted because acceptance is digital. Issued PDFs remain stored snapshots. |
+| End-to-end examples                  | Shutter, sectional garage door and mixed offer journeys cover English/Arabic, light/dark and 390/1440 widths. Separate checks cover both standalone and deal-based creation.                                                                                                                                                                                                                                                 |
+
+## Verification
+
+- `npm test`: 1,634 passing, 68 skipped, 200 files.
+- `npm run typecheck` and production build.
+- `PLAYWRIGHT_CHANNEL=chrome node scripts/check-quotation-redesign-browser.mjs --catalogue <private-live-catalogue.json>`: 24 full workspace journeys; writes intercepted.
+- `PLAYWRIGHT_CHANNEL=chrome node scripts/check-quotation-creation-browser.mjs --catalogue <private-live-catalogue.json>`: 16 creation entry-point journeys; writes intercepted.
+- `scripts/check-quotation-creation-db.mjs`: disposable PGlite checks migrations 092/093, seed ownership, leaf restrictions and structured metadata validation.
+- Live deployment RPC preflight and owner-scoped transaction smoke verify the source-backed shutter at QAR 390/m², 138 × 165 cm, QAR 888.03; synthetic writes roll back.
+- Before/after comparison preserves 9 quotations, 11 line items, 3 issued documents, 46 questions, 6,756 source reviews and all recorded prices. Contacts may change through ordinary live activity; the rollout does not write contacts.
+- All 23 supplied source files retain their original hashes.
+- Actual rendered A4 examples have two pages each. The offline interactive preview and sample PDFs are in the sibling `SYS/deliverables/quotation-redesign` directory; private source/customer data is excluded from git and container build context.
+
+Migration 093 is additive and already applied with ledger version `20261102210635`. The first attempted catalogue transaction was rejected by the existing hierarchy constraint and fully rolled back; the final update preserves that hierarchy and enforces leaf-only quotation selection instead.
+
+Application deployment verification is recorded after promotion; private logs are under `.local/quotation-redesign` and are excluded from the repository.

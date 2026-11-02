@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { productProfile } from './product-profile';
 import { approvedCatalogRows } from '@/lib/ai/catalog';
 import type { CatalogueProduct } from './catalogue';
 import type { KnowledgeRecord } from './knowledge/types';
@@ -71,7 +72,7 @@ export async function loadQuotationCatalogue(
   return rows.map((p) => {
     const chain = [p];
     let parent = p.parent_id ? byId.get(p.parent_id) : undefined;
-    while (parent) {
+    while (parent && !chain.some((a) => a.id === parent!.id)) {
       chain.push(parent);
       parent = parent.parent_id ? byId.get(parent.parent_id) : undefined;
     }
@@ -83,7 +84,10 @@ export async function loadQuotationCatalogue(
       .filter((r) => r.kind === 'product');
     const code = chain.map((a) => codes.get(a.id)).find(Boolean);
     const termsSource =
-      parentTerms[0] ?? (code ? productSourcesByCode.get(code) : undefined);
+      p.inventory_type === 'product'
+        ? (parentTerms[0] ??
+          (code ? productSourcesByCode.get(code) : undefined))
+        : undefined;
     if (!sources.some((r) => r.kind === 'product') && termsSource)
       sources.push(termsSource);
     if (
@@ -100,9 +104,29 @@ export async function loadQuotationCatalogue(
         : [])
         if (r.kind === 'price') sources.push(r);
     }
+    const inheritedUnit = chain.map((a) => a.unit_of_measure).find(Boolean);
+    const deliveryPeriod = chain
+      .map(
+        (a) =>
+          a.specifications?.match(
+            /(?:Recorded )?(?:standard )?installation(?: period)?:\s*([^.;\n]+)/i
+          )?.[1]
+      )
+      .find(Boolean);
+    const customDeliveryPeriod = chain
+      .map(
+        (a) => a.specifications?.match(/custom colou?rs:\s*([^.;\n]+)/i)?.[1]
+      )
+      .find(Boolean);
     return {
       ...p,
-      productCode: chain.map((a) => codes.get(a.id)).find(Boolean),
+      deliveryPeriod,
+      customDeliveryPeriod,
+      unit_of_measure: p.unit_of_measure ?? inheritedUnit ?? null,
+      productCode: productProfile({
+        ...p,
+        productCode: chain.map((a) => codes.get(a.id)).find(Boolean),
+      }).code,
       familyName: chain.at(-1)?.name,
       sources,
     } as CatalogueProduct;

@@ -19,12 +19,14 @@ import { knowledgeLabel } from '@/lib/quotations/knowledge/ui-copy';
 import { SourceReview } from './source-review';
 export function SourceBrowser({
   onSelect,
+  productId,
   onInspect,
   kinds,
   approvedOnly = false,
   disabled = false,
 }: {
   onSelect?: (r: KnowledgeRecord) => void;
+  productId?: string;
   onInspect?: (r: KnowledgeRecord) => void;
   kinds?: string[];
   approvedOnly?: boolean;
@@ -53,7 +55,7 @@ export function SourceBrowser({
       setError('');
       try {
         const r = await fetch(
-          `/api/quotations/knowledge?${new URLSearchParams({ q: query, kind, status, page: String(page), batch })}`,
+          `/api/quotations/knowledge?${new URLSearchParams({ q: query, kind, status, page: String(page), batch, ...(productId ? { productId } : {}) })}`,
           { signal: abort.signal }
         );
         const b = await r.json();
@@ -70,7 +72,7 @@ export function SourceBrowser({
       abort.abort();
       clearTimeout(timer);
     };
-  }, [query, kind, status, page, batch, refresh]);
+  }, [query, kind, status, page, batch, refresh, productId]);
   async function importPack(file: File) {
     setError('');
     setLoading(true);

@@ -1,363 +1,172 @@
-import { areaPerItem, billableQuantity } from './totals';
-// src/lib/quotations/build-html.ts
-//
-// Pure string-in/string-out HTML filler for the branded quotation template.
-// No browser, no PDF rendering — that is Task 9's job, kept separate so
-// this data-substitution logic stays unit-testable without Playwright.
-//
-// IMPORTANT: this file's .replace() calls target LITERAL strings/patterns
-// that are assumed to exist verbatim in templates/quotation.html.
-// .replace() on a non-matching string is a silent no-op in JavaScript — it
-// will not throw, it will just leave the placeholder in the output. If the
-// vendored template is ever re-synced from the source repo, re-diff it
-// against this file before trusting a green test run: the fixture used by
-// build-html.test.ts only exercises one item and mostly-null party fields,
-// so it will not by itself catch every possible placeholder regression.
-//
-// A second hazard, independent of the first: wherever a replacement is
-// passed to .replace()/.replaceAll() as a STRING (not a function), JS
-// treats `$1`, `$&`, `` $` ``, `$'`, `$$` in that string as special
-// substitution patterns — even when the search side is a plain string, not
-// a regex. Free-text CRM fields (company names, project names, item
-// descriptions) can contain a literal "$" followed by a digit or "&" with
-// no adversarial intent, and it would get silently reinterpreted instead
-// of inserted verbatim (`$&` in particular re-inserts the entire matched,
-// still-unfilled placeholder — i.e. it reintroduces the exact "leftover
-// placeholder" bug the tests below exist to catch). Every replacement
-// below that inserts variable content therefore uses a replacer FUNCTION,
-// whose return value is never re-scanned for `$`-patterns. Plain strings
-// are only used where the replacement is 100% static (no interpolation).
-import { isNonChargeable } from './totals';
+import { areaPerItem, billableQuantity, isNonChargeable } from './totals';
 import { amountInWordsBilingual } from './number-to-words';
 import { QUOTATION_TEMPLATE_HTML } from './templates/quotation-html';
+import { SALES_STAMP_SVG } from './sales-stamp';
+import { DOCUMENT_CSS } from './document-layout';
+import { customerSpecification } from './product-profile';
+import { eventLabel, legacyPaymentPlan, paymentAmounts } from './payment-plan';
 import type { Quotation, QuotationItem } from './types';
-
-// Vendored, not read from the sibling repo — see Task 8's pre-flight note.
-// Imported as a generated string constant (templates/quotation-html.ts),
-// not read from disk at request time — see that file's header for why
-// readFileSync(path.join(__dirname, ...)) broke under Next's bundled
-// server runtime despite passing every unit test and ad-hoc script check.
-
-function esc(value: string): string {
-  return value
+const fonts = (
+  QUOTATION_TEMPLATE_HTML.match(/@font-face\s*\{[^}]*\}/g) ?? []
+).join('\n');
+const mark =
+  QUOTATION_TEMPLATE_HTML.match(/<svg class="mark"[\s\S]*?<\/svg>/)?.[0] ?? '';
+const esc = (s: unknown) =>
+  String(s ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-// Template dates read "__ / __ / ____" (DD / MM / YYYY). Quotation stores
-// ISO (YYYY-MM-DD).
-function formatDateDMY(iso: string | null): string | null {
-  if (!iso) return null;
-  const [y, m, d] = iso.split('-');
-  if (!y || !m || !d) return null;
-  return `${d} / ${m} / ${y}`;
-}
-
-function itemRowHtml(
-  item: QuotationItem,
-  packageParts: QuotationItem[] = []
-): string {
-  if (item.itemType === 'section') {
-    return `\n      <tr class="grp"><td colspan="6">${esc(item.description ?? '')}</td></tr>`;
-  }
-  const included = item.kind === 'Included';
-  const optional = item.kind === 'Optional';
-  const priceLabel = included
-    ? 'Included in package · مشمول في سعر المنتج'
-    : optional
-      ? 'Optional — excluded from total · اختياري — غير مشمول في الإجمالي'
-      : '';
-  const packageHtml = packageParts.length
-    ? `<span class="spec"><b>Included in package · مشمول في السعر</b></span>${packageParts.map((part) => `<span class="spec">• ${esc(part.description ?? '')}${part.descriptionAr ? ` · ${esc(part.descriptionAr)}` : ''} × ${part.qty ?? 1}${part.unit === 'per_product' ? ' per product · لكل منتج' : ''}${part.specification ? ` — ${esc(part.specification)}` : ''}</span>`).join('')}`
-    : '';
-  const size =
-    item.sizeW != null && item.sizeH != null
-      ? `${item.sizeW} × ${item.sizeH} ${esc(item.measurementUnit ?? 'mm')}`
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+const date = (s: string | null) =>
+  s ? `${s.slice(8, 10)} / ${s.slice(5, 7)} / ${s.slice(0, 4)}` : '—';
+const money = (n: number) =>
+  esc(
+    n.toLocaleString('en-QA', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+  );
+const lines = (text: string | undefined) =>
+  text
+    ?.split('\n')
+    .filter((s) => s.trim())
+    .map((s) => `<li dir="auto">${esc(s)}</li>`)
+    .join('') ?? '';
+function itemRow(item: QuotationItem): string {
+  if (item.itemType === 'section')
+    return `<tr class="section-row"><td colspan="6">${esc(item.description)}</td></tr>`;
+  const included = item.kind === 'Included',
+    optional = item.kind === 'Optional',
+    missing = item.unitPrice === null,
+    unit = item.unit ?? 'piece';
+  const amount = missing
+    ? '<span class="draft-missing">Not priced<br>غير مسعر</span>'
+    : isNonChargeable(item)
+      ? '—'
+      : money(item.lineTotal);
+  const measure =
+    item.sizeW && item.sizeH
+      ? `${esc(item.sizeW)} × ${esc(item.sizeH)} ${esc(item.measurementUnit ?? 'mm')}`
       : '—';
-  const areaDescription =
-    item.unit === 'm2'
-      ? `<span class="spec">${areaPerItem({ sizeW: item.sizeW ?? undefined, sizeH: item.sizeH ?? undefined, measurementUnit: item.measurementUnit ?? undefined }).toLocaleString('en', { maximumFractionDigits: 6 })} m² × ${item.qty ?? 1} = ${billableQuantity({ qty: item.qty ?? 1, unit: 'm2', sizeW: item.sizeW ?? undefined, sizeH: item.sizeH ?? undefined, measurementUnit: item.measurementUnit ?? undefined }).toLocaleString('en', { maximumFractionDigits: 6 })} m² · Price per m² · سعر المتر المربع</span>`
-      : '';
-  return `
-      <tr>
-        <td class="code">${esc(item.itemCode ?? '')}</td>
-        <td><span class="it">${item.parentItemId ? '↳ ' : ''}${esc(item.description ?? '')}</span>${item.descriptionAr ? `<span class="ar" dir="rtl">${esc(item.descriptionAr)}</span>` : ''}${item.specification ? `<span class="spec">${esc(item.specification)}</span>` : ''}${priceLabel ? `<span class="spec">${priceLabel}${optional && item.unitPrice == null ? ' · Price on request · السعر عند الطلب' : ''}</span>` : ''}${packageHtml}${areaDescription}${item.discountValue ? `<span class="spec">Discount · خصم: ${item.discountValue}${item.discountType === 'percent' ? '%' : ' QAR'}</span>` : ''}</td>
-        <td class="n num">${size}</td>
-        <td class="n num">${item.qty ?? 1}${item.unit ? `<span class="spec">${esc(item.unit === 'per_product' ? 'per product · لكل منتج' : item.unit === 'm2' ? 'openings · فتحات' : item.unit)}</span>` : ''}</td>
-        <td class="n num">${included || item.unitPrice == null ? '—' : item.unitPrice.toLocaleString()}${item.unit === 'm2' ? '<span class="spec">QAR / m²</span>' : ''}</td>
-        <td class="n num">${isNonChargeable(item) ? '—' : item.lineTotal.toLocaleString()}</td>
-      </tr>`;
+  const quantity =
+    unit === 'm2'
+      ? `<span class="quantity-count">${esc(item.qty ?? 1)} opening${(item.qty ?? 1) === 1 ? '' : 's'}</span><span class="spec">${billableQuantity({ qty: item.qty ?? 1, unit, sizeW: item.sizeW ?? undefined, sizeH: item.sizeH ?? undefined, measurementUnit: item.measurementUnit ?? undefined }).toLocaleString('en', { maximumFractionDigits: 4 })} m²</span>`
+      : `${esc(item.qty ?? 1)}<span class="spec">${esc(unit)}</span>`;
+  return `<tr${optional ? ' class="optional"' : ''}><td class="code">${esc(item.itemCode)}</td><td><span class="it">${item.parentItemId ? '↳ ' : ''}${esc(item.description)}</span>${item.descriptionAr ? `<span class="ar" dir="rtl">${esc(item.descriptionAr)}</span>` : ''}${optional ? '<span class="spec">Optional — excluded from total · اختياري — غير مشمول في الإجمالي</span>' : ''}${included ? '<span class="spec">Included in package · مشمول في سعر المنتج</span>' : ''}${item.discountValue ? `<span class="spec">Discount · خصم: ${esc(item.discountValue)}${item.discountType === 'percent' ? '%' : ' QAR'}</span>` : ''}</td><td class="num measurement">${measure}</td><td class="num">${quantity}</td><td class="num">${included || missing ? '—' : money(item.unitPrice!)}<span class="spec">${unit === 'm2' ? 'QAR / m²' : esc(unit)}</span></td><td class="num">${amount}${optional && missing ? '<span class="spec">Price on request · السعر عند الطلب</span>' : ''}</td></tr>`;
 }
-
-// Anchors a <dt>label</dt><dd>...</dd> pair and fills the dd's placeholder
-// text. A bare `.replace('________________', value)` would only ever hit
-// the FIRST of the ~19 identical placeholder runs in the template — this
-// keeps each field aimed at its own row. Uses a replacer function (see
-// file header) so a "$"-containing value can never be reinterpreted.
-function fillPartyField(
-  html: string,
-  label: string,
-  value: string | null
-): string {
-  const re = new RegExp(
-    `(<dt>${label}</dt><dd(?:[^>]*)>)________________(</dd>)`
-  );
-  return html.replace(
-    re,
-    (_match, open: string, close: string) =>
-      `${open}${esc(value ?? '')}${close}`
-  );
-}
-
 export function buildQuotationHtml(
-  quotation: Quotation,
+  q: Quotation,
   items: QuotationItem[]
 ): string {
-  let html = QUOTATION_TEMPLATE_HTML;
-  const details = quotation.documentDetails ?? {};
-  const words = amountInWordsBilingual(quotation.total);
-  const revision = String(quotation.revision).padStart(2, '0');
-
-  // Reference — appears TWICE (page 1 header, page 2 continuation header),
-  // each wrapped in a "todo" (amber, "unresolved") flagging class that
-  // must not survive once real data fills the slot. Strip the class first
-  // (both are static, non-interpolated replacements) — the reference text
-  // itself is filled a few lines down, once, via replaceAll.
-  html = html.replace('class="ref-v todo"', 'class="ref-v"');
-  html = html.replace(
-    '<span class="todo">HT-__-___-___</span>',
-    '<span>HT-__-___-___</span>'
-  );
-  // A single non-global .replace() here would silently leave page 2's copy
-  // as the literal placeholder — replaceAll is required. Function form:
-  // quotation.reference is free text and could in principle contain "$".
-  html = html.replaceAll('HT-__-___-___', () => esc(quotation.reference));
-
-  // Revision — "00" alone is far too generic to blind-replace, so it's
-  // anchored to its label on page 1, and to the literal "REV 00" run in
-  // page 2's continuation header (the only place that exact pair occurs).
-  html = html.replace(
-    /(<div class="ref-k">REV<\/div>\s*<div class="ref-v">)00(<\/div>)/,
-    (_match, open: string, close: string) => `${open}${revision}${close}`
-  );
-  html = html.replace(/REV 00/, () => `REV ${revision}`);
-
-  // Valid-until date — data exists on Quotation, fill it.
-  const validUntil = formatDateDMY(quotation.validUntil);
-  if (validUntil) {
-    html = html.replace(
-      /(<div class="ref-k">VALID UNTIL<\/div>\s*<div class="ref-v gold">)__ \/ __ \/ ____(<\/div>)/,
-      (_match, open: string, close: string) => `${open}${validUntil}${close}`
-    );
-  }
-  // Issue date — Quotation.createdAt (added in final-review fix wave 1
-  // specifically so this gap could close; previously there was no data to
-  // fill it with, see task-8-report.md). createdAt is a full ISO
-  // timestamp (e.g. "2026-03-01T10:00:00Z"); formatDateDMY expects a bare
-  // "YYYY-MM-DD" date, so the time component is dropped first. Formatted
-  // DD / MM / YYYY to match validUntil's existing display convention just
-  // above — this is a Qatari business document, so day-month-year reads
-  // naturally here (unlike a US month-day-year default).
-  const issueDate = formatDateDMY(quotation.createdAt.slice(0, 10));
-  if (issueDate) {
-    html = html.replace(
-      /(<div class="ref-k">DATE<\/div>\s*<div class="ref-v">)__ \/ __ \/ ____(<\/div>)/,
-      (_match, open: string, close: string) => `${open}${issueDate}${close}`
-    );
-    // Page 2's continuation header repeats the issue date next to REV, as
-    // plain inline text with no wrapping element to anchor on — anchored
-    // instead to the literal " · REV" that immediately follows it, so this
-    // can't accidentally match page 1's VALID UNTIL date (already consumed
-    // above, and structurally distinct — wrapped in its own gold-classed
-    // div) or REV's own "00"/revision text.
-    html = html.replace(
-      /__ \/ __ \/ ____( &nbsp;·&nbsp; REV)/,
-      (_match, suffix: string) => `${issueDate}${suffix}`
-    );
-  }
-
-  // Party / project block.
-  html = fillPartyField(html, 'Company', quotation.clientCompany);
-  html = fillPartyField(html, 'Attention', quotation.clientName);
-  html = fillPartyField(html, 'Contact', quotation.clientPhone);
-  html = fillPartyField(html, 'Project', quotation.projectName);
-  html = fillPartyField(html, 'Location', quotation.location);
-  // No "consultant" field on Quotation — cleared, not fabricated.
-  html = fillPartyField(html, 'Consultant', details.consultant ?? null);
-
-  // Subject (English). Arabic subject has no source field — see report;
-  // cleared rather than machine-translated (non-negotiable in this repo's
-  // sibling project's CLAUDE.md, and good practice regardless).
-  html = html.replace('Supply and installation of ________________', () => {
-    const subject = quotation.subject?.trim() ?? '';
-    return esc(
-      /^supply\s+and\s+installation\b/i.test(subject)
-        ? subject
-        : `Supply and installation of ${subject}`
-    );
-  });
-  html = html.replace('توريد وتركيب ________________', () => {
-    const subject = details.subjectAr?.trim() ?? '';
-    return esc(
-      /^توريد\s*و\s*تركيب/.test(subject) ? subject : `توريد وتركيب ${subject}`
-    );
-  });
-
-  // Items table. The vendored template ships 6 sample rows (D01–D06) plus
-  // a "SECTION A — ________________" group header as filler content. The
-  // brief's original approach regex-matched and replaced only the D01 row,
-  // which would have left D02–D06 and the section header as literal
-  // placeholders in every real quotation — replace the whole <tbody>
-  // instead, scoped to the items table specifically (the payment-schedule
-  // table on page 2 has its own <tbody> and must not be touched). Item
-  // descriptions are free text and could contain "$" — replacer function.
-  const sorted = [...items].sort((a, b) => a.position - b.position);
-  const rows = sorted
-    .filter((item) => !item.parentItemId)
-    .flatMap((item) => {
-      const children = sorted.filter((child) => child.parentItemId === item.id);
-      return [
-        itemRowHtml(
-          item,
-          children.filter((child) => child.kind === 'Included')
-        ),
-        ...children
-          .filter((child) => child.kind !== 'Included')
-          .map((child) => itemRowHtml(child)),
-      ];
+  const d = q.documentDetails ?? {},
+    sorted = [...items].sort((a, b) => a.position - b.position),
+    roots = sorted.filter((i) => !i.parentItemId),
+    words = amountInWordsBilingual(q.total),
+    revision = String(q.revision).padStart(2, '0');
+  // Business date at document generation, independent of server timezone or draft age.
+  const signedDate = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Qatar',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+    .format(new Date())
+    .replaceAll('/', ' / ');
+  const rows = roots
+    .flatMap((item) => [
+      itemRow(item),
+      ...sorted
+        .filter((c) => c.parentItemId === item.id && c.kind !== 'Included')
+        .map(itemRow),
+    ])
+    .join('');
+  const labels: Record<string, string> = {
+    finish: 'Colour / finish · اللون / التشطيب',
+    customFinish: 'Selected colour · اللون المختار',
+    deliveryPeriod: 'Delivery · التسليم',
+    profile: 'Slat profile · مقطع الشرائح',
+    design: 'Design · التصميم',
+    handle: 'Handle / lock · المقبض / القفل',
+    opening: 'Opening · طريقة الفتح',
+    glazing: 'Glazing · الزجاج',
+  };
+  const specifications = roots
+    .filter((i) => i.itemType === 'line')
+    .map((item) => {
+      const options = d.itemOptions?.[item.id],
+        facts = [
+          ...(options?.drawingReference
+            ? [
+                [
+                  'Opening / drawing · الفتحة / المخطط',
+                  options.drawingReference,
+                ],
+              ]
+            : []),
+          ...Object.entries(options?.selections ?? {})
+            .filter(
+              ([k, v]) =>
+                v.trim() &&
+                !(
+                  k === 'finish' &&
+                  v === 'Custom' &&
+                  options?.selections?.customFinish
+                )
+            )
+            .map(([k, v]) => [labels[k] ?? k, v]),
+        ];
+      const specs = customerSpecification(item.specification ?? '').filter(
+        (s) =>
+          !/^Charged per (?:job|linear metre|metre of door width)\.?$/i.test(s)
+      );
+      if (item.unit === 'm2' && item.sizeW && item.sizeH) {
+        const dimensions = {
+          sizeW: item.sizeW,
+          sizeH: item.sizeH,
+          measurementUnit: item.measurementUnit ?? 'mm',
+          qty: item.qty ?? 1,
+          unit: 'm2',
+        };
+        facts.push([
+          'Area · المساحة',
+          `${areaPerItem(dimensions).toLocaleString('en', { maximumFractionDigits: 4 })} m² × ${item.qty ?? 1} = ${billableQuantity(dimensions).toLocaleString('en', { maximumFractionDigits: 4 })} m²`,
+        ]);
+      }
+      const included = sorted.filter(
+        (c) => c.parentItemId === item.id && c.kind === 'Included'
+      );
+      if (!facts.length && !specs.length && !included.length) return '';
+      return `<section class="product-spec"><header><span class="mono">${esc(item.itemCode)}</span><h3>${esc(item.description)}</h3></header><div class="spec-content">${facts.length ? `<dl class="configuration-facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd dir="auto">${esc(v)}</dd></div>`).join('')}</dl>` : ''}${specs.length ? `<ul>${specs.map((s) => `<li dir="auto">${esc(s)}</li>`).join('')}</ul>` : ''}${included.length ? `<div class="included-equipment"><strong>Included in package · المعدات المشمولة</strong>${included.map((c) => `<p dir="auto">${esc(c.description)}${c.descriptionAr ? ' · ' + esc(c.descriptionAr) : ''} × ${c.qty ?? 1}${c.unit === 'per_product' ? ' per product · لكل منتج' : ''}${c.specification && c.specification.replace(/[.\s]/g, '').toLowerCase() !== (c.description ?? '').replace(/[.\s]/g, '').toLowerCase() ? ' — ' + esc(c.specification) : ''}</p>`).join('')}</div>` : ''}</div></section>`;
     })
     .join('');
-  html = html.replace(
-    /(<table class="items">[\s\S]*?<tbody>)[\s\S]*?(<\/tbody>)/,
-    (_match, open: string, close: string) => `${open}${rows}\n    ${close}`
-  );
-
-  // Total in words. The template wraps its own placeholder in a fixed
-  // فقط / لا غير (Arabic) and "Qatari Riyals only" (English) shell;
-  // amountInWordsBilingual already returns that full shell, so the whole
-  // fixed phrase is replaced wholesale rather than just the inner
-  // placeholder — otherwise the wrapper words would double up.
-  html = html.replace(/________________ Qatari Riyals only/, () =>
-    esc(words.en)
-  );
-  html = html.replace(/فقط ________________ ريالاً قطرياً لا غير/, () =>
-    esc(words.ar)
-  );
-  html = html.replace(
-    /(<div class="total-f">)—(<small>QAR<\/small><\/div>)/,
-    (_match, open: string, close: string) =>
-      `${open}${quotation.total.toLocaleString()}${close}`
-  );
-
-  // User-editable commercial fields from the original HTH fillable document.
-  const lines = (text: string) =>
-    text
-      .split('\n')
-      .filter((l) => l.trim())
-      .map((l) => `<li dir="auto">${esc(l)}</li>`)
-      .join('');
-  if (details.included !== undefined)
-    html = html.replace(
-      /(<h3>INCLUDED[^<]*<\/h3>\s*<ul>)[\s\S]*?(<\/ul>)/,
-      (_m, a, b) => a + lines(details.included!) + b
-    );
-  if (details.excluded !== undefined)
-    html = html.replace(
-      /(<h3>NOT INCLUDED[^<]*<\/h3>\s*<ul>)[\s\S]*?(<\/ul>)/,
-      (_m, a, b) => a + lines(details.excluded!) + b
-    );
-  html = html.replace('<li>________________</li>', '');
-  html = html.replace(
-    /(<td class="k">Delivery · التسليم<\/td><td class="v">)[\s\S]*?(<\/td>)/,
-    (_m, a, b) => a + esc(quotation.deliveryTerms ?? '') + b
-  );
-  if (quotation.warrantyTerms?.trim())
-    html = html.replace(
-      /(<td class="k">Warranty · الضمان<\/td><td class="v">)[\s\S]*?(<\/td>)/,
-      (_m, a, b) => a + esc(quotation.warrantyTerms!) + b
-    );
-  else
-    html = html.replace(
-      /<tr><td class="k">Warranty · الضمان<\/td>[\s\S]*?<\/tr>/,
-      ''
-    );
-  const schedule = details.paymentSchedule;
-  if (schedule) {
-    const stages = [
-      {
-        share: schedule.advance,
-        label: 'Advance · مقدَّم',
-        trigger: 'On acceptance · عند اعتماد العرض',
-      },
-      {
-        share: schedule.delivery,
-        label:
-          schedule.deliveryTrigger === 'before_installation'
-            ? 'Before installation · قبل التركيب'
-            : 'Site delivery · التوريد',
-        trigger:
-          schedule.deliveryTrigger === 'before_installation'
-            ? 'Before installation and completion · قبل التركيب والإنجاز'
-            : 'On delivery to site · عند التوريد للموقع',
-      },
-      {
-        share: schedule.completion,
-        label: 'Completion · الإنجاز',
-        trigger: 'On handover · عند التسليم',
-      },
-    ];
-    html = html.replace(
-      /(<table class="pay">[\s\S]*?<tbody>)[\s\S]*?(<\/tbody>)/,
-      (_m, a, b) =>
-        a +
-        stages
-          .filter((s) => s.share > 0)
-          .map(
-            (s) =>
-              `<tr><td>${s.label}</td><td>${s.trigger}</td><td class="n pct">${s.share} %</td></tr>`
-          )
-          .join('') +
-        b
-    );
-  } else {
-    html = html.replace(
-      /<table class="pay">[\s\S]*?<\/table>/,
-      () =>
-        `<p class="commercial-text" dir="auto">${esc(quotation.paymentTerms ?? '')}</p>`
-    );
-  }
-  if (schedule && quotation.paymentTerms)
-    html = html.replace(
-      '</table>\n\n  <h2 style="margin-block-start:6mm">Terms',
-      () =>
-        `</table><p class="commercial-text" dir="auto">${esc(quotation.paymentTerms!)}</p>\n  <h2 style="margin-block-start:6mm">Terms`
-    );
-  if (details.shopDrawingDays !== undefined)
-    html = html.replaceAll(
-      '<span class="todo">__</span>',
-      () => `<span>${esc(String(details.shopDrawingDays))}</span>`
-    );
-  else html = html.replace(/<div class="next">[\s\S]*?<\/div>/, '');
-  if (details.notes?.trim())
-    html = html.replace(
-      '<div class="accept">',
-      () =>
-        `<h2>Notes <span class="ar">ملاحظات</span></h2><ul class="commercial-text">${lines(details.notes!)}</ul><div class="accept">`
-    );
-  html = html.replace(
-    'Prepared by ________________',
-    () =>
-      `Prepared by ${esc(details.preparedBy ?? '')}${details.repPhone ? ` · ${esc(details.repPhone)}` : ''}`
-  );
-  if (quotation.discountAmount > 0)
-    html = html.replace(
-      '<div class="total">',
-      () =>
-        `<div class="discount-summary">Subtotal · المجموع: ${quotation.subtotal.toLocaleString()} QAR &nbsp; Discount · الخصم: −${quotation.discountAmount.toLocaleString()} QAR</div><div class="total">`
-    );
-  // Date blanks in an incomplete draft are neutral; export validation requires validity.
-  html = html.replaceAll('__ / __ / ____', '—');
-  html = html.replaceAll('class="n pct todo">__ %<', 'class="n pct"><');
-  return html;
+  const plan =
+    d.paymentPlan ??
+    (d.paymentSchedule ? legacyPaymentPlan(d.paymentSchedule) : undefined);
+  const payments = plan
+    ? `<table class="pay"><thead><tr><th>Payment event · موعد الدفع</th><th class="num">Share · النسبة</th><th class="num">Amount · المبلغ (QAR)</th></tr></thead><tbody>${plan.stages
+        .filter((s) => s.percent > 0)
+        .map(
+          (s) =>
+            `<tr><td>${s.event === 'custom' ? esc(s.label) : esc(eventLabel(s.event)) + ' · <span class="payment-ar ar">' + esc(eventLabel(s.event, true)) + '</span>'}</td><td class="num">${esc(s.percent)} %</td><td class="num">${money(paymentAmounts(plan, q.total)[plan.stages.indexOf(s)])}</td></tr>`
+        )
+        .join(
+          ''
+        )}</tbody></table>${plan.notes ? `<p class="commercial-text" dir="auto">${esc(plan.notes)}</p>` : ''}`
+    : `<p class="commercial-text" dir="auto">${esc(q.paymentTerms)}</p>`;
+  return `<!doctype html><html lang="en" dir="ltr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(q.reference)} · High Tech Hub</title><style>${fonts}\n${DOCUMENT_CSS}</style></head><body><main class="page" data-canvas-width="794">
+ <header class="brand"><div class="lockup">${mark}<div><div class="nm-ar" dir="rtl">هاي تك هاب تريدينغ</div><div class="nm-en">HIGH TECH HUB TRADING</div></div></div><div class="contact">Office 6, Building 33, Street 180, Zone 55, Al Azizia, Doha<br>+974 5064 0111 · info@hightechub.com</div></header>
+ <div class="doc-heading"><h1>QUOTATION<span class="ar">عرض سعر</span></h1><div class="doc-reference">${esc(q.reference)}</div></div>
+ <div class="metadata"><div><div class="ref-k">DATE</div>\n        <div class="ref-v">${date(q.createdAt)}</div></div><div><div class="ref-k">VALID UNTIL · صالح حتى</div><div class="ref-v">${date(q.validUntil)}</div></div><div><div class="ref-k">REVISION · المراجعة</div><div class="ref-v">${revision}</div></div></div>
+ <div class="party-grid"><section><p class="party-title">PREPARED FOR · مقدم إلى</p><div class="party-name">${esc(q.clientCompany || q.clientName)}</div><dl>${q.clientCompany && q.clientName && q.clientName !== q.clientCompany ? `<dt>Attention</dt><dd>${esc(q.clientName)}</dd>` : ''}${q.clientPhone ? `<dt>Contact</dt><dd dir="ltr">${esc(q.clientPhone)}</dd>` : ''}</dl></section><section><p class="party-title">PROJECT · المشروع</p><div class="party-name">${esc(q.projectName)}</div><dl>${q.location ? `<dt>Location</dt><dd>${esc(q.location)}</dd>` : ''}${d.consultant ? `<dt>Consultant</dt><dd>${esc(d.consultant)}</dd>` : ''}</dl></section></div>
+ <section class="scope-heading"><h2>Scope of supply <span class="ar">نطاق التوريد</span></h2><p dir="auto">${esc(q.subject)}</p>${d.subjectAr ? `<p class="ar">${esc(d.subjectAr)}</p>` : ''}</section>
+ <table class="items"><colgroup><col style="width:9%"><col style="width:35%"><col style="width:18%"><col style="width:10%"><col style="width:14%"><col style="width:14%"></colgroup><thead><tr><th>ITEM<small>البند</small></th><th>PRODUCT / SERVICE<small>المنتج / الخدمة</small></th><th class="num">SIZE W × H<small>الأبعاد</small></th><th class="num">QTY<small>الكمية</small></th><th class="num">RATE (QAR)<small>سعر الوحدة</small></th><th class="num">AMOUNT (QAR)<small>المبلغ</small></th></tr></thead><tbody>${rows}</tbody></table>
+ <div class="totals-wrap"><div class="amount-words"><p>${esc(words.en)}</p><p class="ar">${esc(words.ar)}</p></div><div class="totals">${q.discountAmount ? `<div><span>Subtotal · المجموع</span><span>${money(q.subtotal)}</span></div><div><span>Discount · الخصم</span><span>−${money(q.discountAmount)}</span></div>` : ''}<div class="grand-total"><span>Total · الإجمالي</span><span>${money(q.total)} <small>QAR</small></span></div></div></div>
+ ${specifications ? `<section class="specifications"><h2>Selected specifications <span class="ar">المواصفات المختارة</span></h2>${specifications}</section>` : ''}
+ <section class="commercial"><h2>Scope boundaries <span class="ar">حدود نطاق العمل</span></h2><div class="scope-grid"><section><h3>Included · مشمول</h3><ul>${lines(d.included)}</ul></section><section><h3>Excluded · غير مشمول</h3><ul>${lines(d.excluded)}</ul></section></div>
+ <h2>Payment schedule <span class="ar">جدول الدفعات</span></h2>${payments}
+ <dl class="terms"><div><dt>Delivery / installation · التسليم / التركيب</dt><dd dir="auto">${esc(q.deliveryTerms?.replace(/^Delivery\s*(?:\/\s*installation)?:\s*/i, ''))}</dd></div>${q.warrantyTerms ? `<div><dt>Warranty · الضمان</dt><dd dir="auto">${esc(q.warrantyTerms?.replace(/^Warranty:\s*/i, ''))}</dd></div>` : ''}${d.shopDrawingDays !== undefined ? `<div><dt>Shop drawings · المخططات التنفيذية</dt><dd>${esc(d.shopDrawingDays)} working days · أيام عمل</dd></div>` : ''}<div><dt>Currency · العملة</dt><dd>Qatari Riyals (QAR) · الريال القطري</dd></div></dl>
+ ${d.notes ? `<h2>Notes <span class="ar">ملاحظات</span></h2><p class="commercial-text" dir="auto">${esc(d.notes)}</p>` : ''}
+ <section class="sales-signoff"><h2>For High Tech Hub Trading <span class="ar">عن هاي تك هاب تريدينغ</span></h2><div class="sigs"><div class="sig"><div class="sig-value sales-name" dir="auto">${esc(d.preparedBy?.trim() || '—')}</div><div>SALES REPRESENTATIVE · ممثل المبيعات</div>${d.repPhone ? `<div class="sales-phone">${esc(d.repPhone)}</div>` : ''}</div><div class="sig"><div class="sig-value stamp-slot">${SALES_STAMP_SVG}</div><div>SALES STAMP · ختم المبيعات</div></div><div class="sig"><div class="sig-value signed-date">${signedDate}</div><div>DATE · التاريخ</div></div></div></section></section>
+ <footer class="foot">Prepared by ${esc(d.preparedBy)}${d.repPhone ? ' · ' + esc(d.repPhone) : ''} · ${esc(q.reference)} · ${date(q.createdAt)} &nbsp;·&nbsp; REV ${revision}</footer></main></body></html>`;
 }

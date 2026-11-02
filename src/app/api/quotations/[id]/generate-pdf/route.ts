@@ -44,11 +44,10 @@ export async function POST(_request: Request, { params }: Params) {
     const { quotation_items, ...quotationRow } = row as Record<string, any>;
     const quotation = mapQuotationRow(quotationRow);
     const items = (quotation_items ?? []).map(mapQuotationItemRow);
-    const invalid = validateDraft(
-      draftFromQuotation({ ...quotation, items }, false),
-      true,
-      quotation.currency
-    );
+    const documentDraft = draftFromQuotation({ ...quotation, items }, false);
+    if (quotation.status === 'draft')
+      documentDraft.documentDetails.formatVersion = 2;
+    const invalid = validateDraft(documentDraft, true, quotation.currency);
     if (invalid) return NextResponse.json({ error: invalid }, { status: 400 });
 
     const sourceError = await verifyKnowledgeSnapshots(

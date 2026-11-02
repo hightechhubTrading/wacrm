@@ -1,6 +1,8 @@
 'use client';
+import './product-workspace.css';
 import { useEffect, useState } from 'react';
 import { useLocale } from 'next-intl';
+import { Search, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -11,15 +13,15 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import {
-  cataloguePaymentOptions,
-  catalogueTerms,
-  cataloguePriceRows,
+  sellableCatalogue,
+  catalogueChoices,
+  productProfile,
+} from '@/lib/quotations/product-profile';
+import {
   quotationSpecification,
   type CatalogueProduct,
   type CatalogueSelection,
 } from '@/lib/quotations/catalogue';
-import type { KnowledgeRecord } from '@/lib/quotations/knowledge/types';
-
 export function CataloguePicker({
   open,
   onOpenChange,
@@ -27,50 +29,33 @@ export function CataloguePicker({
   creating = false,
   productCode = '',
   defaultApplyTerms = false,
-  allowPrice = true,
   initialType = 'product',
+  componentMode = false,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onSelect: (product: CatalogueProduct, selection: CatalogueSelection) => void;
+  onSelect: (p: CatalogueProduct, s: CatalogueSelection) => void;
   creating?: boolean;
   productCode?: string;
   defaultApplyTerms?: boolean;
   allowPrice?: boolean;
   initialType?: string;
+  componentMode?: boolean;
 }) {
   const ar = useLocale() === 'ar',
-    l = (en: string, arabic: string) => (ar ? arabic : en);
+    l = (en: string, a: string) => (ar ? a : en);
   const [items, setItems] = useState<CatalogueProduct[]>([]),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(''),
     [query, setQuery] = useState(''),
-    [type, setType] = useState(initialType),
     [family, setFamily] = useState(''),
-    [selected, setSelected] = useState<string | null>(null),
-    [price, setPrice] = useState(''),
-    [payment, setPayment] = useState(''),
-    [applyTerms, setApplyTerms] = useState(defaultApplyTerms);
-  const [extraSources, setExtraSources] = useState<KnowledgeRecord[]>([]),
-    [gridWidth, setGridWidth] = useState(''),
-    [gridHeight, setGridHeight] = useState('');
-  useEffect(() => {
-    if (!selected) return;
-    const c = new AbortController();
-    fetch(`/api/ai/products/${selected}/sources`, { signal: c.signal })
-      .then(async (r) => {
-        if (!r.ok) return;
-        const b = await r.json();
-        if (!c.signal.aborted)
-          setExtraSources(
-            b.links
-              .map((x: { source: KnowledgeRecord | null }) => x.source)
-              .filter(Boolean)
-          );
-      })
-      .catch(() => {});
-    return () => c.abort();
-  }, [selected]);
+    [type, setType] = useState(initialType),
+    [selectedId, setSelectedId] = useState<string | null>(null),
+    [configurationId, setConfigurationId] = useState(''),
+    [allEquipment, setAllEquipment] = useState(false),
+    [componentKind, setComponentKind] = useState<
+      'Included' | 'Accessory' | 'Optional' | undefined
+    >();
   useEffect(() => {
     if (!open) return;
     const c = new AbortController();
@@ -78,8 +63,7 @@ export function CataloguePicker({
       .then(async (r) => {
         const b = await r.json();
         if (!r.ok) throw Error(b.error);
-        setItems(b.items);
-        setError('');
+        if (!c.signal.aborted) setItems(b.items);
       })
       .catch((e) => {
         if (!c.signal.aborted) setError(e.message);
@@ -89,40 +73,50 @@ export function CataloguePicker({
       });
     return () => c.abort();
   }, [open]);
-  const product = items.find((p) => p.id === selected),
-    payments = cataloguePaymentOptions(
-      product?.sources.find((s) => s.kind === 'product')?.data
-        .standard_payment ?? ''
-    ),
-    terms = product
-      ? catalogueTerms(product, payment === '' ? undefined : Number(payment))
-      : null;
-  const results = items
-    .filter(
+  const leaves = sellableCatalogue(items),
+    compatible = leaves.filter(
       (p) =>
-        p.kind !== 'family' &&
-        (type === 'all' || p.inventory_type === type) &&
-        (!family || p.familyName === family) &&
-        [p.name, p.name_ar, p.sku, p.aliases.join(' '), p.productCode]
-          .join(' ')
-          .toLowerCase()
-          .includes(query.toLowerCase())
-    )
-    .sort(
-      (a, b) =>
-        Number(b.productCode === productCode) -
-          Number(a.productCode === productCode) || a.name.localeCompare(b.name)
-    );
-  function choose(p: CatalogueProduct) {
-    setSelected(p.id);
-    setError('');
-    setExtraSources([]);
-    setGridWidth('');
-    setGridHeight('');
-    setPrice('');
-    setPayment('');
-    setApplyTerms(defaultApplyTerms);
-  }
+        p.inventory_type === 'equipment' &&
+        p.sources.some((r) => r.data.family === productCode)
+    ),
+    available = leaves.filter(
+      (p) =>
+        p.inventory_type === type &&
+        (type !== 'equipment' ||
+          !productCode ||
+          !compatible.length ||
+          allEquipment ||
+          compatible.some((c) => c.id === p.id))
+    ),
+    results = available
+      .filter(
+        (p) =>
+          (!family || p.familyName === family) &&
+          [p.name, p.name_ar, p.productCode, p.sku, ...p.aliases]
+            .join(' ')
+            .toLowerCase()
+            .includes(query.toLowerCase())
+      )
+      .sort(
+        (a, b) =>
+          Number(b.productCode === productCode) -
+            Number(a.productCode === productCode) ||
+          a.name.localeCompare(b.name)
+      ),
+    choices = catalogueChoices(results),
+    choice = choices.find((c) => c.products.some((p) => p.id === selectedId)),
+    selected =
+      choice?.products.length === 1
+        ? choice.products[0]
+        : choice?.products.find((p) => p.id === configurationId);
+  const types = [
+    ['product', 'Products', 'المنتجات'],
+    ['equipment', 'Equipment', 'المعدات'],
+    ['service', 'Services', 'الخدمات'],
+    ...(initialType === 'component'
+      ? [['component', 'Materials', 'المواد']]
+      : []),
+  ];
   return (
     <Dialog
       open={open}
@@ -130,393 +124,275 @@ export function CataloguePicker({
         if (!creating) onOpenChange(v);
       }}
     >
-      <DialogContent className="flex max-h-[90dvh] flex-col overflow-hidden sm:max-w-5xl">
+      <DialogContent className="qp-catalogue-dialog sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>
-            {l('Shared product catalogue', 'كتالوج المنتجات المشترك')}
+            {l('Add to quotation', 'إضافة إلى عرض السعر')}
           </DialogTitle>
           <DialogDescription>
             {l(
-              'Choose the same products, equipment and materials maintained in Knowledge. Details and recorded prices are available here.',
-              'اختر المنتجات والمعدات والمواد المسجلة في المعرفة. التفاصيل والأسعار المسجلة متاحة هنا.'
+              'Choose a product configuration, equipment or service.',
+              'اختر تكوين المنتج أو المعدات أو الخدمة.'
             )}
           </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-wrap gap-2">
+        <div
+          className="qp-catalogue-tabs"
+          role="group"
+          aria-label={l('Item type', 'نوع البند')}
+        >
+          {types.map(([v, en, a]) => (
+            <Button
+              type="button"
+              key={v}
+              variant={type === v ? 'secondary' : 'ghost'}
+              size="sm"
+              aria-pressed={type === v}
+              onClick={() => {
+                setType(v);
+                setAllEquipment(false);
+                setFamily('');
+                setSelectedId(null);
+                setConfigurationId('');
+              }}
+            >
+              {l(en, a)}
+            </Button>
+          ))}
+        </div>
+        <div className="qp-catalogue-search">
+          <Search size={17} />
           <Input
             aria-label={l('Search catalogue', 'بحث في الكتالوج')}
             placeholder={l(
-              'Search name, Arabic name or item code',
-              'ابحث بالاسم أو كود الصنف'
+              'Search products or company codes…',
+              'ابحث عن منتج أو كود الصنف…'
             )}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="min-w-40 flex-1"
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSelectedId(null);
+            }}
           />
           <select
-            aria-label={l('Inventory type', 'نوع الصنف')}
-            className="bg-background rounded-md border px-2 text-sm"
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-          >
-            {[
-              ['product', 'Products', 'المنتجات'],
-              [
-                'equipment',
-                'Equipment and accessories',
-                'المعدات والإكسسوارات',
-              ],
-              ['component', 'Materials and components', 'المواد والمكونات'],
-              ['service', 'Services', 'الخدمات'],
-              ['all', 'Everything', 'الكل'],
-            ].map(([v, en, a]) => (
-              <option key={v} value={v}>
-                {l(en, a)}
-              </option>
-            ))}
-          </select>
-          <select
             aria-label={l('Product family', 'عائلة المنتج')}
-            className="bg-background max-w-full rounded-md border px-2 text-sm"
             value={family}
-            onChange={(e) => setFamily(e.target.value)}
+            onChange={(e) => {
+              setFamily(e.target.value);
+              setSelectedId(null);
+            }}
           >
             <option value="">{l('All families', 'كل العائلات')}</option>
-            {[...new Set(items.map((p) => p.familyName).filter(Boolean))]
+            {[...new Set(available.map((p) => p.familyName).filter(Boolean))]
               .sort()
               .map((f) => (
                 <option key={f}>{f}</option>
               ))}
           </select>
         </div>
+        {type === 'equipment' && productCode && compatible.length > 0 && (
+          <div className="qp-compatible">
+            <span>
+              {allEquipment
+                ? l('All equipment', 'كل المعدات')
+                : l(
+                    'Equipment recorded for this product family',
+                    'المعدات المسجلة لعائلة هذا المنتج'
+                  )}
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-pressed={allEquipment}
+              onClick={() => {
+                setAllEquipment(!allEquipment);
+                setSelectedId(null);
+              }}
+            >
+              {allEquipment
+                ? l('Show matching equipment', 'عرض المعدات المطابقة')
+                : l('Show all equipment', 'عرض كل المعدات')}
+            </Button>
+          </div>
+        )}
         {error && (
           <p role="alert" className="text-destructive">
             {error}
           </p>
         )}
-        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <section
-            className={`min-w-0 md:overflow-y-auto ${product ? 'hidden md:block' : ''}`}
+        <div
+          className={`qp-catalogue-body ${choice ? 'qp-catalogue-selected' : ''}`}
+        >
+          <div
+            className="qp-catalogue-results"
+            aria-label={l('Catalogue results', 'نتائج الكتالوج')}
           >
-            <p className="text-muted-foreground mb-2 text-xs" role="status">
+            <div className="qp-catalogue-count">
               {loading
-                ? l('Loading catalogue…', 'جارٍ تحميل الكتالوج…')
-                : `${results.length} ${l('matching items', 'صنف مطابق')}`}
-            </p>
-            <div className="divide-y rounded-lg border">
-              {results.map((p) => (
+                ? l('Loading catalogue…', 'جاري تحميل الكتالوج…')
+                : results.length + ' ' + l('configurations', 'تكوينات')}
+            </div>
+            {choices.map((entry) => {
+              const p = entry.products[0],
+                profile = productProfile(p);
+              return (
                 <button
                   type="button"
-                  key={p.id}
-                  aria-pressed={selected === p.id}
-                  className={`focus-visible:ring-ring w-full p-3 text-start focus-visible:ring-2 ${selected === p.id ? 'bg-primary/10' : 'hover:bg-muted/50'}`}
-                  onClick={() => choose(p)}
+                  key={entry.key}
+                  className="qp-catalogue-row"
+                  aria-pressed={entry.key === choice?.key}
+                  onClick={() => {
+                    setSelectedId(p.id);
+                    setConfigurationId('');
+                  }}
                 >
-                  <span className="block font-medium" dir="auto">
-                    {ar && p.name_ar ? p.name_ar : p.name}
+                  <span>
+                    <strong dir="auto">
+                      {entry.products.length > 1
+                        ? entry.title
+                        : ar && p.name_ar
+                          ? p.name_ar
+                          : p.name}
+                    </strong>
+                    <small dir="auto">
+                      {p.familyName}
+                      {entry.products.length > 1
+                        ? ' · ' +
+                          entry.products.length +
+                          ' ' +
+                          l('configurations', 'تكوينات')
+                        : ''}
+                    </small>
                   </span>
-                  <small className="text-muted-foreground block">
-                    {[p.sku, p.productCode, p.unit_of_measure]
-                      .filter(Boolean)
-                      .join(' · ')}
-                    {!p.customer_visible
-                      ? ` · ${l('Internal / supplier catalogue', 'كتالوج داخلي أو مورد')}`
-                      : ''}
-                  </small>
+                  <span className="qp-catalogue-code" dir="ltr">
+                    {entry.products.length > 1
+                      ? profile.code
+                      : (p.sku ?? profile.code)}
+                  </span>
+                  <ArrowRight size={15} />
                 </button>
-              ))}
-            </div>
+              );
+            })}
             {!loading && !results.length && (
-              <p className="py-4 text-sm">
+              <p className="qp-empty-list">
                 {l(
-                  'No matching items. Try another family or inventory type.',
-                  'لا توجد أصناف مطابقة. جرب عائلة أو نوعاً آخر.'
+                  'No matching configurations. Try another family or search term.',
+                  'لا توجد تكوينات مطابقة. جرب عائلة أخرى أو عبارة بحث مختلفة.'
                 )}
               </p>
             )}
-          </section>
-          <section
-            className={`min-w-0 space-y-4 md:overflow-y-auto ${!product ? 'hidden md:block' : ''}`}
-            aria-label={l('Selected product details', 'تفاصيل المنتج المحدد')}
-          >
-            {!product ? (
-              <p className="text-muted-foreground p-3 text-sm">
-                {l(
-                  'Select an item to see its specifications, terms and recorded prices.',
-                  'اختر صنفاً لعرض المواصفات والشروط والأسعار المسجلة.'
-                )}
-              </p>
-            ) : (
+          </div>
+          <aside className="qp-catalogue-detail">
+            {choice ? (
               <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="md:hidden"
-                  onClick={() => setSelected(null)}
+                <button
+                  type="button"
+                  className="qp-back-items"
+                  onClick={() => setSelectedId(null)}
                 >
-                  {l('Back to catalogue', 'العودة للكتالوج')}
-                </Button>
-                <h3 className="font-semibold" dir="auto">
-                  {ar && product.name_ar ? product.name_ar : product.name}
+                  {l('← Results', '← النتائج')}
+                </button>
+                <span className="qp-eyebrow">
+                  {selected?.sku ?? productProfile(choice.products[0]).code}
+                </span>
+                <h3 dir="auto">
+                  {selected
+                    ? ar && selected.name_ar
+                      ? selected.name_ar
+                      : selected.name
+                    : choice.title}
                 </h3>
-                <p className="text-sm whitespace-pre-wrap" dir="auto">
-                  {quotationSpecification(product)}
-                </p>
-                <p className="text-muted-foreground text-sm">
-                  {product.price_min !== null && product.price_max !== null
-                    ? `${product.price_min === product.price_max ? product.price_min : `${product.price_min}–${product.price_max}`} QAR · ${product.price_unit === 'per_square_meter' ? l('per m²', 'لكل م²') : product.price_unit === 'per_meter' ? l('per metre', 'لكل متر') : product.price_unit === 'per_project' ? l('per job', 'لكل عمل') : l('per item', 'لكل صنف')}`
-                    : l(
-                        'No fixed rate: enter a quotation rate or choose a recorded source price below.',
-                        'لا يوجد سعر ثابت: أدخل سعر العرض أو اختر سعراً مسجلاً أدناه.'
-                      )}
-                </p>
-                {product.sources.find((r) => r.kind === 'product')?.data
-                  .price_anchor_2026 && (
-                  <p className="text-muted-foreground rounded border p-3 text-sm">
-                    <strong className="block">
-                      {l('Recorded price history', 'الأسعار التاريخية المسجلة')}
-                    </strong>
-                    {
-                      product.sources.find((r) => r.kind === 'product')?.data
-                        .price_anchor_2026
-                    }
-                  </p>
-                )}
-                {product.sources.find((r) => r.kind === 'product')?.data
-                  .what_is_included && (
-                  <details className="rounded border p-3 text-sm">
-                    <summary className="cursor-pointer">
-                      {l(
-                        'Related product scope from company records',
-                        'نطاق المنتج من سجلات الشركة'
-                      )}
-                    </summary>
-                    <p className="mt-2 whitespace-pre-wrap">
-                      {
-                        product.sources.find((r) => r.kind === 'product')?.data
-                          .what_is_included
-                      }
-                    </p>
-                  </details>
-                )}
-                {product.sources.some((s) => s.kind === 'product') && (
-                  <div className="space-y-2 rounded-lg border p-3 text-sm">
-                    <strong>
-                      {l('Recorded company terms', 'شروط الشركة المسجلة')}
-                    </strong>
-                    <p>
-                      {terms?.deliveryTerms ||
-                        product.sources.find((s) => s.kind === 'product')?.data
-                          .standard_delivery}
-                    </p>
-                    <p>
-                      {terms?.warrantyTerms ||
-                        l(
-                          'Warranty specified per quotation',
-                          'الضمان يحدد في العرض'
-                        )}
-                    </p>
-                    {payments.length > 0 && (
-                      <label className="block">
-                        {l('Payment option', 'خيار الدفع')}
-                        <select
-                          className="bg-background mt-1 w-full rounded border p-2"
-                          aria-label={l(
-                            'Catalogue payment option',
-                            'خيار الدفع من الكتالوج'
-                          )}
-                          value={payment}
-                          onChange={(e) => setPayment(e.target.value)}
-                        >
-                          <option value="">
-                            {payments.length === 1
-                              ? payments[0]
-                              : l(
-                                  'Choose recorded payment split',
-                                  'اختر توزيع الدفعات المسجل'
-                                )}
-                          </option>
-                          {payments.map((p, i) => (
-                            <option key={i} value={i}>
-                              {p}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={applyTerms}
-                        onChange={(e) => setApplyTerms(e.target.checked)}
-                      />
-                      {l(
-                        'Use these terms in the quotation',
-                        'استخدام هذه الشروط في العرض'
-                      )}
-                    </label>
-                  </div>
-                )}
-                {extraSources.some((r) => r.kind === 'grid') && (
-                  <section className="space-y-2 rounded-lg border p-3 text-sm">
-                    <strong>
-                      {l(
-                        'Supplier size grid · EUR, excluding VAT',
-                        'جدول مقاسات المورد · يورو دون ضريبة'
-                      )}
-                    </strong>
-                    <div className="flex flex-wrap gap-2">
-                      <select
-                        aria-label={l('Supplier width', 'عرض المورد')}
-                        className="bg-background rounded border p-2"
-                        value={gridWidth}
-                        onChange={(e) => setGridWidth(e.target.value)}
-                      >
-                        <option value="">
-                          {l('Width (cm)', 'العرض (سم)')}
-                        </option>
-                        {[
-                          ...new Set(
-                            extraSources
-                              .filter((r) => r.kind === 'grid')
-                              .map((r) => r.data.width_cm)
-                          ),
-                        ]
-                          .sort((a, b) => Number(a) - Number(b))
-                          .map((w) => (
-                            <option key={w}>{w}</option>
-                          ))}
-                      </select>
-                      <select
-                        aria-label={l('Supplier height', 'ارتفاع المورد')}
-                        className="bg-background rounded border p-2"
-                        value={gridHeight}
-                        onChange={(e) => setGridHeight(e.target.value)}
-                      >
-                        <option value="">
-                          {l('Height (cm)', 'الارتفاع (سم)')}
-                        </option>
-                        {[
-                          ...new Set(
-                            extraSources
-                              .filter((r) => r.kind === 'grid')
-                              .map((r) => r.data.height_cm)
-                          ),
-                        ]
-                          .sort((a, b) => Number(a) - Number(b))
-                          .map((h) => (
-                            <option key={h}>{h}</option>
-                          ))}
-                      </select>
-                    </div>
-                    {extraSources
-                      .filter(
-                        (r) =>
-                          r.kind === 'grid' &&
-                          r.data.width_cm === gridWidth &&
-                          r.data.height_cm === gridHeight
-                      )
-                      .map((r) => (
-                        <p key={r.id}>
-                          <strong>EUR {r.data.price_EUR_excl_VAT}</strong> ·{' '}
-                          {r.data.mesh_and_motor}
-                          <small className="text-muted-foreground block">
-                            {r.source} · {r.data.width_cm} × {r.data.height_cm}{' '}
-                            cm
-                          </small>
-                        </p>
-                      ))}
-                    <p className="text-muted-foreground text-xs">
-                      {l(
-                        'Supplier reference as recorded. Enter the selling rate in the quotation currency; no exchange rate or markup is assumed.',
-                        'مرجع المورد كما ورد. أدخل سعر البيع بعملة العرض؛ لا يفترض النظام سعر تحويل أو هامش ربح.'
-                      )}
-                    </p>
-                  </section>
-                )}
-                {extraSources.some(
-                  (r) => r.kind === 'component' && r.data.suppliers_and_offers
-                ) && (
-                  <details className="rounded-lg border p-3 text-sm">
-                    <summary className="cursor-pointer">
-                      {l('Recorded supplier offers', 'عروض الموردين المسجلة')}
-                    </summary>
-                    {extraSources
-                      .filter(
-                        (r) =>
-                          r.kind === 'component' && r.data.suppliers_and_offers
-                      )
-                      .map((r) => (
-                        <p key={r.id} className="mt-2 whitespace-pre-wrap">
-                          {r.data.suppliers_and_offers}
-                        </p>
-                      ))}
-                  </details>
-                )}
-                {allowPrice && cataloguePriceRows(product).length > 0 && (
-                  <div className="space-y-2 rounded-lg border p-3 text-sm">
-                    <strong>
-                      {l('Recorded prices · QAR', 'الأسعار المسجلة · ر.ق')}
-                    </strong>
-                    <p className="text-muted-foreground text-xs">
-                      {l(
-                        'Choose the matching model/size and source column. No column is selected automatically. Width-priced items use quantity in metres.',
-                        'اختر الموديل والمقاس وعمود السعر المناسب. لا يختار النظام عموداً تلقائياً. بنود سعر العرض بالمتر تستخدم كمية بالأمتار.'
-                      )}
-                    </p>
+                {choice.products.length > 1 && (
+                  <label className="qp-configuration-choice">
+                    {l('Configuration', 'التكوين')}
                     <select
-                      aria-label={l(
-                        'Recorded source price',
-                        'السعر المسجل في المصدر'
-                      )}
-                      className="bg-background w-full rounded border p-2"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
+                      aria-label={l('Configuration', 'التكوين')}
+                      value={configurationId}
+                      onChange={(e) => setConfigurationId(e.target.value)}
                     >
                       <option value="">
                         {l(
-                          'Keep catalogue estimate / enter manually',
-                          'الإبقاء على التقدير أو الإدخال يدوياً'
+                          'Choose fabric and motor configuration',
+                          'اختر تكوين القماش والمحرك'
                         )}
                       </option>
-                      {cataloguePriceRows(product).map((r) => (
-                        <optgroup
-                          key={r.id}
-                          label={`${r.data.item_en} · ${r.data.unit}`}
-                        >
-                          {(['O', 'P', 'R', 'S'] as const)
-                            .filter(
-                              (c) =>
-                                r.data[`col_${c}`] !== undefined &&
-                                r.data[`col_${c}`] !== '' &&
-                                Number.isFinite(Number(r.data[`col_${c}`]))
-                            )
-                            .map((c) => (
-                              <option
-                                key={c}
-                                value={`${r.id}:${c}`}
-                              >{`${r.data.item_en} · ${c}: ${r.data[`col_${c}`]} QAR / ${r.data.unit}`}</option>
-                            ))}
-                        </optgroup>
+                      {choice.products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name.split(' · ').slice(1).join(' · ')}
+                        </option>
                       ))}
                     </select>
-                    {price && (
-                      <small className="text-muted-foreground block">
-                        {
-                          cataloguePriceRows(product).find(
-                            (r) => r.id === price.split(':')[0]
-                          )?.data.note
-                        }
-                      </small>
-                    )}
-                  </div>
+                  </label>
                 )}
+                <ul>
+                  {quotationSpecification(selected ?? choice.products[0])
+                    .split('\n')
+                    .filter(Boolean)
+                    .slice(0, 5)
+                    .map((line, i) => (
+                      <li key={i} dir="auto">
+                        {line}
+                      </li>
+                    ))}
+                </ul>
+                <p className="qp-subtle">
+                  {l(
+                    'Set dimensions, finish, equipment and price in the item editor. Payment and delivery are organized in Commercial terms.',
+                    'حدد الأبعاد والتشطيب والمعدات والسعر في محرر البند. تُنظم الدفعات والتسليم في الشروط التجارية.'
+                  )}
+                </p>
               </>
+            ) : (
+              <div className="qp-editor-empty">
+                <h3>
+                  {l(
+                    'Choose the configuration you are offering',
+                    'اختر التكوين المطلوب للعرض'
+                  )}
+                </h3>
+                <p>
+                  {l(
+                    'Products are grouped by family. Equipment and services have their own lists.',
+                    'المنتجات مرتبة حسب العائلة. للمعدات والخدمات قوائم مستقلة.'
+                  )}
+                </p>
+              </div>
             )}
-          </section>
+          </aside>
         </div>
-        <div className="flex justify-end gap-2 border-t pt-3">
+        {componentMode && (
+          <fieldset className="qp-component-charge">
+            <legend>
+              {l('How is this equipment priced?', 'كيف تُحتسب هذه المعدات؟')}
+            </legend>
+            {(
+              [
+                [
+                  'Included',
+                  'Included in product price',
+                  'مشمول في سعر المنتج',
+                ],
+                ['Accessory', 'Additional charge', 'تكلفة إضافية'],
+                ['Optional', 'Optional upgrade', 'ترقية اختيارية'],
+              ] as const
+            ).map(([kind, en, a]) => (
+              <Button
+                key={kind}
+                type="button"
+                variant={componentKind === kind ? 'secondary' : 'outline'}
+                size="sm"
+                aria-pressed={componentKind === kind}
+                onClick={() => setComponentKind(kind)}
+              >
+                {l(en, a)}
+              </Button>
+            ))}
+          </fieldset>
+        )}
+        <div className="qp-catalogue-footer">
           <Button
+            type="button"
             variant="ghost"
             disabled={creating}
             onClick={() => onOpenChange(false)}
@@ -524,31 +400,22 @@ export function CataloguePicker({
             {l('Cancel', 'إلغاء')}
           </Button>
           <Button
-            disabled={!product || creating}
-            onClick={async () => {
-              if (!product) return;
-              try {
-                const [recordId, column] = price.split(':');
-                await onSelect(product, {
-                  productId: product.id,
-                  applyTerms,
-                  paymentOption: payment === '' ? undefined : Number(payment),
-                  price: recordId
-                    ? { recordId, column: column as 'O' }
-                    : undefined,
+            type="button"
+            disabled={
+              !selected || creating || (componentMode && !componentKind)
+            }
+            onClick={() => {
+              if (selected)
+                onSelect(selected, {
+                  productId: selected.id,
+                  applyTerms: defaultApplyTerms,
+                  ...(componentMode ? { componentKind } : {}),
                 });
-              } catch (e) {
-                setError(
-                  e instanceof Error
-                    ? e.message
-                    : 'Could not select this product.'
-                );
-              }
             }}
           >
             {creating
-              ? l('Creating…', 'جارٍ الإنشاء…')
-              : l('Use selected product', 'استخدام المنتج المحدد')}
+              ? l('Adding…', 'جاري الإضافة…')
+              : l('Add selected item', 'إضافة البند المحدد')}
           </Button>
         </div>
       </DialogContent>

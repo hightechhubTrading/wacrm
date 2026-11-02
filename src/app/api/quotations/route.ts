@@ -11,6 +11,10 @@ import {
   catalogueTerms,
   cataloguePaymentOptions,
 } from '@/lib/quotations/catalogue';
+import {
+  productItemReference,
+  sellableCatalogue,
+} from '@/lib/quotations/product-profile';
 import { mapQuotationRow } from '@/lib/quotations/types';
 
 // Explicit allow-list of what a caller may set on create. Everything
@@ -64,7 +68,7 @@ export async function POST(request: Request) {
     if (!body) {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
-    if (!body.productCode) {
+    if (!body.productCode && body.catalogueSelection === undefined) {
       return NextResponse.json(
         { error: 'productCode is required' },
         { status: 400 }
@@ -73,10 +77,10 @@ export async function POST(request: Request) {
 
     const fields = pickCreateFields(body);
 
-    if (fields.assignedTo === undefined) {
+    {
       const { data: profile, error: profileErr } = await ctx.supabase
         .from('profiles')
-        .select('id')
+        .select('id, full_name')
         .eq('user_id', ctx.userId)
         .single();
       if (profileErr || !profile) {
@@ -85,7 +89,8 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
-      fields.assignedTo = profile.id;
+      if (fields.assignedTo === undefined) fields.assignedTo = profile.id;
+      fields.preparedBy = profile.full_name?.trim() || undefined;
     }
 
     // pickCreateFields intentionally returns a loose Record (it filters
@@ -99,13 +104,20 @@ export async function POST(request: Request) {
       try {
         const selection = parseCatalogueSelection(body.catalogueSelection);
         const items = await loadQuotationCatalogue(ctx.supabase, ctx.accountId);
-        const product = items.find(
-          (p) => p.id === selection.productId && p.kind !== 'family'
+        const product = sellableCatalogue(items).find(
+          (p) => p.id === selection.productId
         );
         if (!product)
           return NextResponse.json(
             { error: 'Catalogue product not found in this account.' },
             { status: 404 }
+          );
+        if (product.productCode && product.productCode !== 'ITEM')
+          fields.productCode = product.productCode;
+        if (!fields.productCode)
+          return NextResponse.json(
+            { error: 'Choose a quotation reference code for this product.' },
+            { status: 400 }
           );
         const options = cataloguePaymentOptions(
           product.sources.find((s) => s.kind === 'product')?.data
@@ -123,7 +135,7 @@ export async function POST(request: Request) {
           catalogueSeed: catalogueItem(
             product,
             crypto.randomUUID(),
-            'D01',
+            productItemReference(product, []),
             selection.price,
             typeof fields.currency === 'string' ? fields.currency : 'QAR'
           ),

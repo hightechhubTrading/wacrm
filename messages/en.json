@@ -2861,7 +2861,7 @@
     "invalidDraft": "Check the quotation fields and dates.",
     "invalidItem": "Check item quantities, dimensions and values.",
     "invalidDiscount": "Discounts must stay within the item or quotation amount (0–100% for percentages).",
-    "invalidSchedule": "Payment stage shares must total 100%.",
+    "invalidSchedule": "Complete the payment events and make the percentages add up to 100%.",
     "customerRequired": "Enter a customer name or company before exporting.",
     "subjectRequired": "Add a subject before exporting.",
     "itemsRequired": "Add at least one priced item before exporting.",
@@ -3031,7 +3031,8 @@
     "staleKnowledgePrice": "Reapply the source price after dimension changes, or record a manual override.",
     "archiveVillaTerms": "Archive villa suggestion · 100% advance, review delivery, 10-day validity",
     "archiveFabricatedTerms": "Archive fabrication suggestion · 70% / 30%, confirm delivery",
-    "archiveContractorTerms": "Archive contractor suggestion · 60% / 30% / 10%, project programme"
+    "archiveContractorTerms": "Archive contractor suggestion · 60% / 30% / 10%, project programme",
+    "configurationRequired": "Enter the selected custom colour or finish before issuing the quotation."
   },
   "Calling": {
     "title": "WhatsApp calls",

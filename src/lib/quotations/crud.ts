@@ -1,4 +1,5 @@
 // src/lib/quotations/crud.ts
+import { DEFAULT_INCLUDED, DEFAULT_EXCLUDED } from './commercial-defaults';
 import { supabaseAdmin } from './admin-client';
 import { getNextQuotationReference } from './reference';
 import {
@@ -15,6 +16,7 @@ export interface CreateQuotationInput {
   productCode: string;
   currency: string;
   createdBy?: string;
+  preparedBy?: string;
   assignedTo?: string;
   contactId?: string;
   dealId?: string;
@@ -67,14 +69,17 @@ export async function createQuotation(
             payment_terms: input.catalogueTerms?.paymentTerms ?? '',
             warranty_terms: input.catalogueTerms?.warrantyTerms ?? '',
             document_details: {
+              formatVersion: 2,
+              preparedBy: input.preparedBy,
               catalogueSeed: { item: input.catalogueSeed.item },
+              ...(input.catalogueTerms?.paymentPlan
+                ? { paymentPlan: input.catalogueTerms.paymentPlan }
+                : { document_details: { preparedBy: input.preparedBy } }),
               ...(input.catalogueSeed.knowledge
                 ? { knowledge: input.catalogueSeed.knowledge }
                 : {}),
-              included:
-                input.catalogueSeed.item.specification ||
-                input.catalogueSeed.item.description ||
-                '',
+              included: DEFAULT_INCLUDED,
+              excluded: DEFAULT_EXCLUDED,
             },
           }
         : {}),

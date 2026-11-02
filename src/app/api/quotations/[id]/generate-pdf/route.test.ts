@@ -33,7 +33,10 @@ const rawQuotationRow = {
   subject: 'sliding doors',
   currency: 'QAR',
   delivery_terms: 'Delivery agreed',
-  payment_terms: 'Payment agreed',
+  payment_terms: '',
+  document_details: {
+    paymentPlan: { stages: [{ percent: 100, event: 'acceptance' }] },
+  },
   contact_id: null,
   deal_id: null,
   assigned_to: null,
@@ -74,7 +77,8 @@ function makeSupabase(opts: {
 }) {
   const select = vi.fn(() => ({
     eq: vi.fn(() => ({
-      maybeSingle: () => Promise.resolve(opts.selectResult ?? { data: null, error: null }),
+      maybeSingle: () =>
+        Promise.resolve(opts.selectResult ?? { data: null, error: null }),
     })),
   }));
   const update = vi.fn(() => ({
@@ -94,7 +98,9 @@ beforeEach(() => {
 
 describe('POST /api/quotations/[id]/generate-pdf', () => {
   it('maps the snake_case DB row to the camelCase Quotation/QuotationItem shape before rendering', async () => {
-    const supabase = makeSupabase({ selectResult: { data: rawQuotationRow, error: null } });
+    const supabase = makeSupabase({
+      selectResult: { data: rawQuotationRow, error: null },
+    });
     h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase });
 
     const req = new Request('http://test', { method: 'POST' });
@@ -118,16 +124,37 @@ describe('POST /api/quotations/[id]/generate-pdf', () => {
           unitPrice: 100,
           lineTotal: 100,
         }),
-      ],
+      ]
     );
     expect(res.status).toBe(200);
     expect(body.storagePath).toBe('q-1/rev-1.pdf');
     expect(body.publicUrl).toBe('https://cdn.test/q-1/rev-1.pdf');
   });
 
+  it('blocks issuing draft quotations with unstructured or unspecified payment events', async () => {
+    const supabase = makeSupabase({
+      selectResult: {
+        data: {
+          ...rawQuotationRow,
+          document_details: {},
+          payment_terms: '60/30/10',
+        },
+        error: null,
+      },
+    });
+    h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase });
+    const result = await POST(new Request('http://test', { method: 'POST' }), {
+      params: Promise.resolve({ id: 'q-1' }),
+    });
+    expect(result.status).toBe(400);
+    expect((await result.json()).error).toBe('invalidSchedule');
+    expect(h.generateQuotationPdf).not.toHaveBeenCalled();
+  });
   it('bumps the revision when the quotation was already sent, and persists it', async () => {
     const sentRow = { ...rawQuotationRow, status: 'sent', revision: 1 };
-    const supabase = makeSupabase({ selectResult: { data: sentRow, error: null } });
+    const supabase = makeSupabase({
+      selectResult: { data: sentRow, error: null },
+    });
     h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase });
 
     const req = new Request('http://test', { method: 'POST' });
@@ -136,16 +163,18 @@ describe('POST /api/quotations/[id]/generate-pdf', () => {
 
     expect(h.generateQuotationPdf).toHaveBeenCalledWith(
       expect.objectContaining({ revision: 2 }),
-      expect.any(Array),
+      expect.any(Array)
     );
     expect(supabase.update).toHaveBeenCalledWith(
-      expect.objectContaining({ revision: 2 }),
+      expect.objectContaining({ revision: 2 })
     );
     expect(body.revision).toBe(2);
   });
 
   it('keeps the current revision for a draft quotation', async () => {
-    const supabase = makeSupabase({ selectResult: { data: rawQuotationRow, error: null } });
+    const supabase = makeSupabase({
+      selectResult: { data: rawQuotationRow, error: null },
+    });
     h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase });
 
     const req = new Request('http://test', { method: 'POST' });
@@ -156,7 +185,9 @@ describe('POST /api/quotations/[id]/generate-pdf', () => {
   });
 
   it('returns 404 if the quotation is not visible to the caller', async () => {
-    const supabase = makeSupabase({ selectResult: { data: null, error: null } });
+    const supabase = makeSupabase({
+      selectResult: { data: null, error: null },
+    });
     h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase });
 
     const req = new Request('http://test', { method: 'POST' });
@@ -165,16 +196,47 @@ describe('POST /api/quotations/[id]/generate-pdf', () => {
   });
 });
 
-
 it('rejects stored HTML in document details before starting the renderer', async () => {
-  const supabase = makeSupabase({ selectResult: { data: { ...rawQuotationRow, document_details: { shopDrawingDays: '<iframe src="http://127.0.0.1/marker"></iframe>' } }, error: null } });
+  const supabase = makeSupabase({
+    selectResult: {
+      data: {
+        ...rawQuotationRow,
+        document_details: {
+          shopDrawingDays: '<iframe src="http://127.0.0.1/marker"></iframe>',
+        },
+      },
+      error: null,
+    },
+  });
   h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase });
-  expect((await POST(new Request('http://test', { method: 'POST' }), { params: Promise.resolve({ id: 'q-1' }) })).status).toBe(400);
+  expect(
+    (
+      await POST(new Request('http://test', { method: 'POST' }), {
+        params: Promise.resolve({ id: 'q-1' }),
+      })
+    ).status
+  ).toBe(400);
   expect(h.generateQuotationPdf).not.toHaveBeenCalled();
 });
 it('does not validate synthesized defaults while exporting missing saved terms', async () => {
-  const supabase = makeSupabase({ selectResult: { data: { ...rawQuotationRow, valid_until: null, delivery_terms: null, payment_terms: null }, error: null } });
+  const supabase = makeSupabase({
+    selectResult: {
+      data: {
+        ...rawQuotationRow,
+        valid_until: null,
+        delivery_terms: null,
+        payment_terms: null,
+      },
+      error: null,
+    },
+  });
   h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase });
-  expect((await POST(new Request('http://test', { method: 'POST' }), { params: Promise.resolve({ id: 'q-1' }) })).status).toBe(400);
+  expect(
+    (
+      await POST(new Request('http://test', { method: 'POST' }), {
+        params: Promise.resolve({ id: 'q-1' }),
+      })
+    ).status
+  ).toBe(400);
   expect(h.generateQuotationPdf).not.toHaveBeenCalled();
 });

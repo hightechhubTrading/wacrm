@@ -1,3 +1,11 @@
+import {
+  paymentOptions,
+  mergePaymentOptions,
+  paymentOptionLabel,
+  optionPlan,
+  type PaymentPlan,
+} from './payment-plan';
+import { productProfile, customerSpecification } from './product-profile';
 import type { QuotationItemToSave } from './crud';
 import type { KnowledgeRecord, QuotationKnowledge } from './knowledge/types';
 import { snapshot } from './knowledge/calculations';
@@ -21,17 +29,21 @@ export interface CatalogueProduct {
   aliases: string[];
   productCode?: string;
   familyName?: string;
+  deliveryPeriod?: string;
+  customDeliveryPeriod?: string;
   sources: KnowledgeRecord[];
 }
 export interface CatalogueTerms {
   deliveryTerms: string;
   paymentTerms: string;
   warrantyTerms: string;
+  paymentPlan?: PaymentPlan;
 }
 export interface CatalogueSelection {
   productId: string;
   paymentOption?: number;
   applyTerms?: boolean;
+  componentKind?: 'Included' | 'Accessory' | 'Optional';
   price?: { recordId: string; column: 'O' | 'P' | 'R' | 'S' };
 }
 export interface CatalogueSeed {
@@ -39,25 +51,9 @@ export interface CatalogueSeed {
   knowledge?: QuotationKnowledge;
 }
 export function cataloguePaymentOptions(value: string): string[] {
-  const options: string[] = [];
-  if (/100\s*%/.test(value)) options.push('100% advance payment.');
-  for (const m of value.matchAll(
-    /\b(\d{1,3})\s*\/\s*(\d{1,3})(?:\s*\/\s*(\d{1,3}))?/g
-  )) {
-    const parts = m.slice(1).filter(Boolean).map(Number);
-    if (parts.reduce((n, v) => n + v, 0) === 100)
-      options.push(
-        `Payment split: ${parts.map((n) => `${n}%`).join(' / ')}. Milestones to be specified in this quotation.`
-      );
-  }
-  if (!options.length && value.trim())
-    options.push(
-      value
-        .replace(/\bthen staged\b/g, 'with subsequent staged payments')
-        .replace(/\bstaged\b/g, 'staged payments')
-    );
-  return [...new Set(options)];
+  return paymentOptions(value).map((o) => paymentOptionLabel(o));
 }
+
 export function catalogueTerms(
   product: CatalogueProduct,
   paymentOption?: number
@@ -74,7 +70,8 @@ export function catalogueTerms(
   const explicit = product.specifications.match(
     /(?:Recorded )?(?:standard )?installation(?: period)?:\s*([^.;\n]+)/i
   )?.[1];
-  const delivery = explicit ?? d?.standard_delivery ?? '';
+  const delivery =
+    explicit ?? product.deliveryPeriod ?? d?.standard_delivery ?? '';
   // Broad historic project ranges remain available in the source, rather than becoming a new commitment automatically.
   const broad = delivery.match(/(\d+)\s*[-–]\s*(\d+)\s*days/i);
   const deliveryTerms =
@@ -86,6 +83,11 @@ export function catalogueTerms(
   const warranty = d?.warranty ?? '';
   return {
     deliveryTerms,
+    paymentPlan: optionPlan(
+      paymentOptions(d?.standard_payment ?? '')[
+        paymentOption ?? (options.length === 1 ? 0 : -1)
+      ] ?? { key: 'none' }
+    ),
     paymentTerms,
     warrantyTerms: /per quote/i.test(warranty)
       ? ''
@@ -97,21 +99,11 @@ export function catalogueTerms(
 export function quotationSpecification(
   p: Pick<CatalogueProduct, 'specifications' | 'description'>
 ) {
-  const text = p.specifications.trim() || p.description;
-  return text
-    .split('\n')
-    .filter(
-      (l) =>
-        !/^Current observed|^التكوين الحالي المرصود|^Source:|^المصدر:/i.test(
-          l.trim()
-        )
-    )
-    .join('\n')
-    .replace(/The documented offer includes/gi, 'Includes')
-    .replace(/The company submittal documents /gi, '')
-    .replace(/\bRecorded (?:standard )?/gi, '')
-    .trim();
+  return customerSpecification(p.specifications.trim() || p.description).join(
+    '\n'
+  );
 }
+
 export function cataloguePriceUnit(r: KnowledgeRecord): string | null {
   const u = (r.data.unit ?? '').trim().toLowerCase();
   if (['per door', 'per window', 'per box'].includes(u)) return 'piece';
@@ -123,13 +115,42 @@ export function cataloguePriceUnit(r: KnowledgeRecord): string | null {
     : null;
 }
 export function cataloguePriceRows(p: CatalogueProduct) {
-  return p.sources.filter(
-    (r) =>
-      r.kind === 'price' &&
-      cataloguePriceUnit(r) &&
-      (!r.configuration.catalogItemId || r.configuration.catalogItemId === p.id)
-  );
+  return p.sources.filter((r) => {
+    if (
+      r.kind !== 'price' ||
+      !cataloguePriceUnit(r) ||
+      (r.configuration.catalogItemId && r.configuration.catalogItemId !== p.id)
+    )
+      return false;
+    if (p.inventory_type !== 'product') return true;
+    const name = r.data.item_en ?? '',
+      unit = r.data.unit ?? '',
+      code = productProfile(p).code;
+    if (code === 'WS')
+      return /per m2/.test(unit) && /window shutter/i.test(name);
+    if (/sectional/i.test(p.name))
+      return /sectional/i.test(name) && /per door|per m2/.test(unit);
+    if (/polycarbonate/i.test(p.name))
+      return /polycarbonate/i.test(name) && /per door|per m2/.test(unit);
+    if (/perforated/i.test(p.name))
+      return /perforated/i.test(name) && /per door|per m2/.test(unit);
+    if (/solid steel/i.test(p.name))
+      return /steel|solid/i.test(name) && /per door|per m2/.test(unit);
+    if (/Australian/i.test(p.name))
+      return /roll.?up|australian/i.test(name) && /per door|per m2/.test(unit);
+    if (['SL', 'SW', 'GB'].includes(code))
+      return (
+        /operator|motor|barrier/i.test(name) &&
+        !/remote|receiver|switch|control|photocell/i.test(name)
+      );
+    return (
+      !/per motor|per unit/.test(unit) ||
+      (/door|screen|glass|window/i.test(name) &&
+        !/motor|remote|receiver|switch/i.test(name))
+    );
+  });
 }
+
 export function catalogueItem(
   p: CatalogueProduct,
   id: string,
@@ -137,15 +158,7 @@ export function catalogueItem(
   choice?: CatalogueSelection['price'],
   currency = 'QAR'
 ): { item: QuotationItemToSave; knowledge?: QuotationKnowledge } {
-  const unit =
-    p.unit_of_measure ??
-    {
-      per_square_meter: 'm2',
-      per_meter: 'm',
-      per_item: 'piece',
-      per_project: 'job',
-    }[p.price_unit ?? ''] ??
-    'piece';
+  const unit = productProfile(p).unit;
   const item: QuotationItemToSave = {
     id,
     itemCode,
@@ -178,6 +191,7 @@ export function catalogueItem(
   const original = snapshot(r);
   item.unit = cataloguePriceUnit(r)!;
   item.unitPrice = rate;
+
   return {
     item,
     knowledge: {
@@ -187,7 +201,7 @@ export function catalogueItem(
         {
           itemId: id,
           previous: original,
-          unit: item.unit as 'piece',
+          unit: item.unit,
           unitPrice: rate,
           reason: `Selected recorded column ${choice.column}, ${r.data.item_en ?? r.record_key}; source ${r.source}:${r.source_row}, basis ${r.data.unit}.`,
           at: new Date().toISOString(),
@@ -211,7 +225,7 @@ export function mergeCatalogueKnowledge(
       references.push(r);
   return {
     ...existing,
-    prices: existing?.prices ?? {},
+    prices: { ...existing?.prices, ...added.prices },
     references,
     manualOverrides: [
       ...(existing?.manualOverrides ?? []),
@@ -288,6 +302,18 @@ export function applyCatalogueCapture(
   if (terms) {
     delete details.commercialPreset;
     delete details.paymentSchedule;
+    details.paymentPlan = terms.paymentPlan;
   }
   return { ...draft, ...(terms ?? {}), documentDetails: details };
+}
+
+export function productPaymentOptions(product: CatalogueProduct) {
+  const values = product.sources
+    .filter((r) => r.kind === 'product')
+    .map((r) => r.data.standard_payment ?? '');
+  const explicit = product.specifications.match(
+    /Offer payments:\s*([^\n]+)/i
+  )?.[1];
+  if (explicit) values.push(explicit);
+  return mergePaymentOptions(values.flatMap(paymentOptions));
 }
