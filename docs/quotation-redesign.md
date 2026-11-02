@@ -35,3 +35,9 @@ Application deployment verification is recorded after promotion; private logs ar
 Application revision `11d5286dfde948b5d72e1a9485156ef4885f5c85` is deployed at https://wacrm.srv1795091.hstgr.cloud. The resource-capped updater completed its candidate checks, database preflight and promotion. Exact live revision verification passed. Login returns 200, the protected quotations page redirects to login, and signed-out quotation/catalogue APIs return 401. No candidate containers or candidate environment files remain; the private source pack is absent from the image.
 
 The post-deployment comparison confirms all 9 quotations, 11 line items, 3 issued documents, 46 questions and 6,756 source-record review states remain unchanged. Temporary SSH access was removed, subsequent authentication was denied and local temporary keys were deleted. The previous application image remains available as `wacrm:rollback`.
+
+## Reusable commercial terms
+
+Commercial delivery/warranty choices now come from the selected product families, including documented custom-colour periods. Equivalent wording is deduplicated for display without changing the stored quote until staff select or edit a value. Scope and additional notes also use dropdowns; Edit and Custom expose text entry. Payment arrangements fill the structured schedule, common percentages are dropdowns, and custom exact percentages and event labels remain available. Unknown recorded events still require a choice before issue.
+
+Verification: 1,636 tests pass (68 skipped), TypeScript and production build pass, changed-file lint is clean, and 21st review reports no findings. The 24 editor journeys additionally verify prefilled delivery/warranty dropdowns and custom delivery edits surviving the dropdown transition and save.

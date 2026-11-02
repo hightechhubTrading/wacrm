@@ -393,6 +393,11 @@
       "date": "2026-11-03",
       "decision": "Quotations use a product list, one configuration editor and a persistent summary. Customer PDFs use chocolate brown hierarchy, inline commercial facts and full-width specifications. Sales signoff auto-fills preparer and Qatar generation date; the dedicated navy sales seal floats across its line. Acceptance is digital, so no customer approval block appears in the PDF.",
       "source": "User direction and PDF revisions in this conversation"
+    },
+    {
+      "date": "2026-11-02",
+      "decision": "Commercial terms use prefilled dropdowns drawn from the selected product families, with deduplicated recorded wording. Delivery, warranty, scope and notes retain an Edit/Custom text path. Payment arrangements and common percentages use dropdowns, while custom percentages and milestone events remain editable. Existing quote text is retained until explicitly changed.",
+      "source": "User commercial-terms screenshot and instruction"
     }
   ],
   "evidence": [

@@ -4,6 +4,11 @@ import { recordReliability } from '@/lib/inbox/reliability';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { quotationDelivery } from '@/lib/quotations/product-profile';
 import { catalogueTerms } from '@/lib/quotations/catalogue';
+import { TermPresetField } from './term-preset-field';
+import {
+  DEFAULT_INCLUDED,
+  DEFAULT_EXCLUDED,
+} from '@/lib/quotations/commercial-defaults';
 import { PaymentPlanEditor } from './payment-plan-editor';
 import {
   validPaymentPlan,
@@ -100,6 +105,19 @@ export function QuotationWorkspace({
       .catch(() => {});
     return () => c.abort();
   }, []);
+  const selectedProducts = catalogue.filter((p) =>
+    draft.items.some((i) => i.productId === p.id)
+  );
+  const relatedTermProducts = [
+    ...selectedProducts,
+    ...catalogue.filter((p) =>
+      selectedProducts.some(
+        (selected) =>
+          (selected.familyName && selected.familyName === p.familyName) ||
+          (selected.productCode && selected.productCode === p.productCode)
+      )
+    ),
+  ];
   const recordedPaymentOptions: PaymentOption[] = [];
   for (const product of catalogue.filter((p) =>
     draft.items.some((i) => i.productId === p.id)
@@ -1102,32 +1120,40 @@ export function QuotationWorkspace({
             />
             <div className="qp-commercial-fields">
               {(['deliveryTerms', 'warrantyTerms'] as const).map((key) => (
-                <label key={key}>
-                  {t(key)}
-                  <textarea
-                    rows={3}
-                    dir="auto"
-                    value={draft[key]}
-                    disabled={disabled}
-                    onChange={(e) => setField(key, e.target.value)}
-                  />
-                </label>
+                <TermPresetField
+                  key={key}
+                  label={t(key)}
+                  value={draft[key]}
+                  disabled={disabled}
+                  options={relatedTermProducts.flatMap((p) => [
+                    catalogueTerms(p)[key] ?? '',
+                    ...(key === 'deliveryTerms' && p.customDeliveryPeriod
+                      ? [p.customDeliveryPeriod]
+                      : []),
+                  ])}
+                  onChange={(value) => setField(key, value)}
+                />
               ))}
             </div>
             <details className="qw-details">
               <summary>{t('scopeNotes')}</summary>
               <div className="qw-form-grid">
                 {(['included', 'excluded', 'notes'] as const).map((key) => (
-                  <label key={key} className={key === 'notes' ? 'qw-full' : ''}>
-                    {t(key)}
-                    <textarea
-                      aria-label={t(key)}
-                      rows={key === 'notes' ? 3 : 5}
-                      value={details[key] ?? ''}
-                      disabled={disabled}
-                      onChange={(e) => setDetail(key, e.target.value)}
-                    />
-                  </label>
+                  <TermPresetField
+                    key={key}
+                    label={t(key)}
+                    value={details[key] ?? ''}
+                    disabled={disabled}
+                    optional={key === 'notes'}
+                    options={
+                      key === 'included'
+                        ? [DEFAULT_INCLUDED]
+                        : key === 'excluded'
+                          ? [DEFAULT_EXCLUDED]
+                          : []
+                    }
+                    onChange={(value) => setDetail(key, value)}
+                  />
                 ))}
                 <label>
                   {t('shopDrawingDays')}

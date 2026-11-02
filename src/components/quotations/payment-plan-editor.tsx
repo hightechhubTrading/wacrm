@@ -1,4 +1,6 @@
 'use client';
+import { TermPresetField } from './term-preset-field';
+import { useState } from 'react';
 import { useLocale } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,28 +64,40 @@ export function PaymentPlanEditor({
           {sum}% / 100%
         </strong>
       </div>
-      {options.length > 0 && (
-        <div
-          className="qp-payment-options"
-          aria-label={l(
-            'Recorded payment arrangements',
-            'ترتيبات الدفع المسجلة'
+      <label className="qp-payment-preset">
+        {l('Payment arrangement', 'ترتيب الدفع')}
+        <select
+          aria-label={l('Payment arrangement', 'ترتيب الدفع')}
+          disabled={disabled}
+          value={String(
+            options.findIndex((o) => {
+              const candidate = optionPlan(o);
+              return (
+                candidate &&
+                JSON.stringify(candidate.stages) ===
+                  JSON.stringify(plan?.stages)
+              );
+            })
           )}
+          onChange={(e) => {
+            const index = Number(e.target.value);
+            if (index >= 0) onChange(optionPlan(options[index]));
+            else if (!plan)
+              onChange({ stages: [{ percent: 100, event: 'unspecified' }] });
+          }}
         >
-          {options.map((o) => (
-            <Button
-              key={o.key}
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={disabled || !o.shares}
-              onClick={() => onChange(optionPlan(o))}
-            >
+          <option value="-1">
+            {plan
+              ? l('Custom / edited schedule', 'جدول مخصص / معدل')
+              : l('Choose a recorded arrangement', 'اختر ترتيب دفع مسجل')}
+          </option>
+          {options.map((o, i) => (
+            <option key={o.key} value={i} disabled={!o.shares}>
               {paymentOptionLabel(o, ar)}
-            </Button>
+            </option>
           ))}
-        </div>
-      )}
+        </select>
+      </label>
       {options.some((o) => o.advanceRange) && (
         <p className="qp-guidance">
           {l(
@@ -119,17 +133,11 @@ export function PaymentPlanEditor({
                     {l('Percentage', 'النسبة') + ' ' + (i + 1)}
                   </span>
                   <div className="qp-percent">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="any"
-                      aria-label={l('Percentage', 'النسبة') + ' ' + (i + 1)}
+                    <PercentageField
+                      label={l('Percentage', 'النسبة') + ' ' + (i + 1)}
                       value={s.percent}
                       disabled={disabled}
-                      onChange={(e) =>
-                        patch(i, { percent: Number(e.target.value) })
-                      }
+                      onChange={(percent) => patch(i, { percent })}
                     />
                     <span>%</span>
                   </div>
@@ -218,17 +226,71 @@ export function PaymentPlanEditor({
                   )}
             </span>
           </div>
-          <label>
-            {l('Additional payment notes', 'ملاحظات الدفع الإضافية')}
-            <textarea
-              rows={2}
-              value={plan.notes ?? ''}
-              disabled={disabled}
-              onChange={(e) => onChange({ ...plan, notes: e.target.value })}
-            />
-          </label>
+          <TermPresetField
+            label={l('Additional payment notes', 'ملاحظات الدفع الإضافية')}
+            value={plan.notes ?? ''}
+            options={options.flatMap((o) => {
+              const p = optionPlan(o);
+              return p?.notes ? [p.notes] : [];
+            })}
+            disabled={disabled}
+            optional
+            onChange={(notes) => onChange({ ...plan, notes })}
+          />
         </>
       )}
     </section>
+  );
+}
+
+function PercentageField({
+  label,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  disabled: boolean;
+  onChange: (value: number) => void;
+}) {
+  const ar = useLocale() === 'ar',
+    [custom, setCustom] = useState(false);
+  const shares = [0, 10, 20, 25, 30, 40, 50, 60, 65, 70, 75, 80, 90, 100];
+  const editing = custom || !shares.includes(value);
+  return (
+    <div className="qp-share-choice">
+      <select
+        aria-label={label}
+        value={editing ? 'custom' : String(value)}
+        disabled={disabled}
+        onChange={(e) => {
+          if (e.target.value === 'custom') setCustom(true);
+          else {
+            setCustom(false);
+            onChange(Number(e.target.value));
+          }
+        }}
+      >
+        {shares.map((p) => (
+          <option key={p} value={p}>
+            {p}
+          </option>
+        ))}
+        <option value="custom">{ar ? 'مخصص' : 'Custom'}</option>
+      </select>
+      {editing && (
+        <Input
+          aria-label={label + (ar ? ' — مخصص' : ' — custom')}
+          type="number"
+          min="0"
+          max="100"
+          step="any"
+          value={value}
+          disabled={disabled}
+          onChange={(e) => onChange(Number(e.target.value))}
+        />
+      )}
+    </div>
   );
 }

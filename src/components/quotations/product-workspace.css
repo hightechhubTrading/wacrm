@@ -788,3 +788,40 @@
 .qp-equipment-rates {
   grid-column: 1 / -1;
 }
+
+.qp-term-preset {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.qp-term-preset > label {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.qp-term-preset .qw-inline select {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  text-overflow: ellipsis;
+}
+.qp-term-preset .qw-inline button {
+  flex-shrink: 0;
+}
+.qp-payment-preset {
+  margin: 1rem 0;
+}
+.qp-term-preset textarea {
+  margin-top: 0.25rem;
+}
+.qp-share-choice {
+  min-width: 0;
+  flex: 1;
+}
+.qp-share-choice select {
+  padding-inline: 0.25rem;
+}
+.qp-share-choice input {
+  width: 100%;
+  margin-top: 0.35rem;
+}

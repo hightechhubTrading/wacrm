@@ -342,6 +342,40 @@ try {
             .first()
             .click();
           await page.locator('.qp-payment').waitFor({ state: 'visible' });
+          const deliverySelect = page.getByLabel(t.deliveryTerms, {
+            exact: true,
+          });
+          assert.equal(
+            await deliverySelect.evaluate((e) => e.tagName),
+            'SELECT'
+          );
+          assert.equal(
+            await page
+              .getByLabel(t.warrantyTerms, { exact: true })
+              .evaluate((e) => e.tagName),
+            'SELECT'
+          );
+          const deliveryField = deliverySelect.locator('..').locator('..');
+          await deliveryField
+            .getByRole('button', { name: l('Edit', 'تعديل'), exact: true })
+            .click();
+          const customDelivery = page.getByLabel(
+            t.deliveryTerms + ' — ' + l('custom text', 'نص مخصص'),
+            { exact: true }
+          );
+          await customDelivery.fill('8–10 days after site readiness');
+          await deliveryField
+            .getByRole('button', { name: l('Done', 'تم'), exact: true })
+            .click();
+          assert.equal(
+            await deliverySelect.locator('option:checked').textContent(),
+            '8–10 days after site readiness'
+          );
+          await page
+            .getByLabel(l('Payment arrangement', 'ترتيب الدفع'), {
+              exact: true,
+            })
+            .waitFor();
           const set = page.getByRole('button', {
             name: l('Set payment schedule', 'تحديد جدول الدفعات'),
             exact: true,
@@ -354,11 +388,20 @@ try {
           await event.selectOption('acceptance');
           await page
             .getByLabel(l('Percentage', 'النسبة') + ' 1', { exact: true })
-            .fill('100');
+            .selectOption('custom');
+          const customShare = page.getByLabel(
+            l('Percentage', 'النسبة') + ' 1' + l(' — custom', ' — مخصص'),
+            { exact: true }
+          );
+          await customShare.fill('17.5');
+          assert.equal(await customShare.inputValue(), '17.5');
+          await page
+            .getByLabel(l('Percentage', 'النسبة') + ' 1', { exact: true })
+            .selectOption('100');
           if (scenario !== 'shutter') {
             await page
               .getByLabel(l('Percentage', 'النسبة') + ' 1', { exact: true })
-              .fill(scenario === 'garage' ? '70' : '60');
+              .selectOption(scenario === 'garage' ? '70' : '60');
             await page
               .getByRole('button', {
                 name: l('+ Add instalment', '+ إضافة دفعة'),
@@ -375,7 +418,7 @@ try {
             if (scenario === 'mixed') {
               await page
                 .getByLabel(l('Percentage', 'النسبة') + ' 2', { exact: true })
-                .fill('30');
+                .selectOption('30');
               await page
                 .getByRole('button', {
                   name: l('+ Add instalment', '+ إضافة دفعة'),
