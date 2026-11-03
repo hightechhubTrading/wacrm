@@ -1,22 +1,23 @@
-import { AiError, type ProviderResult } from '../types'
-import { MAX_OUTPUT_TOKENS } from '../defaults'
+import { AiError, type ProviderResult } from '../types';
+import { MAX_OUTPUT_TOKENS } from '../defaults';
 import {
   mergeConsecutive,
   normalizeUsage,
   providerHttpError,
   toNetworkError,
   type ProviderArgs,
-} from './shared'
+} from './shared';
 
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+const GEMINI_URL =
+  'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 
 interface GeminiResponse {
-  choices?: { message?: { content?: string } }[]
+  choices?: { message?: { content?: string } }[];
   usage?: {
-    prompt_tokens?: number
-    completion_tokens?: number
-    total_tokens?: number
-  }
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
 }
 
 /**
@@ -25,10 +26,12 @@ interface GeminiResponse {
  * assistant text + token usage (handoff parsing happens in
  * `generateReply`).
  */
-export async function generateGemini(args: ProviderArgs): Promise<ProviderResult> {
-  const { apiKey, model, systemPrompt, messages, timeoutMs } = args
+export async function generateGemini(
+  args: ProviderArgs
+): Promise<ProviderResult> {
+  const { apiKey, model, systemPrompt, messages, timeoutMs } = args;
 
-  let res: Response
+  let res: Response;
   try {
     res = await fetch(GEMINI_URL, {
       method: 'POST',
@@ -42,29 +45,41 @@ export async function generateGemini(args: ProviderArgs): Promise<ProviderResult
           { role: 'system', content: systemPrompt },
           ...mergeConsecutive(messages),
         ],
-        max_tokens: MAX_OUTPUT_TOKENS,
+        // Gemini 3 cannot disable thinking; 3.8 rejects "minimal".
+        // Use supported minimum effort and leave headroom for a visible answer.
+        max_tokens: ['gemini-3.8-flash', 'gemini-3.5-flash-lite'].includes(
+          model
+        )
+          ? 4096
+          : MAX_OUTPUT_TOKENS,
+        ...(['gemini-3.8-flash', 'gemini-3.5-flash-lite'].includes(model)
+          ? {
+              reasoning_effort:
+                model === 'gemini-3.8-flash' ? 'low' : 'minimal',
+            }
+          : {}),
       }),
       signal: AbortSignal.timeout(timeoutMs),
-    })
+    });
   } catch (err) {
-    throw toNetworkError(err)
+    throw toNetworkError(err);
   }
 
   if (!res.ok) {
-    throw await providerHttpError('Gemini', res)
+    throw await providerHttpError('Gemini', res);
   }
 
-  const data = (await res.json().catch(() => null)) as GeminiResponse | null
-  const text = data?.choices?.[0]?.message?.content
+  const data = (await res.json().catch(() => null)) as GeminiResponse | null;
+  const text = data?.choices?.[0]?.message?.content;
   if (!text || typeof text !== 'string' || !text.trim()) {
     throw new AiError('Gemini returned an empty response.', {
       code: 'empty_response',
-    })
+    });
   }
   const usage = normalizeUsage({
     prompt: data?.usage?.prompt_tokens,
     completion: data?.usage?.completion_tokens,
     total: data?.usage?.total_tokens,
-  })
-  return { text, usage }
+  });
+  return { text, usage };
 }

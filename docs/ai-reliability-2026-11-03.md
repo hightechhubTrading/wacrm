@@ -23,23 +23,23 @@ Recommendations are curated for short sales/support replies, with editable model
 | Google    | `gemini-3.8-flash`    | Custom ID         | `gemini-3.5-flash-lite` |
 | DeepSeek  | `deepseek-flash`      | Custom ID         | Same Flash model        |
 
-DeepSeek's retired `deepseek-v4-pro` alias currently routes to Flash; it is no longer advertised as a distinct quality upgrade. Saved aliases/custom IDs remain usable. OpenAI Terra/Luna explicitly disable reasoning for short replies; Sol uses supported low reasoning and a 4,096-token combined reasoning/output allowance. Unknown/custom IDs retain the existing compatibility payload. Native tools are not advertised; current adapters request plain text and parse the app's existing markers.
+DeepSeek's retired `deepseek-v4-pro` alias currently routes to Flash; it is no longer advertised as a distinct quality upgrade. Saved aliases/custom IDs remain usable. OpenAI Terra/Luna explicitly disable reasoning for short replies; Sol uses supported low reasoning and a 4,096-token combined reasoning/output allowance. Gemini Flash uses supported low reasoning, while Flash Lite uses minimal reasoning; both have 4,096-token output headroom. Gemini 3 thinking cannot be disabled, and Flash 3.8 rejects minimal effort. Unknown/custom IDs retain the existing compatibility payload. Native tools are not advertised; current adapters request plain text and parse the app's existing markers.
 
 Reviewed primary sources:
 
 - [OpenAI models](https://developers.openai.com/api/docs/models), [Terra](https://developers.openai.com/api/docs/models/gpt-6.1-terra), [Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol), [Luna](https://developers.openai.com/api/docs/models/gpt-6-luna).
 - [Anthropic model overview](https://platform.claude.com/docs/en/models/overview).
-- [Google model catalogue](https://aistudio.google.com/docs/models), [Flash](https://aistudio.google.com/docs/models/gemini-3.8-flash), [Flash Lite](https://aistudio.google.com/docs/models/gemini-3.5-flash-lite), [OpenAI compatibility](https://aistudio.google.com/docs/openai).
+- [Google model catalogue](https://aistudio.google.com/docs/models), [Flash](https://aistudio.google.com/docs/models/gemini-3.8-flash), [Flash Lite](https://aistudio.google.com/docs/models/gemini-3.5-flash-lite), [OpenAI compatibility](https://aistudio.google.com/docs/openai), [thinking levels](https://aistudio.google.com/docs/thinking#thinking-levels).
 - [DeepSeek canonical model and legacy alias routing](https://www.deepseek.com/en/news/deepseek-v4-1-flash/).
 - [TypeSafe API](https://docs.typesafe.ai/api.md), [JavaScript SDK](https://docs.typesafe.ai/sdk/javascript.md).
 
 ## Validation and limits
 
-- Unit/regression suite: 1,660 passed, 74 opt-in tests skipped. TypeScript and production build pass.
+- Unit/regression suite: 1,665 passed, 74 opt-in tests skipped. TypeScript and production build pass.
 - Live TypeSafe synthetic sales suite: 50/50 passed. New Arabic reliability cases: 6/6 passed, including blocked invented prices/bookings. A first UPVC candidate with only a brief qualification was rejected; the passing fixture supplies useful product information. These fixtures do not establish universal calibration.
 - Separate live configured-DeepSeek generation probe: two of four synthetic requests produced verified replies; one still needed review and one timed out. This is evidence that the deterministic receipt path remains necessary, not a provider-readiness pass. No customer messages or sends were used for the probe. Provider failures and review receipts are covered with synthetic transports.
 - Browser checks: actual settings component, Arabic/English, mobile/desktop, saved GPT-5.4 retained, three OpenAI suggestions, custom input, viewer read-only; no API writes. Existing project components reused after 21st search; 21st review reports no findings.
 - Transactional database checks (rolled back): service-only privileges, null/wrong tenant, stale trigger, changed assignment, paused thread, cap, valid claim and duplicate claim after cooldown. Migration preflight adds a null-scoped no-write RPC probe.
-- No OpenAI key is configured on the inspected account. OpenAI request compatibility is tested through mocked transport and official documentation, not claimed as a live paid OpenAI test.
+- OpenAI and Gemini request compatibility are checked with mocked transports and official documentation. No paid OpenAI or Gemini test is claimed.
 
 Production rollout evidence is recorded separately after deployment. No historical customer messages are replayed or threads automatically resumed.

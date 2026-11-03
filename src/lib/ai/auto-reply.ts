@@ -1372,7 +1372,7 @@ export async function dispatchInboundToAiReply(
       'failed',
       config?.behaviorV2Enabled ? 'provider_unavailable' : 'generation_failed'
     );
-    if (receiptAllowed)
+    if (config?.behaviorV2Enabled || receiptAllowed)
       await notifyReplyReview(db, {
         accountId,
         conversationId,

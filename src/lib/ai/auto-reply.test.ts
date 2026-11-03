@@ -1497,3 +1497,15 @@ it('shares a finite deadline across baseline generation and repair', async () =>
   expect(deadlines[0]).toBeGreaterThanOrEqual(before + 60000);
   expect(deadlines[1]).toBe(deadlines[0]);
 });
+it('retains advanced-mode staff notifications after an uncertain normal send', async () => {
+  h.loadAiConfig.mockResolvedValue(aiConfig({ behaviorV2Enabled: true }));
+  h.state.admins = [{ user_id: 'admin-1' }];
+  h.engineSendText.mockRejectedValueOnce(new Error('uncertain transport'));
+  await dispatchInboundToAiReply(ARGS);
+  expect(h.engineSendText).toHaveBeenCalledTimes(1);
+  expect(h.state.notificationInserts).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ title: 'AI reply needs review' }),
+    ])
+  );
+});
