@@ -5,7 +5,7 @@ import type { ChatMessage } from '../types';
 export const SUPPORTED_MIN = 0.85;
 export const HANDOFF_MIN = 0.9;
 export const INTENT_MIN = 0.65;
-export const QUESTION_VERSION = 'sales-v11-focused-dialogue';
+export const QUESTION_VERSION = 'sales-v12-bounded-catalogue';
 
 export const INTENTS = {
   product: 'Ask about products, options, suitability or examples.',

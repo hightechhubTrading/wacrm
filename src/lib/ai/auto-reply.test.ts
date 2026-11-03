@@ -291,6 +291,9 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
   });
 
   it('applies a product tag when the model flags a product with zero attachable files, without attaching anything', async () => {
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: 'Pool fence please' },
+    ]);
     h.state.products = [
       {
         id: 'prod-1',

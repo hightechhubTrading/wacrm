@@ -709,14 +709,19 @@ async function checkSalesOutput(
           }
         : {}),
     };
-  } catch {
+  } catch (error) {
+    // Fixed metadata only; never persist SDK bodies, keys or evidence.
+    const failureCode =
+      error instanceof Error && error.message.includes('max_tokens_exceeded')
+        ? 'context_limit'
+        : 'unavailable';
     failures.push('unavailable');
     await logJevCheck(ctx, {
       layer: 'output',
       mode,
       outcome: 'unavailable',
       latencyMs: Date.now() - start,
-      judgments: { attempt },
+      judgments: { attempt, failureCode },
     });
     return mode === 'shadow'
       ? proposal

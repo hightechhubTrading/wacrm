@@ -912,3 +912,20 @@ it('keeps a rejected clarification internal instead of inventing a human request
   });
   expect(h.ask).toHaveBeenCalledTimes(3);
 });
+it('records a fixed context-limit diagnostic without exposing SDK error bodies', async () => {
+  h.ask.mockRejectedValue(
+    new Error('400 max_tokens_exceeded private-body-secret')
+  );
+  await verifySalesOutput(ctx, evidence, proposal);
+  expect(h.audit).toHaveBeenCalledWith(
+    ctx,
+    expect.objectContaining({
+      layer: 'output',
+      outcome: 'unavailable',
+      judgments: expect.objectContaining({ failureCode: 'context_limit' }),
+    })
+  );
+  expect(JSON.stringify(h.audit.mock.calls)).not.toContain(
+    'private-body-secret'
+  );
+});

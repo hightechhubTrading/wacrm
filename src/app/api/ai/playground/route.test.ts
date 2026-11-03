@@ -112,3 +112,22 @@ it('still respects an explicit human request without generating a reply', async 
   expect(await res.json()).toMatchObject({ handoff: true });
   expect(h.generate).not.toHaveBeenCalled();
 });
+it('verifies an isolated Arabic greeting without injecting the company-sized product catalogue', async () => {
+  h.products.mockResolvedValue(
+    Array.from({ length: 123 }, (_, i) => ({
+      ...product(`p-${i}`, `Window model ${i}`),
+      description: 'Specifications and limitations. '.repeat(70),
+    }))
+  );
+  h.output.mockResolvedValue({
+    text: 'مرحباً، كيف أقدر أساعدك؟',
+    handoff: false,
+  });
+  const response = await POST(request('مرحبا'));
+  expect(response.status).toBe(200);
+  expect((await response.json()).reply).toContain('مرحباً');
+  expect(h.output.mock.calls[0][1].products).toEqual([]);
+  expect(h.generate.mock.calls[0][0].systemPrompt).not.toContain(
+    'Window model'
+  );
+});
