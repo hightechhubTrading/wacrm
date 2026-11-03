@@ -663,7 +663,7 @@
       "due": "موعد المتابعة",
       "take": "استلام المهمة",
       "update": "تحديث",
-      "evidence": "ما الذي تم إنجازه؟ (10 أحرف على الأقل)",
+      "evidence": "ما الذي تم إنجازه؟",
       "deferUntil": "المتابعة بعد",
       "confirmedTime": "الموعد المؤكد من الفريق",
       "complete": "تحديد كمكتملة",
@@ -732,7 +732,27 @@
       "overviewTitle": "متابعة المحادثة",
       "manage": "إدارة",
       "overdue": "متأخرة",
-      "viewAll": "عرض كل المهام ({count})"
+      "viewAll": "عرض كل المهام ({count})",
+      "chooseOutcome": "اختر ما تم إنجازه",
+      "customOutcome": "أخرى / مخصص",
+      "customEvidence": "صف ما تم إنجازه (10 أحرف على الأقل)",
+      "optionalDetails": "تفاصيل إضافية (اختياري)",
+      "today": "اليوم",
+      "tomorrow": "غداً",
+      "nextWeek": "بعد أسبوع",
+      "time": "الوقت",
+      "clearDate": "مسح",
+      "outcomes": {
+        "reviewed": "تمت مراجعة المحادثة وطلب العميل",
+        "contacted": "تم التواصل مع العميل ومتابعة طلبه",
+        "quotationPrepared": "تم إعداد عرض السعر للعميل",
+        "quotationSent": "تم إرسال عرض السعر إلى العميل",
+        "inspectionDone": "تمت معاينة الموقع",
+        "repairDone": "تم إنجاز أعمال الصيانة",
+        "locationShared": "تمت مشاركة الموقع مع العميل",
+        "comparisonDone": "تمت مقارنة المنتجات للعميل",
+        "documentReviewed": "تمت مراجعة المستند والتحقق من تفاصيله"
+      }
     },
     "sales": {
       "nextAction": "الخطوة التالية",

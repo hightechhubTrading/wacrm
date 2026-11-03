@@ -1,5 +1,5 @@
 'use client';
-import { BusinessTimeNote } from '@/components/workspace/business-time-note';
+import { FollowupSelect, FollowupDateTimeField } from './followup-form-fields';
 import { BUSINESS_TIME_ZONE, businessDateTimeToIso } from '@/lib/business-time';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
@@ -67,6 +67,14 @@ export function AiFollowups({
   const [kind, setKind] = useState<FollowupKind>('quotation');
   const [editing, setEditing] = useState<string | null>(null);
   const [evidence, setEvidence] = useState('');
+  const [outcome, setOutcome] = useState('');
+  const completionEvidence =
+    outcome === 'custom'
+      ? evidence.trim()
+      : outcome
+        ? t(`outcomes.${outcome}`) +
+          (evidence.trim() ? ' — ' + evidence.trim() : '')
+        : '';
   const [date, setDate] = useState('');
   const [confirmed, setConfirmed] = useState('');
   const refresh = useCallback(
@@ -101,6 +109,7 @@ export function AiFollowups({
     setLoadError(false);
     setEditing(null);
     setEvidence('');
+    setOutcome('');
     setDate('');
     setConfirmed('');
     const controller = new AbortController();
@@ -160,6 +169,7 @@ export function AiFollowups({
       if (activeConversation.current !== conversationId) return;
       setEditing(null);
       setEvidence('');
+      setOutcome('');
       setDate('');
       setConfirmed('');
       await refresh();
@@ -480,6 +490,7 @@ export function AiFollowups({
                       onClick={() => {
                         setEditing(f.id);
                         setEvidence('');
+                        setOutcome('');
                         setDate('');
                         setConfirmed('');
                       }}
@@ -498,43 +509,71 @@ export function AiFollowups({
                 )}
                 {editing === f.id && (
                   <div className="crm-followup-editor">
-                    <label className="flex flex-col gap-1">
-                      {t('evidence')}
-                      <Input
-                        className="bg-card"
-                        value={evidence}
-                        maxLength={2000}
-                        onChange={(e) => setEvidence(e.target.value)}
+                    <div className="crm-followup-outcome">
+                      <FollowupSelect
+                        label={t('evidence')}
+                        value={outcome}
+                        disabled={busy}
+                        options={[
+                          { value: '', label: t('chooseOutcome') },
+                          ...[
+                            'reviewed',
+                            'contacted',
+                            ...{
+                              handoff: [],
+                              quotation: ['quotationPrepared', 'quotationSent'],
+                              inspection: ['inspectionDone'],
+                              repair: ['repairDone'],
+                              location: ['locationShared'],
+                              comparison: ['comparisonDone'],
+                              document_review: ['documentReviewed'],
+                            }[f.kind],
+                          ].map((value) => ({
+                            value,
+                            label: t(`outcomes.${value}`),
+                          })),
+                          { value: 'custom', label: t('customOutcome') },
+                        ]}
+                        onChange={setOutcome}
                       />
-                    </label>
-                    <label className="flex flex-col gap-1">
-                      {t('deferUntil')}
-                      <BusinessTimeNote />
-                      <Input
-                        type="datetime-local"
-                        className="bg-card"
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                      />
-                    </label>
-                    <label className="flex flex-col gap-1">
-                      {t('confirmedTime')}
-                      <BusinessTimeNote />
-                      <Input
-                        type="datetime-local"
-                        className="bg-card"
-                        value={confirmed}
-                        onChange={(e) => setConfirmed(e.target.value)}
-                      />
-                    </label>
+                      {outcome && (
+                        <label className="flex flex-col gap-1">
+                          {t(
+                            outcome === 'custom'
+                              ? 'customEvidence'
+                              : 'optionalDetails'
+                          )}
+                          <Input
+                            className="bg-card"
+                            value={evidence}
+                            maxLength={1500}
+                            disabled={busy}
+                            onChange={(e) => setEvidence(e.target.value)}
+                          />
+                        </label>
+                      )}
+                    </div>
+                    <FollowupDateTimeField
+                      label={t('deferUntil')}
+                      future
+                      value={date}
+                      disabled={busy}
+                      onChange={setDate}
+                    />
+                    <FollowupDateTimeField
+                      label={t('confirmedTime')}
+                      value={confirmed}
+                      disabled={busy}
+                      onChange={setConfirmed}
+                    />
                     <Button
                       size="sm"
-                      disabled={busy || evidence.trim().length < 10}
+                      disabled={busy || completionEvidence.length < 10}
                       onClick={() =>
                         void mutate('PATCH', {
                           id: f.id,
                           status: 'completed',
-                          completion_evidence: evidence,
+                          completion_evidence: completionEvidence,
                         })
                       }
                     >
@@ -543,7 +582,11 @@ export function AiFollowups({
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={busy || !businessDateTimeToIso(date)}
+                      disabled={
+                        busy ||
+                        !businessDateTimeToIso(date) ||
+                        Date.parse(businessDateTimeToIso(date)!) <= Date.now()
+                      }
                       onClick={() =>
                         void mutate('PATCH', {
                           id: f.id,
@@ -583,20 +626,16 @@ export function AiFollowups({
               </div>
             ))}
             <div className="crm-followup-create">
-              <label className="flex flex-1 flex-col gap-2">
-                {t('newTask')}
-                <select
-                  className="crm-followup-kind"
-                  value={kind}
-                  onChange={(e) => setKind(e.target.value as FollowupKind)}
-                >
-                  {FOLLOWUP_KINDS.map((k) => (
-                    <option key={k} value={k}>
-                      {t(`kinds.${k}`)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <FollowupSelect
+                label={t('newTask')}
+                value={kind}
+                disabled={busy}
+                onChange={(value) => setKind(value as FollowupKind)}
+                options={FOLLOWUP_KINDS.map((value) => ({
+                  value,
+                  label: t(`kinds.${value}`),
+                }))}
+              />
               <Button
                 size="sm"
                 disabled={busy}

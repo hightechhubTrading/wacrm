@@ -398,6 +398,11 @@
       "date": "2026-11-02",
       "decision": "Commercial terms use prefilled dropdowns drawn from the selected product families, with deduplicated recorded wording. Delivery, warranty, scope and notes retain an Edit/Custom text path. Payment arrangements and common percentages use dropdowns, while custom percentages and milestone events remain editable. Existing quote text is retained until explicitly changed.",
       "source": "User commercial-terms screenshot and instruction"
+    },
+    {
+      "date": "2026-11-03",
+      "decision": "Follow-up work uses the app Select for task type and task-specific completion outcomes, with optional details and a custom outcome. Date fields use Today/Tomorrow/In one week shortcuts, the existing calendar without quotation-validity labels, and explicit confirmation actions. Qatar time remains authoritative for operational dates.",
+      "source": "User follow-up screenshots and request"
     }
   ],
   "evidence": [

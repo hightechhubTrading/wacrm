@@ -2,7 +2,7 @@
 
 import { WorkspaceSelect } from './workspace-select';
 
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
   addDays,
@@ -26,11 +26,16 @@ export function QuotationDatePicker({
   value,
   onChange,
   disabled,
+  'aria-label': ariaLabel,
+  showValidityShortcuts = true,
 }: {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  'aria-label'?: string;
+  showValidityShortcuts?: boolean;
 }) {
+  const valueId = useId();
   const t = useTranslations('QuotationWorkspace');
   const locale = useLocale();
   const rtl = locale === 'ar';
@@ -107,7 +112,7 @@ export function QuotationDatePicker({
   }
   return (
     <div className="qw-date-field">
-      <span id="qw-validity-label">{t('validUntil')}</span>
+      {!ariaLabel && <span id={`${valueId}-label`}>{t('validUntil')}</span>}
       <Popover
         open={open}
         onOpenChange={(next) => {
@@ -120,14 +125,14 @@ export function QuotationDatePicker({
       >
         <PopoverTrigger
           disabled={disabled}
-          aria-labelledby="qw-validity-label qw-validity-value"
+          aria-label={ariaLabel}
+          aria-labelledby={
+            ariaLabel ? undefined : `${valueId}-label ${valueId}`
+          }
           className="qw-date-trigger"
         >
           <CalendarDays size={17} aria-hidden />
-          <span
-            id="qw-validity-value"
-            className={value ? '' : 'qw-date-placeholder'}
-          >
+          <span id={valueId} className={value ? '' : 'qw-date-placeholder'}>
             {selected ? label(selected) : t('chooseDate')}
           </span>
           <ChevronRight
@@ -239,20 +244,22 @@ export function QuotationDatePicker({
               );
             })}
           </div>
-          <div className="qw-calendar-presets">
-            <span>{t('validFor')}</span>
-            <div>
-              {[7, 15, 30].map((count) => (
-                <button
-                  type="button"
-                  key={count}
-                  onClick={() => choose(addDays(today, count))}
-                >
-                  {t('days', { count })}
-                </button>
-              ))}
+          {showValidityShortcuts && (
+            <div className="qw-calendar-presets">
+              <span>{t('validFor')}</span>
+              <div>
+                {[7, 15, 30].map((count) => (
+                  <button
+                    type="button"
+                    key={count}
+                    onClick={() => choose(addDays(today, count))}
+                  >
+                    {t('days', { count })}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
           <div className="qw-calendar-footer">
             <button type="button" onClick={() => choose(today)}>
               {t('today')}

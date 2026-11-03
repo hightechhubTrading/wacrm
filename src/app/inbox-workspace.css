@@ -2271,3 +2271,55 @@ html[data-mode='light']
 .crm-sales-card a {
   overflow-wrap: anywhere;
 }
+
+.crm-followup-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+.crm-followup-outcome {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+}
+.crm-followup-date {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.crm-followup-date legend {
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.crm-followup-date-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.crm-followup-date-inputs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 100px;
+  gap: 6px;
+}
+.crm-followup-date-inputs .qw-date-trigger {
+  min-width: 0;
+  width: 100%;
+}
+.crm-followup-date-note {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.crm-followup-date-note button {
+  text-decoration: underline;
+}

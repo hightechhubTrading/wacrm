@@ -663,7 +663,7 @@
       "due": "Due",
       "take": "Take ownership",
       "update": "Update",
-      "evidence": "What was completed? (at least 10 characters)",
+      "evidence": "What was done?",
       "deferUntil": "Follow up after",
       "confirmedTime": "Team-confirmed appointment time",
       "complete": "Mark completed",
@@ -732,7 +732,27 @@
       "overviewTitle": "Conversation follow-ups",
       "manage": "Manage",
       "overdue": "Overdue",
-      "viewAll": "View all {count} tasks"
+      "viewAll": "View all {count} tasks",
+      "chooseOutcome": "Choose an outcome",
+      "customOutcome": "Other / custom",
+      "customEvidence": "Describe what was done (at least 10 characters)",
+      "optionalDetails": "Additional details (optional)",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "nextWeek": "In one week",
+      "time": "Time",
+      "clearDate": "Clear",
+      "outcomes": {
+        "reviewed": "Reviewed the conversation and customer request",
+        "contacted": "Contacted the customer and followed up on the request",
+        "quotationPrepared": "Prepared the quotation for the customer",
+        "quotationSent": "Sent the quotation to the customer",
+        "inspectionDone": "Completed the site inspection",
+        "repairDone": "Completed the repair work",
+        "locationShared": "Shared the location with the customer",
+        "comparisonDone": "Completed the product comparison for the customer",
+        "documentReviewed": "Reviewed the document and checked its details"
+      }
     },
     "sales": {
       "nextAction": "Next action",
