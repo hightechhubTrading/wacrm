@@ -18,3 +18,7 @@ The existing RLS-invoker `inbox_list` RPC now returns the work state and support
 - Changed-file lint has no errors; three pre-existing image warnings remain. UI review focus findings were fixed; remaining hardcoded-colour information relates to existing UI.
 
 Migration 095 is recorded as `20261103073854`. Private snapshots, SQL smoke results and browser screenshots are under `.local/conversation-workflow*`, outside git and container build context.
+
+## Live rollout
+
+Application revision `faaf3f7d2e255c9a804ff053f169b65c845992ca` is deployed. Exact live revision, login/protected inbox/API checks and migration preflight pass. No candidate containers/environment files remain and the private source pack is absent from the image. The before/after comparison preserves the statuses and assignments of all 658 existing conversations and 657 deals; none were removed or automatically relabelled. Temporary SSH access was revoked, authentication denial verified and local keys deleted.
