@@ -7,6 +7,7 @@ const options = {
 };
 const emptyPerformanceResponse = (pathname) => {
   if (pathname.endsWith('/quotation_document_details_valid')) return true;
+  if (pathname.endsWith('/claim_ai_review_receipt')) return false;
   if (pathname.endsWith('/conversation_activity_snapshot'))
     return { serverNow: '2026-10-30T09:00:00Z', peers: [] };
   if (pathname.endsWith('/search_inbox_messages'))
@@ -38,7 +39,7 @@ test('accepts the required columns and denied identity-free conversion probe', a
       return validFetch(url);
     },
   });
-  assert.equal(requests.length, 33);
+  assert.equal(requests.length, 34);
   for (const r of requests.slice(0, 8))
     assert.equal(r.url.searchParams.get('limit'), '0');
   assert.equal(JSON.parse(requests[8].init.body).p_conversation_id, null);
@@ -339,5 +340,18 @@ test('blocks promotion when conversation work statuses are absent', async () => 
           : validFetch(url),
     }),
     /migration 095/
+  );
+});
+
+test('rejects a missing review-receipt RPC before promotion', async () => {
+  await assert.rejects(
+    checkDeploymentDatabase({
+      ...options,
+      fetchImpl: async (url) =>
+        new URL(url).pathname.endsWith('/claim_ai_review_receipt')
+          ? new Response('{}', { status: 404 })
+          : validFetch(url),
+    }),
+    /migration 096/
   );
 });

@@ -48,7 +48,7 @@ import { BusinessHoursCard } from './business-hours-card';
 import { SocialLinksCard } from './social-links-card';
 import {
   AI_PROVIDER_DEFAULT_MODEL,
-  AI_PROVIDER_MODEL_OPTIONS,
+  AI_PROVIDER_MODEL_RECOMMENDATIONS,
 } from '@/lib/ai/defaults';
 import type { AiProvider } from '@/lib/ai/types';
 import type { AccountMember } from '@/types';
@@ -482,23 +482,36 @@ export function AiConfig() {
                         disabled={disabled}
                       />
                       <div
-                        className="flex flex-wrap gap-2"
+                        className="grid gap-2 sm:grid-cols-3"
                         role="group"
                         aria-label={t('modelOptions')}
                       >
-                        {AI_PROVIDER_MODEL_OPTIONS[provider].map((option) => (
-                          <Button
-                            key={option}
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            aria-pressed={model === option}
-                            disabled={disabled}
-                            onClick={() => setModel(option)}
-                          >
-                            {option}
-                          </Button>
-                        ))}
+                        {AI_PROVIDER_MODEL_RECOMMENDATIONS[provider].map(
+                          (option) => (
+                            <Button
+                              key={option.id}
+                              className="h-auto min-w-0 justify-start py-3 whitespace-normal"
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              aria-pressed={model === option.id}
+                              disabled={disabled}
+                              onClick={() => setModel(option.id)}
+                            >
+                              <span className="flex min-w-0 flex-col gap-1 text-start">
+                                <span>
+                                  {t(`modelPurpose.${option.purpose}`)}
+                                </span>
+                                <span
+                                  className="text-muted-foreground text-xs"
+                                  dir="ltr"
+                                >
+                                  {option.id}
+                                </span>
+                              </span>
+                            </Button>
+                          )
+                        )}
                       </div>
                       <p className="text-muted-foreground text-xs">
                         {t('modelOptionsHint')}

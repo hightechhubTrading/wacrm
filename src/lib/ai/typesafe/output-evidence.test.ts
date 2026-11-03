@@ -86,3 +86,53 @@ it.each([false, true])(
     ]);
   }
 );
+it.each([false, true])(
+  'judges relevance against dialogue, with facts checked separately (advanced=%s)',
+  async (behaviorV2Enabled) => {
+    h.ask.mockImplementation(async (_state, questions) => ({
+      model: 'jev-test',
+      answers: Object.fromEntries(
+        Object.keys(questions).map((id) => [
+          id,
+          { probability: id === 'responsive' ? 0.97 : 0.99 },
+        ])
+      ),
+      usage: { input_tokens: 2, output_tokens: 1 },
+    }));
+    const e = { ...evidence, behaviorV2Enabled };
+    const questions = outputQuestions(e, reply);
+    const result = await judgeSalesOutput(e, reply, questions);
+    const relevance = h.ask.mock.calls.find(([, q]) => 'responsive' in q)!;
+    expect(relevance[0].evidence.currentCustomerRequest).toBe('عندك شبابيك');
+    expect(relevance[0].evidence.messages).toEqual(e.messages);
+    expect(relevance[0].evidence).not.toHaveProperty('knowledge');
+    expect(relevance[0].evidence.products[0]).not.toHaveProperty('catalog');
+    expect(relevance[1]).not.toHaveProperty('grounded');
+    expect(h.ask.mock.calls[0][1]).toHaveProperty('grounded');
+    expect(result.answers.responsive).toEqual({ probability: 0.97 });
+    expect(Object.keys(result.answers).sort()).toEqual(
+      Object.keys(questions).sort()
+    );
+    expect(result.usage.input_tokens).toBe(2 * h.ask.mock.calls.length);
+    expect(h.ask.mock.calls.every(([, q]) => Object.keys(q).length > 0)).toBe(
+      true
+    );
+  }
+);
+it('does not let an unrelated relevance answer override a failed factual judgment', async () => {
+  h.ask.mockImplementation(async (_state, questions) => ({
+    model: 'jev-test',
+    answers: {
+      grounded: { probability: 'responsive' in questions ? 0.99 : 0.1 },
+      responsive: { probability: 0.99 },
+    },
+    usage: { input_tokens: 1, output_tokens: 1 },
+  }));
+  const result = await judgeSalesOutput(
+    evidence,
+    reply,
+    outputQuestions(evidence, reply)
+  );
+  expect(result.answers.grounded).toEqual({ probability: 0.1 });
+  expect(result.answers.responsive).toEqual({ probability: 0.99 });
+});

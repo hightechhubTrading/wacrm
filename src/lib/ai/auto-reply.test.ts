@@ -1424,3 +1424,76 @@ describe('dispatchInboundToAiReply — verified reply recovery', () => {
     expect(h.engineSendText).not.toHaveBeenCalled();
   });
 });
+
+describe('review receipt dispatch', () => {
+  it('acknowledges a rejected draft while keeping review work and future AI replies active', async () => {
+    vi.stubEnv('AI_REPLY_DEBOUNCE_MS', '0');
+    h.state.latestCustomerMessage = { message_id: 'trigger' };
+    h.salesOutput.mockResolvedValue({
+      text: '',
+      handoff: false,
+      reviewRequired: true,
+      routingDecision: { reason: 'reply_needs_review' },
+    });
+    await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'trigger' });
+    expect(h.state.rpcCalls).toEqual([
+      expect.objectContaining({ name: 'claim_ai_review_receipt' }),
+    ]);
+    expect(h.engineSendText).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        text: 'I received your message. I need the team to review it before I can give you a confirmed answer.',
+      })
+    );
+    expect(h.ensureFollowup).toHaveBeenCalled();
+    expect(h.state.updatePayload?.ai_autoreply_disabled).not.toBe(true);
+    expect(h.applyCollectedFields).not.toHaveBeenCalled();
+  });
+  it('never acknowledges an older rejected trigger after a newer message arrives', async () => {
+    vi.stubEnv('AI_REPLY_DEBOUNCE_MS', '0');
+    vi.stubEnv('TYPESAFE_MODE', 'enforce');
+    h.state.latestCustomerMessage = { message_id: 'trigger' };
+    h.salesOutput.mockImplementation(async () => {
+      h.state.latestCustomerMessage = { message_id: 'newer' };
+      return { text: '', handoff: false, reviewRequired: true };
+    });
+    await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'trigger' });
+    expect(h.engineSendText).not.toHaveBeenCalled();
+    expect(h.state.rpcCalls).toHaveLength(0);
+  });
+});
+it('acknowledges a provider timeout and retains owned review work', async () => {
+  vi.stubEnv('AI_REPLY_DEBOUNCE_MS', '0');
+  h.state.latestCustomerMessage = { message_id: 'trigger' };
+  h.generateReply.mockRejectedValue(new Error('provider timeout'));
+  await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'trigger' });
+  expect(h.engineSendText).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({
+      text: expect.stringContaining('need the team to review'),
+    })
+  );
+  expect(h.recordEvent).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({ reason: 'generation_failed' })
+  );
+  expect(h.ensureFollowup).toHaveBeenCalled();
+  expect(h.state.updatePayload?.ai_autoreply_disabled).not.toBe(true);
+});
+it('does not send a review receipt after an uncertain customer send', async () => {
+  vi.stubEnv('AI_REPLY_DEBOUNCE_MS', '0');
+  h.state.latestCustomerMessage = { message_id: 'trigger' };
+  h.engineSendText.mockRejectedValueOnce(new Error('uncertain transport'));
+  await dispatchInboundToAiReply({ ...ARGS, triggerMessageId: 'trigger' });
+  expect(h.engineSendText).toHaveBeenCalledTimes(1);
+  expect(h.state.rpcCalls.map((c) => c.name)).toEqual(['claim_ai_reply_slot']);
+});
+it('shares a finite deadline across baseline generation and repair', async () => {
+  h.salesOutput.mockImplementation(async (_ctx, _evidence, _proposal, repair) =>
+    repair('Answer the latest question.')
+  );
+  const before = Date.now();
+  await dispatchInboundToAiReply(ARGS);
+  expect(h.generateReply).toHaveBeenCalledTimes(2);
+  const deadlines = h.generateReply.mock.calls.map(([args]) => args.deadlineAt);
+  expect(deadlines[0]).toBeGreaterThanOrEqual(before + 60000);
+  expect(deadlines[1]).toBe(deadlines[0]);
+});

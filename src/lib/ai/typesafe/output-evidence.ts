@@ -1,4 +1,4 @@
-import type { Questions } from '@typesafe-ai/sdk';
+import type { Questions, SystemOneResult } from '@typesafe-ai/sdk';
 import { askJev } from './client';
 import type { SalesEvidence } from './sales';
 import type { GenerateResult } from '../types';
@@ -54,7 +54,6 @@ export async function judgeSalesOutput(
     },
     customerStatements: statements,
   };
-  if (!evidence.behaviorV2Enabled) return askJev(full, questions);
   const dialogueIds = new Set([
     'responsive',
     'wrong_comparison',
@@ -72,7 +71,9 @@ export async function judgeSalesOutput(
   ]);
   const facts = Object.fromEntries(
     Object.entries(questions).filter(
-      ([id]) => !dialogueIds.has(id) && !provenanceIds.has(id)
+      ([id]) =>
+        !dialogueIds.has(id) &&
+        (!evidence.behaviorV2Enabled || !provenanceIds.has(id))
     )
   );
   const dialogue = Object.fromEntries(
@@ -117,7 +118,9 @@ export async function judgeSalesOutput(
     customerStatements: statements,
   };
   const provenance = Object.fromEntries(
-    Object.entries(questions).filter(([id]) => provenanceIds.has(id))
+    Object.entries(questions).filter(
+      ([id]) => evidence.behaviorV2Enabled && provenanceIds.has(id)
+    )
   );
   const provenanceState = {
     proposal,
@@ -135,10 +138,21 @@ export async function judgeSalesOutput(
       businessContext: evidence.businessContext,
     },
   };
+  const judge = (
+    state: object,
+    group: Questions
+  ): Promise<SystemOneResult<Questions>> =>
+    Object.keys(group).length
+      ? askJev(state, group)
+      : Promise.resolve({
+          model: 'not-requested',
+          answers: {},
+          usage: { input_tokens: 0, output_tokens: 0 },
+        });
   const [a, b, c] = await Promise.all([
-    askJev(full, facts),
-    askJev(conversational, dialogue),
-    askJev(provenanceState, provenance),
+    judge(full, facts),
+    judge(conversational, dialogue),
+    judge(provenanceState, provenance),
   ]);
   return {
     model: a.model,

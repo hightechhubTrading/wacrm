@@ -1,3 +1,4 @@
+import { sendReviewReceipt } from './review-receipt';
 import { generateResilientReply } from './resilient-generation';
 import { recordKnowledgeGap } from './knowledge-gaps';
 import { createHash } from 'node:crypto';
@@ -334,6 +335,7 @@ async function correctReplyLanguageIfNeeded(args: {
   config: AiConfig;
   customerScript: 'arabic' | 'latin' | 'mixed';
   replyText: string;
+  deadlineAt?: number;
 }): Promise<string> {
   const { db, accountId, conversationId, config, customerScript, replyText } =
     args;
@@ -350,6 +352,7 @@ async function correctReplyLanguageIfNeeded(args: {
   try {
     const { text: translated, usage } = await generateReply({
       config,
+      deadlineAt: args.deadlineAt,
       systemPrompt:
         `The message below was about to be sent to a customer, but it is written in the wrong language -- translate it into ${targetLanguage} instead. ` +
         'Preserve the meaning, tone, and any numbers, product names, or URLs exactly -- do not add, remove, or answer anything new. ' +
@@ -456,9 +459,14 @@ export async function dispatchInboundToAiReply(
   // visible in its `catch`.
   const db = supabaseAdmin();
   const startedAt = Date.now();
+  // Leave time for verification, staff review and a fixed receipt within the webhook lifetime.
+  const replyDeadlineAt = startedAt + 60000;
   const stageTimes: Record<string, number> = {};
   const replyMeta: Record<string, unknown> = {};
   let config: AiConfig | null = null;
+  let acknowledgeReview: (() => Promise<void>) | undefined;
+  let receiptAllowed = false;
+  let reviewOwnerId: string | null = null;
   const event = (outcome: 'skipped' | 'sent' | 'failed', reason: string) =>
     recordReplyEvent(db, {
       accountId,
@@ -683,6 +691,20 @@ export async function dispatchInboundToAiReply(
       // Even after hours, a new assignment means the old snapshot is stale.
       return fresh.assigned_agent_id === conv.assigned_agent_id;
     };
+
+    reviewOwnerId = conv.assigned_agent_id ?? config.handoffAgentId;
+    const receiptArgs = {
+      accountId,
+      conversationId,
+      contactId,
+      userId: configOwnerUserId,
+      triggerMessageId,
+      expectedAssignee: conv.assigned_agent_id,
+      maxReplies: config.autoReplyMaxPerConversation,
+      arabic: customerLanguageScript(messages) !== 'latin',
+      stillEligible,
+    };
+    acknowledgeReview = () => sendReviewReceipt(db, receiptArgs);
 
     // Account-wide throttle on the shared BYO key. The per-conversation
     // cap bounds one thread; this bounds a burst across many threads (a
@@ -909,13 +931,14 @@ export async function dispatchInboundToAiReply(
       memory,
       emotion: salesInput.emotion,
     };
+    receiptAllowed = true;
     const generationStarted = Date.now();
     const generated = await generateResilientReply(
       {
         config,
         systemPrompt,
         messages,
-        ...(config.behaviorV2Enabled ? { deadlineAt: startedAt + 60000 } : {}),
+        deadlineAt: replyDeadlineAt,
       },
       salesEvidence
     );
@@ -970,6 +993,7 @@ export async function dispatchInboundToAiReply(
           config,
           customerScript: customerLanguageScript(messages),
           replyText: text,
+          deadlineAt: replyDeadlineAt,
         })
       );
     }
@@ -995,9 +1019,7 @@ export async function dispatchInboundToAiReply(
             if (!(await stillEligible())) throw new Error('Superseded reply');
             const revised = await generateReply({
               config: recoveryConfig,
-              ...(recoveryConfig.behaviorV2Enabled
-                ? { deadlineAt: startedAt + 60000 }
-                : {}),
+              deadlineAt: replyDeadlineAt,
               systemPrompt: `${systemPrompt}\n\nReply recovery:\n${guidance}`,
               messages,
             });
@@ -1018,6 +1040,7 @@ export async function dispatchInboundToAiReply(
                   config: recoveryConfig,
                   customerScript: customerLanguageScript(messages),
                   replyText: revised.text,
+                  deadlineAt: replyDeadlineAt,
                 })
               );
             }
@@ -1052,6 +1075,7 @@ export async function dispatchInboundToAiReply(
         ownerId: conv.assigned_agent_id ?? config.handoffAgentId,
         reason: verified.routingDecision?.reason ?? 'reply_needs_review',
       });
+      await acknowledgeReview();
       return;
     }
     text = verified.text;
@@ -1136,9 +1160,11 @@ export async function dispatchInboundToAiReply(
         ownerId: conv.assigned_agent_id ?? config.handoffAgentId,
         reason,
       });
+      await acknowledgeReview();
       return;
     }
     if (handoff) {
+      receiptAllowed = false;
       await performHandoff({
         db,
         accountId,
@@ -1200,6 +1226,7 @@ export async function dispatchInboundToAiReply(
         ownerId: conv.assigned_agent_id ?? config.handoffAgentId,
       });
     }
+    receiptAllowed = false;
     await engineSendText({
       accountId,
       userId: configOwnerUserId,
@@ -1345,12 +1372,12 @@ export async function dispatchInboundToAiReply(
       'failed',
       config?.behaviorV2Enabled ? 'provider_unavailable' : 'generation_failed'
     );
-    if (config?.behaviorV2Enabled)
+    if (receiptAllowed)
       await notifyReplyReview(db, {
         accountId,
         conversationId,
         contactId,
-        ownerId: config.handoffAgentId,
+        ownerId: reviewOwnerId,
         reason: 'provider_unavailable',
       });
     await ensureFollowup(db, {
@@ -1358,8 +1385,15 @@ export async function dispatchInboundToAiReply(
       conversationId,
       sourceMessageId: triggerMessageId,
       kind: 'handoff',
-      ownerId: null,
+      ownerId: reviewOwnerId,
     });
+    if (receiptAllowed) {
+      try {
+        await acknowledgeReview?.();
+      } catch {
+        await event('failed', 'review_receipt_send_failed');
+      }
+    }
     if (err instanceof AiError && err.code === 'invalid_key') {
       const isFreshFailure = !config?.lastKeyError;
       try {

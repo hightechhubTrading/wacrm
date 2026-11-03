@@ -14,6 +14,10 @@ vi.mock('./client', async (original) => ({
   askJev: h.ask,
 }));
 vi.mock('./audit', () => ({ logJevCheck: h.audit }));
+// Policy tests mock a logical output judgment; evidence partitioning is tested separately.
+vi.mock('./output-evidence', () => ({
+  judgeSalesOutput: (...args: unknown[]) => h.ask(...args),
+}));
 const ctx = { accountId: 'account', workflow: 'auto_reply' as const };
 const evidence: SalesEvidence = {
   messages: [
@@ -789,7 +793,7 @@ it('lets a final bounded, verified clarification recover a rejected draft', asyn
   let calls = 0;
   h.ask.mockImplementation(() =>
     output({
-      grounded: calls++ < 6 ? 0.1 : 0.99,
+      grounded: calls++ < 3 ? 0.1 : 0.99,
       responsive: 0.01,
       documents: 0.99,
       completion: 0.99,
@@ -866,12 +870,10 @@ it('recovers a basic door enquiry with a verified clarification even when advanc
       answers: { candidate: { type: 'choice', choice: 'door_type' } },
     })
     .mockResolvedValueOnce(output({ grounded: 0.99, responsive: 0.99 }));
-  const repair = vi
-    .fn()
-    .mockResolvedValue({
-      ...proposal,
-      text: 'Unsupported availability again.',
-    });
+  const repair = vi.fn().mockResolvedValue({
+    ...proposal,
+    text: 'Unsupported availability again.',
+  });
   const result = await verifySalesOutput(
     ctx,
     {

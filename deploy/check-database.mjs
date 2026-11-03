@@ -286,6 +286,25 @@ export async function checkDeploymentDatabase({
     throw new Error(
       'Database preflight failed for conversation workflow. Apply migration 095 before deploying this revision.'
     );
+  const receipt = await fetchImpl(
+    new URL('/rest/v1/rpc/claim_ai_review_receipt', url),
+    {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        p_account_id: null,
+        p_conversation_id: null,
+        p_trigger_message_id: null,
+        p_expected_assignee: null,
+        p_max_replies: 0,
+      }),
+      signal: AbortSignal.timeout(15000),
+    }
+  );
+  if (!receipt.ok || (await receipt.json().catch(() => null)) !== false)
+    throw new Error(
+      'Database preflight failed for AI review receipts. Apply migration 096 before deploying this revision.'
+    );
 }
 
 /** Signature/cache checks without a customer/account/user identity. Service-role

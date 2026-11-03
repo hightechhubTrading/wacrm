@@ -17,19 +17,47 @@ import {
  * starting point, never a hard allow-list.
  */
 export const AI_PROVIDER_DEFAULT_MODEL: Record<AiProvider, string> = {
-  openai: 'gpt-5.4',
-  anthropic: 'claude-sonnet-4-5-20250929',
-  gemini: 'gemini-3.5-flash',
+  openai: 'gpt-6.1-terra',
+  anthropic: 'claude-sonnet-5-5',
+  gemini: 'gemini-3.8-flash',
   deepseek: 'deepseek-flash',
 };
 
-/** Suggested IDs, not an allowlist: accounts may still enter a custom model. */
+/** Curated for short customer sales/support replies; reviewed 2026-11-03.
+ * Not an account-access guarantee or an allowlist. Save/test validates the selected ID.
+ * Sources and adapter constraints: docs/ai-reliability-2026-11-03.md. */
+export const AI_PROVIDER_MODEL_RECOMMENDATIONS = {
+  openai: [
+    { id: 'gpt-6.1-terra', purpose: 'routine' },
+    { id: 'gpt-6.1-sol', purpose: 'complex' },
+    { id: 'gpt-6-luna', purpose: 'economy' },
+  ],
+  anthropic: [
+    { id: 'claude-sonnet-5-5', purpose: 'routine' },
+    { id: 'claude-opus-5-5', purpose: 'complex' },
+    { id: 'claude-haiku-5-5', purpose: 'economy' },
+  ],
+  gemini: [
+    { id: 'gemini-3.8-flash', purpose: 'routine' },
+    { id: 'gemini-3.5-flash-lite', purpose: 'economy' },
+  ],
+  // The retired v4-pro alias currently routes to Flash; do not advertise it as an upgrade.
+  deepseek: [{ id: 'deepseek-flash', purpose: 'routine' }],
+} as const satisfies Record<
+  AiProvider,
+  readonly { id: string; purpose: 'routine' | 'complex' | 'economy' }[]
+>;
+
 export const AI_PROVIDER_MODEL_OPTIONS: Record<AiProvider, readonly string[]> =
   {
-    openai: [AI_PROVIDER_DEFAULT_MODEL.openai],
-    anthropic: [AI_PROVIDER_DEFAULT_MODEL.anthropic],
-    gemini: [AI_PROVIDER_DEFAULT_MODEL.gemini],
-    deepseek: ['deepseek-flash', 'deepseek-v4-pro'],
+    openai: AI_PROVIDER_MODEL_RECOMMENDATIONS.openai.map((option) => option.id),
+    anthropic: AI_PROVIDER_MODEL_RECOMMENDATIONS.anthropic.map(
+      (option) => option.id
+    ),
+    gemini: AI_PROVIDER_MODEL_RECOMMENDATIONS.gemini.map((option) => option.id),
+    deepseek: AI_PROVIDER_MODEL_RECOMMENDATIONS.deepseek.map(
+      (option) => option.id
+    ),
   };
 
 /**
