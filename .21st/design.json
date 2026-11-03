@@ -403,6 +403,11 @@
       "date": "2026-11-03",
       "decision": "Follow-up work uses the app Select for task type and task-specific completion outcomes, with optional details and a custom outcome. Date fields use Today/Tomorrow/In one week shortcuts, the existing calendar without quotation-validity labels, and explicit confirmation actions. Qatar time remains authoritative for operational dates.",
       "source": "User follow-up screenshots and request"
+    },
+    {
+      "date": "2026-11-03",
+      "decision": "The inbox sales panel shows the assignee of the active conversation as its responsible sales person. The conversation header and queue filters expose approved commercial work states, while generic open/pending/closed remain the lifecycle used by existing operational reports.",
+      "source": "User screenshots, ownership requirement and explicit approval of the nine proposed conversation states"
     }
   ],
   "evidence": [

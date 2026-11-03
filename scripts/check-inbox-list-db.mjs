@@ -55,6 +55,15 @@ try {
     )
   );
   await db.exec(
+    await readFile(
+      new URL(
+        '../supabase/migrations/095_conversation_work_status.sql',
+        import.meta.url
+      ),
+      'utf8'
+    )
+  );
+  await db.exec(
     `SET ROLE authenticated;SET request.jwt.claim.sub='${agent}';SET app.account='${account}';SET app.role='owner';`
   );
   async function page({
@@ -145,6 +154,58 @@ try {
   assert.equal((await page()).total, 0);
   await db.exec('RESET ROLE;SET ROLE anon');
   await assert.rejects(page(), /permission denied/);
+  await db.exec(
+    `RESET ROLE; GRANT UPDATE ON conversations TO authenticated; SET ROLE authenticated; SET app.role='owner';SET request.jwt.claim.sub='${agent}'; UPDATE conversations SET work_status='preparing_quotation' WHERE id='${id(1500)}'; SET ROLE authenticated;SET app.role='owner';SET request.jwt.claim.sub='${agent}';`
+  );
+  let workPage = await page({ view: 'work:preparing_quotation' });
+  assert.equal(workPage.total, 1);
+  assert.equal(workPage.items[0].work_status, 'preparing_quotation');
+  assert.equal(workPage.items[0].status, 'open');
+  assert.equal(workPage.counts['work:preparing_quotation'], 1);
+  assert.equal(
+    (await page({ view: 'work:preparing_quotation', a: other })).total,
+    0
+  );
+  await db.exec(
+    `RESET ROLE; UPDATE conversations SET work_status='awaiting_customer' WHERE id='${id(1500)}';SET ROLE authenticated;`
+  );
+  workPage = await page({ view: 'work:awaiting_customer' });
+  assert.equal(workPage.items[0].status, 'pending');
+  await db.exec(
+    `RESET ROLE;UPDATE conversations SET work_status='completed' WHERE id='${id(1500)}';SET ROLE authenticated;`
+  );
+  workPage = await page({ view: 'work:completed' });
+  assert.equal(workPage.items[0].status, 'closed');
+  assert.equal(
+    (await page({ view: 'needs_reply' })).items.some((c) => c.id === id(1500)),
+    false
+  );
+  await db.exec(
+    `RESET ROLE;UPDATE conversations SET status='open' WHERE id='${id(1500)}';SET ROLE authenticated;`
+  );
+  assert.equal((await page({ view: 'work:completed' })).total, 0);
+  assert.equal(
+    (await page({ search: 'Outside first page' })).items[0].work_status,
+    null
+  );
+  await db.exec('RESET ROLE');
+  await assert.rejects(
+    db.exec(
+      `UPDATE conversations SET work_status='invented' WHERE id='${id(1500)}'`
+    ),
+    /check constraint/
+  );
+  console.log(
+    'Detailed workflow checks passed: durable stage/count/filter, lifecycle mapping, reopen reset, invalid-stage rejection and tenant isolation.'
+  );
+  await db.exec(
+    `BEGIN; INSERT INTO conversations(id,user_id,account_id,contact_id,status) VALUES('${id(5000)}','${agent}','${account}','${contact}','open')`
+  );
+  const inserted = await db.query(
+    `SELECT status,work_status FROM conversations WHERE id='${id(5000)}'`
+  );
+  assert.deepEqual(inserted.rows[0], { status: 'open', work_status: 'new' });
+  await db.exec('ROLLBACK');
   console.log(
     'Inbox SQL checks passed: 1500 rows, bounded pages, global search/facets/counts/sales views, three keyset sorts, tied/null timestamps, final cursor, tenant/assignment/viewer RLS and anonymous denial.'
   );

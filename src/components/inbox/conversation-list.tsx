@@ -1,4 +1,5 @@
 'use client';
+import { WORK_STATUS_VIEWS } from '@/lib/inbox/work-status';
 import { ConversationDraftBadge } from './conversation-draft-badge';
 
 import { DirectionProvider } from '@base-ui/react/direction-provider';
@@ -106,6 +107,10 @@ export function ConversationList({
       { label: t('filterOpen'), value: 'open' },
       { label: t('filterPending'), value: 'pending' },
       { label: t('filterClosed'), value: 'closed' },
+      ...WORK_STATUS_VIEWS.map((value) => ({
+        value,
+        label: t(`workStatuses.${value.slice(5)}`),
+      })),
     ],
     [t, canReadSales]
   );
@@ -464,7 +469,12 @@ export function ConversationList({
                       },
                       {
                         label: 'conversationStatus',
-                        values: ['open', 'pending', 'closed'],
+                        values: [
+                          'open',
+                          'pending',
+                          'closed',
+                          ...WORK_STATUS_VIEWS,
+                        ],
                       },
                     ].map((group) => (
                       <DropdownMenuGroup key={group.label}>
@@ -919,6 +929,11 @@ function ConversationItem({
         <div className="mt-0.5 flex items-center justify-between gap-2">
           <p className="text-muted-foreground truncate text-xs">
             <ConversationDraftBadge conversationId={conversation.id} />
+            {conversation.work_status && (
+              <span className="font-medium">
+                {t(`workStatuses.${conversation.work_status}`)} ·{' '}
+              </span>
+            )}
             {conversation.last_message_text || t('noMessagesYet')}
           </p>
           <div className="flex shrink-0 items-center gap-1.5">
@@ -932,7 +947,11 @@ function ConversationItem({
                 'h-2 w-2 rounded-full',
                 STATUS_COLORS[conversation.status]
               )}
-              title={conversation.status}
+              title={
+                conversation.work_status
+                  ? t(`workStatuses.${conversation.work_status}`)
+                  : conversation.status
+              }
             />
           </div>
         </div>

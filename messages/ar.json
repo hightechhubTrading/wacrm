@@ -375,6 +375,17 @@
         "priority": "الأولوية أولاً",
         "newest": "الأحدث نشاطاً",
         "oldest": "الأقدم نشاطاً"
+      },
+      "workStatuses": {
+        "new": "استفسار جديد",
+        "following_up": "قيد المتابعة",
+        "preparing_quotation": "إعداد عرض سعر",
+        "awaiting_customer": "بانتظار رد العميل",
+        "site_visit": "معاينة / قياسات",
+        "installation": "تنفيذ / تركيب",
+        "maintenance": "صيانة / ما بعد البيع",
+        "completed": "مكتملة",
+        "cancelled": "ملغاة"
       }
     },
     "messageThread": {
@@ -422,7 +433,19 @@
       "draftingTitle": "صياغة الرد بالمساعد",
       "draftingHelp": "يكتب المساعد مسودة في مربع الرسالة. راجعها وعدّلها قبل الإرسال.",
       "welcomeTitle": "ابدأ بما يحتاج انتباهك",
-      "welcomeHint": "راجع المحادثات المهمة والمتابعات القادمة، وافتح المحادثة التي تريد متابعتها."
+      "welcomeHint": "راجع المحادثات المهمة والمتابعات القادمة، وافتح المحادثة التي تريد متابعتها.",
+      "workStatuses": {
+        "new": "استفسار جديد",
+        "following_up": "قيد المتابعة",
+        "preparing_quotation": "إعداد عرض سعر",
+        "awaiting_customer": "بانتظار رد العميل",
+        "site_visit": "معاينة / قياسات",
+        "installation": "تنفيذ / تركيب",
+        "maintenance": "صيانة / ما بعد البيع",
+        "completed": "مكتملة",
+        "cancelled": "ملغاة"
+      },
+      "statusUpdateError": "تعذّر تحديث حالة المحادثة. حاول مرة أخرى."
     },
     "sessionTimer": {
       "expired": "منتهية",

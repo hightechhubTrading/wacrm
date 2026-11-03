@@ -375,6 +375,17 @@
         "priority": "Priority first",
         "newest": "Newest activity",
         "oldest": "Oldest activity"
+      },
+      "workStatuses": {
+        "new": "New enquiry",
+        "following_up": "Following up",
+        "preparing_quotation": "Preparing quotation",
+        "awaiting_customer": "Waiting for customer",
+        "site_visit": "Site visit / measurements",
+        "installation": "Execution / installation",
+        "maintenance": "Maintenance / after-sales",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
       }
     },
     "messageThread": {
@@ -422,7 +433,19 @@
       "draftingTitle": "AI drafting",
       "draftingHelp": "Draft with AI helps write your reply. It stays in the message box for you to review and send.",
       "welcomeTitle": "Start with what needs your attention",
-      "welcomeHint": "Review priority conversations and upcoming follow-ups, then open a chat to act."
+      "welcomeHint": "Review priority conversations and upcoming follow-ups, then open a chat to act.",
+      "workStatuses": {
+        "new": "New enquiry",
+        "following_up": "Following up",
+        "preparing_quotation": "Preparing quotation",
+        "awaiting_customer": "Waiting for customer",
+        "site_visit": "Site visit / measurements",
+        "installation": "Execution / installation",
+        "maintenance": "Maintenance / after-sales",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      },
+      "statusUpdateError": "Could not update conversation status. Please try again."
     },
     "sessionTimer": {
       "expired": "Expired",

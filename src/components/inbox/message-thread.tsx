@@ -1,4 +1,6 @@
 'use client';
+import type { ConversationWorkStatus } from '@/lib/inbox/work-status';
+import { ConversationStatusMenu } from './conversation-status-menu';
 
 import {
   useState,
@@ -103,7 +105,11 @@ interface MessageThreadProps {
   onNewMessage: (message: Message) => void;
   onUpdateMessage: (id: string, updates: Partial<Message>) => void;
   onRemoveMessage: (id: string) => void;
-  onStatusChange: (conversationId: string, status: ConversationStatus) => void;
+  onStatusChange: (
+    conversationId: string,
+    status: ConversationStatus,
+    workStatus?: ConversationWorkStatus | null
+  ) => void;
   onAssignChange: (
     conversationId: string,
     assignedAgentId: string | null
@@ -179,16 +185,6 @@ function groupMessagesByDate(messages: Message[]) {
 
   return groups;
 }
-
-const STATUS_OPTIONS: {
-  label: string;
-  value: ConversationStatus;
-  color: string;
-}[] = [
-  { label: 'Open', value: 'open', color: 'text-info' },
-  { label: 'Pending', value: 'pending', color: 'text-warning' },
-  { label: 'Closed', value: 'closed', color: 'text-success' },
-];
 
 export function MessageThread({
   conversation,
@@ -270,6 +266,7 @@ export function MessageThread({
   const { user } = useAuth();
   const { getPresence, getRow, now } = usePresence(!!conversation);
   const [loading, setLoading] = useState(false);
+  const [statusBusy, setStatusBusy] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [history, setHistory] = useState({
     id: '',
@@ -910,18 +907,29 @@ export function MessageThread({
   );
 
   const handleStatusChange = useCallback(
-    async (status: ConversationStatus) => {
+    async (
+      status: ConversationStatus,
+      workStatus: ConversationWorkStatus | null = null
+    ) => {
       if (!conversation) return;
 
-      const supabase = createClient();
-      await supabase
-        .from('conversations')
-        .update({ status })
-        .eq('id', conversation.id);
-
-      onStatusChange(conversation.id, status);
+      setStatusBusy(true);
+      try {
+        const { data, error } = await createClient()
+          .from('conversations')
+          .update({ status, work_status: workStatus })
+          .eq('id', conversation.id)
+          .select('status,work_status')
+          .single();
+        if (error || !data) throw error || new Error('Missing conversation');
+        onStatusChange(conversation.id, data.status, data.work_status);
+      } catch {
+        toast.error(t('statusUpdateError'));
+      } finally {
+        setStatusBusy(false);
+      }
     },
-    [conversation, onStatusChange]
+    [conversation, onStatusChange, t]
   );
 
   const handleOpenTemplates = useCallback(() => {
@@ -1101,9 +1109,6 @@ export function MessageThread({
 
   const displayName = contact.name || contact.phone;
   const messageGroups = groupMessagesByDate(messages);
-  const currentStatus = STATUS_OPTIONS.find(
-    (s) => s.value === conversation.status
-  );
   const assignedAgentId = conversation.assigned_agent_id ?? null;
   const currentAssignee = profiles.find((p) => p.user_id === assignedAgentId);
   const assignLabel = assignedAgentId
@@ -1236,32 +1241,12 @@ export function MessageThread({
             </button>
           )}
 
-          {/* Status dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className={cn(
-                'hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs',
-                currentStatus?.color ?? 'text-muted-foreground'
-              )}
-            >
-              {currentStatus ? t(`status${currentStatus.label}`) : t('status')}
-              <ChevronDown className="h-3 w-3" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="border-border bg-popover"
-            >
-              {STATUS_OPTIONS.map((opt) => (
-                <DropdownMenuItem
-                  key={opt.value}
-                  onClick={() => handleStatusChange(opt.value)}
-                  className={cn('text-sm', opt.color)}
-                >
-                  {t(`status${opt.label}`)}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <ConversationStatusMenu
+            status={conversation.status}
+            workStatus={conversation.work_status}
+            disabled={statusBusy}
+            onChange={handleStatusChange}
+          />
 
           {/* Assign dropdown */}
           <DropdownMenu>

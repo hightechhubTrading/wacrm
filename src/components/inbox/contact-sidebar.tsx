@@ -80,6 +80,36 @@ export function ContactSidebar({
   const tThread = useTranslations('Inbox.messageThread');
 
   const { accountId } = useAuth();
+  const [conversationOwner, setConversationOwner] = useState<{
+    userId: string;
+    accountId: string;
+    name: string | null;
+  } | null>(null);
+  const assignedUserId =
+    conversation?.contact_id === contact?.id
+      ? conversation?.assigned_agent_id
+      : undefined;
+  useEffect(() => {
+    if (!assignedUserId || !accountId) return;
+    let current = true;
+    void createClient()
+      .from('profiles')
+      .select('full_name')
+      .eq('account_id', accountId)
+      .eq('user_id', assignedUserId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (current)
+          setConversationOwner({
+            userId: assignedUserId,
+            accountId,
+            name: data?.full_name ?? null,
+          });
+      });
+    return () => {
+      current = false;
+    };
+  }, [assignedUserId, accountId]);
   const canEdit = useCan('send-messages');
   const [salesDealId, setSalesDealId] = useState('');
   const [section, setSection] = useState('overview');
@@ -617,6 +647,18 @@ export function ContactSidebar({
                 <DealSalesPanel
                   key={contact.id}
                   deals={deals}
+                  ownerName={
+                    conversation?.contact_id === contact.id
+                      ? !assignedUserId
+                        ? null
+                        : conversationOwner?.userId === assignedUserId &&
+                            conversationOwner.accountId === accountId
+                          ? (conversationOwner.name ?? tThread('assigned'))
+                          : locale === 'ar'
+                            ? 'جارٍ تحميل المسؤول…'
+                            : 'Loading assignee…'
+                      : undefined
+                  }
                   contactId={contact.id}
                   selectedDealId={salesDealId}
                   onSelectDeal={setSalesDealId}
@@ -694,7 +736,7 @@ export function ContactSidebar({
                         onChange={(e) => setNewNote(e.target.value)}
                         placeholder={tSidebar('addNotePlaceholder')}
                         rows={2}
-                        className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 flex-1 resize-none rounded-lg border px-3 py-2 text-xs outline-none"
+                        className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 flex-1 resize-none rounded-lg border px-3 py-2 text-xs outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]"
                       />
                       <Button
                         size="sm"
@@ -917,7 +959,7 @@ function TagPicker({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleCreateAndAssign();
               }}
-              className="border-border bg-muted text-foreground focus:border-primary h-7 flex-1 rounded border px-2 text-xs outline-none"
+              className="border-border bg-muted text-foreground focus:border-primary h-7 flex-1 rounded border px-2 text-xs outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]"
             />
             <Button
               type="button"

@@ -1,4 +1,5 @@
 'use client';
+import type { ConversationWorkStatus } from '@/lib/inbox/work-status';
 
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -599,13 +600,24 @@ function InboxPageInner() {
   );
 
   const handleStatusChange = useCallback(
-    (conversationId: string, status: ConversationStatus) => {
+    (
+      conversationId: string,
+      status: ConversationStatus,
+      workStatus: ConversationWorkStatus | null = null
+    ) => {
       setConversations((prev) =>
-        prev.map((c) => (c.id === conversationId ? { ...c, status } : c))
+        prev.map((c) =>
+          c.id === conversationId
+            ? { ...c, status, work_status: workStatus }
+            : c
+        )
       );
+      setListRefreshToken((value) => value + 1);
       if (activeConversation?.id === conversationId) {
         setActiveConversation((prev) =>
-          prev?.id === conversationId ? { ...prev, status } : prev
+          prev?.id === conversationId
+            ? { ...prev, status, work_status: workStatus }
+            : prev
         );
       }
     },

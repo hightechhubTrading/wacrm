@@ -38,7 +38,7 @@ test('accepts the required columns and denied identity-free conversion probe', a
       return validFetch(url);
     },
   });
-  assert.equal(requests.length, 32);
+  assert.equal(requests.length, 33);
   for (const r of requests.slice(0, 8))
     assert.equal(r.url.searchParams.get('limit'), '0');
   assert.equal(JSON.parse(requests[8].init.body).p_conversation_id, null);
@@ -327,3 +327,17 @@ for (const response of [
       );
     }
   );
+
+test('blocks promotion when conversation work statuses are absent', async () => {
+  await assert.rejects(
+    checkDeploymentDatabase({
+      ...options,
+      fetchImpl: async (url) =>
+        new URL(url).pathname === '/rest/v1/conversations' &&
+        new URL(url).searchParams.get('select') === 'work_status'
+          ? new Response('{}', { status: 400 })
+          : validFetch(url),
+    }),
+    /migration 095/
+  );
+});

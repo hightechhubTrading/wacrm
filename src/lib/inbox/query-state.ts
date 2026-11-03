@@ -1,3 +1,4 @@
+import { WORK_STATUS_VIEWS } from './work-status';
 import { SALES_VIEWS } from './sales-context';
 
 export const INBOX_VIEWS = [
@@ -9,6 +10,7 @@ export const INBOX_VIEWS = [
   'open',
   'pending',
   'closed',
+  ...WORK_STATUS_VIEWS,
   ...SALES_VIEWS,
 ] as const;
 export type InboxView = (typeof INBOX_VIEWS)[number];

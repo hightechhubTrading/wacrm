@@ -253,6 +253,7 @@ export interface Conversation {
   user_id: string;
   contact_id: string;
   status: ConversationStatus;
+  work_status?: import('@/lib/inbox/work-status').ConversationWorkStatus | null;
   assigned_agent_id?: string;
   last_message_text?: string;
   last_message_at?: string;

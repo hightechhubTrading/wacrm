@@ -278,6 +278,14 @@ export async function checkDeploymentDatabase({
     throw new Error(
       'Database preflight failed for quotation creation. Apply migration 093 before deploying this revision.'
     );
+  const workflow = await fetchImpl(
+    new URL('/rest/v1/conversations?select=work_status&limit=0', url),
+    { headers, signal: AbortSignal.timeout(15000) }
+  );
+  if (!workflow.ok)
+    throw new Error(
+      'Database preflight failed for conversation workflow. Apply migration 095 before deploying this revision.'
+    );
 }
 
 /** Signature/cache checks without a customer/account/user identity. Service-role

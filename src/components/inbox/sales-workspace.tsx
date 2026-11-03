@@ -149,10 +149,12 @@ export function DealSalesPanel({
   contactId,
   selectedDealId,
   onSelectDeal,
+  ownerName,
 }: {
   deals: Deal[];
   contactId: string;
   selectedDealId?: string;
+  ownerName?: string | null;
   onSelectDeal?: (id: string) => void;
 }) {
   const t = useTranslations('Inbox.sales');
@@ -297,7 +299,11 @@ export function DealSalesPanel({
                 <UserRound size={14} aria-hidden />
                 {t('owner')}
               </dt>
-              <dd>{deal.assignee?.full_name ?? t('ownerNotSet')}</dd>
+              <dd>
+                {ownerName !== undefined
+                  ? ownerName || t('ownerNotSet')
+                  : (deal.assignee?.full_name ?? t('ownerNotSet'))}
+              </dd>
             </div>
           </dl>
           {!current ? (
