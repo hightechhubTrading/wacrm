@@ -25,3 +25,9 @@ Full suite: 1,675 passed, 74 opt-in tests skipped. TypeScript, production build,
 A separate existing embeddings credential was rejected as invalid during retrieval; the existing lexical-search fallback continued to work. This was not the greeting-verification failure. Credentials were not replaced by this fix.
 
 Deployment verification will be recorded after rollout.
+
+## Verified rollout
+
+The live application now runs `a6d966cf588614fdb7e1db14ec3156757adacab4`. Candidate and promoted-app startup/authentication/PDF checks passed. Public login returned 200; protected pages returned redirects and protected APIs returned 401 for signed-out requests. An anonymous playground POST also returned 401. Candidate containers/environment files were cleaned up, and private task files are absent from the image.
+
+The inspected account still uses OpenAI `gpt-6.1-terra`; the selected model and inspected reply/advanced settings match the pre-fix snapshot. No configuration or inventory migration was applied. Temporary deployment SSH access was revoked, a fresh connection was rejected, and both local key files were removed.
