@@ -38,12 +38,20 @@ try {
     `export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>}`
   );
   await writeFile(
+    join(root, 'navigation.ts'),
+    `export const useRouter=()=>({push(){},refresh(){}});`
+  );
+  await writeFile(
     join(root, 'main.tsx'),
     `
     import React from 'react';import {createRoot} from 'react-dom/client';import {NextIntlClientProvider} from 'next-intl';
     import {DealForm} from ${JSON.stringify(join(project, 'src/components/pipelines/deal-form.tsx'))};
     import {PipelineSettings} from ${JSON.stringify(join(project, 'src/components/pipelines/pipeline-settings.tsx'))};
     import {MetricCard} from ${JSON.stringify(join(project, 'src/components/dashboard/metric-card.tsx'))};
+    import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogFooter} from ${JSON.stringify(join(project, 'src/components/ui/dialog.tsx'))};
+    import {Button} from ${JSON.stringify(join(project, 'src/components/ui/button.tsx'))};
+    import {Popover,PopoverTrigger,PopoverContent} from ${JSON.stringify(join(project, 'src/components/ui/popover.tsx'))};
+    import {FlowEditorShell} from ${JSON.stringify(join(project, 'src/components/flows/flow-editor-shell.tsx'))};
     import dashboardStyles from ${JSON.stringify(join(project, 'src/components/dashboard/dashboard-design.module.css'))};
     import {MessageSquare, UserPlus, DollarSign, CalendarDays} from 'lucide-react';
     import widgetStyles from ${JSON.stringify(join(project, 'src/components/dashboard/workday-widget.module.css'))};
@@ -56,7 +64,10 @@ try {
     const stage={id:'stage-1',pipeline_id:'pipeline-1',name:locale==='ar'?'مرحلة أولى':'First stage',color:'#6366f1',position:0};
     const pipeline={id:'pipeline-1',name:'Sales',account_id:'fixture'};
     function DashboardProbe(){return <main className={'crm-main crm-dashboard '+widgetStyles.dashboard+' '+dashboardStyles.surface}><header className="crm-dashboard-welcome"><div><p className="crm-dashboard-eyebrow">{locale==='ar'?'مساحة العمل':'WORKSPACE'}</p><h1>{locale==='ar'?'صباح الخير، فريق المبيعات':'Good morning, sales team'}</h1><p className="crm-dashboard-subtitle">{locale==='ar'?'العمل الذي يحتاج إلى انتباهك اليوم':'The work that needs your attention today'}</p></div><span className="crm-dashboard-calendar">{locale==='ar'?'اليوم':'Today'}</span></header><section><div className="crm-dashboard-section-heading"><div><p>{locale==='ar'?'نظرة عامة':'OVERVIEW'}</p><h2>{locale==='ar'?'حركة العمل':'Sales pulse'}</h2></div></div><div className="crm-dashboard-metrics"><MetricCard href="/inbox" tone="sage" title={locale==='ar'?'المحادثات النشطة':'Active conversations'} value="24" icon={MessageSquare} delta={{sign:3,label:locale==='ar'?'٣ جديدة اليوم':'3 new today'}}/><MetricCard href="/contacts" tone="sky" title={locale==='ar'?'جهات اتصال جديدة':'New contacts'} value="8" icon={UserPlus} comparison={{current:8,previous:6,currentLabel:locale==='ar'?'اليوم':'Today',previousLabel:locale==='ar'?'أمس':'Yesterday'}}/><MetricCard href="/pipelines" tone="sand" title={locale==='ar'?'قيمة الصفقات المفتوحة':'Open deal value'} value="QAR 142,800" icon={DollarSign} subtitle={locale==='ar'?'١٢ صفقة مفتوحة':'12 open deals'}/><MetricCard href="/dashboard" tone="rose" title={locale==='ar'?'متابعات اليوم':'Follow-ups today'} value="6" icon={CalendarDays} subtitle={locale==='ar'?'تحتاج إلى إجراء':'Need action'}/></div></section></main>}
-    function App(){const [open,setOpen]=React.useState(true);return <NextIntlClientProvider locale={locale} messages={locale==='ar'?ar:en} timeZone="Asia/Qatar"><div className="crm-workspace" data-mode="light">{params.get('screen')==='dashboard'?<DashboardProbe/>:<><div id="motion-test" className={'crm-dashboard '+widgetStyles.widget}><span className={widgetStyles.borderOrbit}><span className={widgetStyles.borderLight}/></span></div><button onClick={()=>setOpen(true)}>Reopen</button>{params.get('screen')==='settings'?<PipelineSettings open={open} onOpenChange={setOpen} pipeline={pipeline} stages={[stage]} onPipelinesChanged={()=>{}} onStagesChanged={()=>{}} onCreateNewPipeline={()=>{}}/>:<DealForm open={open} onOpenChange={setOpen} pipelineId="pipeline-1" stages={[stage]} onSaved={()=>{}}/>}</>}</div></NextIntlClientProvider>}
+    function LongDialog(){return <Dialog defaultOpen><DialogContent><DialogHeader><DialogTitle>Long form</DialogTitle></DialogHeader>{Array.from({length:16},(_,i)=><label key={i} className="grid gap-2">Field {i+1}<input className="h-9 border"/></label>)}<DialogFooter><Button onClick={()=>{window.fixtureConfirmed=true}}>Confirm fixture</Button></DialogFooter></DialogContent></Dialog>}
+    function LongPopover(){return <div className="p-4"><Popover><PopoverTrigger>Open options</PopoverTrigger><PopoverContent>{Array.from({length:30},(_,i)=><Button key={i} onClick={()=>{window.fixtureOption=i}}>Option {i+1}</Button>)}</PopoverContent></Popover></div>}
+    function FlowProbe(){const flow={id:'fixture-flow',account_id:'fixture',user_id:'user',name:'Laptop flow',description:'Fixture',status:'draft',trigger_type:'manual',trigger_config:{},entry_node_id:'end',fallback_policy:{on_unknown_reply:'reprompt',max_reprompts:2,on_timeout_hours:24,on_exhaust:'handoff'},execution_count:0,created_at:'2026-11-09',updated_at:'2026-11-09'};const nodes=[{id:'node',flow_id:flow.id,node_key:'end',node_type:'end',config:{},position_x:0,position_y:0}];return <main id="main-content" data-area="flows" className="crm-main h-full"><FlowEditorShell initialFlow={flow} initialNodes={nodes}/></main>}
+    function App(){const [open,setOpen]=React.useState(true);return <NextIntlClientProvider locale={locale} messages={locale==='ar'?ar:en} timeZone="Asia/Qatar"><div className="crm-workspace" data-mode="light">{params.get('screen')==='flow'?<FlowProbe/>:params.get('screen')==='popover'?<LongPopover/>:params.get('screen')==='dialog'?<LongDialog/>:params.get('screen')==='dashboard'?<DashboardProbe/>:<><div id="motion-test" className={'crm-dashboard '+widgetStyles.widget}><span className={widgetStyles.borderOrbit}><span className={widgetStyles.borderLight}/></span></div><button onClick={()=>setOpen(true)}>Reopen</button>{params.get('screen')==='settings'?<PipelineSettings open={open} onOpenChange={setOpen} pipeline={pipeline} stages={[stage]} onPipelinesChanged={()=>{}} onStagesChanged={()=>{}} onCreateNewPipeline={()=>{}}/>:<DealForm open={open} onOpenChange={setOpen} pipelineId="pipeline-1" stages={[stage]} onSaved={()=>{}}/>}</>}</div></NextIntlClientProvider>}
     createRoot(document.getElementById('root')).render(<App/>);
   `
   );
@@ -71,6 +82,7 @@ try {
         { find: '@/hooks/use-can', replacement: join(root, 'can.ts') },
         { find: '@/lib/supabase/client', replacement: join(root, 'client.ts') },
         { find: 'next/link', replacement: join(root, 'link.tsx') },
+        { find: 'next/navigation', replacement: join(root, 'navigation.ts') },
         { find: '@', replacement: join(project, 'src') },
       ],
     },
@@ -86,6 +98,91 @@ try {
   });
   const origin = server.resolvedUrls.local[0];
   const issues = [];
+  // Short usable browser heights reproduce laptop display scaling/browser chrome.
+  // Check both geometry and an actual pointer click on the last action.
+  for (const locale of ['en', 'ar']) {
+    for (const viewport of [
+      { width: 1024, height: 600 },
+      { width: 1280, height: 600 },
+      { width: 1366, height: 650 },
+      { width: 1440, height: 720 },
+      { width: 390, height: 600 },
+    ]) {
+      const page = await browser.newPage({ viewport });
+      page.on('pageerror', (error) => issues.push(error.message));
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.addInitScript(() =>
+        localStorage.setItem('wacrm.flowEditor.view', 'list')
+      );
+      await page.route('**/api/**', (route) => route.fulfill({ json: {} }));
+      for (const screen of ['dialog', 'form', 'settings']) {
+        await page.goto(origin + '?locale=' + locale + '&screen=' + screen);
+        const popup = page.locator(
+          screen === 'form'
+            ? '[data-slot="sheet-content"]'
+            : '[data-slot="dialog-content"]'
+        );
+        await popup.waitFor();
+        const bounds = await popup.boundingBox();
+        assert.ok(
+          bounds.x >= -1 &&
+            bounds.y >= -1 &&
+            bounds.x + bounds.width <= viewport.width + 1 &&
+            bounds.y + bounds.height <= viewport.height + 1,
+          `${screen} is outside ${viewport.width}×${viewport.height} ${locale}: ${JSON.stringify(bounds)}`
+        );
+        if (screen === 'dialog') {
+          await page.getByRole('button', { name: 'Confirm fixture' }).click();
+          assert.equal(
+            await page.evaluate(() => window.fixtureConfirmed),
+            true
+          );
+          await page.locator('[data-slot="dialog-close"]').click();
+          await popup.waitFor({ state: 'hidden' });
+        } else {
+          // Trial performs Playwright's visibility, hit-target and viewport checks
+          // without saving or closing the real form.
+          await popup
+            .getByRole('button', {
+              name: locale === 'ar' ? 'إلغاء' : 'Cancel',
+              exact: true,
+            })
+            .click({ trial: true });
+        }
+      }
+      await page.goto(origin + '?locale=' + locale + '&screen=popover');
+      await page.getByRole('button', { name: 'Open options' }).click();
+      const options = page.locator('[data-slot="popover-content"]');
+      await options.waitFor();
+      await page
+        .getByRole('button', { name: 'Option 30', exact: true })
+        .click();
+      assert.equal(await page.evaluate(() => window.fixtureOption), 29);
+      const optionsBounds = await options.boundingBox();
+      assert.ok(
+        optionsBounds.y >= 0 &&
+          optionsBounds.y + optionsBounds.height <= viewport.height + 1
+      );
+      await page.goto(origin + '?locale=' + locale + '&screen=flow');
+      const stage = page.locator('.crm-flow-editor > .relative');
+      await stage.waitFor();
+      const stageBounds = await stage.boundingBox();
+      assert.ok(
+        stageBounds.height >= 120,
+        `flow stage collapsed at ${JSON.stringify(viewport)}: ${JSON.stringify(stageBounds)}`
+      );
+      assert.ok(
+        stageBounds.y >= 0 &&
+          stageBounds.y + stageBounds.height <= viewport.height + 1
+      );
+      const save = page.getByRole('button', {
+        name: locale === 'ar' ? 'حفظ' : 'Save',
+        exact: true,
+      });
+      await save.click({ trial: true });
+      await page.close();
+    }
+  }
   for (const locale of ['en', 'ar'])
     for (const mode of ['light', 'dark']) {
       const page = await browser.newPage({
@@ -318,7 +415,7 @@ try {
       }
   assert.deepEqual(issues, []);
   console.log(
-    'Deal labels and color picker passed: English/Arabic, light/dark, 360–2560px; keyboard, touch targets, reflow and reduced motion.'
+    'Short laptop layouts passed at 1024×600, 1280×600, 1366×650 and 1440×720, plus 390×600: dialog actions, popover options, deal form, settings and flow stage. English/Arabic, light/dark, 360–2560px checks also passed.'
   );
 } finally {
   await browser?.close();

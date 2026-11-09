@@ -91,7 +91,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           id="main-content"
           tabIndex={-1}
           data-area={pathname.split('/')[1]}
-          className="crm-main min-w-0 flex-1 overflow-y-auto p-4 sm:p-6"
+          className="crm-main min-h-0 min-w-0 flex-1 overflow-y-auto p-4 sm:p-6"
         >
           {children}
         </main>

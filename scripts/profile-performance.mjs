@@ -46,6 +46,7 @@ const uiReviewWidths = (process.env.UI_REVIEW_WIDTHS || '390')
   .map(Number)
   .filter((width) => Number.isInteger(width) && width >= 320);
 const uiReviewTextScale = Number(process.env.UI_REVIEW_TEXT_SCALE || 1);
+const uiReviewHeight = Number(process.env.UI_REVIEW_HEIGHT || 0);
 const primaryViewport =
   process.env.PERFORMANCE_VIEWPORT === 'mobile'
     ? { width: 390, height: 844 }
@@ -514,7 +515,7 @@ try {
         for (const mode of ['light', 'dark']) {
           const matrixContext = await newContext({
             width,
-            height: width < 1024 ? 844 : 900,
+            height: uiReviewHeight || (width < 1024 ? 844 : 900),
           });
           const matrixPage = await matrixContext.newPage();
           const matrixErrors = [];
@@ -558,7 +559,10 @@ try {
               await matrixPage.locator(`html[data-mode="${mode}"]`).waitFor();
             }
             if (width >= 1024)
-              await matrixPage.setViewportSize({ width, height: 900 });
+              await matrixPage.setViewportSize({
+                width,
+                height: uiReviewHeight || 900,
+              });
             if (uiReviewTextScale !== 1)
               await matrixPage.evaluate((scale) => {
                 document.documentElement.style.fontSize = `${16 * scale}px`;
@@ -583,6 +587,7 @@ try {
               dir: document.documentElement.dir,
               mode: document.documentElement.dataset.mode,
               viewport: document.documentElement.clientWidth,
+              viewportHeight: document.documentElement.clientHeight,
               scrollWidth: document.documentElement.scrollWidth,
               scrollLeft: document.documentElement.scrollLeft,
               bodyLeft: Math.round(document.body.getBoundingClientRect().left),
@@ -619,6 +624,18 @@ try {
             }));
             assert.equal(measurement.lang, locale);
             assert.equal(measurement.mode, mode);
+            if (uiReviewHeight) {
+              // A trial click scrolls and verifies hit testing without invoking
+              // the action. Catch controls trapped in clipped laptop layouts.
+              const actions = matrixPage.locator(
+                'main#main-content button[data-slot="button"]:visible:enabled'
+              );
+              for (let i = 0; i < Math.min(await actions.count(), 12); i++)
+                await actions.nth(i).click({ trial: true, timeout: 5000 });
+              await matrixPage
+                .locator('main#main-content')
+                .evaluate((el) => el.scrollTo(0, 0));
+            }
             report.uiReview.push({
               route,
               locale,

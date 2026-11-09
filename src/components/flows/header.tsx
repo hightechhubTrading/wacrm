@@ -57,7 +57,7 @@ export function EditorHeader() {
   } = useFlowEditor();
 
   return (
-    <div className="crm-flow-editor flex flex-col gap-1.5 px-6 pt-5">
+    <div className="flex shrink-0 flex-col gap-1.5 px-4 pt-4 sm:px-6">
       <div className="flex flex-wrap items-center gap-3">
         {/* ---- left: back · icon · name · status · edited ---- */}
         <button
