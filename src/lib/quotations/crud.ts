@@ -74,7 +74,7 @@ export async function createQuotation(
               catalogueSeed: { item: input.catalogueSeed.item },
               ...(input.catalogueTerms?.paymentPlan
                 ? { paymentPlan: input.catalogueTerms.paymentPlan }
-                : { document_details: { preparedBy: input.preparedBy } }),
+                : {}),
               ...(input.catalogueSeed.knowledge
                 ? { knowledge: input.catalogueSeed.knowledge }
                 : {}),
@@ -82,7 +82,7 @@ export async function createQuotation(
               excluded: DEFAULT_EXCLUDED,
             },
           }
-        : {}),
+        : { document_details: { preparedBy: input.preparedBy } }),
     })
     .select()
     .single();

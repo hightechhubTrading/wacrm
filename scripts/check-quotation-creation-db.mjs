@@ -1,13 +1,15 @@
 /** Disposable database validation of catalogue seeds and source metadata. */
 import { readFile } from 'node:fs/promises';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
+import { createServer } from 'vite';
 const { PGlite } = await import(
   process.env.PGLITE_MODULE
     ? pathToFileURL(process.env.PGLITE_MODULE).href
     : '@electric-sql/pglite'
 );
 const db = new PGlite();
+let ssr;
 const account = '10000000-0000-4000-8000-000000000001',
   other = '10000000-0000-4000-8000-000000000002',
   product = '20000000-0000-4000-8000-000000000001',
@@ -166,9 +168,101 @@ try {
       }),
     ]
   );
+  // Exercise the real creation payload against the production SQL trigger.
+  // Browser fixtures intercept POST /api/quotations, so they cannot catch a
+  // payload rejected only at the database boundary.
+  const created = [];
+  globalThis.__quotationCreationInsert = async (payload) => {
+    await db.query("INSERT INTO quotations VALUES($1,'draft',0,$2)", [
+      payload.account_id,
+      JSON.stringify(payload.document_details ?? {}),
+    ]);
+    created.push(payload);
+  };
+  ssr = await createServer({
+    configFile: false,
+    root: process.cwd(),
+    logLevel: 'error',
+    resolve: {
+      alias: { '@': fileURLToPath(new URL('../src', import.meta.url)) },
+    },
+    server: { middlewareMode: true },
+    plugins: [
+      {
+        name: 'quotation-creation-database',
+        enforce: 'pre',
+        resolveId(source, importer) {
+          if (
+            source.endsWith('/quotations/admin-client.ts') ||
+            (source === './admin-client' &&
+              /\/quotations\/(crud|reference)\.ts$/.test(importer ?? ''))
+          )
+            return '\0quotation-creation-admin';
+        },
+        load(id) {
+          if (id !== '\0quotation-creation-admin') return;
+          return `export function supabaseAdmin(){return {
+          rpc:async()=>({data:'WS-26-TEST',error:null}),
+          from:()=>({insert:payload=>({select:()=>({single:async()=>{
+            await globalThis.__quotationCreationInsert(payload);
+            return {data:{id:'fixture',...payload},error:null};
+          }})})})
+        }}`;
+        },
+      },
+    ],
+  });
+  const { createQuotation } = await ssr.ssrLoadModule(
+    '/src/lib/quotations/crud.ts'
+  );
+  for (const terms of [
+    undefined,
+    { deliveryTerms: '', paymentTerms: 'Agreed separately', warrantyTerms: '' },
+    {
+      deliveryTerms: '',
+      paymentTerms: '',
+      warrantyTerms: '',
+      paymentPlan: seed.paymentPlan,
+    },
+  ]) {
+    await createQuotation({
+      accountId: account,
+      productCode: 'WS',
+      currency: 'QAR',
+      preparedBy: 'Sales Person',
+      catalogueSeed: { item: seed.catalogueSeed.item },
+      catalogueTerms: terms,
+    });
+    const details = created.at(-1).document_details;
+    assert.equal(details.preparedBy, 'Sales Person');
+    assert.equal(details.document_details, undefined);
+    assert.deepEqual(details.paymentPlan, terms?.paymentPlan);
+  }
+  await createQuotation({
+    accountId: account,
+    productCode: 'WS',
+    currency: 'QAR',
+    preparedBy: 'Sales Person',
+  });
+  assert.deepEqual(created.at(-1).document_details, {
+    preparedBy: 'Sales Person',
+  });
+  const malformed = {
+    ...created[0].document_details,
+    document_details: { preparedBy: 'Sales Person' },
+  };
+  await assert.rejects(
+    db.query("INSERT INTO quotations VALUES($1,'draft',0,$2)", [
+      account,
+      JSON.stringify(malformed),
+    ]),
+    /Invalid or unknown/
+  );
   console.log(
-    'Structured quotation schema checks passed: known metadata accepted, malformed/foreign/issued seeds rejected, saved seed consumed.'
+    'Structured quotation schema checks passed: actual creation payloads with/without payment plans and blank drafts accepted; malformed nesting, foreign/issued seeds rejected; saved seed consumed.'
   );
 } finally {
+  await ssr?.close();
+  delete globalThis.__quotationCreationInsert;
   await db.close();
 }

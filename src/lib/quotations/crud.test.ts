@@ -56,6 +56,75 @@ describe('mapQuotationItemRow', () => {
 });
 
 describe('createQuotation', () => {
+  it.each([
+    { terms: undefined, label: 'without commercial terms' },
+    {
+      terms: {
+        deliveryTerms: '',
+        paymentTerms: 'Agreed separately',
+        warrantyTerms: '',
+      },
+      label: 'without a structured payment plan',
+    },
+    {
+      terms: {
+        deliveryTerms: '',
+        paymentTerms: '',
+        warrantyTerms: '',
+        paymentPlan: {
+          stages: [{ percent: 100, event: 'acceptance' as const }],
+        },
+      },
+      label: 'with a structured payment plan',
+    },
+  ])(
+    'persists catalogue metadata $label without nesting document_details',
+    async ({ terms }) => {
+      const builder = chain({
+        data: { id: 'q-1', document_details: {} },
+        error: null,
+      });
+      from.mockReturnValueOnce(builder);
+      const item = {
+        id: '30000000-0000-4000-8000-000000000001',
+        productId: '20000000-0000-4000-8000-000000000001',
+        itemType: 'line' as const,
+        description: 'Manual window shutter',
+        qty: 1,
+        unit: 'm2',
+      };
+      await createQuotation({
+        accountId: 'acc-1',
+        productCode: 'WS',
+        currency: 'QAR',
+        preparedBy: 'Sales Person',
+        catalogueSeed: { item },
+        catalogueTerms: terms,
+      });
+      const insert = builder.insert as ReturnType<typeof vi.fn>;
+      const details = insert.mock.calls[0][0].document_details;
+      expect(details.preparedBy).toBe('Sales Person');
+      expect(details.catalogueSeed).toEqual({ item });
+      expect(details).not.toHaveProperty('document_details');
+      expect(details.paymentPlan).toEqual(terms?.paymentPlan);
+    }
+  );
+
+  it('persists the preparer when starting a blank quotation', async () => {
+    const builder = chain({ data: { id: 'q-1' }, error: null });
+    from.mockReturnValueOnce(builder);
+    await createQuotation({
+      accountId: 'acc-1',
+      productCode: 'WS',
+      currency: 'QAR',
+      preparedBy: 'Sales Person',
+    });
+    const insert = builder.insert as ReturnType<typeof vi.fn>;
+    expect(insert.mock.calls[0][0].document_details).toEqual({
+      preparedBy: 'Sales Person',
+    });
+  });
+
   it('fetches a reference number, inserts, and returns a fully-mapped Quotation', async () => {
     const inserted = {
       id: 'q-1', reference: 'HT-26-PIV-001', account_id: 'acc-1', status: 'draft',
