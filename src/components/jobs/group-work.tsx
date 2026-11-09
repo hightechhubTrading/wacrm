@@ -1,6 +1,9 @@
 'use client';
 import { BusinessTimeNote } from '@/components/workspace/business-time-note';
-import { BUSINESS_TIME_ZONE, businessDateTimeToIso } from '@/lib/business-time';
+import { BUSINESS_TIME_ZONE } from '@/lib/business-time';
+import { AppointmentFields } from './appointment-fields';
+import { WorkspaceSelect } from '@/components/quotations/workspace-select';
+import type { BookingSelection, JobPerson } from '@/lib/jobs/appointments';
 
 import { statusClasses } from '@/lib/ui-colors';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -34,6 +37,16 @@ type Data = {
   };
   work: Work[];
   quotations: { id: string; reference: string; revision: number }[];
+  preparation: {
+    people: JobPerson[];
+    defaultResponsibleId: string | null;
+    customerLocation: {
+      value: string;
+      messageId: string;
+      receivedAt: string;
+    } | null;
+    locationError?: boolean;
+  };
 };
 const actions: WorkAction[] = [
   'posted',
@@ -99,7 +112,12 @@ export function GroupWorkDialog({
   const [location, setLocation] = useState('');
   const [details, setDetails] = useState('');
   const [responsible, setResponsible] = useState('');
-  const [due, setDue] = useState('');
+  const locationEdited = useRef(false);
+  const [slot, setSlot] = useState<BookingSelection>({
+    starts_at: '',
+    ends_at: '',
+    available: false,
+  });
   const [quotation, setQuotation] = useState('');
   const [view, setView] = useState(initialView);
   const [selectedWorkId, setSelectedWorkId] = useState(initialWorkId);
@@ -109,18 +127,17 @@ export function GroupWorkDialog({
   const reports =
     data?.work.filter((work) => nextStatus(work, 'report') !== null) ?? [];
   const detailsRemaining = Math.max(0, 10 - details.trim().length);
-  const dueIso = due ? businessDateTimeToIso(due) : null;
-  const invalidDue =
-    Boolean(due) && (!dueIso || Date.parse(dueIso) <= Date.now());
   const prepareBlocker = !location.trim()
     ? t('prepareNeedLocation')
     : detailsRemaining > 0
       ? t('prepareNeedDetails', { count: detailsRemaining })
       : kind === 'workshop' && !quotation
         ? t('prepareNeedQuotation')
-        : invalidDue
-          ? t('prepareNeedFutureDate')
-          : null;
+        : !responsible
+          ? t('choosePerson')
+          : !slot.available
+            ? t('chooseAvailableSlot')
+            : null;
   const visibleWork =
     view === 'report'
       ? reports
@@ -134,6 +151,13 @@ export function GroupWorkDialog({
       const body = (await res.json()) as Data;
       if (!signal?.aborted) {
         setData(body);
+        if (!locationEdited.current && body.preparation?.customerLocation)
+          setLocation(body.preparation.customerLocation.value);
+        setResponsible((current) =>
+          body.preparation?.people.some((person) => person.id === current)
+            ? current
+            : (body.preparation?.defaultResponsibleId ?? '')
+        );
         setFailed(false);
       }
     },
@@ -157,13 +181,27 @@ export function GroupWorkDialog({
           kind,
           location,
           details,
-          responsible,
-          due_at: dueIso,
+          responsible_profile_id: responsible,
+          starts_at: slot.starts_at,
+          ends_at: slot.ends_at,
           quotation_id: quotation || null,
         }),
       });
       const result = await res.json();
-      if (!res.ok) throw new Error(result.error);
+      if (!res.ok) {
+        if (result.code === 'slot_unavailable') {
+          announce();
+          throw new Error(t('slotBusy'));
+        }
+        if (result.code === 'active_request') {
+          await load();
+          setView('overview');
+          throw new Error(t('existingRequest'));
+        }
+        throw new Error(
+          t(result.code === 'invalid_booking' ? 'invalidBooking' : 'error')
+        );
+      }
       await load();
       announce();
       setDetails('');
@@ -295,10 +333,43 @@ export function GroupWorkDialog({
                       <Label htmlFor="work-location">{t('location')}</Label>
                       <Input
                         id="work-location"
+                        dir="auto"
+                        autoComplete="off"
                         value={location}
-                        onChange={(e) => setLocation(e.target.value)}
+                        onChange={(e) => {
+                          locationEdited.current = true;
+                          setLocation(e.target.value);
+                        }}
                         maxLength={1000}
                       />
+                      {data.preparation?.customerLocation && (
+                        <div className="text-muted-foreground text-xs">
+                          {location ===
+                          data.preparation.customerLocation.value ? (
+                            t('locationFromCustomer')
+                          ) : (
+                            <button
+                              type="button"
+                              className="text-primary min-h-11 underline"
+                              onClick={() =>
+                                setLocation(
+                                  data.preparation.customerLocation!.value
+                                )
+                              }
+                            >
+                              {t('useCustomerLocation')}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {data.preparation?.locationError && (
+                        <p
+                          role="status"
+                          className="text-muted-foreground text-xs"
+                        >
+                          {t('locationUnavailable')}
+                        </p>
+                      )}
                       <Label htmlFor="work-details">{t('details')}</Label>
                       <textarea
                         id="work-details"
@@ -314,32 +385,31 @@ export function GroupWorkDialog({
                       >
                         {t('detailsHint')}
                       </p>
-                      <details>
-                        <summary className="min-h-11 cursor-pointer py-3 text-sm">
-                          {t('optionalDetails')}
-                        </summary>
-                        <Label htmlFor="work-responsible">
-                          {t('responsible')}
-                        </Label>
-                        <Input
-                          id="work-responsible"
-                          value={responsible}
-                          onChange={(e) => setResponsible(e.target.value)}
-                          maxLength={200}
-                        />
-                      </details>
-                      <Label htmlFor="work-due">{t('requestedDate')}</Label>
+                      <Label htmlFor="work-responsible">
+                        {t('responsibleMember')}
+                      </Label>
+                      <WorkspaceSelect
+                        id="work-responsible"
+                        aria-label={t('responsibleMember')}
+                        value={responsible}
+                        onValueChange={setResponsible}
+                        disabled={busy}
+                        className="w-full"
+                      >
+                        <option value="">{t('choosePerson')}</option>
+                        {(data.preparation?.people ?? []).map((person) => (
+                          <option key={person.id} value={person.id}>
+                            {person.full_name || t('teamMember')}
+                          </option>
+                        ))}
+                      </WorkspaceSelect>
+                      {!data.preparation?.people.length && (
+                        <p role="alert" className="text-destructive text-sm">
+                          {t('membersUnavailable')}
+                        </p>
+                      )}
                       <BusinessTimeNote />
-                      <Input
-                        id="work-due"
-                        type="datetime-local"
-                        value={due}
-                        onChange={(e) => setDue(e.target.value)}
-                        aria-invalid={invalidDue}
-                        aria-describedby={
-                          invalidDue ? 'work-prepare-blocker' : undefined
-                        }
-                      />
+                      <AppointmentFields onChange={setSlot} disabled={busy} />
                       {prepareBlocker && (
                         <p
                           id="work-prepare-blocker"
@@ -476,12 +546,31 @@ function WorkRecord({
           {work.quotation_snapshot.revision}
         </p>
       )}
+      {work.responsible && (
+        <p className="text-sm">
+          {t('responsibleLabel')}: {work.responsible}
+        </p>
+      )}
       {work.due_at && (
         <p className="text-sm">
-          {t('requestedDate')}:{' '}
+          {t(
+            work.appointment?.status === 'reserved'
+              ? 'reservedAppointment'
+              : 'requestedDate'
+          )}
+          :{' '}
           {new Date(work.due_at).toLocaleString(locale, {
             timeZone: BUSINESS_TIME_ZONE,
           })}
+          {work.appointment?.status === 'reserved' && (
+            <>
+              {' '}
+              –{' '}
+              {new Date(work.appointment.ends_at).toLocaleString(locale, {
+                timeZone: BUSINESS_TIME_ZONE,
+              })}
+            </>
+          )}
         </p>
       )}
       {work.status === 'draft' && (

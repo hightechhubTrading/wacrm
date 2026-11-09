@@ -56,6 +56,11 @@ export interface GroupWork {
   revision: number;
   updated_at: string;
   quotation_snapshot: QuotationSnapshot | null;
+  responsible_profile_id?: string | null;
+  appointment?: {
+    id: string; starts_at: string; ends_at: string;
+    status: 'reserved' | 'completed' | 'cancelled'; revision: number;
+  } | null;
 }
 export function nextStatus(
   work: Pick<GroupWork, 'kind' | 'status'>,
@@ -113,7 +118,12 @@ export function groupMessage(
   ];
   if (work.responsible)
     lines.push(`${ar ? 'المسؤول' : 'Responsible'}: ${work.responsible}`);
-  if (work.due_at)
+  if (work.appointment?.status === 'reserved') {
+    lines.push(
+      `${ar ? 'الوقت المحجوز في تقويم الشركة' : 'Reserved in company calendar'}: ${formatBusinessDate(work.appointment.starts_at, ar ? 'ar-QA' : 'en-QA')} – ${formatBusinessDate(work.appointment.ends_at, ar ? 'ar-QA' : 'en-QA')} (${ar ? 'توقيت قطر' : 'Qatar time'})`,
+      ar ? 'الحجز الداخلي لا يعني تأكيد العميل أو اكتمال التصنيع.' : 'Internal reservation; customer confirmation and workshop readiness are separate.'
+    );
+  } else if (work.due_at)
     lines.push(
       `${ar ? 'التاريخ المطلوب (غير مؤكد)' : 'Requested date (unconfirmed)'}: ${formatBusinessDate(work.due_at, ar ? 'ar-QA' : 'en-QA')} (${ar ? 'توقيت قطر' : 'Qatar time'})`
     );

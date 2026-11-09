@@ -63,7 +63,7 @@ export function areaForPath(path: string): UiArea {
     return 'sales';
   if (first === 'quotations') return 'documents';
   if (
-    ['automations', 'flows', 'agents', 'jobs', 'notifications'].includes(first)
+    ['automations', 'flows', 'agents', 'jobs', 'calendar', 'notifications'].includes(first)
   )
     return 'operations';
   return 'settings';

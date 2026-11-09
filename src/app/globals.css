@@ -370,3 +370,11 @@ html:lang(ar) select,
 html:lang(ar) .crm-triage-group {
   letter-spacing: normal;
 }
+
+/* Native date/time icons must follow the selected surface theme. */
+html[data-mode='light'] :is(input[type='date'], input[type='time'], input[type='datetime-local']) {
+  color-scheme: light;
+}
+html[data-mode='dark'] :is(input[type='date'], input[type='time'], input[type='datetime-local']) {
+  color-scheme: dark;
+}

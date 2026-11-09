@@ -1,5 +1,32 @@
 # Work coordinated through WhatsApp groups
 
+## Company calendar and preparation defaults — 9 November 2026
+
+The user selected **one shared company calendar, with one appointment at a time**, and **CRM members as responsible people, defaulting to the requester**. The local implementation adds `/calendar`, linked from navigation and request preparation. It shows day/week views of measurement visits and installation reservations. Workshop/installation requests reserve an installation time; this does not declare manufacturing ready, customer acceptance or WhatsApp posting.
+
+New requests require a current agent/admin/owner from the account and a free future interval. The requester is selected by profile ID, not a free-text name. Duration defaults to 60 minutes and is editable from 15 minutes to 24 hours. Dates and times use Qatar time. The date control reuses the accessible app calendar with its visible SVG icon; native date/time controls also receive the correct light/dark color scheme.
+
+Preparation uses the customer's latest accessible WhatsApp location pin or recognized Google/Apple Maps link. The source message ID/time are returned with the default. It does not infer an address from arbitrary conversation text. The location stays editable, browser address autofill is disabled, and reloads preserve a salesperson's manual correction. Failed defaults do not prevent reading reports/history; missing staff or calendar availability blocks new booking.
+
+Migration **097_company_job_calendar.sql** adds appointments, responsible profile references, atomic create/reschedule functions and an account-wide GiST exclusion constraint on reserved time ranges. Adjacent appointments are allowed; overlaps are rejected even for different responsible members, hidden deals or competing requests. A conflict rolls back the request and returns HTTP 409. Rescheduling uses an appointment revision and updates the handoff date/person and audit event atomically. Cancellation/completion releases capacity while retaining calendar history. Initial and changed reservations are recorded in the work history.
+
+Earlier requests are listed as **Requests without a calendar reservation**. Their old requested dates are preserved; no duration or responsible-member match is invented. Sales can reserve a time for each from the calendar. If a responsible member leaves, the reservation remains held and is flagged for reassignment; name snapshots remain historical evidence. The tenant trigger now validates the creator on insertion and preserves immutable ownership on updates, allowing authorized staff to continue work after the original creator leaves.
+
+Calendar detail reads use deal-assignment RLS. Service-role reads supply only anonymous occupied intervals for other jobs in the same account, so hidden appointments still prevent double-booking without exposing their customer details. Mutations are session/role gated and tenant/actor IDs are server derived. Booking functions are service-only and validate deal access, current membership and accepted-quotation ownership themselves.
+
+Apply only migration 097 through the linked database's timestamped migration process before deploying this revision. It is additive and compatible with the prior app; it does not create appointments, change earlier requests or send messages. Startup/deployment preflight checks its columns, relationship, capacity constraint, lifecycle trigger, privileges and denied identity-free booking probes.
+
+Verification commands:
+
+```sh
+npx vitest run src/app/api/jobs src/lib/jobs src/lib/business-time.test.ts src/i18n/message-scopes.test.ts messages/locale-parity.test.ts
+node --test deploy/check-database.test.mjs
+node scripts/check-job-calendar-db.mjs
+PLAYWRIGHT_CHANNEL=chrome node scripts/check-phone-handoff.mjs
+```
+
+The database harness uses disposable PGlite with `btree_gist`; set `PGLITE_MODULE` to an installed `dist/index.js` when it is not available at the default import. It exercises the actual migrations, including competing requests, full-interval overlap, adjacent slots, atomic rollback, member/account/assignment boundaries, frozen quotation snapshots, revisions, legacy requests and slot release. Browser fixtures exercise actual components with intercepted writes, including location prefill/override, member defaults/selection, unavailable durations, calendar failure, rescheduling, legacy booking, icon contrast and 48 English/Arabic phone/laptop layouts. Real customer bookings and device share sheets remain separate from synthetic checks.
+
 ## Phone handoff refinement, 29 October 2026 — local
 
 The sheet separates Updates, New request and Add report. Inbox visit/workshop shortcuts open preparation; Add report opens eligible measurement requests with the report action selected. Prepared requests must first be explicitly recorded as posted. Multiple eligible records remain visible for explicit selection; no request is guessed. Existing active work prevents preparing another request of the same kind in this UI.

@@ -240,6 +240,7 @@ export async function startSupabaseFixture({
     ai_sales_assistance: [],
     ai_followups: [],
     group_handoffs: [],
+    job_appointments: [],
     contact_notes: [],
     contact_custom_values: [],
     custom_fields: [],

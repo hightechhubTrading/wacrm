@@ -8,6 +8,7 @@ const options = {
 const emptyPerformanceResponse = (pathname) => {
   if (pathname.endsWith('/quotation_document_details_valid')) return true;
   if (pathname.endsWith('/claim_ai_review_receipt')) return false;
+  if (pathname.endsWith('/job_calendar_ready')) return true;
   if (pathname.endsWith('/conversation_activity_snapshot'))
     return { serverNow: '2026-10-30T09:00:00Z', peers: [] };
   if (pathname.endsWith('/search_inbox_messages'))
@@ -39,7 +40,7 @@ test('accepts the required columns and denied identity-free conversion probe', a
       return validFetch(url);
     },
   });
-  assert.equal(requests.length, 34);
+  assert.equal(requests.length, 39);
   for (const r of requests.slice(0, 8))
     assert.equal(r.url.searchParams.get('limit'), '0');
   assert.equal(JSON.parse(requests[8].init.body).p_conversation_id, null);
@@ -124,13 +125,46 @@ function validFetch(url) {
   const path = new URL(url).pathname;
   if (
     path.endsWith('/record_conversation_conversion') ||
-    path.endsWith('/record_conversation_activity')
+    path.endsWith('/record_conversation_activity') ||
+    path.endsWith('/create_scheduled_group_handoff') ||
+    path.endsWith('/save_job_appointment')
   )
     return new Response('{"code":"42501"}', { status: 403 });
   if (path.endsWith('/sales_today_replies'))
     return new Response('{"count":0,"items":[]}');
   return new Response(JSON.stringify(emptyPerformanceResponse(path)));
 }
+for (const name of [
+  'job_appointments',
+  'job_calendar_ready',
+  'create_scheduled_group_handoff',
+  'save_job_appointment',
+]) {
+  test(`blocks calendar rollout when ${name} is absent`, async () => {
+    await assert.rejects(
+      checkDeploymentDatabase({
+        ...options,
+        fetchImpl: async (url) =>
+          new URL(url).pathname.endsWith('/' + name)
+            ? new Response('{}', { status: 404 })
+            : validFetch(url),
+      }),
+      /migration 097/
+    );
+  });
+}
+test('blocks calendar rollout if the capacity constraint or permissions are not ready', async () => {
+  await assert.rejects(
+    checkDeploymentDatabase({
+      ...options,
+      fetchImpl: async (url) =>
+        new URL(url).pathname.endsWith('/job_calendar_ready')
+          ? new Response('false')
+          : validFetch(url),
+    }),
+    /migration 097/
+  );
+});
 for (const [name, migration] of performanceProbes) {
   test(`blocks promotion when ${name} is absent from the schema cache`, async () => {
     await assert.rejects(

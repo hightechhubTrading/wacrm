@@ -7,8 +7,9 @@ export const routeMessageScopes = {
   agents: ['SalesAssistance', 'Settings', 'Workspace'],
   automations: ['Automations', 'CustomFieldGroups'],
   broadcasts: ['Broadcasts', 'Contacts'],
+  calendar: ['Jobs', 'QuotationWorkspace'],
   contacts: ['Contacts', 'CustomFieldGroups', 'Inbox'],
-  dashboard: ['Dashboard', 'Inbox', 'Jobs'],
+  dashboard: ['Dashboard', 'Inbox', 'Jobs', 'QuotationWorkspace'],
   flows: ['Flows'],
   inbox: [
     'Calling',

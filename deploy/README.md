@@ -1,5 +1,9 @@
 # VPS updates
 
+## Company calendar release — 9 November 2026
+
+Apply `097_company_job_calendar.sql` through the timestamped linked migration process before deploying the calendar revision. It adds a shared, non-overlapping visit/installation calendar and atomic booking functions. It preserves existing requests as unscheduled work. The startup guard checks the relationship/columns, capacity constraint, lifecycle trigger and function privileges, then verifies that identity-free booking probes are denied. No customer identity or booking is used by deployment preflight. See [group-work.md](../docs/group-work.md) for behavior and verification.
+
 The live server uses `/docker/wacrm/docker-compose.yml` for its environment,
 Traefik labels and Docker networks. That file contains server-owned configuration
 and is deliberately not committed. Its build context must point at GitHub:

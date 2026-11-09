@@ -23,7 +23,7 @@ vi.mock('@/lib/rate-limit', () => ({
 import { POST, PATCH, GET } from './route';
 function chain(result: unknown) {
   const q: Record<string, unknown> = {};
-  for (const key of ['select', 'eq', 'order', 'limit', 'insert'])
+  for (const key of ['select', 'eq', 'in', 'or', 'order', 'limit', 'insert'])
     q[key] = vi.fn(() => q);
   q.maybeSingle = vi.fn(async () => result);
   q.single = vi.fn(async () => result);
@@ -41,6 +41,16 @@ beforeEach(() => {
       error: null,
     },
     quotations: { data: null, error: null },
+    profiles: {
+      data: [
+        {
+          id: '10000000-0000-4000-8000-000000000001',
+          user_id: 'user-1',
+          full_name: 'Requester',
+        },
+      ],
+      error: null,
+    },
     group_handoffs: {
       data: { id: 'work-1', kind: 'measurement', status: 'waiting' },
       error: null,
@@ -68,12 +78,22 @@ beforeEach(() => {
   );
   mocks.upload.mockResolvedValue({ error: null });
   mocks.remove.mockResolvedValue({ error: null });
-  mocks.rpc.mockResolvedValue({ data: 'event-1', error: null });
+  mocks.rpc.mockImplementation(async (name) => ({
+    data:
+      name === 'create_scheduled_group_handoff'
+        ? { id: 'work-1', appointmentId: 'appointment-1' }
+        : 'event-1',
+    error: null,
+  }));
 });
 function create(body: unknown) {
   return new Request('http://local/api/jobs/deal-1', {
     method: 'POST',
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      starts_at: '2035-01-01T08:00:00Z',
+      ends_at: '2035-01-01T09:00:00Z',
+      ...(body as object),
+    }),
     headers: { 'content-type': 'application/json' },
   });
 }
@@ -128,12 +148,13 @@ describe('sales group work access and recording', () => {
       params
     );
     expect(res.status).toBe(201);
-    const builder = mocks.adminFrom.mock.results[0].value;
-    expect(builder.insert).toHaveBeenCalledWith(
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'create_scheduled_group_handoff',
       expect.objectContaining({
-        account_id: 'account-1',
-        created_by: 'user-1',
-        deal_id: 'deal-1',
+        p_account: 'account-1',
+        p_actor: 'user-1',
+        p_deal: 'deal-1',
+        p_responsible: '10000000-0000-4000-8000-000000000001',
       })
     );
   });
@@ -153,7 +174,7 @@ describe('sales group work access and recording', () => {
     ).toBe(400);
     expect(mocks.admin).not.toHaveBeenCalled();
   });
-  it('freezes the accepted quotation revision and ordered line items', async () => {
+  it('passes the accepted quotation to the atomic snapshot-and-reservation function', async () => {
     responses.quotations = {
       data: {
         id: 'q1',
@@ -180,20 +201,54 @@ describe('sales group work access and recording', () => {
             kind: 'workshop',
             location: 'Doha',
             details: 'Make five shutters',
-            quotation_id: 'q1',
+            quotation_id: '20000000-0000-4000-8000-000000000001',
           }),
           params
         )
       ).status
     ).toBe(201);
-    expect(mocks.adminFrom.mock.results[0].value.insert).toHaveBeenCalledWith(
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'create_scheduled_group_handoff',
       expect.objectContaining({
-        quotation_snapshot: expect.objectContaining({
-          revision: 3,
-          items: [expect.objectContaining({ qty: 5 })],
-        }),
+        p_quotation: '20000000-0000-4000-8000-000000000001',
+        p_start: '2035-01-01T08:00:00.000Z',
+        p_end: '2035-01-01T09:00:00.000Z',
       })
     );
+  });
+  it('rejects unscheduled requests and reports company-wide conflicts without exposing other jobs', async () => {
+    expect(
+      (
+        await POST(
+          create({
+            kind: 'measurement',
+            location: 'Doha',
+            details: 'Measure the windows',
+            starts_at: null,
+          }),
+          params
+        )
+      ).status
+    ).toBe(400);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    mocks.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: '23P01', message: 'private other customer' },
+    });
+    const result = await POST(
+      create({
+        kind: 'measurement',
+        location: 'Doha',
+        details: 'Measure the windows',
+      }),
+      params
+    );
+    expect(result.status).toBe(409);
+    expect(await result.json()).toEqual({
+      error: expect.any(String),
+      code: 'slot_unavailable',
+    });
+    expect(mocks.adminFrom).not.toHaveBeenCalled();
   });
   it('requires evidence before accepting a measurement report', async () => {
     expect((await PATCH(update('report'), params)).status).toBe(400);
@@ -246,6 +301,29 @@ describe('sales group work access and recording', () => {
     responses.quotations = { data: [], error: null };
     expect((await GET(new Request('http://local'), params)).status).toBe(200);
     expect(mocks.signed).not.toHaveBeenCalled();
+  });
+  it('keeps report/history reads available when preparation defaults cannot be loaded', async () => {
+    responses.deals = {
+      data: { id: 'deal-1', contact_id: 'contact-1', title: 'Project' },
+      error: null,
+    };
+    responses.group_handoffs = {
+      data: [{ id: 'work-1', events: [] }],
+      error: null,
+    };
+    responses.quotations = { data: [], error: null };
+    responses.profiles = { data: null, error: { message: 'unavailable' } };
+    responses.messages = { data: null, error: { message: 'unavailable' } };
+    const res = await GET(new Request('http://local'), params);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.work).toHaveLength(1);
+    expect(body.preparation).toEqual({
+      people: [],
+      defaultResponsibleId: null,
+      customerLocation: null,
+      locationError: true,
+    });
   });
 });
 

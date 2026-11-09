@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { supabaseAdmin } from '@/lib/ai/admin-client';
+import { bookingInput, UUID } from '@/lib/jobs/appointments';
+import { bookingError, jobLocation, jobPeople } from '@/lib/jobs/server';
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -38,7 +40,9 @@ export async function GET(request: Request, { params }: Params) {
       ? table.select(
           'id,deal_id,reference,kind,status,location,details,responsible,due_at,revision,updated_at,quotation_snapshot,created_at,events:group_handoff_events(id,action,status,note,created_at)'
         )
-      : table.select('*,events:group_handoff_events(*)');
+      : table.select(
+          '*,events:group_handoff_events(*),appointment:job_appointments(id,starts_at,ends_at,status,revision)'
+        );
     let workQuery = selection
       .eq('account_id', ctx.accountId)
       .eq('deal_id', ctx.dealId)
@@ -109,11 +113,28 @@ export async function GET(request: Request, { params }: Params) {
         ),
       }))
     );
-    return NextResponse.json({
-      deal: ctx.deal,
-      work: signed,
-      quotations: quotes.data ?? [],
-    });
+    const [members, customerLocation] = await Promise.allSettled([
+      jobPeople(ctx),
+      jobLocation(ctx, ctx.deal.contact_id),
+    ]);
+    return NextResponse.json(
+      {
+        deal: ctx.deal,
+        work: signed,
+        quotations: quotes.data ?? [],
+        preparation: {
+          ...(members.status === 'fulfilled'
+            ? members.value
+            : { people: [], defaultResponsibleId: null }),
+          customerLocation:
+            customerLocation.status === 'fulfilled'
+              ? customerLocation.value
+              : null,
+          locationError: customerLocation.status === 'rejected',
+        },
+      },
+      { headers: { 'Cache-Control': 'private, no-store' } }
+    );
   } catch (e) {
     return toErrorResponse(e);
   }
@@ -132,73 +153,44 @@ export async function POST(request: Request, { params }: Params) {
         { error: 'Location, details and a valid requested date are required' },
         { status: 400 }
       );
-    let snapshot = null;
-    let quotationId = null;
-    if (input.kind === 'workshop') {
-      if (typeof b.quotation_id !== 'string')
-        return NextResponse.json(
-          { error: 'Select an accepted quotation' },
-          { status: 400 }
-        );
-      const { data: q, error } = await ctx.supabase
-        .from('quotations')
-        .select(
-          'id,reference,revision,quotation_items(description,description_ar,size_w,size_h,qty,item_type,position)'
-        )
-        .eq('id', b.quotation_id)
-        .eq('account_id', ctx.accountId)
-        .eq('deal_id', ctx.dealId)
-        .eq('status', 'won')
-        .maybeSingle();
-      if (error) throw new Error('Quotation lookup failed');
-      if (!q)
-        return NextResponse.json(
-          { error: 'Accepted quotation not found for this deal' },
-          { status: 400 }
-        );
-      quotationId = q.id;
-      snapshot = {
-        reference: q.reference,
-        revision: q.revision,
-        items: q.quotation_items
-          .filter((i) => i.item_type === 'line')
-          .sort((a, b) => a.position - b.position)
-          .map(({ description, description_ar, size_w, size_h, qty }) => ({
-            description,
-            description_ar,
-            size_w,
-            size_h,
-            qty,
-          })),
-      };
-      if (!snapshot.items.length)
-        return NextResponse.json(
-          { error: 'The accepted quotation has no line items' },
-          { status: 400 }
-        );
-    }
-    const { data, error } = await supabaseAdmin()
-      .from('group_handoffs')
-      .insert({
-        ...input,
-        account_id: ctx.accountId,
-        deal_id: ctx.dealId,
-        created_by: ctx.userId,
-        quotation_id: quotationId,
-        quotation_snapshot: snapshot,
-      })
-      .select('id')
-      .single();
-    if (error)
+    const booking = bookingInput(b);
+    if (!booking)
       return NextResponse.json(
         {
           error:
-            error.code === '23505'
-              ? 'There is already active work of this type'
-              : 'Could not create work request',
+            'Choose an available future appointment and responsible member.',
+          code: 'invalid_booking',
         },
-        { status: error.code === '23505' ? 409 : 503 }
+        { status: 400 }
       );
+    if (
+      input.kind === 'workshop' &&
+      (typeof b.quotation_id !== 'string' || !UUID.test(b.quotation_id))
+    )
+      return NextResponse.json(
+        {
+          error: 'Select an accepted quotation for this job.',
+          code: 'invalid_booking',
+        },
+        { status: 400 }
+      );
+    const { defaultResponsibleId } = await jobPeople(ctx);
+    const { data, error } = await supabaseAdmin().rpc(
+      'create_scheduled_group_handoff',
+      {
+        p_account: ctx.accountId,
+        p_deal: ctx.dealId,
+        p_actor: ctx.userId,
+        p_kind: input.kind,
+        p_location: input.location,
+        p_details: input.details,
+        p_responsible: booking.responsible_profile_id ?? defaultResponsibleId,
+        p_start: booking.starts_at,
+        p_end: booking.ends_at,
+        p_quotation: input.kind === 'workshop' ? b.quotation_id : null,
+      }
+    );
+    if (error) return bookingError(error);
     return NextResponse.json(data, { status: 201 });
   } catch (e) {
     return toErrorResponse(e);

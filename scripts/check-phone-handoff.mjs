@@ -26,6 +26,10 @@ try {
     'export const useCan = () => true;'
   );
   await writeFile(
+    join(fixtureRoot, 'link.tsx'),
+    'export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>}'
+  );
+  await writeFile(
     join(fixtureRoot, 'main.tsx'),
     `
     import React from 'react';
@@ -33,9 +37,11 @@ try {
     import {NextIntlClientProvider} from 'next-intl';
     import {Toaster} from 'sonner';
     import {GroupWorkDialog} from ${JSON.stringify(join(project, 'src/components/jobs/group-work.tsx'))};
+    import {CompanyCalendar} from ${JSON.stringify(join(project, 'src/components/jobs/company-calendar.tsx'))};
     import en from ${JSON.stringify(join(project, 'messages/en.json'))};
     import ar from ${JSON.stringify(join(project, 'messages/ar.json'))};
     import ${JSON.stringify(join(project, 'src/app/globals.css'))};
+    import ${JSON.stringify(join(project, 'src/app/workspace.css'))};
     import ${JSON.stringify(join(project, 'src/app/design-system.css'))};
     const params = new URLSearchParams(location.search);
     const locale = params.get('locale') || 'en';
@@ -48,7 +54,7 @@ try {
     if (params.has('dark')) document.documentElement.classList.add('dark');
     createRoot(document.getElementById('root')).render(
       <NextIntlClientProvider locale={locale} messages={locale === 'ar' ? ar : en} timeZone="Asia/Qatar">
-        <div className="crm-workspace"><GroupWorkDialog dealId="synthetic-job" initialView={params.get('view') || 'report'} onClose={() => {}} /></div>
+        <div className="crm-workspace" data-mode={params.has('dark')?'dark':'light'}>{params.has('calendar')?<main className="crm-main h-full overflow-y-auto"><CompanyCalendar/></main>:<GroupWorkDialog dealId="synthetic-job" initialView={params.get('view') || 'report'} onClose={() => {}} />}</div>
         <Toaster />
       </NextIntlClientProvider>
     );
@@ -62,6 +68,7 @@ try {
     resolve: {
       alias: [
         { find: '@/hooks/use-can', replacement: join(fixtureRoot, 'can.ts') },
+        { find: 'next/link', replacement: join(fixtureRoot, 'link.tsx') },
         { find: '@', replacement: join(project, 'src') },
       ],
     },
@@ -84,6 +91,27 @@ try {
   let work = [];
   let writes = [];
   let failWrite = false;
+  let appointments = [],
+    unscheduled = [],
+    failCalendar = false;
+  const people = [
+    {
+      id: '10000000-0000-4000-8000-000000000001',
+      user_id: '20000000-0000-4000-8000-000000000001',
+      full_name: 'Requester',
+    },
+    {
+      id: '10000000-0000-4000-8000-000000000002',
+      user_id: '20000000-0000-4000-8000-000000000002',
+      full_name: 'Sales colleague',
+    },
+  ];
+  const today = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'Asia/Qatar',
+  });
+  const nextDay = new Date(today + 'T12:00:00Z');
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  const tomorrow = nextDay.toISOString().slice(0, 10);
   const record = (status = 'waiting') => ({
     id: 'work-1',
     deal_id: 'synthetic-job',
@@ -101,6 +129,56 @@ try {
   });
   await page.route('**/api/jobs/**', async (route) => {
     const request = route.request();
+    if (new URL(request.url()).pathname === '/api/jobs/appointments') {
+      if (request.method() === 'GET')
+        return route.fulfill({
+          status: failCalendar ? 503 : 200,
+          json: {
+            appointments,
+            unscheduled,
+            people,
+            defaultResponsibleId: people[0].id,
+            hasMore: false,
+          },
+        });
+      writes.push({ method: request.method(), body: request.postData() });
+      const body = request.postDataJSON();
+      const legacy = unscheduled.find((work) => work.id === body.handoffId);
+      appointments = appointments.map((a) =>
+        a.handoff_id === body.handoffId
+          ? {
+              ...a,
+              starts_at: body.starts_at,
+              ends_at: body.ends_at,
+              responsible_profile_id: body.responsible_profile_id,
+              revision: a.revision + 1,
+            }
+          : a
+      );
+      if (legacy) {
+        appointments.push({
+          id: 'legacy-booking',
+          deal_id: legacy.deal_id,
+          handoff_id: legacy.id,
+          kind: legacy.kind === 'measurement' ? 'visit' : 'installation',
+          starts_at: body.starts_at,
+          ends_at: body.ends_at,
+          status: 'reserved',
+          responsible_profile_id: body.responsible_profile_id,
+          responsible_name: 'Requester',
+          revision: 0,
+          work: {
+            reference: legacy.reference,
+            kind: legacy.kind,
+            status: legacy.status,
+            location: legacy.location,
+            deal: legacy.deal,
+          },
+        });
+        unscheduled = unscheduled.filter((work) => work.id !== legacy.id);
+      }
+      return route.fulfill({ json: { id: 'appointment-1' } });
+    }
     if (request.method() === 'GET') {
       return route.fulfill({
         json: {
@@ -110,6 +188,16 @@ try {
           },
           work,
           quotations: [],
+          preparation: {
+            people,
+            defaultResponsibleId: people[0].id,
+            customerLocation: {
+              value:
+                'Customer entrance — https://www.google.com/maps?q=25.2,51.5',
+              messageId: 'pin-1',
+              receivedAt: new Date().toISOString(),
+            },
+          },
         },
       });
     }
@@ -119,7 +207,25 @@ try {
         status: 503,
         json: { error: 'Synthetic save failed' },
       });
-    if (request.method() === 'POST') work = [record('draft')];
+    if (request.method() === 'POST') {
+      const body = request.postDataJSON();
+      work = [
+        {
+          ...record('draft'),
+          responsible: people.find((p) => p.id === body.responsible_profile_id)
+            ?.full_name,
+          responsible_profile_id: body.responsible_profile_id,
+          due_at: body.starts_at,
+          appointment: {
+            id: 'appointment-1',
+            starts_at: body.starts_at,
+            ends_at: body.ends_at,
+            status: 'reserved',
+            revision: 0,
+          },
+        },
+      ];
+    }
     if (request.method() === 'PATCH') work = [record('report_received')];
     return route.fulfill({ json: { ok: true } });
   });
@@ -178,6 +284,17 @@ try {
 
   work = [];
   await open('view=prepare');
+  assert.equal(
+    await page.locator('#work-location').inputValue(),
+    'Customer entrance — https://www.google.com/maps?q=25.2,51.5'
+  );
+  assert.ok(
+    (
+      await page
+        .getByRole('combobox', { name: 'Responsible CRM member' })
+        .innerText()
+    ).includes('Requester')
+  );
   await page
     .getByLabel('Site location / map link', { exact: true })
     .fill('Synthetic site');
@@ -195,18 +312,73 @@ try {
   await page
     .getByLabel('Products, requirements and instructions', { exact: true })
     .fill('Measure the entrance');
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'Prepare message', exact: true })
+      .isDisabled(),
+    true,
+    'Preparing requires an available appointment'
+  );
+  appointments = [
+    {
+      id: 'other-booking',
+      starts_at: `${tomorrow}T06:00:00Z`,
+      ends_at: `${tomorrow}T07:00:00Z`,
+      status: 'reserved',
+    },
+    {
+      id: 'later-booking',
+      starts_at: `${tomorrow}T08:00:00Z`,
+      ends_at: `${tomorrow}T09:00:00Z`,
+      status: 'reserved',
+    },
+  ];
   await page
-    .getByLabel('Requested date (not a confirmed booking)')
-    .fill('2020-01-01T10:00');
+    .getByRole('button', { name: 'Appointment date', exact: true })
+    .click();
+  await page.locator(`[data-date="${tomorrow}"]`).click();
+  await page.getByRole('combobox', { name: 'Start time', exact: true }).click();
+  assert.equal(
+    await page
+      .getByRole('option', { name: '09:00 · Unavailable', exact: true })
+      .getAttribute('aria-disabled'),
+    'true',
+    'Company reservations disable overlapping time choices'
+  );
+  await page.getByRole('option', { name: '10:00', exact: true }).click();
+  await page.getByText('Available · ends', { exact: false }).waitFor();
+  await page.getByLabel('Duration (minutes)', { exact: true }).fill('120');
   await page
-    .getByText('Choose a future requested date', { exact: false })
+    .getByText('This time overlaps another company appointment.', {
+      exact: false,
+    })
     .waitFor();
-  await page.getByLabel('Requested date (not a confirmed booking)').fill('');
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'Prepare message', exact: true })
+      .isDisabled(),
+    true
+  );
+  await page.getByLabel('Duration (minutes)', { exact: true }).fill('60');
+  await page.getByText('Available · ends', { exact: false }).waitFor();
+  await page.getByRole('combobox', { name: 'Responsible CRM member' }).click();
+  await page
+    .getByRole('option', { name: 'Sales colleague', exact: true })
+    .click();
   await page
     .getByRole('button', { name: 'Prepare message', exact: true })
     .click();
   await page.getByText('Prepared — not posted', { exact: true }).waitFor();
   assert.equal(JSON.parse(writes.at(-1).body).kind, 'measurement');
+  assert.equal(
+    JSON.parse(writes.at(-1).body).responsible_profile_id,
+    people[1].id
+  );
+  assert.equal(
+    JSON.parse(writes.at(-1).body).starts_at,
+    `${tomorrow}T07:00:00.000Z`,
+    '10:00 Qatar must reserve 07:00 UTC'
+  );
   const beforeShare = writes.length;
   await page
     .getByRole('button', { name: 'Share message', exact: true })
@@ -266,24 +438,143 @@ try {
     true,
     'Workshop needs an accepted quotation'
   );
+  assert.equal(
+    await page.locator('#work-location').inputValue(),
+    'Synthetic site',
+    'Reloading work must preserve a manually corrected location'
+  );
+
+  // Calendar presents the same reservations and can reschedule/book older work.
+  appointments = [
+    {
+      id: 'calendar-booking',
+      handoff_id: 'work-calendar',
+      deal_id: 'synthetic-job',
+      kind: 'visit',
+      starts_at: `${today}T06:00:00Z`,
+      ends_at: `${today}T07:00:00Z`,
+      responsible_profile_id: people[0].id,
+      responsible_name: 'Requester',
+      status: 'reserved',
+      revision: 0,
+      work: {
+        reference: 42,
+        kind: 'measurement',
+        status: 'waiting',
+        location: 'Customer site',
+        deal: { title: 'Synthetic visit' },
+      },
+    },
+    {
+      id: 'hidden-booking',
+      starts_at: `${today}T08:00:00Z`,
+      ends_at: `${today}T09:00:00Z`,
+      status: 'reserved',
+    },
+  ];
+  unscheduled = [
+    {
+      ...record(),
+      id: 'legacy-work',
+      reference: 43,
+      deal: { title: 'Earlier request' },
+    },
+  ];
+  await page.goto(`${origin}?calendar=1`);
+  await page
+    .getByRole('heading', { name: 'Company calendar', exact: true })
+    .waitFor();
+  await page
+    .getByText('Busy · another company appointment', { exact: true })
+    .waitFor();
+  await page.getByRole('button', { name: 'Reschedule', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Appointment date', exact: true })
+    .click();
+  await page.locator(`[data-date="${tomorrow}"]`).click();
+  await page.getByRole('combobox', { name: 'Start time', exact: true }).click();
+  await page.getByRole('option', { name: '13:00', exact: true }).click();
+  await page.getByRole('button', { name: 'Reserve time', exact: true }).click();
+  await page
+    .locator('[data-slot="dialog-content"]')
+    .waitFor({ state: 'hidden' });
+  assert.equal(JSON.parse(writes.at(-1).body).revision, 0);
+  assert.equal(
+    JSON.parse(writes.at(-1).body).starts_at,
+    `${tomorrow}T10:00:00.000Z`
+  );
+  await page
+    .getByRole('button', { name: 'Reserve a time', exact: true })
+    .click();
+  await page
+    .getByRole('button', { name: 'Appointment date', exact: true })
+    .click();
+  await page.locator(`[data-date="${tomorrow}"]`).click();
+  await page.getByRole('combobox', { name: 'Start time', exact: true }).click();
+  await page.getByRole('option', { name: '14:00', exact: true }).click();
+  await page.getByRole('button', { name: 'Reserve time', exact: true }).click();
+  await page
+    .locator('[data-slot="dialog-content"]')
+    .waitFor({ state: 'hidden' });
+  assert.equal(unscheduled.length, 0);
+  assert.equal(
+    JSON.parse(writes.at(-1).body).responsible_profile_id,
+    people[0].id
+  );
+  failCalendar = true;
+  work = [];
+  await open('view=prepare');
+  await page
+    .getByText('Could not verify availability.', { exact: false })
+    .waitFor();
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'Prepare message', exact: true })
+      .isDisabled(),
+    true
+  );
+  failCalendar = false;
 
   // Bilingual light/dark layouts, including small Android-width screens.
   for (const locale of ['en', 'ar'])
     for (const width of [360, 390, 1280])
       for (const dark of [false, true]) {
-        for (const view of ['prepare', 'overview', 'report']) {
+        for (const view of ['prepare', 'overview', 'report', 'calendar']) {
           work =
             view === 'prepare'
               ? []
               : [record(view === 'overview' ? 'draft' : 'waiting')];
-          await page.setViewportSize({ width, height: 844 });
-          await open(`view=${view}&locale=${locale}${dark ? '&dark' : ''}`);
+          await page.setViewportSize({
+            width,
+            height: width >= 1024 ? 600 : 844,
+          });
+          await open(
+            `${view === 'calendar' ? 'calendar=1' : `view=${view}`}&locale=${locale}${dark ? '&dark' : ''}`
+          );
           assert.ok(
             await page.evaluate(
               () => document.documentElement.scrollWidth <= innerWidth
             ),
             `${locale}/${width}/${dark}/${view}: horizontal overflow`
           );
+          if (view === 'calendar') {
+            await page
+              .getByText(
+                locale === 'ar'
+                  ? 'مشغول · موعد آخر للشركة'
+                  : 'Busy · another company appointment',
+                { exact: true }
+              )
+              .waitFor();
+            if (process.env.PHONE_CHECK_ARTIFACTS && !dark)
+              await page.screenshot({
+                path: join(
+                  process.env.PHONE_CHECK_ARTIFACTS,
+                  `${locale}-calendar-${width}.png`
+                ),
+              });
+            continue;
+          }
           const sheet = page.locator('.crm-job-sheet');
           assert.ok(
             await sheet.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
@@ -307,6 +598,20 @@ try {
             });
           }
           if (view === 'prepare') {
+            const date = page.getByRole('button', {
+              name: locale === 'ar' ? 'تاريخ الموعد' : 'Appointment date',
+              exact: true,
+            });
+            assert.equal(await date.locator('svg').first().isVisible(), true);
+            if (!dark)
+              assert.notEqual(
+                await date
+                  .locator('svg')
+                  .first()
+                  .evaluate((el) => getComputedStyle(el).color),
+                'rgb(255, 255, 255)',
+                'Light-theme calendar icon must remain visible'
+              );
             assert.ok(
               await page
                 .locator('#work-location')
@@ -331,7 +636,7 @@ try {
       }
   assert.deepEqual(errors, []);
   console.log(
-    'Phone handoff checks passed: report routing/save/retry, request preparation, duplicate prevention, share attribution, workshop gate, 36 bilingual layouts.'
+    'Handoff/calendar checks passed: customer location, member default/selection, disabled conflicts and availability failure, booking/rescheduling, reports/share attribution, workshop gate and 48 bilingual layouts including short laptop windows.'
   );
 } finally {
   await browser?.close();

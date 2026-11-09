@@ -305,6 +305,74 @@ export async function checkDeploymentDatabase({
     throw new Error(
       'Database preflight failed for AI review receipts. Apply migration 096 before deploying this revision.'
     );
+  for (const path of [
+    '/rest/v1/group_handoffs?select=responsible_profile_id,appointment:job_appointments(id)&limit=0',
+    '/rest/v1/job_appointments?select=id,handoff_id,deal_id,kind,starts_at,ends_at,status,responsible_profile_id,responsible_name,revision&limit=0',
+  ]) {
+    const response = await fetchImpl(new URL(path, url), {
+      headers,
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok)
+      throw new Error(
+        'Database preflight failed for the company calendar. Apply migration 097 before deploying this revision.'
+      );
+  }
+  const ready = await fetchImpl(
+    new URL('/rest/v1/rpc/job_calendar_ready', url),
+    {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: '{}',
+      signal: AbortSignal.timeout(15000),
+    }
+  );
+  if (!ready.ok || (await ready.json().catch(() => false)) !== true)
+    throw new Error(
+      'Database preflight failed for calendar capacity/permissions. Apply migration 097 before deploying this revision.'
+    );
+  for (const [name, body] of [
+    [
+      'create_scheduled_group_handoff',
+      {
+        p_account: null,
+        p_deal: null,
+        p_actor: null,
+        p_kind: null,
+        p_location: null,
+        p_details: null,
+        p_responsible: null,
+        p_start: null,
+        p_end: null,
+        p_quotation: null,
+      },
+    ],
+    [
+      'save_job_appointment',
+      {
+        p_account: null,
+        p_deal: null,
+        p_handoff: null,
+        p_actor: null,
+        p_responsible: null,
+        p_start: null,
+        p_end: null,
+        p_revision: null,
+      },
+    ],
+  ]) {
+    const response = await fetchImpl(new URL(`/rest/v1/rpc/${name}`, url), {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15000),
+    });
+    const result = await response.json().catch(() => null);
+    if (response.status !== 403 || result?.code !== '42501')
+      throw new Error(
+        'Database preflight failed for calendar booking authorization. Apply migration 097 and refresh the schema cache.'
+      );
+  }
 }
 
 /** Signature/cache checks without a customer/account/user identity. Service-role

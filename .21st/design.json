@@ -3,13 +3,25 @@
   "project": {
     "name": "hightechhub",
     "productType": null,
-    "stack": ["nextjs", "react", "shadcn", "tailwind-v4"]
+    "stack": [
+      "nextjs",
+      "react",
+      "shadcn",
+      "tailwind-v4"
+    ]
   },
   "sources": {
-    "tokens": ["src/app/globals.css"],
-    "components": ["src/components/ui"],
+    "tokens": [
+      "src/app/globals.css"
+    ],
+    "components": [
+      "src/components/ui"
+    ],
     "assets": [],
-    "instructions": ["AGENTS.md", "CLAUDE.md"]
+    "instructions": [
+      "AGENTS.md",
+      "CLAUDE.md"
+    ]
   },
   "design": {
     "colorMode": "light-and-dark",
@@ -408,6 +420,11 @@
       "date": "2026-11-03",
       "decision": "The inbox sales panel shows the assignee of the active conversation as its responsible sales person. The conversation header and queue filters expose approved commercial work states, while generic open/pending/closed remain the lifecycle used by existing operational reports.",
       "source": "User screenshots, ownership requirement and explicit approval of the nine proposed conversation states"
+    },
+    {
+      "date": "2026-11-09",
+      "decision": "Use one shared company calendar with no overlapping visit/installation reservations across staff. Responsible people are selected from current operational CRM members, defaulting to the requester. Prefill explicit customer-shared map locations and keep them editable.",
+      "source": "User request and explicit scheduling choices in this conversation"
     }
   ],
   "evidence": [

@@ -12,6 +12,7 @@ import { useTotalUnread } from '@/hooks/use-total-unread';
 import { useUnreadNotifications } from '@/hooks/use-unread-notifications';
 import {
   Bell,
+  CalendarDays,
   Bot,
   Crown,
   FileText,
@@ -103,6 +104,7 @@ const navItems: NavItem[] = [
   },
   { href: '/contacts', labelKey: 'contacts', icon: Users, group: 'work' },
   { href: '/pipelines', labelKey: 'pipelines', icon: GitBranch, group: 'work' },
+  { href: '/calendar', labelKey: 'calendar', icon: CalendarDays, group: 'work' },
   {
     href: '/quotations',
     labelKey: 'quotations',
