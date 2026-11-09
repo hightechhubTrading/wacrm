@@ -347,6 +347,24 @@ try {
   );
   await page.getByRole('option', { name: '10:00', exact: true }).click();
   await page.getByText('Available · ends', { exact: false }).waitFor();
+  await page
+    .getByRole('button', { name: 'Appointment date', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Clear date', exact: true }).click();
+  await page.getByText('Choose an appointment date', { exact: true }).waitFor();
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'Prepare message', exact: true })
+      .isDisabled(),
+    true
+  );
+  await page
+    .getByRole('button', { name: 'Appointment date', exact: true })
+    .click();
+  await page.locator(`[data-date="${tomorrow}"]`).click();
+  await page.getByRole('combobox', { name: 'Start time', exact: true }).click();
+  await page.getByRole('option', { name: '10:00', exact: true }).click();
+  await page.getByText('Available · ends', { exact: false }).waitFor();
   await page.getByLabel('Duration (minutes)', { exact: true }).fill('120');
   await page
     .getByText('This time overlaps another company appointment.', {

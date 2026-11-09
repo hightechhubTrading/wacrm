@@ -53,10 +53,12 @@ export function AppointmentFields({
   } | null>(null);
   const [reload, setReload] = useState(0);
   const key = `${day}/${reload}`;
+  const validDay = Boolean(dayInstant(day));
   useEffect(() => {
     const controller = new AbortController();
-    const from = dayInstant(day),
-      to = dayInstant(shiftDay(day, 2));
+    const from = dayInstant(day);
+    if (!from) return;
+    const to = dayInstant(shiftDay(day, 2));
     if (!from || !to) return;
     fetch(`/api/jobs/appointments?${new URLSearchParams({ from, to })}`, {
       signal: controller.signal,
@@ -122,7 +124,7 @@ export function AppointmentFields({
   useEffect(() => {
     onChange({ starts_at, ends_at, available });
   }, [starts_at, ends_at, available, onChange]);
-  const times = Array.from({ length: 96 }, (_, index) => {
+  const times = Array.from({ length: validDay ? 96 : 0 }, (_, index) => {
     const value = `${String(Math.floor(index / 4)).padStart(2, '0')}:${String((index % 4) * 15).padStart(2, '0')}`;
     const start = businessDateTimeToIso(`${day}T${value}`)!;
     const end = new Date(
@@ -206,24 +208,26 @@ export function AppointmentFields({
       >
         <Clock3 className="mt-0.5 size-4 shrink-0" aria-hidden />
         <span>
-          {calendar?.key === key && calendar.failed
-            ? t('calendarFailed')
-            : !loaded
-              ? t('checkingCalendar')
-              : !validDuration
-                ? t('invalidDuration')
-                : !time
-                  ? t('chooseTime')
-                  : available
-                    ? t('slotAvailable', {
-                        end: formatBusinessDate(ends_at, locale, {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          day: 'numeric',
-                          month: 'short',
-                        }),
-                      })
-                    : t('slotBusy')}
+          {!validDay
+            ? t('chooseDate')
+            : calendar?.key === key && calendar.failed
+              ? t('calendarFailed')
+              : !loaded
+                ? t('checkingCalendar')
+                : !validDuration
+                  ? t('invalidDuration')
+                  : !time
+                    ? t('chooseTime')
+                    : available
+                      ? t('slotAvailable', {
+                          end: formatBusinessDate(ends_at, locale, {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            day: 'numeric',
+                            month: 'short',
+                          }),
+                        })
+                      : t('slotBusy')}
         </span>
       </div>
       {calendar?.key === key && calendar.failed && (

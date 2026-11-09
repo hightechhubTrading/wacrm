@@ -2742,7 +2742,8 @@
     "memberUnavailable": "This member is no longer available. Reschedule to assign a current member; the time stays reserved.",
     "responsibleLabel": "Responsible person",
     "invalidBooking": "Check the responsible member, future appointment and accepted quotation for this job.",
-    "existingRequest": "An active request already exists. Open Updates to continue it."
+    "existingRequest": "An active request already exists. Open Updates to continue it.",
+    "chooseDate": "Choose an appointment date"
   },
   "Workspace": {
     "quotationPagination": "Quotation pages",
