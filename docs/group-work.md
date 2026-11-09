@@ -2,7 +2,7 @@
 
 ## Company calendar and preparation defaults — 9 November 2026
 
-The user selected **one shared company calendar, with one appointment at a time**, and **CRM members as responsible people, defaulting to the requester**. The local implementation adds `/calendar`, linked from navigation and request preparation. It shows day/week views of measurement visits and installation reservations. Workshop/installation requests reserve an installation time; this does not declare manufacturing ready, customer acceptance or WhatsApp posting.
+The user selected **one shared company calendar, with one appointment at a time**, and **CRM members as responsible people, defaulting to the requester**. The deployed implementation adds `/calendar`, linked from navigation and request preparation. It shows day/week views of measurement visits and installation reservations. Workshop/installation requests reserve an installation time; this does not declare manufacturing ready, customer acceptance or WhatsApp posting.
 
 New requests require a current agent/admin/owner from the account and a free future interval. The requester is selected by profile ID, not a free-text name. Duration defaults to 60 minutes and is editable from 15 minutes to 24 hours. Dates and times use Qatar time. The date control reuses the accessible app calendar with its visible SVG icon; native date/time controls also receive the correct light/dark color scheme.
 
@@ -26,6 +26,8 @@ PLAYWRIGHT_CHANNEL=chrome node scripts/check-phone-handoff.mjs
 ```
 
 The database harness uses disposable PGlite with `btree_gist`; set `PGLITE_MODULE` to an installed `dist/index.js` when it is not available at the default import. It exercises the actual migrations, including competing requests, full-interval overlap, adjacent slots, atomic rollback, member/account/assignment boundaries, frozen quotation snapshots, revisions, legacy requests and slot release. Browser fixtures exercise actual components with intercepted writes, including location prefill/override, member defaults/selection, unavailable durations, calendar failure, rescheduling, legacy booking, icon contrast and 48 English/Arabic phone/laptop layouts. Real customer bookings and device share sheets remain separate from synthetic checks.
+
+Production rollout on 9 November 2026: migration 097 was applied as `20261109100830`; application revision `c4876d3be03ae704247d774f9674785e4e77b18c` passed the standard database, candidate health/PDF and public HTTPS checks. Existing requests were preserved, with no customer test bookings or messages created. Validation included 1,708 passing unit tests, 40 deployment-check tests, the disposable database suite, 48 bilingual browser layouts and 52 production page/theme/language checks at 1280×600. A final browser regression verifies clearing and reselecting an appointment date without enabling an incomplete booking.
 
 ## Phone handoff refinement, 29 October 2026 — local
 
