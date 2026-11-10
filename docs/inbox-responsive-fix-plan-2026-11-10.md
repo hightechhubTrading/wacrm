@@ -1,6 +1,6 @@
 # Inbox responsive-layout fix plan
 
-Status: implemented and verified against a fixture-backed production build; live rollout is pending.
+Status: the main layout release is deployed; cross-browser focus and resize refinements are in final verification.
 
 ## Outcome
 
@@ -130,3 +130,5 @@ The default output directory is `/tmp/wacrm-inbox-responsive`, with geometry JSO
 Focused inbox/composer/i18n tests: 92 passed. Type checks pass. The changed composer passes deterministic UI review with no findings; existing unrelated review warnings and the contact-image lint warning are outside this change.
 
 Actual Windows display scaling, physical mobile keyboards and a side-by-side staff-device comparison still require device confirmation. The viewport tests cover the resulting constrained layout sizes; they do not claim to reproduce OS scaling or physical keyboards.
+
+Cross-browser refinement: sheets explicitly remember the control that opened them; preparing a reply gives final focus to the composer. Native media-query changes drive height thresholds, with visual viewport measurements reserved for an active touch keyboard. The regression waits for React to apply each resize before measuring. WebKit reports some deliberately canceled cross-origin fixture requests as native fetch errors during document teardown; the harness records these separately and still fails on application errors and uncanceled steady-state failures.

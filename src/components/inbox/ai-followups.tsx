@@ -50,7 +50,7 @@ export function AiFollowups({
   conversationId: string;
   standalone?: boolean;
   preview?: boolean;
-  onOpen?: () => void;
+  onOpen?: (trigger?: HTMLElement) => void;
 }) {
   const t = useTranslations('Inbox.followups');
   const locale = useLocale();
@@ -251,7 +251,11 @@ export function AiFollowups({
         >
           {data.available ? nextLabel : t('unavailable')}
         </span>
-        <Button size="sm" variant="outline" onClick={onOpen}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={(event) => onOpen?.(event.currentTarget)}
+        >
           {data.available && !active.length && canSendMessages
             ? t('newTask')
             : t('manage')}

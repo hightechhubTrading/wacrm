@@ -116,13 +116,20 @@ try {
     ['agent', 'ar', 'emerald', 'dark'],
     ['viewer', 'en', 'violet', 'light'],
   ]) {
+    if (
+      process.env.INBOX_TEST_SINGLE_SCENARIO === '1' &&
+      (role !== 'admin' || locale !== 'en')
+    )
+      continue;
     Object.assign(backend.tables.profiles[0], {
       account_role: role,
       locale,
       theme,
       mode,
     });
-    const context = await browser.newContext();
+    const context = await browser.newContext({
+      viewport: { width: 1536, height: 730 },
+    });
     await context.addCookies([
       { name: 'wacrm.locale', value: locale, url: origin },
       {
@@ -135,12 +142,56 @@ try {
     ]);
     const page = await context.newPage();
     const runtimeErrors = [];
-    page.on('pageerror', (e) => runtimeErrors.push(e.message));
+    const canceledRequests = new Set();
+    page.on('requestfailed', (request) => {
+      const failure = request.failure()?.errorText || '';
+      if (/cancel|abort/i.test(failure))
+        canceledRequests.add(request.url().replace(/^https?:\/\//, ''));
+      else console.log('Failed fixture request:', failure, request.url());
+    });
+    let navigating = false;
+    const navigationCancellations = [];
+    page.on('pageerror', (error) => {
+      // WebKit reports canceled cross-origin fixture fetches as native errors
+      // while destroying a document. Keep steady-state failures in the assertion.
+      if (
+        navigating &&
+        process.env.INBOX_TEST_BROWSER === 'webkit' &&
+        error.stack?.startsWith('Fetch API cannot load ' + backend.origin) &&
+        error.stack?.includes('due to access control checks.')
+      ) {
+        navigationCancellations.push(error.message);
+        return;
+      }
+      runtimeErrors.push({
+        message: error.message,
+        nativeFetch:
+          !error.stack || error.stack.startsWith('Fetch API cannot load '),
+      });
+      console.log('Browser runtime error:', error.stack);
+    });
+    const reloadPage = async () => {
+      await page.waitForLoadState('networkidle');
+      navigating = true;
+      try {
+        await page.reload({ waitUntil: 'domcontentloaded' });
+      } finally {
+        navigating = false;
+      }
+      await page.waitForLoadState('networkidle');
+    };
     for (const [width, height, minimum] of sizes) {
       await page.setViewportSize({ width, height });
-      await page.goto(
-        origin + '/inbox?c=' + backend.tables.conversations[0].id
-      );
+      const conversationUrl =
+        origin + '/inbox?c=' + backend.tables.conversations[0].id;
+      if (page.url() !== conversationUrl) {
+        navigating = true;
+        try {
+          await page.goto(conversationUrl, { waitUntil: 'domcontentloaded' });
+        } finally {
+          navigating = false;
+        }
+      }
       await page
         .locator(
           role === 'viewer'
@@ -152,7 +203,15 @@ try {
           state: height <= 560 ? 'attached' : 'visible',
         });
       await page.locator('.crm-message-column').waitFor();
-      await page.waitForTimeout(200);
+      await page.waitForLoadState('networkidle');
+      await page.waitForFunction(() => {
+        const thread = document.querySelector('.crm-thread');
+        if (!thread) return false;
+        const expected =
+          thread.getBoundingClientRect().width < 1000 ||
+          !matchMedia('(min-height: 820px)').matches;
+        return thread.hasAttribute('data-compact') === expected;
+      });
       const geometry = await page.evaluate(() => {
         const bounds = (selector) => {
           const el = document.querySelector(selector);
@@ -168,6 +227,12 @@ try {
           };
         };
         return {
+          availableHeight: innerHeight,
+          visualViewportHeight: visualViewport?.height,
+          threadWidth: document
+            .querySelector('.crm-thread')
+            .getBoundingClientRect().width,
+          roomyHeight: matchMedia('(min-height: 820px)').matches,
           messages: bounds('.crm-message-scroll'),
           composer: bounds('.crm-composer'),
           header: bounds('.crm-thread-header'),
@@ -183,6 +248,11 @@ try {
       console.log(label, Math.round(geometry.messages.height) + 'px messages');
       results.push({ label, ...geometry });
       assert(!geometry.overflow, label + ': horizontal page overflow');
+      assert.equal(
+        geometry.compact,
+        geometry.threadWidth < 1000 || !geometry.roomyHeight,
+        label + ': layout mode does not match available space'
+      );
       assert(
         geometry.messages.height >= minimum,
         `${label}: messages ${geometry.messages.height}px < ${minimum}px`
@@ -227,9 +297,8 @@ try {
         );
         await page.keyboard.press('Escape');
         await dialog.waitFor({ state: 'hidden' });
-        assert(
-          await launcher.evaluate((el) => el === document.activeElement),
-          'Focus did not return to the AI launcher'
+        await page.waitForFunction(() =>
+          document.activeElement?.classList.contains('crm-ai-note-launcher')
         );
         if (role !== 'viewer') {
           const input = page.locator('.crm-compose-row textarea');
@@ -283,7 +352,7 @@ try {
                 ]
               : [],
         };
-        await page.reload();
+        await reloadPage();
         if (scenario === 'failed') {
           await page
             .locator('.crm-followup-load-preview[role=alert]')
@@ -311,7 +380,7 @@ try {
         }
       }
       await page.unroute('**/api/ai/followups/*');
-      await page.reload();
+      await reloadPage();
       await page.locator('.crm-followup-overview').waitFor();
       const input = page.locator('.crm-compose-row textarea');
       await input.fill('A multiline draft\n'.repeat(12));
@@ -370,7 +439,7 @@ try {
         })
       );
       await page.setViewportSize({ width: 1536, height: 730 });
-      await page.reload();
+      await reloadPage();
       await page.locator('.crm-ai-note-launcher').click();
       await page
         .getByRole('dialog')
@@ -444,14 +513,11 @@ try {
               body: JSON.stringify({ Key: 'chat-media/fixture.png' }),
             })
       );
-      await page
-        .locator('input[type=file]')
-        .first()
-        .setInputFiles({
-          name: 'fixture.png',
-          mimeType: 'image/png',
-          buffer: pixel,
-        });
+      await page.locator('input[type=file]').first().setInputFiles({
+        name: 'fixture.png',
+        mimeType: 'image/png',
+        buffer: pixel,
+      });
       await page.locator('.crm-composer img[alt="fixture.png"]').waitFor();
       await page
         .getByRole('button', {
@@ -473,7 +539,7 @@ try {
       backend.tables.messages.forEach((m) => {
         m.created_at = new Date(Date.now() - 48 * 3600000).toISOString();
       });
-      await page.reload();
+      await reloadPage();
       await page.locator('.crm-session-notice').waitFor();
       assert(
         await input.isDisabled(),
@@ -491,15 +557,34 @@ try {
         'PASS follow-up states, bounded draft, contact drawer, prepared-reply focus and expired-session template access'
       );
     }
+    const steadyErrors = runtimeErrors
+      .filter(
+        (error) =>
+          !(
+            error.nativeFetch &&
+            [...canceledRequests].some((url) => error.message.includes(url))
+          )
+      )
+      .map((error) => error.message);
     assert.deepEqual(
-      runtimeErrors,
+      steadyErrors,
       [],
       `${role}/${locale}: browser runtime errors`
     );
+    if (navigationCancellations.length)
+      console.log(
+        `WebKit document teardown: ${navigationCancellations.length} native fixture-fetch cancellations`
+      );
     await context.close();
   }
-  const owner = results.filter((r) => r.label.startsWith('owner/en'));
-  const admin = results.filter((r) => r.label.startsWith('admin/en'));
+  const primary = (r) =>
+    sizes.slice(0, 6).some(([w, h]) => r.label.endsWith(`/${w}x${h}`));
+  const owner = results.filter(
+    (r) => r.label.startsWith('owner/en') && primary(r)
+  );
+  const admin = results.filter(
+    (r) => r.label.startsWith('admin/en') && primary(r)
+  );
   owner.forEach((r, i) =>
     assert.deepEqual(
       r.messages,

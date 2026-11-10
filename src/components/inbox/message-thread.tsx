@@ -214,6 +214,15 @@ export function MessageThread({
   >(null);
   const { ref: threadRef, compact } = useInboxLayout();
   const returnToComposer = useRef(false);
+  const toolsTrigger = useRef<HTMLElement | null>(null);
+  const contactTrigger = useRef<HTMLButtonElement | null>(null);
+  const openTools = useCallback(
+    (view: 'assistant' | 'followups' | 'sales', trigger?: HTMLElement) => {
+      toolsTrigger.current = trigger ?? null;
+      setToolsView(view);
+    },
+    []
+  );
   const [aiOverride, setAiOverride] = useState<{
     id: string;
     paused: boolean;
@@ -265,7 +274,12 @@ export function MessageThread({
       if ((event as CustomEvent).detail?.conversationId === conversation?.id)
         setToolsView('followups');
     };
-    const focusComposer = () => setToolsView(null);
+    const focusComposer = () => {
+      toolsTrigger.current = document.querySelector<HTMLTextAreaElement>(
+        '[data-conversation-composer] textarea'
+      );
+      setToolsView(null);
+    };
     window.addEventListener('open-sales-followups', open);
     window.addEventListener('focus-sales-composer', focusComposer);
     return () => {
@@ -1140,10 +1154,15 @@ export function MessageThread({
       paused={aiPaused}
       priorityReason={priorityReason}
       refreshToken={resyncToken}
-      onOpenTools={() => setToolsView('assistant')}
+      onOpenTools={(trigger) => openTools('assistant', trigger)}
       sessionExpired={sessionInfo.expired}
       onPrepareReply={() => {
-        returnToComposer.current = true;
+        returnToComposer.current = !sessionInfo.expired;
+        toolsTrigger.current = sessionInfo.expired
+          ? null
+          : document.querySelector<HTMLTextAreaElement>(
+              '[data-conversation-composer] textarea'
+            );
         setToolsView(null);
         if (sessionInfo.expired) handleOpenTemplates();
         else
@@ -1262,6 +1281,7 @@ export function MessageThread({
             type="button"
             className="text-muted-foreground hover:bg-muted inline-flex h-9 w-9 items-center justify-center rounded-md min-[1400px]:hidden"
             aria-label={t('showContactPanel')}
+            ref={contactTrigger}
             onClick={() => setMobileJobOpen(true)}
           >
             <PanelRightOpen className="h-4 w-4" />
@@ -1372,7 +1392,15 @@ export function MessageThread({
         onTakeOver={() => handleAssignChange(user?.id ?? null)}
       />
       <Sheet open={mobileJobOpen} onOpenChange={setMobileJobOpen}>
-        <SheetContent className="overflow-y-auto">
+        <SheetContent
+          side={locale === 'ar' ? 'left' : 'right'}
+          finalFocus={() =>
+            contactTrigger.current?.getClientRects().length
+              ? contactTrigger.current
+              : undefined
+          }
+          className="overflow-y-auto"
+        >
           <SheetHeader>
             <SheetTitle>{t('showContactPanel')}</SheetTitle>
           </SheetHeader>
@@ -1401,7 +1429,7 @@ export function MessageThread({
         key={`overview-${conversation.id}`}
         conversationId={conversation.id}
         preview
-        onOpen={() => setToolsView('followups')}
+        onOpen={(trigger) => openTools('followups', trigger)}
       />
       {/* Messages Area */}
 
@@ -1412,7 +1440,7 @@ export function MessageThread({
             className="crm-ai-note-launcher"
             aria-haspopup="dialog"
             aria-expanded={toolsView === 'assistant'}
-            onClick={() => setToolsView('assistant')}
+            onClick={(event) => openTools('assistant', event.currentTarget)}
           >
             <Sparkles size={16} aria-hidden />
             <strong>{t('assistantTools')}</strong>
@@ -1579,7 +1607,7 @@ export function MessageThread({
         <button
           type="button"
           className="crm-assistant-shortcut"
-          onClick={() => setToolsView('assistant')}
+          onClick={(event) => openTools('assistant', event.currentTarget)}
         >
           <Sparkles size={16} aria-hidden />
           {t('assistantTools')}
@@ -1587,17 +1615,23 @@ export function MessageThread({
         <AiThreadBanner
           compact
           hideSummary
-          onOpenControls={() => setToolsView('assistant')}
+          onOpenControls={(trigger) => openTools('assistant', trigger)}
           conversationId={conversation.id}
           disabled={aiPaused}
           assignedAgentId={assignedAgentId}
         />
         <div className="crm-reply-shortcuts">
-          <button type="button" onClick={() => setToolsView('followups')}>
+          <button
+            type="button"
+            onClick={(event) => openTools('followups', event.currentTarget)}
+          >
             <CalendarClock size={16} aria-hidden />
             {t('followupTools')}
           </button>
-          <button type="button" onClick={() => setToolsView('sales')}>
+          <button
+            type="button"
+            onClick={(event) => openTools('sales', event.currentTarget)}
+          >
             <BriefcaseBusiness size={16} aria-hidden />
             {t('salesTools')}
           </button>
@@ -1615,6 +1649,12 @@ export function MessageThread({
       >
         <SheetContent
           side={locale === 'ar' ? 'left' : 'right'}
+          finalFocus={() => {
+            return toolsTrigger.current?.isConnected &&
+              toolsTrigger.current.getClientRects().length
+              ? toolsTrigger.current
+              : undefined;
+          }}
           className="crm-conversation-tools"
         >
           <SheetHeader>
@@ -1693,7 +1733,13 @@ export function MessageThread({
                 onReply={() => {
                   setToolsView(null);
                   if (sessionInfo.expired) handleOpenTemplates();
-                  else returnToComposer.current = true;
+                  else {
+                    returnToComposer.current = true;
+                    toolsTrigger.current =
+                      document.querySelector<HTMLTextAreaElement>(
+                        '[data-conversation-composer] textarea'
+                      );
+                  }
                 }}
                 onOpenJob={() => {
                   setToolsView(null);

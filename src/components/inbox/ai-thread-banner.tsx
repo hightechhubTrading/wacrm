@@ -81,7 +81,7 @@ interface AiThreadBannerProps {
   hideSummary?: boolean;
   compact?: boolean;
   alwaysShow?: boolean;
-  onOpenControls?: () => void;
+  onOpenControls?: (trigger?: HTMLElement) => void;
 }
 
 /**
@@ -182,7 +182,11 @@ export function AiThreadBanner({
               : 'activeText';
   if (compact)
     return (
-      <button type="button" className="crm-ai-status" onClick={onOpenControls}>
+      <button
+        type="button"
+        className="crm-ai-status"
+        onClick={(event) => onOpenControls?.(event.currentTarget)}
+      >
         <Sparkles size={16} aria-hidden />
         <span>{t(status)}</span>
         <ChevronDown size={14} aria-hidden />
@@ -381,7 +385,7 @@ export function AiConversationNote({
   paused: boolean;
   priorityReason?: string | null;
   refreshToken?: number;
-  onOpenTools: () => void;
+  onOpenTools: (trigger?: HTMLElement) => void;
   onPrepareReply?: () => void;
   sessionExpired?: boolean;
 }) {
@@ -429,7 +433,11 @@ export function AiConversationNote({
           <ChevronDown size={14} aria-hidden />
         </button>
       )}
-      <button type="button" className="crm-ai-note-tools" onClick={onOpenTools}>
+      <button
+        type="button"
+        className="crm-ai-note-tools"
+        onClick={(event) => onOpenTools(event.currentTarget)}
+      >
         <SlidersHorizontal size={14} aria-hidden />
         {t('openTools')}
       </button>
