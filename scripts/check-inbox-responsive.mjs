@@ -171,14 +171,12 @@ try {
       console.log('Browser runtime error:', error.stack);
     });
     const reloadPage = async () => {
-      await page.waitForLoadState('networkidle');
       navigating = true;
       try {
         await page.reload({ waitUntil: 'domcontentloaded' });
       } finally {
         navigating = false;
       }
-      await page.waitForLoadState('networkidle');
     };
     for (const [width, height, minimum] of sizes) {
       await page.setViewportSize({ width, height });
@@ -203,7 +201,7 @@ try {
           state: height <= 560 ? 'attached' : 'visible',
         });
       await page.locator('.crm-message-column').waitFor();
-      await page.waitForLoadState('networkidle');
+      await page.evaluate(() => document.fonts.ready.then(() => undefined));
       await page.waitForFunction(() => {
         const thread = document.querySelector('.crm-thread');
         if (!thread) return false;

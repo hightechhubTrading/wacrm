@@ -1,6 +1,6 @@
 # Inbox responsive-layout fix plan
 
-Status: the main layout release is deployed; cross-browser focus and resize refinements are in final verification.
+Status: implemented and deployed; automated production verification passed in Chrome and WebKit. Staff-device confirmation remains a manual follow-up.
 
 ## Outcome
 
@@ -132,3 +132,11 @@ Focused inbox/composer/i18n tests: 92 passed. Type checks pass. The changed comp
 Actual Windows display scaling, physical mobile keyboards and a side-by-side staff-device comparison still require device confirmation. The viewport tests cover the resulting constrained layout sizes; they do not claim to reproduce OS scaling or physical keyboards.
 
 Cross-browser refinement: sheets explicitly remember the control that opened them; preparing a reply gives final focus to the composer. Native media-query changes drive height thresholds, with visual viewport measurements reserved for an active touch keyboard. The regression waits for React to apply each resize before measuring. WebKit reports some deliberately canceled cross-origin fixture requests as native fetch errors during document teardown; the harness records these separately and still fails on application errors and uncanceled steady-state failures.
+
+## Release verification
+
+Application revision `8c219d1bf8ca19e245253447470699144423211e` is deployed at `https://wacrm.srv1795091.hstgr.cloud`. The updater completed its production build, database preflight, candidate checks, promotion and public-route checks. The running revision was verified. The previous image remains available as `wacrm:rollback`.
+
+The final fixture-backed production build passed 90 cases in Chrome and 90 in WebKit, with matching representative owner/admin geometry, including all planned desktop height targets. The refined focus handling passed both the AI-sheet return and prepared-reply composer checks. All recorded non-canceled steady-state application errors fail the browser regression. The fixture tests wait for the relevant UI and resize state rather than generic network-idle, since permission-denied viewers can keep background polling active.
+
+No staff password, theme, role, company data or live WhatsApp message was changed by this layout release. Ask staff to refresh the inbox and compare the same conversation on their actual Windows display. This confirms device scaling that the automated viewport matrix cannot establish.
