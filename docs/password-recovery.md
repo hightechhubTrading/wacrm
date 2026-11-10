@@ -11,6 +11,10 @@ email templates. It only redirects to explicit app destinations and marks its
 response `no-store` and `no-referrer`. Recovery tokens are never logged by the
 handler. Expired, consumed or incomplete links show retry instructions.
 
+`next.config.ts` repeats the recovery cache/referrer policy after the global
+header rules. Production applies those rules over route-handler headers, so
+relying only on the handler would leave reset responses publicly cacheable.
+
 For the standard PKCE email flow, request and open the link in the same browser.
 Opening it in another browser or device loses the verifier cookie. Request a new
 link if an earlier attempt consumed the old one. Signed-in users can also visit

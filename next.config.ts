@@ -169,6 +169,18 @@ const nextConfig: NextConfig = {
         source: '/:path*',
         headers: [...SECURITY_HEADERS],
       },
+      // These must follow the catch-all rules: production applies config
+      // headers over the handler's response headers. Recovery responses
+      // contain one-time credentials or depend on the user's auth session.
+      ...['/auth/:path*', '/reset-password', '/forgot-password'].map(
+        (source) => ({
+          source,
+          headers: [
+            { key: 'Cache-Control', value: 'private, no-store' },
+            { key: 'Referrer-Policy', value: 'no-referrer' },
+          ],
+        })
+      ),
     ];
   },
 };
