@@ -109,22 +109,22 @@
 }
 .crm-inbox .crm-thread-header {
   flex-shrink: 0;
-  padding: 23px 28px;
-  min-height: 92px;
+  padding: 10px 16px;
+  min-height: 64px;
   background: var(--card);
   border-bottom: 1px solid var(--border);
   gap: 12px;
   flex-wrap: wrap;
 }
 .crm-thread-header h2 {
-  font-size: 19px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.025em;
 }
 .crm-inbox .crm-thread-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
   font-size: 17px;
   background: var(--primary-soft);
   color: var(--primary);
@@ -137,6 +137,13 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+.crm-inbox .crm-thread-header > div:first-child {
+  flex: 1 1 220px;
+  max-width: 100%;
+}
+.crm-inbox .crm-thread-header > div:first-child > .min-w-0 {
+  flex: 1;
 }
 .crm-inbox .crm-thread-header > div:last-child {
   margin-inline-start: auto;
@@ -262,52 +269,52 @@
 }
 .crm-inbox .crm-composer {
   width: calc(100% - 56px);
-  margin: 0 auto 22px;
-  padding: 10px 13px 8px;
+  margin: 0 auto 12px;
+  padding: 8px 12px;
   flex-shrink: 0;
   background: var(--background);
   border: 1px solid var(--border);
   border-radius: 14px;
   box-shadow: none;
+  max-width: 1040px;
+  container: inbox-composer / inline-size;
 }
 .crm-inbox .crm-composer:focus-within {
   border-color: var(--ring);
 }
 .crm-inbox .crm-compose-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  flex-wrap: nowrap;
+  gap: 5px;
   align-items: center;
 }
+.crm-compose-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
 .crm-inbox .crm-compose-row textarea {
-  flex: 1 1 calc(100% - 48px);
+  flex: 1;
   min-width: 0;
-  order: -2;
-  margin-bottom: 5px;
-  padding: 9px 4px;
+  margin-bottom: 0;
+  padding: 6px 4px;
   background: transparent;
   border: 0;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 15px;
+  min-height: 38px;
 }
 .crm-inbox .crm-compose-row > :last-child {
-  order: -1;
-  margin-bottom: 5px;
+  margin-bottom: 0;
+  align-self: flex-start;
 }
 .crm-inbox .crm-compose-row > :last-child,
 .crm-inbox .crm-compose-row > :last-child button {
   width: 38px;
   height: 38px;
   border-radius: 11px;
-}
-.crm-inbox .crm-composer > p {
-  padding-inline-start: 0;
-  font-size: 10px;
-  text-align: end;
-  margin: -23px 0 0;
-  margin-inline-start: 230px;
-  pointer-events: none;
-  min-height: 23px;
 }
 .crm-inbox .crm-session-notice {
   padding: 0 0 10px;
@@ -514,7 +521,7 @@
     width: 260px;
   }
   .crm-inbox .crm-thread-header {
-    padding: 18px;
+    padding: 10px 16px;
   }
   .crm-message-scroll {
     padding-inline: 20px;
@@ -526,8 +533,8 @@
     border: 0;
   }
   .crm-inbox .crm-thread-header {
-    padding: 16px;
-    min-height: 82px;
+    padding: 8px 12px;
+    min-height: 64px;
   }
   .crm-inbox .crm-thread-header > div:first-child {
     width: 100%;
@@ -1750,24 +1757,9 @@ html[data-mode='light']
 .crm-followups-standalone .crm-followup-create > label {
   min-width: 180px;
 }
-.crm-inbox .crm-composer {
-  max-width: 1040px;
-  padding: 14px 16px 12px;
-  border-radius: 18px;
-}
-.crm-inbox .crm-compose-row {
-  gap: 5px;
-}
-.crm-inbox .crm-compose-row textarea {
-  min-height: 52px;
-  padding: 8px 4px;
-  font-size: 15px;
-}
-.crm-inbox .crm-compose-row > :last-child {
-  align-self: flex-start;
-}
+
 .crm-inbox .crm-composer > .crm-draft-hint {
-  margin: 8px 0 0;
+  margin: 4px 0 0;
   min-height: 0;
   font-size: 11px;
   text-align: start;
@@ -2090,64 +2082,40 @@ html[data-mode='light']
 }
 .crm-followup-overview {
   flex-shrink: 0;
-  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 5px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--card);
   font-size: 12px;
-  max-height: min(260px, 35dvh);
-  overflow-y: auto;
+  min-width: 0;
 }
-.crm-followup-overview-heading {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.crm-followup-overview-heading > svg {
+.crm-followup-overview > svg {
+  flex-shrink: 0;
   color: var(--primary);
 }
-.crm-followup-overview-heading > button {
+.crm-followup-preview-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted-foreground);
+}
+.crm-followup-overview > button {
+  flex-shrink: 0;
   margin-inline-start: auto;
 }
-.crm-followup-overview-context {
-  color: var(--muted-foreground);
-  margin-top: 6px;
-}
-.crm-followup-overview-tasks {
-  margin-top: 8px;
-}
-.crm-followup-overview-tasks li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-block: 7px;
-  border-top: 1px solid var(--border);
-}
-.crm-followup-overview-tasks small {
-  display: block;
-  margin-top: 3px;
-  color: var(--muted-foreground);
-}
-.crm-followup-overview-tasks [data-overdue] {
-  color: var(--warning);
-}
-.crm-followup-overview-add {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--primary);
-  padding-block: 5px;
-  margin-top: 4px;
+.crm-followup-overview [data-overdue] {
+  color: var(--ui-warning);
 }
 @media (max-width: 639px) {
   .crm-followup-overview {
-    padding: 8px 12px;
+    padding-inline: 12px;
   }
-  .crm-followup-overview-tasks li:nth-child(n + 2) {
-    display: none;
-  }
-  .crm-followup-overview-heading .crm-followup-status {
+  .crm-followup-preview-text {
     display: none;
   }
 }
@@ -2156,10 +2124,12 @@ html[data-mode='light']
   flex-shrink: 0;
   justify-content: flex-start;
   gap: 8px;
-  padding: 12px 20px;
+  padding: 5px 16px;
   font-size: 12px;
   border-bottom: 1px solid var(--border);
   background: var(--card);
+  align-items: center;
+  min-height: 44px;
 }
 .crm-queue-action-views {
   display: grid;
@@ -2193,35 +2163,150 @@ html[data-mode='light']
 }
 
 .crm-transcript {
-  position: relative;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  grid-template-rows: minmax(0, 1fr);
   flex: 1;
   min-height: 0;
   min-width: 0;
-  container: transcript / inline-size;
+}
+.crm-transcript > .crm-message-scroll {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
 }
 .crm-transcript > .crm-ai-note {
-  margin: 12px 16px 0;
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
   width: auto;
   max-width: none;
-  max-height: min(200px, 35%);
+  margin: 12px 12px 12px 0;
+  max-height: calc(100% - 24px);
 }
-@container transcript (min-width: 1000px) {
-  .crm-transcript > .crm-ai-note {
-    position: absolute;
-    inset-inline-end: 20px;
-    inset-block-end: 20px;
-    margin: 0;
-    width: 220px;
-    max-height: calc(100% - 40px);
-    z-index: 1;
+[dir='rtl'] .crm-transcript > .crm-ai-note {
+  margin: 12px 0 12px 12px;
+}
+.crm-transcript[data-compact] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.crm-transcript[data-compact] > .crm-message-scroll {
+  grid-row: 2;
+}
+.crm-ai-note-launcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 6px 16px;
+  text-align: start;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground);
+  background: var(--primary-soft);
+}
+.crm-ai-note-launcher > svg {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.crm-ai-note-launcher > strong {
+  flex-shrink: 0;
+}
+.crm-ai-note-launcher > span {
+  min-width: 0;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.crm-ai-note-launcher:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+.crm-conversation-tools .crm-ai-note {
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  overflow: visible;
+  margin: 0 0 16px;
+}
+.crm-conversation-tools .crm-ai-note .crm-ai-note-text,
+.crm-conversation-tools .crm-sales-assistance-summary {
+  display: block;
+  -webkit-line-clamp: unset;
+  max-height: none;
+}
+.crm-conversation-tools .crm-sales-assistance-facts {
+  max-height: none;
+  overflow: visible;
+}
+.crm-conversation-tools .crm-ai-note-expand,
+.crm-conversation-tools .crm-ai-note-tools {
+  display: none;
+}
+
+.crm-followup-load-preview > svg {
+  width: 18px;
+  height: 18px;
+}
+.crm-thread[data-compact] .crm-draft-hint {
+  display: none;
+}
+.crm-thread[data-compact] .crm-message-scroll {
+  padding-block: 16px;
+}
+@container inbox-composer (max-width: 560px) {
+  .crm-template-action > span,
+  .crm-draft-action > span {
+    display: none;
   }
-  .crm-transcript:has(> .crm-ai-note) > .crm-message-scroll {
-    padding-inline-end: 260px;
+}
+
+.crm-reply-toolbar .crm-assistant-shortcut {
+  display: none;
+}
+/* With a short viewport/keyboard, secondary details remain in the tools sheet. */
+@media (max-height: 560px) {
+  .crm-thread[data-compact] .crm-followup-overview,
+  .crm-thread[data-compact] .crm-followup-load-preview,
+  .crm-thread[data-compact] .crm-ai-note-launcher,
+  .crm-thread[data-compact] .crm-reply-toolbar .crm-ai-status {
+    display: none;
   }
-  .crm-transcript > .crm-ai-note .crm-ai-note-text {
-    -webkit-line-clamp: 6;
+  .crm-thread[data-compact] .crm-assistant-shortcut {
+    display: inline-flex;
+  }
+  .crm-transcript[data-compact] {
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .crm-transcript[data-compact] > .crm-message-scroll {
+    grid-row: 1;
+  }
+  .crm-inbox .crm-thread-header {
+    padding: 6px 8px;
+    gap: 4px;
+    min-height: 48px;
+  }
+  .crm-inbox .crm-thread-header > div:first-child {
+    width: auto;
+    flex: 1 1 100px;
+  }
+  .crm-inbox .crm-thread-header > div:last-child {
+    gap: 2px;
+    padding: 0;
+  }
+  .crm-thread-header .crm-contact-phone,
+  .crm-thread-header [data-slot='badge'] {
+    display: none;
+  }
+  .crm-inbox .crm-thread-avatar {
+    width: 28px;
+    height: 28px;
+  }
+  .crm-inbox .crm-thread-header h2 {
+    font-size: 14px;
   }
 }
 

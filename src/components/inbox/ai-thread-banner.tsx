@@ -314,29 +314,19 @@ function BannerButton({
 }
 
 /** Stored AI context stays visible independently of the auto-reply master switch. */
-export function AiConversationNote({
+export function useConversationSummary({
   conversationId,
   contextSummary,
   handoffSummary,
   paused,
-  priorityReason,
   refreshToken,
-  onOpenTools,
-  onPrepareReply,
-  sessionExpired,
 }: {
-  conversationId: string;
+  conversationId?: string;
   contextSummary?: string | null;
   handoffSummary?: string | null;
   paused: boolean;
-  priorityReason?: string | null;
   refreshToken?: number;
-  onOpenTools: () => void;
-  onPrepareReply?: () => void;
-  sessionExpired?: boolean;
 }) {
-  const t = useTranslations('Inbox.aiBanner');
-  const [expanded, setExpanded] = useState(false);
   const [stored, setStored] = useState<{
     conversationId: string;
     text: string;
@@ -346,7 +336,7 @@ export function AiConversationNote({
     contextSummary?.trim() ||
     handoffSummary?.trim();
   useEffect(() => {
-    if (direct) return;
+    if (direct || !conversationId) return;
     const controller = new AbortController();
     void (async () => {
       const { data } = await createClient()
@@ -370,8 +360,33 @@ export function AiConversationNote({
     });
     return () => controller.abort();
   }, [conversationId, direct, refreshToken]);
-  const summary =
-    direct || (stored?.conversationId === conversationId ? stored.text : '');
+  return (
+    direct ||
+    (stored && stored.conversationId === conversationId ? stored.text : '')
+  );
+}
+
+export function AiConversationNote({
+  conversationId,
+  summary,
+  paused,
+  priorityReason,
+  refreshToken,
+  onOpenTools,
+  onPrepareReply,
+  sessionExpired,
+}: {
+  conversationId: string;
+  summary?: string | null;
+  paused: boolean;
+  priorityReason?: string | null;
+  refreshToken?: number;
+  onOpenTools: () => void;
+  onPrepareReply?: () => void;
+  sessionExpired?: boolean;
+}) {
+  const t = useTranslations('Inbox.aiBanner');
+  const [expanded, setExpanded] = useState(false);
   const text = summary || priorityReason;
   return (
     <aside className="crm-ai-note" aria-label={t('noteTitle')}>
@@ -387,7 +402,9 @@ export function AiConversationNote({
       </header>
       {paused && <span className="crm-ai-note-state">{t('pausedTitle')}</span>}
       {!summary && priorityReason && (
-        <span className="crm-ai-note-state crm-ai-note-priority-state">{t('priorityContext')}</span>
+        <span className="crm-ai-note-state crm-ai-note-priority-state">
+          {t('priorityContext')}
+        </span>
       )}
       <SalesAssistanceBrief
         conversationId={conversationId}

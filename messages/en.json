@@ -407,6 +407,7 @@
       }
     },
     "messageThread": {
+      "openAssistantNote": "Open the conversation note and reply guidance",
       "dateUnknown": "Date unavailable",
       "assignmentFailed": "Assignment changed or could not be saved. Refresh the conversation and try again.",
       "customer": "Customer",
@@ -695,6 +696,8 @@
       "unavailableStatus": "Assistant status unavailable"
     },
     "followups": {
+      "emptyCompact": "No active follow-ups",
+      "unavailableCompact": "Follow-ups unavailable",
       "title": "Follow-up work ({count})",
       "paused": "AI is paused. The team owns the next response.",
       "humanOwned": "A team member owns this chat. AI normally waits for them.",

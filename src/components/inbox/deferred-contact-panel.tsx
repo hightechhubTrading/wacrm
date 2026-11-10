@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { ContactSidebar } from './contact-sidebar';
 
-const desktopQuery = '(min-width: 1024px)';
+const desktopQuery = '(min-width: 1400px)';
 const subscribe = (notify: () => void) => {
   const media = window.matchMedia(desktopQuery);
   media.addEventListener('change', notify);
@@ -35,7 +35,10 @@ export function DeferredContactPanel({
     return () => clearTimeout(timer);
   }, [ready, desktop]);
   return (
-    <div className="crm-details-pane hidden lg:block" aria-busy={!mounted}>
+    <div
+      className="crm-details-pane hidden min-[1400px]:block"
+      aria-busy={!mounted}
+    >
       {mounted && desktop ? (
         <ContactSidebar {...props} />
       ) : (

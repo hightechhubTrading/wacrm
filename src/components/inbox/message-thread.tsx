@@ -1,4 +1,5 @@
 'use client';
+import { useInboxLayout } from '@/hooks/use-inbox-layout';
 import type { ConversationWorkStatus } from '@/lib/inbox/work-status';
 import { ConversationStatusMenu } from './conversation-status-menu';
 
@@ -67,7 +68,11 @@ import { MessageActions } from './message-actions';
 import { MessageComposer, type SendMediaPayload } from './message-composer';
 import { sendTrackedMessage, type SendOutcome } from '@/lib/inbox/send-outcome';
 import type { TemplateDraft } from '@/lib/inbox/drafts';
-import { AiThreadBanner, AiConversationNote } from './ai-thread-banner';
+import {
+  AiThreadBanner,
+  AiConversationNote,
+  useConversationSummary,
+} from './ai-thread-banner';
 import { ContactSidebar } from './contact-sidebar';
 import {
   Sheet,
@@ -207,6 +212,7 @@ export function MessageThread({
   const [toolsView, setToolsView] = useState<
     'assistant' | 'followups' | 'sales' | null
   >(null);
+  const { ref: threadRef, compact } = useInboxLayout();
   const returnToComposer = useRef(false);
   const [aiOverride, setAiOverride] = useState<{
     id: string;
@@ -240,6 +246,13 @@ export function MessageThread({
     aiOverride && aiOverride.id === conversation?.id
       ? aiOverride.paused
       : (conversation?.ai_autoreply_disabled ?? false);
+  const noteSummary = useConversationSummary({
+    conversationId: conversation?.id,
+    contextSummary: conversation?.ai_context_summary,
+    handoffSummary: conversation?.ai_handoff_summary,
+    paused: aiPaused,
+    refreshToken: resyncToken,
+  });
   useEffect(() => {
     setToolsView(followupTarget ? 'followups' : null);
     returnToComposer.current = false;
@@ -1114,6 +1127,34 @@ export function MessageThread({
   const assignLabel = assignedAgentId
     ? (currentAssignee?.full_name ?? t('assigned'))
     : t('assign');
+  const priorityReason =
+    conversation.status !== 'closed' &&
+    ['urgent', 'high'].includes(conversation.ai_priority ?? '')
+      ? conversation.ai_priority_reason
+      : null;
+  const fullAiNote = (
+    <AiConversationNote
+      key={conversation.id}
+      conversationId={conversation.id}
+      summary={noteSummary}
+      paused={aiPaused}
+      priorityReason={priorityReason}
+      refreshToken={resyncToken}
+      onOpenTools={() => setToolsView('assistant')}
+      sessionExpired={sessionInfo.expired}
+      onPrepareReply={() => {
+        returnToComposer.current = true;
+        setToolsView(null);
+        if (sessionInfo.expired) handleOpenTemplates();
+        else
+          window.dispatchEvent(
+            new CustomEvent('draft-sales-reply', {
+              detail: { conversationId: conversation.id },
+            })
+          );
+      }}
+    />
+  );
   return (
     // `min-w-0` is load-bearing: the page already puts min-w-0 on the
     // thread's flex *wrapper* (issue #165), but this root keeps the
@@ -1123,7 +1164,11 @@ export function MessageThread({
     // clipped and the hover toolbar overlaps the Tags panel. Letting the
     // root shrink lets the bubbles' break-words / max-w caps apply.
     // Issue #257.
-    <div className={cn('flex min-w-0 flex-1 flex-col', 'crm-thread')}>
+    <div
+      ref={threadRef}
+      data-compact={compact || undefined}
+      className={cn('flex min-w-0 flex-1 flex-col', 'crm-thread')}
+    >
       {/* Contact identity and conversation controls. */}
       <div className="crm-thread-header border-border bg-card flex items-center justify-between gap-2 border-b px-3 py-3 sm:px-4">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -1153,7 +1198,10 @@ export function MessageThread({
             )}
           </div>
           <div className="min-w-0">
-            <h2 className="text-foreground truncate text-sm font-semibold">
+            <h2
+              title={displayName}
+              className="text-foreground truncate text-sm font-semibold"
+            >
               {displayName}
             </h2>
             <p
@@ -1198,7 +1246,7 @@ export function MessageThread({
               title={contactPanelOpen ? t('hideContact') : t('showContact')}
               aria-pressed={contactPanelOpen}
               className={cn(
-                'hover:bg-muted hover:text-foreground hidden h-7 w-7 items-center justify-center rounded-md transition-colors lg:inline-flex',
+                'hover:bg-muted hover:text-foreground hidden h-7 w-7 items-center justify-center rounded-md transition-colors min-[1400px]:inline-flex',
                 contactPanelOpen ? 'text-primary' : 'text-muted-foreground'
               )}
             >
@@ -1212,7 +1260,7 @@ export function MessageThread({
 
           <button
             type="button"
-            className="text-muted-foreground hover:bg-muted inline-flex h-9 w-9 items-center justify-center rounded-md lg:hidden"
+            className="text-muted-foreground hover:bg-muted inline-flex h-9 w-9 items-center justify-center rounded-md min-[1400px]:hidden"
             aria-label={t('showContactPanel')}
             onClick={() => setMobileJobOpen(true)}
           >
@@ -1357,32 +1405,25 @@ export function MessageThread({
       />
       {/* Messages Area */}
 
-      <div className="crm-transcript">
-        <AiConversationNote
-          key={conversation.id}
-          conversationId={conversation.id}
-          contextSummary={conversation.ai_context_summary}
-          handoffSummary={conversation.ai_handoff_summary}
-          paused={aiPaused}
-          priorityReason={
-            conversation.status !== 'closed' &&
-            ['urgent', 'high'].includes(conversation.ai_priority ?? '')
-              ? conversation.ai_priority_reason
-              : null
-          }
-          refreshToken={resyncToken}
-          onOpenTools={() => setToolsView('assistant')}
-          sessionExpired={sessionInfo.expired}
-          onPrepareReply={() => {
-            if (sessionInfo.expired) handleOpenTemplates();
-            else
-              window.dispatchEvent(
-                new CustomEvent('draft-sales-reply', {
-                  detail: { conversationId: conversation.id },
-                })
-              );
-          }}
-        />
+      <div className="crm-transcript" data-compact={compact || undefined}>
+        {compact ? (
+          <button
+            type="button"
+            className="crm-ai-note-launcher"
+            aria-haspopup="dialog"
+            aria-expanded={toolsView === 'assistant'}
+            onClick={() => setToolsView('assistant')}
+          >
+            <Sparkles size={16} aria-hidden />
+            <strong>{t('assistantTools')}</strong>
+            <span dir="auto">
+              {priorityReason || noteSummary || t('openAssistantNote')}
+            </span>
+            <ChevronDown size={16} aria-hidden />
+          </button>
+        ) : (
+          fullAiNote
+        )}
         <div
           ref={scrollRef}
           onScroll={(event) => {
@@ -1535,6 +1576,14 @@ export function MessageThread({
       </div>
 
       <nav className="crm-reply-toolbar" aria-label={t('replyTools')}>
+        <button
+          type="button"
+          className="crm-assistant-shortcut"
+          onClick={() => setToolsView('assistant')}
+        >
+          <Sparkles size={16} aria-hidden />
+          {t('assistantTools')}
+        </button>
         <AiThreadBanner
           compact
           hideSummary
@@ -1595,6 +1644,7 @@ export function MessageThread({
               </TabsTrigger>
             </TabsList>
             <TabsContent value="assistant">
+              {compact && fullAiNote}
               <section className="crm-assistant-settings">
                 <div className="crm-tools-identity">
                   <Sparkles size={24} aria-hidden />

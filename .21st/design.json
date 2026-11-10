@@ -3,25 +3,13 @@
   "project": {
     "name": "hightechhub",
     "productType": null,
-    "stack": [
-      "nextjs",
-      "react",
-      "shadcn",
-      "tailwind-v4"
-    ]
+    "stack": ["nextjs", "react", "shadcn", "tailwind-v4"]
   },
   "sources": {
-    "tokens": [
-      "src/app/globals.css"
-    ],
-    "components": [
-      "src/components/ui"
-    ],
+    "tokens": ["src/app/globals.css"],
+    "components": ["src/components/ui"],
     "assets": [],
-    "instructions": [
-      "AGENTS.md",
-      "CLAUDE.md"
-    ]
+    "instructions": ["AGENTS.md", "CLAUDE.md"]
   },
   "design": {
     "colorMode": "light-and-dark",
@@ -425,6 +413,11 @@
       "date": "2026-11-09",
       "decision": "Use one shared company calendar with no overlapping visit/installation reservations across staff. Responsible people are selected from current operational CRM members, defaulting to the requester. Prefill explicit customer-shared map locations and keep them editable.",
       "source": "User request and explicit scheduling choices in this conversation"
+    },
+    {
+      "date": "2026-11-10",
+      "decision": "The inbox prioritizes the transcript on compact windows: AI notes and follow-ups use short summaries with full details in existing sheets; narrow desktops open customer details in a sheet. Roomy desktops reserve a real column for AI guidance. Preserve saved themes and existing permissions.",
+      "source": "User approved and requested execution of docs/inbox-responsive-fix-plan-2026-11-10.md"
     }
   ],
   "evidence": [

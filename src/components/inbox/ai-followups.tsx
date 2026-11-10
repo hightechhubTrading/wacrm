@@ -213,97 +213,53 @@ export function AiFollowups({
     const ordered = [...active].sort(
       (a, b) => Date.parse(a.due_at) - Date.parse(b.due_at)
     );
+    const next = ordered[0];
+    const overdue = !!next && Date.parse(next.due_at) < now;
+    const context = data.conversation.ai_autoreply_disabled
+      ? t('paused')
+      : data.conversation.assigned_agent_id
+        ? t('humanOwned')
+        : t('eligible');
+    const nextLabel = next
+      ? `${t(`kinds.${next.kind}`)} · ${overdue ? t('overdue') + ' · ' : ''}${new Date(
+          next.due_at
+        ).toLocaleString(locale, {
+          timeZone: BUSINESS_TIME_ZONE,
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        })}`
+      : t('emptyCompact');
     return (
       <section
         className="crm-followup-overview"
         aria-label={t('overviewTitle')}
       >
-        <div className="crm-followup-overview-heading">
-          <CalendarClock size={18} aria-hidden />
-          <strong>{t('overviewTitle')}</strong>
-          <span className="crm-followup-status">
-            {t('title', { count: active.length })}
-          </span>
-          <Button size="sm" variant="outline" onClick={onOpen}>
-            {t('manage')}
-          </Button>
-        </div>
-        <p className="crm-followup-overview-context">
-          {data.conversation.ai_autoreply_disabled
-            ? t('paused')
-            : data.conversation.assigned_agent_id
-              ? t('humanOwned')
-              : t('eligible')}
-        </p>
-        {!data.available ? (
-          <p role="status">{t('unavailable')}</p>
-        ) : ordered.length ? (
-          <ul className="crm-followup-overview-tasks">
-            {ordered.slice(0, 2).map((task) => (
-              <li key={task.id}>
-                <div>
-                  <strong>{t(`kinds.${task.kind}`)}</strong>
-                  <small>
-                    {t(`statuses.${task.status}`)} ·{' '}
-                    <span
-                      data-overdue={Date.parse(task.due_at) < now || undefined}
-                    >
-                      {Date.parse(task.due_at) < now
-                        ? `${t('overdue')} · `
-                        : ''}
-                      {new Date(task.due_at).toLocaleString(locale, {
-                        timeZone: BUSINESS_TIME_ZONE,
-                        month: 'short',
-                        day: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                  </small>
-                </div>
-                <div className="crm-followup-actions">
-                  {canSendMessages && task.status === 'open' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() =>
-                        void mutate('PATCH', {
-                          id: task.id,
-                          status: 'acknowledged',
-                        })
-                      }
-                    >
-                      {t('take')}
-                    </Button>
-                  )}
-                  <Button size="sm" variant="outline" onClick={onOpen}>
-                    {t('update')}
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="crm-followup-overview-context">{t('empty')}</p>
-        )}
-        {data.available && (
-          <button
-            type="button"
-            className="crm-followup-overview-add"
-            onClick={onOpen}
-          >
-            <Plus size={14} aria-hidden />
-            {active.length > 2
-              ? t('viewAll', { count: active.length })
-              : canSendMessages
-                ? t('newTask')
-                : t('manage')}
-          </button>
-        )}
+        <CalendarClock size={18} aria-hidden />
+        <span
+          className="crm-followup-status"
+          data-overdue={overdue || undefined}
+        >
+          {data.available
+            ? t('title', { count: active.length })
+            : t('unavailableCompact')}
+        </span>
+        <span
+          className="crm-followup-preview-text"
+          title={`${context} ${data.available ? nextLabel : t('unavailable')}`}
+        >
+          {data.available ? nextLabel : t('unavailable')}
+        </span>
+        <Button size="sm" variant="outline" onClick={onOpen}>
+          {data.available && !active.length && canSendMessages
+            ? t('newTask')
+            : t('manage')}
+        </Button>
       </section>
     );
   }
+
   const reason = data.latestEvent?.reason;
   const knownReasons = [
     'ai_disabled',
