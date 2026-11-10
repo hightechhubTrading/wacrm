@@ -40,6 +40,7 @@ export function sharedMessages(
 ): AbstractIntlMessages {
   return {
     Recovery: messages.Recovery,
+    PasswordRecovery: messages.PasswordRecovery,
     LoginPage: messages.LoginPage,
     Sidebar: messages.Sidebar,
     Header: messages.Header,

@@ -48,7 +48,9 @@ export async function middleware(request: NextRequest) {
     return response;
   };
 
-  // Auth pages - redirect to dashboard if already logged in.
+  // Sign-in pages - redirect to dashboard if already logged in.
+  // Recovery pages stay reachable so an expired link can be retried even
+  // when the browser already has a session for this or another account.
   // Exception: when an invite token is in the query string we
   // send the already-signed-in user to /join/<token> instead so
   // they can accept the invitation in one click. Without this,
@@ -57,8 +59,7 @@ export async function middleware(request: NextRequest) {
   if (
     user &&
     (request.nextUrl.pathname === '/login' ||
-      request.nextUrl.pathname === '/signup' ||
-      request.nextUrl.pathname === '/forgot-password')
+      request.nextUrl.pathname === '/signup')
   ) {
     const url = request.nextUrl.clone();
     const inviteToken = request.nextUrl.searchParams.get('invite');
