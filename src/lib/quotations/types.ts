@@ -2,6 +2,7 @@
 export type QuotationStatus = 'draft' | 'sent' | 'won' | 'lost' | 'expired';
 
 export interface QuotationDocumentDetails {
+  referenceImage?: import('./reference-image').QuotationReferenceImage;
   formatVersion?: 2;
   paymentPlan?: import('./payment-plan').PaymentPlan;
   itemOptions?: Record<string, import('./product-profile').ItemOptions>;

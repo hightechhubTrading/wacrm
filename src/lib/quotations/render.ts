@@ -23,6 +23,14 @@ export async function renderHtmlToPdf(html: string): Promise<Buffer> {
     // self-contained document.
     await page.setContent(html, { waitUntil: 'load' });
     await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(async () => {
+      await Promise.all(
+        Array.from(document.images).map(async (image) => {
+          await image.decode();
+          if (!image.naturalWidth) throw new Error('referenceImageUnavailable');
+        })
+      );
+    });
     return await page.pdf(DOCUMENT_PDF_OPTIONS);
   } finally {
     await browser.close();

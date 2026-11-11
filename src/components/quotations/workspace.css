@@ -1601,3 +1601,46 @@ body:has(.qw-preview-expanded) [data-slot='select-content'].qw-select-popup {
   color: var(--ui-area);
   font-weight: 600;
 }
+
+/* One optional picture shares the quotation editor's compact surfaces and tokens. */
+.qw-reference-image {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.qw-reference-image h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+.qw-reference-image p {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  margin: 4px 0 0;
+}
+.qw-reference-image-preview {
+  min-width: 0;
+}
+.qw-reference-image-preview img {
+  display: block;
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  max-height: 220px;
+  object-fit: contain;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.qw-reference-image-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.qw-reference-image progress {
+  width: min(100%, 320px);
+  height: 8px;
+  accent-color: var(--primary);
+}
+.qw-reference-image .qw-error {
+  color: var(--destructive);
+}

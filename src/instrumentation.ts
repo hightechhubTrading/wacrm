@@ -20,5 +20,8 @@ export async function register() {
     startConversionPoller();
     const { startAiWorkPoller } = await import('@/lib/ai/work-poller');
     startAiWorkPoller();
+    const { startQuotationImageCleanup } =
+      await import('@/lib/quotations/reference-image-cleanup');
+    startQuotationImageCleanup();
   }
 }

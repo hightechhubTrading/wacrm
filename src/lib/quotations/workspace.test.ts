@@ -310,3 +310,40 @@ it('repairs loaded overallocated drafts but preserves stored baselines and issue
     }).documentDetails.paymentPlan?.stages.map((s) => s.percent)
   ).toEqual([40, 30, 70]);
 });
+
+describe('optional quotation picture draft state', () => {
+  const image = {
+    storagePath: `${quote.id}/20000000-0000-4000-8000-000000000001.jpg`,
+    mimeType: 'image/jpeg' as const,
+    bytes: 123,
+    width: 640,
+    height: 480,
+  };
+  it('allows issue without a picture and preserves a picture through save/reload/revision conversion', () => {
+    const d = draft();
+    expect(validateDraft(d, true)).toBeNull();
+    d.documentDetails.referenceImage = image;
+    expect(validateDraft(d, true)).toBeNull();
+    const stored = draftQuotation(quote, d);
+    expect(
+      draftFromQuotation(stored, false).documentDetails.referenceImage
+    ).toEqual(image);
+    expect(
+      draftFromQuotation({ ...stored, status: 'sent' }, false).documentDetails
+        .referenceImage
+    ).toEqual(image);
+    delete d.documentDetails.referenceImage;
+    expect(validateDraft(d, true)).toBeNull();
+  });
+  it('rejects arrays and arbitrary remote image sources in draft and issue validation', () => {
+    const d = draft();
+    for (const invalid of [
+      [image],
+      { ...image, storagePath: 'https://example.com/image.jpg' },
+    ]) {
+      d.documentDetails.referenceImage = invalid as typeof image;
+      expect(validateDraft(d)).toBe('referenceImageInvalid');
+      expect(validateDraft(d, true)).toBe('referenceImageInvalid');
+    }
+  });
+});

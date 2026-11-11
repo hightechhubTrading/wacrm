@@ -1,4 +1,5 @@
 // src/lib/quotations/pdf.ts
+import { referenceImageDataUrl } from './reference-image-server';
 import { supabaseAdmin } from './admin-client';
 import { buildQuotationHtml } from './build-html';
 import { renderHtmlToPdf } from './render';
@@ -9,7 +10,11 @@ export async function generateQuotationPdf(
   items: QuotationItem[],
   immutablePath?: string
 ): Promise<{ storagePath: string; publicUrl: string }> {
-  const html = buildQuotationHtml(quotation, items);
+  const html = buildQuotationHtml(
+    quotation,
+    items,
+    await referenceImageDataUrl(quotation)
+  );
   const pdfBuffer = await renderHtmlToPdf(html);
 
   const storagePath =

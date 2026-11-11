@@ -3155,7 +3155,20 @@
     "archiveVillaTerms": "أرشيف الفلل · 100٪ مقدم، مراجعة المدة، صلاحية 10 أيام",
     "archiveFabricatedTerms": "أرشيف التصنيع · 70٪ / 30٪، تأكيد المدة",
     "archiveContractorTerms": "أرشيف المقاولين · 60٪ / 30٪ / 10٪، برنامج المشروع",
-    "configurationRequired": "أدخل اللون أو التشطيب المخصص المختار قبل إصدار عرض السعر."
+    "configurationRequired": "أدخل اللون أو التشطيب المخصص المختار قبل إصدار عرض السعر.",
+    "referenceImageTitle": "صورة مرجعية (اختياري)",
+    "referenceImageHint": "أضف صورة واحدة لتظهر في ملف عرض السعر. JPG أو PNG أو WebP، بحد أقصى 5 ميجابايت.",
+    "referenceImageAlt": "الصورة المرجعية لعرض السعر",
+    "referenceImageUpload": "رفع صورة",
+    "referenceImageReplace": "استبدال الصورة",
+    "referenceImageRetry": "إعادة المحاولة",
+    "referenceImageUploading": "جارٍ رفع الصورة… {percent}٪",
+    "referenceImageProcessing": "جارٍ تجهيز الصورة…",
+    "referenceImageUploadFailed": "تعذر رفع الصورة. يرجى إعادة المحاولة.",
+    "referenceImageSize": "اختر صورة بحجم أقل من 5 ميجابايت.",
+    "referenceImageInvalid": "اختر صورة صالحة بصيغة JPG أو PNG أو WebP. الصور المتحركة غير مدعومة.",
+    "referenceImageUnavailable": "تعذر تحميل الصورة المرجعية. يرجى إعادة المحاولة قبل إنشاء ملف عرض السعر.",
+    "referenceImageLocked": "أنشئ مراجعة جديدة قبل تغيير الصورة."
   },
   "Calling": {
     "title": "مكالمات واتساب",

@@ -3155,7 +3155,20 @@
     "archiveVillaTerms": "Archive villa suggestion · 100% advance, review delivery, 10-day validity",
     "archiveFabricatedTerms": "Archive fabrication suggestion · 70% / 30%, confirm delivery",
     "archiveContractorTerms": "Archive contractor suggestion · 60% / 30% / 10%, project programme",
-    "configurationRequired": "Enter the selected custom colour or finish before issuing the quotation."
+    "configurationRequired": "Enter the selected custom colour or finish before issuing the quotation.",
+    "referenceImageTitle": "Reference image (optional)",
+    "referenceImageHint": "Add one picture to appear in the quotation PDF. JPG, PNG or WebP, up to 5 MB.",
+    "referenceImageAlt": "Quotation reference image",
+    "referenceImageUpload": "Upload picture",
+    "referenceImageReplace": "Replace picture",
+    "referenceImageRetry": "Retry",
+    "referenceImageUploading": "Uploading picture… {percent}%",
+    "referenceImageProcessing": "Preparing picture…",
+    "referenceImageUploadFailed": "The picture could not be uploaded. Please retry.",
+    "referenceImageSize": "Choose a picture smaller than 5 MB.",
+    "referenceImageInvalid": "Choose a valid JPG, PNG or WebP picture. Animated images are not supported.",
+    "referenceImageUnavailable": "The reference picture could not be loaded. Please retry before generating the PDF.",
+    "referenceImageLocked": "Create a revision before changing the picture."
   },
   "Calling": {
     "title": "WhatsApp calls",

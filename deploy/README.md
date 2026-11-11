@@ -222,3 +222,12 @@ included in a Docker image or public repository. Implementation, test commands,
 review requirements and current rollout status: [quotation knowledge](../docs/quotation-knowledge.md).
 
 Shared inventory follow-up: migration `091_shared_product_inventory.sql` is recorded live as `20261102160000`. Preflight requires canonical inventory fields, the quotation projection and product/question evidence relationships. See [shared product inventory](../docs/shared-product-inventory.md) for semantics, private reconciliation and verification. Apply the reviewed timestamped migration before promoting this revision; do not push the numeric migration folder wholesale.
+
+## Quotation reference picture — 11 November 2026
+
+Apply `098_quotation_reference_image.sql` through the timestamped linked migration
+process before deploying the picture feature. It adds a private image bucket,
+server-written asset registry, exact ownership/metadata checks and safe abandoned
+upload cleanup. Startup preflight checks the registry, image-aware quotation
+validation and private-storage/permission readiness. Existing quotations need no
+backfill. Behavior and validation: [quotation-reference-image.md](../docs/quotation-reference-image.md).

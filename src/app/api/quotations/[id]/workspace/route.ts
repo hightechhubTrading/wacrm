@@ -1,4 +1,5 @@
 import { verifyKnowledgeSnapshots } from '@/lib/quotations/knowledge/server';
+import { verifyReferenceImage } from '@/lib/quotations/reference-image-server';
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import {
@@ -31,6 +32,13 @@ export async function PUT(
       return NextResponse.json(
         { error: 'Quotation not found' },
         { status: 404 }
+      );
+    if (body.draft.documentDetails.referenceImage)
+      await verifyReferenceImage(
+        ctx.supabase,
+        id,
+        ctx.accountId,
+        body.draft.documentDetails.referenceImage
       );
     const sourceError = await verifyKnowledgeSnapshots(
       ctx.supabase,

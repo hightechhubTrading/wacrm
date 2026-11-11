@@ -200,3 +200,41 @@ it('automatically fills the bottom name, sales seal and current Qatar date inste
     vi.useRealTimers();
   }
 });
+
+describe('optional reference picture in quotation HTML', () => {
+  const image = {
+    storagePath:
+      '10000000-0000-4000-8000-000000000001/20000000-0000-4000-8000-000000000001.jpg',
+    mimeType: 'image/jpeg' as const,
+    width: 600,
+    height: 800,
+    bytes: 123,
+  };
+  it('omits the image section entirely when no picture is attached', () => {
+    expect(buildQuotationHtml(quotation, items)).not.toContain(
+      '<section class="reference-image">'
+    );
+  });
+  it('includes exactly one embedded image after the item totals with intrinsic proportions', () => {
+    const html = buildQuotationHtml(
+      { ...quotation, documentDetails: { referenceImage: image } },
+      items,
+      'data:image/jpeg;base64,YWJj'
+    );
+    expect(html.match(/<img /g)).toHaveLength(1);
+    expect(html).toContain('width="600" height="800"');
+    expect(html.indexOf('<section class="reference-image">')).toBeGreaterThan(
+      html.indexOf('<div class="totals-wrap">')
+    );
+    expect(html).toContain('صورة مرجعية');
+  });
+  it('refuses to silently omit an attached picture or accept an external URL', () => {
+    const q = { ...quotation, documentDetails: { referenceImage: image } };
+    expect(() => buildQuotationHtml(q, items)).toThrow(
+      'referenceImageUnavailable'
+    );
+    expect(() =>
+      buildQuotationHtml(q, items, 'https://example.com/photo.jpg')
+    ).toThrow('referenceImageUnavailable');
+  });
+});

@@ -373,6 +373,58 @@ export async function checkDeploymentDatabase({
         'Database preflight failed for calendar booking authorization. Apply migration 097 and refresh the schema cache.'
       );
   }
+
+  const images = await fetchImpl(
+    new URL(
+      '/rest/v1/quotation_images?select=storage_path,quotation_id,account_id,image,ready,deleting,created_at&limit=0',
+      url
+    ),
+    { headers, signal: AbortSignal.timeout(15000) }
+  );
+  if (!images.ok)
+    throw new Error(
+      'Database preflight failed for quotation pictures. Apply migration 098 before deploying this revision.'
+    );
+  const imageDetails = await fetchImpl(
+    new URL('/rest/v1/rpc/quotation_document_details_valid', url),
+    {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        p: {
+          referenceImage: {
+            storagePath:
+              '10000000-0000-4000-8000-000000000001/20000000-0000-4000-8000-000000000001.jpg',
+            mimeType: 'image/jpeg',
+            bytes: 123,
+            width: 640,
+            height: 480,
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(15000),
+    }
+  );
+  if (
+    !imageDetails.ok ||
+    (await imageDetails.json().catch(() => false)) !== true
+  )
+    throw new Error(
+      'Database preflight failed for quotation picture validation. Apply migration 098 before deploying this revision.'
+    );
+  const imageReady = await fetchImpl(
+    new URL('/rest/v1/rpc/quotation_images_ready', url),
+    {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: '{}',
+      signal: AbortSignal.timeout(15000),
+    }
+  );
+  if (!imageReady.ok || (await imageReady.json().catch(() => false)) !== true)
+    throw new Error(
+      'Database preflight failed for quotation picture storage/permissions. Apply migration 098 before deploying this revision.'
+    );
 }
 
 /** Signature/cache checks without a customer/account/user identity. Service-role

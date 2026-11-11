@@ -1,3 +1,4 @@
+import { referenceImageDataUrl } from '@/lib/quotations/reference-image-server';
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { buildQuotationHtml } from '@/lib/quotations/build-html';
@@ -26,7 +27,7 @@ export async function POST(
     if (error) return NextResponse.json({ error }, { status: 400 });
     const q = draftQuotation(mapQuotationRow(data), body.draft);
     return NextResponse.json(
-      { html: buildQuotationHtml(q, q.items) },
+      { html: buildQuotationHtml(q, q.items, await referenceImageDataUrl(q)) },
       { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (e) {

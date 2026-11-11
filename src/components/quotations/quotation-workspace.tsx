@@ -61,6 +61,7 @@ import { QuotationFollowup } from './knowledge/quotation-followup';
 import { QuotationKnowledgePanel } from './knowledge/quotation-knowledge-panel';
 import { applyCatalogueCapture } from '@/lib/quotations/catalogue';
 import { WorkspaceItems } from './workspace-items';
+import { QuotationReferenceImage } from './quotation-reference-image';
 import { QuotationDatePicker } from './quotation-date-picker';
 
 type DocumentRow = {
@@ -87,6 +88,8 @@ export function QuotationWorkspace({
   const [busy, setBusy] = useState<
     'save' | 'pdf' | 'send' | 'revise' | 'status' | null
   >(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const imageUploadingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [stage, setStage] = useState(
     initial.items.length || initial.documentDetails?.catalogueSeed ? 1 : 0
@@ -150,7 +153,7 @@ export function QuotationWorkspace({
   const [previewWidth, setPreviewWidth] = useState(450);
   const dirty = JSON.stringify(draft) !== saved;
   const locked = quotation.status !== 'draft';
-  const disabled = busy !== null || locked;
+  const disabled = busy !== null || imageUploading || locked;
   const totals = computeQuotationTotals(draft.items, draft.orderDiscount);
   const unpriced = draft.items.some(
     (i) =>
@@ -217,7 +220,7 @@ export function QuotationWorkspace({
   }, [initial.id]);
   useEffect(() => {
     const prevent = (event: BeforeUnloadEvent) => {
-      if (dirty) {
+      if (dirty || imageUploading) {
         event.preventDefault();
         event.returnValue = '';
       }
@@ -225,7 +228,7 @@ export function QuotationWorkspace({
     const links = (event: MouseEvent) => {
       const anchor = (event.target as HTMLElement).closest('a');
       if (
-        dirty &&
+        (dirty || imageUploading) &&
         anchor?.href &&
         anchor.target !== '_blank' &&
         new URL(anchor.href).pathname !== window.location.pathname &&
@@ -241,7 +244,7 @@ export function QuotationWorkspace({
       window.removeEventListener('beforeunload', prevent);
       document.removeEventListener('click', links, true);
     };
-  }, [dirty, t]);
+  }, [dirty, imageUploading, t]);
   useEffect(() => {
     if (!expanded) return;
     const controller = new AbortController();
@@ -412,6 +415,7 @@ export function QuotationWorkspace({
   }
 
   async function save(revise = false) {
+    if (imageUploadingRef.current) return;
     setBusy(revise ? 'revise' : 'save');
     try {
       await persist(revise);
@@ -422,6 +426,7 @@ export function QuotationWorkspace({
     }
   }
   async function exportDocument(send = false) {
+    if (imageUploadingRef.current) return;
     const invalid = validateDraft(draft, true, quotation.currency);
     if (invalid) {
       setExpanded(false);
@@ -575,7 +580,7 @@ export function QuotationWorkspace({
           type="button"
           variant="outline"
           size="sm"
-          disabled={busy !== null}
+          disabled={busy !== null || imageUploading}
           onClick={() => exportDocument()}
         >
           <Download size={15} />
@@ -724,7 +729,7 @@ export function QuotationWorkspace({
             <Button
               type="button"
               variant="success"
-              disabled={busy !== null || !dirty}
+              disabled={busy !== null || imageUploading || !dirty}
               onClick={() => save()}
             >
               <Save size={16} />
@@ -734,7 +739,7 @@ export function QuotationWorkspace({
           <Button
             type="button"
             variant="info"
-            disabled={busy !== null}
+            disabled={busy !== null || imageUploading}
             onClick={() => exportDocument(true)}
           >
             <Send size={16} />
@@ -770,7 +775,7 @@ export function QuotationWorkspace({
             type="button"
             variant="outline"
             size="sm"
-            disabled={busy !== null}
+            disabled={busy !== null || imageUploading}
             onClick={() => save(true)}
           >
             {t('createRevision')}
@@ -779,7 +784,7 @@ export function QuotationWorkspace({
             <WorkspaceSelect
               aria-label={t('outcome')}
               value={quotation.status}
-              disabled={busy !== null}
+              disabled={busy !== null || imageUploading}
               onValueChange={(value) => outcome(value as QuotationStatus)}
             >
               <option value={quotation.status}>{t(quotation.status)}</option>
@@ -1097,6 +1102,26 @@ export function QuotationWorkspace({
               </dl>
             </div>
           </section>
+          <section className="qw-section" hidden={stage !== 1}>
+            <QuotationReferenceImage
+              quotationId={quotation.id}
+              image={details.referenceImage}
+              disabled={disabled}
+              onUploadingChange={(uploading) => {
+                imageUploadingRef.current = uploading;
+                setImageUploading(uploading);
+              }}
+              onChange={(image) => {
+                setError(null);
+                setDraft((d) => {
+                  const documentDetails = { ...d.documentDetails };
+                  if (image) documentDetails.referenceImage = image;
+                  else delete documentDetails.referenceImage;
+                  return { ...d, documentDetails };
+                });
+              }}
+            />
+          </section>
           <section className="qw-section" hidden={stage !== 2}>
             <h2>{t('commercialTerms')}</h2>
             {initial.documentDetails?.paymentPlan &&
@@ -1268,7 +1293,7 @@ export function QuotationWorkspace({
               <Button
                 type="button"
                 variant="success"
-                disabled={busy !== null || !dirty}
+                disabled={busy !== null || imageUploading || !dirty}
                 onClick={() => save()}
               >
                 <Save size={16} />

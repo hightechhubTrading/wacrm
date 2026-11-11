@@ -57,8 +57,15 @@ function itemRow(item: QuotationItem): string {
 }
 export function buildQuotationHtml(
   q: Quotation,
-  items: QuotationItem[]
+  items: QuotationItem[],
+  referenceImageData?: string
 ): string {
+  if (
+    q.documentDetails?.referenceImage &&
+    (!referenceImageData ||
+      !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+=*$/.test(referenceImageData))
+  )
+    throw new Error('referenceImageUnavailable');
   const d = q.documentDetails ?? {},
     sorted = [...items].sort((a, b) => a.position - b.position),
     roots = sorted.filter((i) => !i.parentItemId),
@@ -162,6 +169,7 @@ export function buildQuotationHtml(
  <section class="scope-heading"><h2>Scope of supply <span class="ar">نطاق التوريد</span></h2><p dir="auto">${esc(q.subject)}</p>${d.subjectAr ? `<p class="ar">${esc(d.subjectAr)}</p>` : ''}</section>
  <table class="items"><colgroup><col style="width:9%"><col style="width:35%"><col style="width:18%"><col style="width:10%"><col style="width:14%"><col style="width:14%"></colgroup><thead><tr><th>ITEM<small>البند</small></th><th>PRODUCT / SERVICE<small>المنتج / الخدمة</small></th><th class="num">SIZE W × H<small>الأبعاد</small></th><th class="num">QTY<small>الكمية</small></th><th class="num">RATE (QAR)<small>سعر الوحدة</small></th><th class="num">AMOUNT (QAR)<small>المبلغ</small></th></tr></thead><tbody>${rows}</tbody></table>
  <div class="totals-wrap"><div class="amount-words"><p>${esc(words.en)}</p><p class="ar">${esc(words.ar)}</p></div><div class="totals">${q.discountAmount ? `<div><span>Subtotal · المجموع</span><span>${money(q.subtotal)}</span></div><div><span>Discount · الخصم</span><span>−${money(q.discountAmount)}</span></div>` : ''}<div class="grand-total"><span>Total · الإجمالي</span><span>${money(q.total)} <small>QAR</small></span></div></div></div>
+ ${d.referenceImage ? `<section class="reference-image"><h2>Reference image <span class="ar">صورة مرجعية</span></h2><img src="${referenceImageData}" width="${d.referenceImage.width}" height="${d.referenceImage.height}" alt="Reference image · صورة مرجعية"></section>` : ''}
  ${specifications ? `<section class="specifications"><h2>Selected specifications <span class="ar">المواصفات المختارة</span></h2>${specifications}</section>` : ''}
  <section class="commercial"><h2>Scope boundaries <span class="ar">حدود نطاق العمل</span></h2><div class="scope-grid"><section><h3>Included · مشمول</h3><ul>${lines(d.included)}</ul></section><section><h3>Excluded · غير مشمول</h3><ul>${lines(d.excluded)}</ul></section></div>
  <h2>Payment schedule <span class="ar">جدول الدفعات</span></h2>${payments}

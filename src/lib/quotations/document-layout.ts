@@ -54,6 +54,7 @@ export const DOCUMENT_CSS = `
 .sales-signoff{padding-bottom:5mm}.stamp-slot{position:relative;overflow:visible}
 .sales-stamp{position:absolute;z-index:3;pointer-events:none;left:50%;top:50%;width:55mm;height:37mm;color:#293779;opacity:.9;mix-blend-mode:multiply;transform:translate(-50%,-43%) rotate(-9deg);transform-origin:center;overflow:visible}
 @media print{.sales-stamp{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+.reference-image{break-inside:avoid;margin:4mm 0}.reference-image h2{margin:0 0 2mm}.reference-image img{display:block;max-width:100%;max-height:95mm;width:auto;height:auto;object-fit:contain;border:1px solid var(--line)}
 @page{size:A4;margin:12mm 14mm 17mm}@media print{body{background:#fff}.page{width:auto;min-height:0;padding:0;margin:0}.brand{break-inside:avoid}.doc-heading,.metadata,.party-grid,.scope-heading{break-inside:avoid}.foot{break-inside:avoid}}
 `;
 

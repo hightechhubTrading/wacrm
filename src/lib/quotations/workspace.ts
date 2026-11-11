@@ -1,3 +1,4 @@
+import { validReferenceImage } from './reference-image';
 import { fitPaymentPlan } from './payment-plan';
 import {
   validPaymentPlan,
@@ -200,6 +201,7 @@ export function draftFields(d: QuotationDraft) {
 }
 export type DraftError =
   | 'invalidDraft'
+  | 'referenceImageInvalid'
   | 'invalidItem'
   | 'invalidDiscount'
   | 'invalidSchedule'
@@ -281,12 +283,14 @@ export function validateDraft(
         'itemOptions',
         'commercialPreset',
         'knowledge',
+        'referenceImage',
       ].includes(key)
     )
       return 'invalidDraft';
     if (val === undefined) continue;
     if (
       key !== 'knowledge' &&
+      key !== 'referenceImage' &&
       key !== 'shopDrawingDays' &&
       key !== 'paymentSchedule' &&
       key !== 'formatVersion' &&
@@ -308,6 +312,11 @@ export function validateDraft(
     !validQuotationKnowledge(details.knowledge)
   )
     return 'invalidDraft';
+  if (
+    details.referenceImage !== undefined &&
+    !validReferenceImage(details.referenceImage)
+  )
+    return 'referenceImageInvalid';
   const ids = new Set<string>();
   const discountValid = (type: unknown, val: unknown, amount: number) =>
     (type === 'percent' || type === 'fixed') &&

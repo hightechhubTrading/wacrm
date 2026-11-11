@@ -8,6 +8,7 @@ const options = {
 const emptyPerformanceResponse = (pathname) => {
   if (pathname.endsWith('/quotation_document_details_valid')) return true;
   if (pathname.endsWith('/claim_ai_review_receipt')) return false;
+  if (pathname.endsWith('/quotation_images_ready')) return true;
   if (pathname.endsWith('/job_calendar_ready')) return true;
   if (pathname.endsWith('/conversation_activity_snapshot'))
     return { serverNow: '2026-10-30T09:00:00Z', peers: [] };
@@ -40,7 +41,7 @@ test('accepts the required columns and denied identity-free conversion probe', a
       return validFetch(url);
     },
   });
-  assert.equal(requests.length, 39);
+  assert.equal(requests.length, 42);
   for (const r of requests.slice(0, 8))
     assert.equal(r.url.searchParams.get('limit'), '0');
   assert.equal(JSON.parse(requests[8].init.body).p_conversation_id, null);
@@ -389,3 +390,28 @@ test('rejects a missing review-receipt RPC before promotion', async () => {
     /migration 096/
   );
 });
+
+for (const path of [
+  '/rest/v1/rpc/quotation_images_ready',
+  '/rest/v1/quotation_images',
+  '/rest/v1/rpc/quotation_document_details_valid',
+]) {
+  test('rejects missing quotation picture migration: ' + path, async () => {
+    await assert.rejects(
+      checkDeploymentDatabase({
+        ...options,
+        fetchImpl: async (url, init) => {
+          if (
+            new URL(url).pathname === path &&
+            (path.endsWith('quotation_images') ||
+              path.endsWith('quotation_images_ready') ||
+              JSON.parse(init.body).p?.referenceImage)
+          )
+            return new Response('{}', { status: 400 });
+          return validFetch(url);
+        },
+      }),
+      /migration 098/
+    );
+  });
+}
