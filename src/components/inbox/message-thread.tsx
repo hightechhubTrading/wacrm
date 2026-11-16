@@ -101,6 +101,7 @@ function renderTemplateBody(body: string, params: string[]): string {
 }
 
 interface MessageThreadProps {
+  onContactPhotoChange?: (id: string, url: string | null) => void;
   conversation: Conversation | null;
   contact: Contact | null;
   messages: Message[];
@@ -203,6 +204,7 @@ export function MessageThread({
   onRemoveMessage,
   onStatusChange,
   onAssignChange,
+  onContactPhotoChange,
   onBack,
   resyncToken = 0,
   onRefresh,
@@ -1207,6 +1209,7 @@ export function MessageThread({
             {displayName.charAt(0).toUpperCase()}
             {contact.avatar_url && (
               <img
+                key={contact.avatar_url}
                 src={contact.avatar_url}
                 alt=""
                 className="crm-header-photo"
@@ -1405,6 +1408,7 @@ export function MessageThread({
             <SheetTitle>{t('showContactPanel')}</SheetTitle>
           </SheetHeader>
           <ContactSidebar
+            onPhotoChange={onContactPhotoChange}
             key={conversation.id}
             contact={contact}
             conversation={conversation}

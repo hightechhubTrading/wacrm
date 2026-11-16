@@ -51,8 +51,10 @@ import { toast } from 'sonner';
 import { useLocale, useTranslations } from 'next-intl';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { ContactPhotoEditor } from '@/components/contacts/contact-photo-editor';
 
 interface ContactSidebarProps {
+  onPhotoChange?: (id: string, url: string | null) => void;
   contact: Contact | null;
   sharedMessages?: Message[];
   onOpenSharedMessage?: (id: string) => void;
@@ -73,6 +75,7 @@ export function ContactSidebar({
   onOpenSharedMessage,
   conversation,
   refreshToken,
+  onPhotoChange,
 }: ContactSidebarProps) {
   const tSidebar = useTranslations('Inbox.sidebar');
   const tDealStatus = useTranslations('Inbox.sales.dealStatuses');
@@ -271,7 +274,6 @@ export function ContactSidebar({
   }
 
   const displayName = contact.name || contact.phone;
-  const initials = displayName.charAt(0).toUpperCase();
 
   const locationMessage = [...sharedMessages]
     .reverse()
@@ -390,14 +392,14 @@ export function ContactSidebar({
       aria-label={tSidebar('contactInfo')}
     >
       <header className="crm-customer-header">
-        <div className="crm-customer-portrait" aria-hidden="true">
-          {contact.avatar_url ? (
-            <img src={contact.avatar_url} alt="" />
-          ) : (
-            initials
-          )}
+        <div className="col-span-2">
+          <ContactPhotoEditor
+            contact={contact}
+            canEdit={canEdit && !!onPhotoChange}
+            onChange={(url) => onPhotoChange?.(contact.id, url)}
+          />
         </div>
-        <div className="min-w-0">
+        <div className="col-span-2 min-w-0">
           <h3 dir="auto">{displayName}</h3>
           {contact.company && <p dir="auto">{contact.company}</p>}
           {contact.opted_out && (

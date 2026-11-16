@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ContactPhotoEditor } from './contact-photo-editor';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -62,6 +62,7 @@ export function ContactDetailView({
   const supabase = createClient();
   const { accountId, defaultCurrency } = useAuth();
   const canManageOptOut = useCan('manage-contact-opt-out');
+  const canEditPhoto = useCan('send-messages');
 
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(false);
@@ -385,15 +386,6 @@ export function ContactDetailView({
     }
   }
 
-  function getInitials(name?: string | null) {
-    if (!name) return '?';
-    return name
-      .split(' ')
-      .map((w) => w[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  }
 
   return (
     <>
@@ -410,12 +402,13 @@ export function ContactDetailView({
           <div className="flex flex-col h-full">
             {/* Header */}
             <SheetHeader className="p-4 border-b border-border/50">
-              <div className="flex items-center gap-3">
-                <Avatar className="size-12 bg-muted border border-border">
-                  <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-                    {getInitials(contact.name)}
-                  </AvatarFallback>
-                </Avatar>
+              <div className="flex flex-col items-stretch gap-3">
+                <ContactPhotoEditor key={contact.id} contact={contact} canEdit={canEditPhoto}
+                  onChange={(url) => {
+                    const id = contact.id;
+                    setContact((previous) => previous?.id === id ? { ...previous, avatar_url: url ?? undefined } : previous);
+                    onUpdated();
+                  }} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <SheetTitle className="text-popover-foreground truncate">

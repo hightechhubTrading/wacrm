@@ -599,6 +599,24 @@ function InboxPageInner() {
     []
   );
 
+  const handleContactPhotoChange = useCallback(
+    (id: string, url: string | null) => {
+      const avatar_url = url ?? undefined;
+      setActiveContact((previous) =>
+        previous?.id === id ? { ...previous, avatar_url } : previous
+      );
+      setConversations((previous) =>
+        previous.map((c) =>
+          c.contact_id === id && c.contact
+            ? { ...c, contact: { ...c.contact, avatar_url } }
+            : c
+        )
+      );
+      setListRefreshToken((value) => value + 1);
+    },
+    []
+  );
+
   const handleStatusChange = useCallback(
     (
       conversationId: string,
@@ -709,6 +727,7 @@ function InboxPageInner() {
           )}
         >
           <MessageThread
+            onContactPhotoChange={handleContactPhotoChange}
             key={activeConversation?.id ?? 'no-conversation'}
             conversation={activeConversation}
             contact={activeContact}
@@ -739,6 +758,7 @@ function InboxPageInner() {
             toggle — which is itself desktop-only — never affects it. */}
         {contactPanelOpen && activeConversation && activeContact && (
           <DeferredContactPanel
+            onPhotoChange={handleContactPhotoChange}
             key={activeContact.id}
             ready={readyConversationId === activeConversation.id}
             contact={activeContact}

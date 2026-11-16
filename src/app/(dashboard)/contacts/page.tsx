@@ -717,10 +717,26 @@ function ContactsPageInner() {
                         openDetail(contact.id);
                       }}
                     >
-                      <span className="crm-customer-avatar" aria-hidden="true">
+                      <span
+                        className="crm-customer-avatar relative overflow-hidden"
+                        aria-hidden="true"
+                      >
                         {(contact.name || contact.phone || '?')
                           .charAt(0)
                           .toUpperCase()}
+                        {contact.avatar_url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            key={contact.avatar_url}
+                            src={contact.avatar_url}
+                            alt=""
+                            className="absolute inset-0 size-full object-cover"
+                            loading="lazy"
+                            onError={(e) => {
+                              e.currentTarget.style.visibility = 'hidden';
+                            }}
+                          />
+                        )}
                       </span>
                       <span>
                         {contact.name || (
