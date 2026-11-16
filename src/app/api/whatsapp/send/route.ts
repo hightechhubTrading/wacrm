@@ -9,7 +9,7 @@ import {
   type SendOperation,
 } from '@/lib/whatsapp/send-operations';
 import { canSendMessages, isAccountRole } from '@/lib/auth/roles';
-import { createClient } from '@/lib/supabase/server';
+import { createRequestClient as createClient } from '@/lib/supabase/request';
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -32,7 +32,7 @@ import {
 // dashboard's internal `{ error }` shape.
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
+    const supabase = await createClient(request);
 
     const {
       data: { user },
@@ -338,7 +338,7 @@ export async function GET(request: Request) {
       { status: 400 }
     );
   try {
-    const db = await createClient();
+    const db = await createClient(request);
     const {
       data: { user },
       error: authError,

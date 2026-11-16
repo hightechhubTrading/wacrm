@@ -12,6 +12,7 @@ const conversationInserts: Array<Record<string, unknown>> = []
 const messageInserts: Array<Record<string, unknown>> = []
 
 // Toggles for the per-test scenario.
+let testRole = 'owner'
 let existingConversation: Record<string, unknown> | null = null
 let contactRow: Record<string, unknown> | null = null
 // A conversation created during the request becomes retrievable by id —
@@ -35,7 +36,7 @@ function makeSupabaseMock() {
     const selectResult = () => {
       switch (table) {
         case 'profiles':
-          return { data: { account_id: 'acct-1', account_role: 'owner' }, error: null }
+          return { data: { account_id: 'acct-1', account_role: testRole }, error: null }
         case 'contacts':
           return { data: contactRow, error: null }
         case 'conversations':
@@ -174,6 +175,7 @@ function postContactTemplate(overrides: Record<string, unknown> = {}) {
 
 describe('POST /api/whatsapp/send — contact_id template path', () => {
   beforeEach(() => {
+    testRole = 'owner'
     conversationInserts.length = 0
     messageInserts.length = 0
     existingConversation = null
@@ -258,4 +260,26 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
     )
     expect(res.status).toBe(400)
   })
+})
+
+
+it('denies viewer sends before provider calls', async () => {
+  testRole = 'viewer'
+  supabaseMock = makeSupabaseMock()
+  sendTemplateMessage.mockClear()
+  const response = await postContactTemplate()
+  expect(response.status).toBe(403)
+  expect(sendTemplateMessage).not.toHaveBeenCalled()
+  testRole = 'owner'
+})
+it('denies conversations hidden by user RLS before provider calls', async () => {
+  testRole = 'agent'
+  existingConversation = null
+  createdConversation = null
+  supabaseMock = makeSupabaseMock()
+  sendTemplateMessage.mockClear()
+  const response = await postContactTemplate({ conversation_id: 'hidden-conversation' })
+  expect(response.status).toBe(404)
+  expect(sendTemplateMessage).not.toHaveBeenCalled()
+  testRole = 'owner'
 })
