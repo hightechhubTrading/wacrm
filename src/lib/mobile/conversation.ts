@@ -22,7 +22,7 @@ export function mobilePreflight(request: Request) {
     })
   );
 }
-export async function mobileConversation(request: Request, id: string) {
+export async function mobileAccount(request: Request) {
   const fail = (status: number, error: string) => ({
     response: mobileResponse(request, Response.json({ error }, { status })),
   });
@@ -35,10 +35,6 @@ export async function mobileConversation(request: Request, id: string) {
     !/^Bearer [A-Za-z0-9._-]+$/.test(request.headers.get('authorization') ?? '')
   )
     return fail(401, 'User session required');
-  if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
-  )
-    return fail(400, 'Invalid conversation');
   const db = await createRequestClient(request);
   const {
     data: { user },
@@ -56,6 +52,19 @@ export async function mobileConversation(request: Request, id: string) {
     !isAccountRole(profile.account_role)
   )
     return fail(403, 'Account unavailable');
+  return { db, profile, user };
+}
+export async function mobileConversation(request: Request, id: string) {
+  const fail = (status: number, error: string) => ({
+    response: mobileResponse(request, Response.json({ error }, { status })),
+  });
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+  )
+    return fail(400, 'Invalid conversation');
+  const access = await mobileAccount(request);
+  if ('response' in access) return access;
+  const { db, profile } = access;
   const { data: conversation, error: conversationError } = await db
     .from('conversations')
     .select('id,contact_id,unread_count,last_message_at')
