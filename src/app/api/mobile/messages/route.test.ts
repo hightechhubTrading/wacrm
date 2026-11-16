@@ -128,6 +128,88 @@ it('capabilities deny invalid sessions and honor viewer roles', async () => {
     });
     expect(
       await (await GET(new Request('https://app.test', { headers }))).json()
-    ).toEqual({ protocol: 1, textReplies: allowed });
+    ).toEqual({ protocol: 1, textReplies: allowed, mediaReplies: allowed });
   }
+});
+
+const conversation = '12345678-1234-4234-8234-123456789abc';
+const operation = '22345678-1234-4234-8234-123456789abc';
+const upload = '32345678-1234-4234-8234-123456789abc';
+function mediaClient(role = 'agent', mime = 'application/pdf', size = 200) {
+  const query = {
+    select: () => query,
+    eq: () => query,
+    maybeSingle: async () => ({
+      data: { account_id: 'account-a', account_role: role },
+    }),
+  };
+  mocks.client.mockResolvedValue({
+    auth: {
+      getUser: async () => ({ data: { user: { id: 'u' } }, error: null }),
+    },
+    from: () => query,
+    storage: {
+      from: () => ({
+        info: async () => ({ data: { contentType: mime, size }, error: null }),
+      }),
+    },
+  });
+  vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://fixture.supabase.co');
+}
+const mediaBody = () => ({
+  message_type: 'document',
+  operation_id: operation,
+  conversation_id: conversation,
+  content_text: '',
+  filename: 'notes.pdf',
+  media_url: `https://fixture.supabase.co/storage/v1/object/public/chat-media/account-account-a/mobile-${conversation}-${upload}.pdf`,
+});
+const sendMedia = (body = mediaBody()) =>
+  POST(
+    new Request('https://app.test', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    })
+  );
+it('delegates validated uploaded documents and photos with tracked IDs', async () => {
+  mediaClient();
+  expect((await sendMedia()).status).toBe(200);
+  expect(mocks.send).toHaveBeenCalledOnce();
+  mediaClient('agent', 'image/jpeg', 200);
+  expect(
+    (
+      await sendMedia({
+        ...mediaBody(),
+        message_type: 'image',
+        filename: 'photo.jpg',
+        media_url: mediaBody().media_url.replace('.pdf', '.jpg'),
+      })
+    ).status
+  ).toBe(200);
+});
+it.each([
+  'https://evil.test/file.pdf',
+  `https://fixture.supabase.co/storage/v1/object/public/chat-media/account-foreign/mobile-${conversation}-${upload}.pdf`,
+  `https://fixture.supabase.co/storage/v1/object/public/chat-media/account-account-a/mobile-${operation}-${upload}.pdf`,
+])(
+  'rejects untrusted or foreign attachment URLs before the send engine',
+  async (media_url) => {
+    mediaClient();
+    expect((await sendMedia({ ...mediaBody(), media_url })).status).toBe(400);
+    expect(mocks.send).not.toHaveBeenCalled();
+  }
+);
+it('blocks viewers, oversized files, MIME mismatch and overlong captions before sending', async () => {
+  mediaClient('viewer');
+  expect((await sendMedia()).status).toBe(403);
+  mediaClient('agent', 'application/pdf', 16777217);
+  expect((await sendMedia()).status).toBe(400);
+  mediaClient('agent', 'text/html');
+  expect((await sendMedia()).status).toBe(400);
+  mediaClient();
+  expect(
+    (await sendMedia({ ...mediaBody(), content_text: 'a'.repeat(1025) })).status
+  ).toBe(400);
+  expect(mocks.send).not.toHaveBeenCalled();
 });

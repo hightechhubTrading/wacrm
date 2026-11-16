@@ -65,7 +65,7 @@ export async function GET(
     if (
       messageError ||
       !message?.media_url ||
-      !['image', 'document'].includes(message.content_type)
+      !['image', 'document', 'audio'].includes(message.content_type)
     )
       return fail('Attachment unavailable', 404);
     let buffer: Buffer;
@@ -97,7 +97,7 @@ export async function GET(
         url.origin !== new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).origin ||
         url.username ||
         url.password ||
-          !/^\/storage\/v1\/object\/public\/(chat-media|flow-media|ai-media|quotation-pdfs)\/.+/.test(
+        !/^\/storage\/v1\/object\/public\/(chat-media|flow-media|ai-media|quotation-pdfs)\/.+/.test(
           url.pathname
         )
       )

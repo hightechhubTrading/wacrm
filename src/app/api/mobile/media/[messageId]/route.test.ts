@@ -180,9 +180,20 @@ describe('mobile attachment access', () => {
     expect((await read()).status).toBe(413);
   });
   it('supports the existing quotation PDF bucket', async () => {
-    h.source = 'https://fixture.supabase.co/storage/v1/object/public/quotation-pdfs/account-a/quote.pdf';
+    h.source =
+      'https://fixture.supabase.co/storage/v1/object/public/quotation-pdfs/account-a/quote.pdf';
     h.kind = 'document';
     expect((await read()).status).toBe(200);
+  });
+  it('returns authorized voice recordings through the same RLS boundary', async () => {
+    h.kind = 'audio';
+    h.download.mockResolvedValue({
+      buffer: Buffer.from('OggS fixture'),
+      contentType: 'audio/ogg',
+    });
+    const r = await read();
+    expect(r.status).toBe(200);
+    expect(r.headers.get('content-type')).toBe('audio/ogg');
   });
   it('returns a bounded failure for provider oversize and unsupported kinds', async () => {
     h.download.mockRejectedValue(new Error('Media exceeds limit'));
