@@ -1,8 +1,9 @@
 /** Matches the existing chat-media bucket and WhatsApp photo/document types. */
 export const attachmentTypes: Record<
   string,
-  { mime: string; kind: 'image' | 'document' }
+  { mime: string; kind: 'image' | 'document' | 'audio' }
 > = {
+  ogg: { mime: 'audio/ogg', kind: 'audio' },
   jpg: { mime: 'image/jpeg', kind: 'image' },
   jpeg: { mime: 'image/jpeg', kind: 'image' },
   png: { mime: 'image/png', kind: 'image' },
@@ -25,6 +26,7 @@ export const attachmentTypes: Record<
   },
 };
 export const attachmentAccept = Object.keys(attachmentTypes)
+  .filter((ext) => ext !== 'ogg')
   .map((ext) => `.${ext}`)
   .join(',');
 export const attachmentLimit = (kind: string) =>

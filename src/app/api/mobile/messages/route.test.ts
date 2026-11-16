@@ -128,7 +128,12 @@ it('capabilities deny invalid sessions and honor viewer roles', async () => {
     });
     expect(
       await (await GET(new Request('https://app.test', { headers }))).json()
-    ).toEqual({ protocol: 1, textReplies: allowed, mediaReplies: allowed });
+    ).toEqual({
+      protocol: 1,
+      textReplies: allowed,
+      mediaReplies: allowed,
+      voiceReplies: allowed,
+    });
   }
 });
 
@@ -212,4 +217,21 @@ it('blocks viewers, oversized files, MIME mismatch and overlong captions before 
     (await sendMedia({ ...mediaBody(), content_text: 'a'.repeat(1025) })).status
   ).toBe(400);
   expect(mocks.send).not.toHaveBeenCalled();
+});
+
+it('accepts scoped mono voice uploads without a caption and rejects captioned audio', async () => {
+  mediaClient('agent', 'audio/ogg', 300);
+  const body = {
+    ...mediaBody(),
+    message_type: 'audio',
+    filename: 'voice.ogg',
+    media_url: mediaBody()
+      .media_url.replace(/notes\.pdf$/, 'voice.ogg')
+      .replace(/\.pdf$/, '.ogg'),
+  };
+  expect((await sendMedia({ ...body, content_text: 'caption' })).status).toBe(
+    400
+  );
+  await sendMedia(body);
+  expect(mocks.send).toHaveBeenCalledOnce();
 });

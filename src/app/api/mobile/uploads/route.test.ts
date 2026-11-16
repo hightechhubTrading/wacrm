@@ -200,3 +200,38 @@ it('rejects malformed conversation IDs and reports storage failure without sendi
   h.upload.mockResolvedValue({ error: { message: 'fixture' } });
   expect((await POST(req())).status).toBe(502);
 });
+
+it('accepts mono Ogg/Opus and rejects WebM, Vorbis and stereo voice bytes', async () => {
+  const voice = Uint8Array.from([
+    79,
+    103,
+    103,
+    83,
+    0,
+    2,
+    ...Array(20).fill(0),
+    1,
+    19,
+    ...Buffer.from('OpusHead'),
+    1,
+    1,
+    ...Array(9).fill(0),
+  ]);
+  expect(
+    (await POST(req(new File([voice], 'voice.ogg', { type: 'audio/ogg' }))))
+      .status
+  ).toBe(201);
+  expect(h.upload.mock.calls[0][2].contentType).toBe('audio/ogg');
+  h.upload.mockClear();
+  for (const bytes of [
+    new Uint8Array([26, 69, 223, 163]),
+    new Uint8Array(voice).fill(0, 28, 36),
+    Uint8Array.from(voice, (v, i) => (i === 37 ? 2 : v)),
+  ]) {
+    expect(
+      (await POST(req(new File([bytes], 'voice.ogg', { type: 'audio/ogg' }))))
+        .status
+    ).toBe(400);
+  }
+  expect(h.upload).not.toHaveBeenCalled();
+});

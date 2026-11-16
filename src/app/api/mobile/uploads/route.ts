@@ -1,3 +1,4 @@
+import { validVoiceOgg } from '@/lib/inbox/voice-format';
 import { randomUUID } from 'node:crypto';
 import { createRequestClient } from '@/lib/supabase/request';
 import { canSendMessages, isAccountRole } from '@/lib/auth/roles';
@@ -34,6 +35,7 @@ export async function OPTIONS(request: Request) {
 function signatureMatches(bytes: Uint8Array, ext: string) {
   const prefix = (...values: number[]) =>
     values.every((n, i) => bytes[i] === n);
+  if (ext === 'ogg') return validVoiceOgg(bytes);
   if (['jpg', 'jpeg'].includes(ext)) return prefix(255, 216, 255);
   if (ext === 'png') return prefix(137, 80, 78, 71, 13, 10, 26, 10);
   if (ext === 'pdf') return prefix(37, 80, 68, 70, 45);

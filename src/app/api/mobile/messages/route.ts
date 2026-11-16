@@ -54,7 +54,8 @@ export async function POST(request: Request) {
     .catch(() => null);
   if (
     !body ||
-    !['text', 'image', 'document'].includes(body.message_type) ||
+    (body.message_type === 'audio' && body.content_text !== '') ||
+    !['text', 'image', 'document', 'audio'].includes(body.message_type) ||
     typeof body.content_text !== 'string' ||
     (body.message_type === 'text' && !body.content_text.trim()) ||
     body.content_text.length > (body.message_type === 'text' ? 4096 : 1024) ||
@@ -150,7 +151,7 @@ export async function POST(request: Request) {
         url.search ||
         url.hash ||
         !url.pathname.startsWith(prefix) ||
-        !/^[0-9a-f-]{36}\.(jpg|jpeg|png|pdf|txt|doc|docx|xls|xlsx|ppt|pptx)$/.test(
+        !/^[0-9a-f-]{36}\.(jpg|jpeg|png|pdf|txt|doc|docx|xls|xlsx|ppt|pptx|ogg)$/.test(
           tail
         )
       )
@@ -239,6 +240,9 @@ export async function GET(request: Request) {
       NextResponse.json({
         protocol: 1,
         textReplies:
+          isAccountRole(profile.account_role) &&
+          canSendMessages(profile.account_role),
+        voiceReplies:
           isAccountRole(profile.account_role) &&
           canSendMessages(profile.account_role),
         mediaReplies:
