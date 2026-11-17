@@ -4,7 +4,6 @@ import {
   useRef,
   useState,
   type ReactNode,
-  type MouseEvent,
 } from 'react';
 import {
   ArrowDown,
@@ -472,17 +471,14 @@ export function ConversationView({
   const [newMessages, setNewMessages] = useState(false);
   const [atLatest, setAtLatest] = useState(true);
   const [attachment, setAttachment] = useState<Message | null>(null);
-  function jump(event: MouseEvent<HTMLButtonElement>) {
+  function jump() {
+    // Frequent navigation should finish before keyboard/layout changes.
+    scrollState.current.atBottom = true;
     if (transcript.current)
       transcript.current.scrollTo({
         top: transcript.current.scrollHeight,
-        behavior:
-          event.detail > 0 &&
-          !matchMedia('(prefers-reduced-motion: reduce)').matches
-            ? 'smooth'
-            : 'auto',
+        behavior: 'instant',
       });
-    scrollState.current.atBottom = true;
     setNewMessages(false);
   }
   useLayoutEffect(() => {

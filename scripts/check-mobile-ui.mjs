@@ -176,13 +176,14 @@ try {
     (await page.locator('.transcript').evaluate((el) => el.scrollTop)) < 80
   );
   await page.getByRole('button', { name: 'New messages', exact: true }).click();
-  await page.waitForFunction(() => {
-    const el = document.querySelector('.transcript');
-    return el.scrollHeight - el.scrollTop - el.clientHeight < 60;
-  });
+  // Resize immediately after the jump: an unfinished scroll animation must
+  // never overwrite the intent to keep the latest message visible.
   await page.setViewportSize({ width: 390, height: 420 });
   await input.focus();
-  await page.waitForTimeout(100);
+  await page.waitForFunction(() => {
+    const el = document.querySelector('.transcript');
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 3;
+  });
   const box = await input.boundingBox();
   assert(
     await page
