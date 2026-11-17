@@ -1,0 +1,68 @@
+name: Android companion
+
+on:
+  pull_request:
+    paths: ['mobile/**', 'scripts/check-mobile-*.mjs', 'scripts/mobile-realtime-fixture.mjs', 'src/lib/**', 'src/app/api/mobile/**', '.github/workflows/mobile.yml']
+  push:
+    branches: [main, feat/ctwa-conversions]
+    paths: ['mobile/**', 'scripts/check-mobile-*.mjs', 'scripts/mobile-realtime-fixture.mjs', 'src/lib/**', 'src/app/api/mobile/**', '.github/workflows/mobile.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # This artifact supports synthetic demo/CI only; no live credentials.
+      VITE_SUPABASE_URL: https://ci.example.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: ci-public-placeholder
+      VITE_CRM_API_URL: https://crm.example.test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            mobile/package-lock.json
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v4
+      - name: Install locked dependencies
+        run: |
+          npm ci
+          npm ci --prefix mobile
+      - name: Install browser and Android platform
+        run: |
+          npx playwright install --with-deps chrome
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Check mobile source and package Android assets
+        run: |
+          npx eslint mobile/src
+          npm --prefix mobile run sync
+      - name: Browser acceptance with synthetic fixtures
+        run: |
+          (cd mobile && npm exec -- vite preview --host 127.0.0.1 --port 4175 --strictPort) > /tmp/mobile-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4175/ > /dev/null; then break; fi
+            sleep 1
+          done
+          for suite in demo auth ui chat-design media send attachments contact-photos workflow voice today quotations; do
+            node "scripts/check-mobile-${suite}.mjs"
+          done
+      - name: Compile and lint Android
+        run: |
+          chmod +x mobile/android/gradlew
+          mobile/android/gradlew -p mobile/android :app:assembleDebug :app:lintDebug --no-daemon --console=plain

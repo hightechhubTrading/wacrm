@@ -1,0 +1,13 @@
+node_modules
+dist/
+.env*
+!.env.example
+android/.gradle/
+android/local.properties
+android/**/build/
+
+# Signing and provider configuration are installed per environment.
+*.jks
+*.keystore
+android/app/google-services.json
+**/GoogleService-Info.plist

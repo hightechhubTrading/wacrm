@@ -418,6 +418,11 @@
       "date": "2026-11-10",
       "decision": "The inbox prioritizes the transcript on compact windows: AI notes and follow-ups use short summaries with full details in existing sheets; narrow desktops open customer details in a sheet. Roomy desktops reserve a real column for AI guidance. Preserve saved themes and existing permissions.",
       "source": "User approved and requested execution of docs/inbox-responsive-fix-plan-2026-11-10.md"
+    },
+    {
+      "date": "2026-11-16",
+      "decision": "The Android companion uses familiar messaging patterns with Apple-style hierarchy: blue/white surfaces, compact chat headers, round contact initials, grouped bubbles and receipt icons. Photos preview inline and voice notes play inline with seeking/speed; retain server-authenticated media, sender permissions, and the 100-conversation cap. This direction applies to mobile only.",
+      "source": "User requested WhatsApp/Telegram-like chat UI with more Apple styling and inline image/audio."
     }
   ],
   "evidence": [

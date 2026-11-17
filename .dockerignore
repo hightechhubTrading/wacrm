@@ -12,3 +12,6 @@ supabase/.temp
 
 # Private source imports and local review evidence
 .local
+
+# The Android companion has a separate build and dependency tree.
+mobile

@@ -1,0 +1,12 @@
+{
+  "appId": "com.hightechhub.crm.demo",
+  "appName": "HTH CRM Demo",
+  "webDir": "dist",
+  "loggingBehavior": "none",
+  "plugins": {
+    "SystemBars": {
+      "style": "LIGHT",
+      "initialViewportFitValueHint": "cover"
+    }
+  }
+}
