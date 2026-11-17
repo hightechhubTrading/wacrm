@@ -28,7 +28,9 @@ export async function loadQuotationCatalogue(
         .limit(1000),
     ]);
   if (pe || le) throw Error('Could not load the shared quotation catalogue.');
-  const rows = approvedCatalogRows(products ?? [], { includeInternal: true });
+  const rows = approvedCatalogRows(products ?? [], {
+    includeInternal: true,
+  }).filter((p) => p.inventory_type !== 'component');
   const sourceByProduct = new Map<string, KnowledgeRecord[]>();
   for (const link of (links ?? []) as unknown as {
     product_id: string;

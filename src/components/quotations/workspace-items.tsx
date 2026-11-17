@@ -1,5 +1,6 @@
 'use client';
 import './product-workspace.css';
+import { productOptionLabel } from '@/lib/quotations/product-option-label';
 import { useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
@@ -476,13 +477,7 @@ export function WorkspaceItems({
                             <option value="">{l('Select', 'اختر')}</option>
                             {f.options.map((o) => (
                               <option key={o} value={o}>
-                                {ar
-                                  ? ({
-                                      White: 'أبيض',
-                                      Beige: 'بيج',
-                                      Custom: 'لون مخصص',
-                                    }[o] ?? o)
-                                  : o}
+                                {productOptionLabel(o, ar ? 'ar' : 'en')}
                               </option>
                             ))}
                           </select>
@@ -988,7 +983,13 @@ export function WorkspaceItems({
           creating={disabled}
           initialType={target.parent ? 'equipment' : 'product'}
           componentMode={!!target.parent}
-          productCode={profile?.code}
+          productCode={
+            product?.name === 'Swing'
+              ? 'SW'
+              : product?.name === 'Sliding'
+                ? 'SL'
+                : profile?.code
+          }
           defaultApplyTerms={!roots.some((i) => i.itemType === 'line')}
           allowPrice
           onSelect={(p, selection) => {
