@@ -1,3 +1,4 @@
+import { productMapFieldLabels } from './product-map-fields';
 import { areaPerItem, billableQuantity, isNonChargeable } from './totals';
 import { amountInWordsBilingual } from './number-to-words';
 import { QUOTATION_TEMPLATE_HTML } from './templates/quotation-html';
@@ -89,6 +90,12 @@ export function buildQuotationHtml(
     ])
     .join('');
   const labels: Record<string, string> = {
+    ...Object.fromEntries(
+      Object.entries(productMapFieldLabels).map(([key, [en, ar]]) => [
+        key,
+        `${en} · ${ar}`,
+      ])
+    ),
     finish: 'Colour / finish · اللون / التشطيب',
     customFinish: 'Selected colour · اللون المختار',
     deliveryPeriod: 'Delivery · التسليم',

@@ -16,7 +16,12 @@ const { items: catalogue } = JSON.parse(
   root = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), 'quotation-redesign-'))
   ),
-  evidence = path.join(project, '.local/quotation-redesign/browser');
+  evidence = path.join(
+    project,
+    process.argv.includes('--product-map')
+      ? '.local/product-map/quotation-browser'
+      : '.local/quotation-redesign/browser'
+  );
 const ids = {
   account: '10000000-0000-4000-8000-000000000001',
   quote: '10000000-0000-4000-8000-000000000002',
@@ -88,9 +93,19 @@ try {
     headless: true,
     channel: process.env.PLAYWRIGHT_CHANNEL || undefined,
   });
-  const shutter = catalogue.find((p) => p.name === 'Motorized Window Shutters'),
+  const shutter = catalogue.find(
+      (p) =>
+        p.name ===
+        (process.argv.includes('--product-map')
+          ? 'Window Shutter 55'
+          : 'Motorized Window Shutters')
+    ),
     garage = catalogue.find(
-      (p) => p.name === 'American-style Sectional Garage Door'
+      (p) =>
+        p.name ===
+        (process.argv.includes('--product-map')
+          ? 'Sectional Garage Door (American)'
+          : 'American-style Sectional Garage Door')
     ),
     delivery = catalogue.find((p) => p.sku === 'PL26-132'),
     motor = catalogue.find((p) => p.sku === 'HT-EQP-014');
@@ -326,12 +341,46 @@ try {
             const rate = core
               .cataloguePriceRows(p)
               .find((r) => Number(r.data.col_O) === amount);
-            assert.ok(rate, 'Missing exact source rate for ' + p.name);
-            await page
-              .getByLabel(l('Recorded selling rates', 'أسعار البيع المسجلة'), {
-                exact: true,
-              })
-              .selectOption(rate.id + ':O');
+            if (rate) {
+              await page
+                .getByLabel(
+                  l('Recorded selling rates', 'أسعار البيع المسجلة'),
+                  { exact: true }
+                )
+                .selectOption(rate.id + ':O');
+            } else {
+              assert.ok(
+                process.argv.includes('--product-map'),
+                'Missing exact source rate for ' + p.name
+              );
+              // Explicit synthetic quotation amount, never a product default or source assertion.
+              await page
+                .getByLabel(
+                  p.unit_of_measure === 'm2'
+                    ? l('Rate per m²', 'سعر المتر المربع')
+                    : l('Unit rate', 'سعر الوحدة'),
+                  { exact: true }
+                )
+                .fill(String(amount));
+            }
+            if (process.argv.includes('--product-map') && p === shutter) {
+              await page
+                .getByLabel(l('Operation', 'طريقة التشغيل'), { exact: true })
+                .selectOption('Motor with remote');
+              await page
+                .getByLabel(l('Box shape', 'شكل البوكس'), { exact: true })
+                .selectOption('Square');
+              await page
+                .getByLabel(l('Used for', 'الاستخدام'), { exact: true })
+                .fill('Synthetic window opening');
+              const options = await page
+                .getByLabel(l('Colour / finish', 'اللون / التشطيب'), {
+                  exact: true,
+                })
+                .locator('option')
+                .evaluateAll((options) => options.map((o) => o.value));
+              assert.deepEqual(options, ['', 'Beige', 'White']);
+            }
             const finish = page.getByLabel(
               l('Colour / finish', 'اللون / التشطيب'),
               { exact: true }

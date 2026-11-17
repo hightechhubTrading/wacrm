@@ -1,6 +1,6 @@
+import { chatCatalogueRows } from './chat-catalogue';
 import {
   CATALOG_FIELDS,
-  approvedCatalogRows,
   catalogMetadata,
   type CatalogMetadata,
 } from './catalog';
@@ -86,7 +86,7 @@ export async function listProductsForPrompt(
       )
       .eq('account_id', accountId);
     if (error || !data) return [];
-    return approvedCatalogRows(data).map((row) => ({
+    return chatCatalogueRows(data).map((row) => ({
       catalog: catalogMetadata(row),
       parentName: data.find((p) => p.id === row.parent_id)?.name ?? null,
       id: row.id as string,
@@ -104,7 +104,7 @@ export async function listProductsForPrompt(
       priceUnit: (row.price_unit as string | null) ?? null,
       priceNotes: (row.price_notes as string | null) ?? null,
       files: (
-        (row.ai_product_media as
+        ((row.kind === 'family' ? [] : row.ai_product_media) as
           | {
               id: string;
               label: string | null;

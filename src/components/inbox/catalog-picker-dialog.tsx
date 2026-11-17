@@ -19,6 +19,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { chatCatalogueRows } from '@/lib/ai/chat-catalogue';
+import type { CatalogMetadata } from '@/lib/ai/catalog';
 import { createClient } from '@/lib/supabase/client';
 import type { ComposerMediaKind } from './message-composer';
 
@@ -29,10 +31,11 @@ interface CatalogFile {
   mime_type: string;
   storage_path: string;
 }
-interface CatalogProduct {
+interface CatalogProduct extends CatalogMetadata {
   id: string;
   name: string;
   description: string;
+  name_ar?: string | null;
   files: CatalogFile[];
 }
 export interface CatalogPick {
@@ -66,10 +69,15 @@ export function CatalogPickerDialog({
     null
   );
 
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
+    null
+  );
+
   useEffect(() => {
     if (!open) return;
     const controller = new AbortController();
     setSelectedProductId(null);
+    setSelectedCategoryId(null);
     setQuery('');
     setProducts([]);
     setLoading(true);
@@ -84,7 +92,8 @@ export function CatalogPickerDialog({
         const data = await res.json();
         if (!Array.isArray(data.items))
           throw new Error('Invalid library response');
-        if (!controller.signal.aborted) setProducts(data.items);
+        if (!controller.signal.aborted)
+          setProducts(chatCatalogueRows(data.items as CatalogProduct[]));
       } catch {
         if (!controller.signal.aborted) setError(true);
       } finally {
@@ -115,10 +124,17 @@ export function CatalogPickerDialog({
   const search = query.trim().toLocaleLowerCase(locale);
   const matchesFile = (file: CatalogFile) =>
     fileName(file).toLocaleLowerCase(locale).includes(search);
-  const visibleProducts = products.filter(
+  const selectedCategory = products.find((p) => p.id === selectedCategoryId);
+  const levelProducts = search
+    ? products.filter((p) => p.kind !== 'family')
+    : products.filter((p) =>
+        selectedCategoryId ? p.parent_id === selectedCategoryId : !p.parent_id
+      );
+  const visibleProducts = levelProducts.filter(
     (p) =>
-      `${p.name} ${p.description}`.toLocaleLowerCase(locale).includes(search) ||
-      p.files.some(matchesFile)
+      `${p.name} ${p.name_ar ?? ''} ${p.description}`
+        .toLocaleLowerCase(locale)
+        .includes(search) || p.files.some(matchesFile)
   );
   const files = selectedProduct?.files.filter(matchesFile) ?? [];
 
@@ -130,12 +146,13 @@ export function CatalogPickerDialog({
       >
         <DialogHeader className="pe-8 text-start">
           <div className="flex items-center gap-3">
-            {selectedProduct ? (
+            {selectedProduct || selectedCategory ? (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => {
-                  setSelectedProductId(null);
+                  if (selectedProduct) setSelectedProductId(null);
+                  else setSelectedCategoryId(null);
                   setQuery('');
                 }}
                 aria-label={t('catalogBack')}
@@ -147,7 +164,14 @@ export function CatalogPickerDialog({
                 <ImageIcon className="size-5" />
               </span>
             )}
-            <DialogTitle>{selectedProduct?.name ?? t('catalog')}</DialogTitle>
+            <DialogTitle>
+              {(locale === 'ar'
+                ? (selectedProduct?.name_ar ?? selectedCategory?.name_ar)
+                : null) ??
+                selectedProduct?.name ??
+                selectedCategory?.name ??
+                t('catalog')}
+            </DialogTitle>
           </div>
           <DialogDescription className="leading-relaxed">
             {selectedProduct ? t('catalogChoose') : t('catalogIntro')}
@@ -237,7 +261,13 @@ export function CatalogPickerDialog({
                     <button
                       type="button"
                       onClick={() => {
-                        setSelectedProductId(product.id);
+                        if (product.kind === 'family')
+                          setSelectedCategoryId(product.id);
+                        else {
+                          setSelectedProductId(product.id);
+                          if (product.parent_id)
+                            setSelectedCategoryId(product.parent_id);
+                        }
                         setQuery('');
                       }}
                       className="border-border bg-muted/20 hover:border-primary/60 hover:bg-primary/5 focus-visible:outline-primary flex h-full w-full items-center gap-3 rounded-xl border p-3 text-start transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
@@ -253,15 +283,19 @@ export function CatalogPickerDialog({
                       </span>
                       <span className="min-w-0 space-y-1">
                         <span className="block truncate font-semibold">
-                          {product.name}
+                          {locale === 'ar'
+                            ? (product.name_ar ?? product.name)
+                            : product.name}
                         </span>
                         <span className="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
                           {product.description}
                         </span>
                         <span className="text-primary block text-xs font-medium">
-                          {t('catalogFileCount', {
-                            count: product.files.length,
-                          })}
+                          {product.kind === 'family'
+                            ? `${products.filter((p) => p.parent_id === product.id).length} ${locale === 'ar' ? 'منتجات' : 'products'}`
+                            : t('catalogFileCount', {
+                                count: product.files.length,
+                              })}
                         </span>
                       </span>
                     </button>

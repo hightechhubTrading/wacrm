@@ -1,3 +1,4 @@
+import { productMapFields } from './product-map-fields';
 import type { CatalogueProduct } from './catalogue';
 import type { QuotationItemToSave } from './crud';
 import { nextItemCode } from './item-editor';
@@ -86,6 +87,11 @@ export function productProfile(
       per_project: 'job',
     }[product.price_unit ?? ''] ??
     (code === 'WS' ? 'm2' : undefined);
+  const mappedFields =
+    product.inventory_type === 'product'
+      ? productMapFields(product.name, product.specifications)
+      : null;
+  if (mappedFields) return { code, unit, fields: mappedFields };
   const fields: ProductField[] = [];
   if (product.inventory_type === 'product') {
     const text = product.specifications + ' ' + product.description;

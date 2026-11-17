@@ -84,7 +84,6 @@ export function CataloguePicker({
         p.inventory_type === type &&
         (type !== 'equipment' ||
           !productCode ||
-          !compatible.length ||
           allEquipment ||
           compatible.some((c) => c.id === p.id))
     ),
