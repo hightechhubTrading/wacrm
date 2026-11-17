@@ -97,8 +97,8 @@ and never points its test statements at a business database.
 
 ## Remaining integration and acceptance
 
-Server/schema implementation and local isolated checks are complete; hosted
-clean-checkout acceptance remains pending. Next wire native permission,
+Server/schema implementation and local/hosted isolated checks are complete.
+Next wire native permission,
 registration/rotation, preferences, logout cleanup
 and authenticated tap navigation. Use synthetic data/provider responses first.
 Verify SQL policies, tenant/assignment/session revocation, overlapping leases,
@@ -111,3 +111,31 @@ Before rollout, also verify the hosted Auth session policies against the actual
 deployment. The server explicitly checks stored `auth.sessions.not_after`; Auth
 inactivity/single-session settings are enforced on refresh by Supabase, not by
 inventing an independent timeout in this feature. See [Supabase sessions](https://supabase.com/docs/guides/auth/sessions).
+
+
+## Hosted acceptance and next continuation
+
+Source `36c71861a4bae856d3568ecd6304a92347191e34` passed
+[web CI](https://github.com/hightechhubTrading/wacrm/actions/runs/44000864534),
+including the real Postgres service-container fixture and production build, and
+[Android CI](https://github.com/hightechhubTrading/wacrm/actions/runs/44000864515),
+including the twelve browser suites and native compile/lint. No source/database
+deployment was performed. All temporary PostgreSQL fixture databases/roles were
+removed; the final server catalog count was zero. The temporary SSH key was
+removed, a fresh connection was denied, and local key files were deleted.
+
+Native integration preparation: inspected the published
+`@capacitor/push-notifications@8.1.3` Java implementation. Plugin load does not
+initialize Firebase Messaging, so unconfigured builds can load it, provided the
+client gates registration/unregistration on valid native Firebase configuration.
+Its `unregister()` starts token deletion without awaiting the task; implement
+observable native cleanup/retry rather than treating that promise as proof of
+deletion. Token changes while the bridge is unavailable require explicit recovery
+and acceptance testing. The native SecureSession plugin currently whitelists
+session/pending-send keys only; extend it deliberately for bounded push binding
+and pending-revocation metadata. Keep live sessions intact during synthetic tests.
+
+On this Mac, temporary checks use `/Volumes/AndroidAVD/mobile-push-work` because
+the internal disk is nearly full. It contains sanitized logs and the published
+plugin package for inspection, with no remaining SSH private key. Put subsequent
+temporary build/browser work on this M2-backed volume.

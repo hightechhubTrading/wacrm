@@ -322,3 +322,23 @@ Hosted clean-checkout validation exposed a missing committed send adapter and a 
 Final source `14b9949d6a352c91a49b60ee1f3598ab6eba7893`: [Android CI passed](https://github.com/hightechhubTrading/wacrm/actions/runs/43993651472), including locked installs, lint/types/build, twelve synthetic browser suites, native assemble and Android lint. [Web CRM CI passed](https://github.com/hightechhubTrading/wacrm/actions/runs/43993651474), including 1,853 tests (74 existing skips) and production build. The latest debug APK is installed. Native live read-only acceptance confirmed secure session, inbox <=100, generated live policy and authorized quotation listing; no customer write was performed. Emulator Google Play services is present.
 
 Remaining Android gates: push client/server implementation and Firebase configuration/delivery, production identity/signing/internal distribution, full role/session matrix, actual microphone/real internal-recipient delivery and physical-device acceptance. User has no Firebase/Apple Developer/Play Console accounts; iPhone remains explicitly deferred.
+
+
+### Android push backend — 17 November 2026, not deployed
+
+Source `36c7186` implements the private registration/preferences API, session-bound
+encrypted credentials, rotation versions, revocation capabilities, durable source
+recovery/outbox leases, current membership/assignment/user/session checks, quiet
+hours and generic FCM HTTP v1 delivery with bounded retries and stable conversation
+tags. The existing cron calls the drain only when valid explicit Firebase
+configuration exists. Missing/invalid credentials pause claiming.
+
+[Web CI passed](https://github.com/hightechhubTrading/wacrm/actions/runs/44000864534):
+1,881 tests (74 existing skips), 48 deployment checks, real PostgreSQL isolation/
+recovery/concurrency tests and production build.
+[Android regression CI passed](https://github.com/hightechhubTrading/wacrm/actions/runs/44000864515).
+All temporary SQL databases/roles were removed; temporary SSH access was removed
+and a fresh attempt denied. Live Supabase inspection was read-only metadata; no
+production records or schema were changed. Migration 100 must precede deployment.
+Native registration/permission/preferences/logout/tap integration, Firebase setup
+and real delivery remain open. Full details: [Android push](android-push.md).

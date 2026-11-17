@@ -5,7 +5,7 @@ Started 17 November 2026. Active user objective: complete all remaining mobile i
 | Item | Required result | Current evidence / remaining gate |
 | --- | --- | --- |
 | Voice recording and sending | Permission handling, start/stop/preview/discard, lifecycle cleanup, tracked upload/send/reconciliation, supported codec, web/native tests | Android UI installed and backend `425ac0c` deployed. Generated-audio browser/native encode/preview/cancel/reconciliation checks and live upload/decode/delete passed. Physical Android microphone capture and real test-recipient delivery remain required. |
-| Push notifications | Device registration/rotation/logout, durable delivery/retry/deduplication, assignment/membership checks, minimal lock-screen content, authenticated tap navigation, foreground/background/terminated tests | Server/schema implementation and local isolated tests completed; hosted checks pending. Migration 100 is not applied and server code is not deployed. Native permission/registration/preferences/logout/tap integration remains open. No Firebase project/credentials exist yet. See `docs/android-push.md`. |
+| Push notifications | Device registration/rotation/logout, durable delivery/retry/deduplication, assignment/membership checks, minimal lock-screen content, authenticated tap navigation, foreground/background/terminated tests | Server/schema implementation and local/hosted isolated tests completed at `36c7186`. Migration 100 is not applied and server code is not deployed. Native permission/registration/preferences/logout/tap integration remains open. No Firebase project/credentials exist yet. See `docs/android-push.md`. |
 | Today and follow-ups | Assigned/due tasks, Qatar dates, authorized detail/navigation and supported completion, loading/retry/empty states, CRM sync | Android Today implemented and backend `9227ccb` deployed. Due/unclaimed tasks, paging, take/postpone/complete with revision/owner checks, conflict recovery and navigation outside the inbox cap passed browser/native tests. Live synthetic completion verified and all test records removed. Physical-device pilot remains open. |
 | Quotation viewing/sharing | Authorized quotations and PDF, native file sharing, explicit WhatsApp-send confirmation and existing dispatch rules, accurate outcome display | Android Quotations tab installed; backend `d37ce00` deployed. Scoped list/detail, stored amounts/terms, current PDF viewer, native chooser and explicit WhatsApp confirmation passed browser/native checks. Live synthetic PDF/share and closed-window rejection passed; cleanup verified ready/draft unchanged and zero messages. Actual internal-recipient delivery remains open. |
 | Device/release readiness | Session expiry/revocation and assignment matrix, physical Android/iPhone tests, compatibility/rollback, signed testing distribution | Android emulator only currently verified. Developer signing/distribution accounts and physical Android are external requirements. |
@@ -30,3 +30,18 @@ Hosted CI found a snapshot dependency missed by local checks: the mobile compose
 
 
 Final source/build acceptance: `14b9949d6a352c91a49b60ee1f3598ab6eba7893` passed both hosted workflows. [Android companion](https://github.com/hightechhubTrading/wacrm/actions/runs/43993651472) completed locked installs, source lint/typecheck/build, all twelve synthetic browser suites, native compilation and Android lint on Linux. [Web CRM CI](https://github.com/hightechhubTrading/wacrm/actions/runs/43993651474) passed lint, typecheck, 1,853 tests (74 existing skips), quotation parsing/deployment-preflight checks and production build. Hosted validation exposed a smooth-scroll/keyboard race; latest-message navigation now completes instantly, and the test resizes immediately after the jump. The final debug APK is installed in the emulator. Firebase push implementation/configuration, signed distribution and physical/real-recipient acceptance remain open; iPhone stays deferred.
+
+
+17 November push backend checkpoint: `36c7186` passed web and Android CI.
+The backend adds private encrypted/role-and-session-bound registration, monotonic
+token versions, expiry-safe capability revocation, preferences/quiet hours, durable
+source recovery/outbox leases, generic FCM payloads and bounded retries. Local and
+hosted SQL fixtures verified actual permission denial, source recovery, account/
+assignment/session deadline/ban/delete changes, rotation safety and overlapping
+claims. Full suite: 1,881 passed, 74 existing skips; deployment probes: 48 passed.
+Migration 100 and server code remain **unapplied/undeployed**; preflight intentionally
+blocks deployment until the migration is installed. The live CRM remains at the
+quotation release. Next: native push permission/registration/rotation/preferences,
+logout cleanup and authenticated tap navigation; then Firebase provisioning and
+real foreground/background/terminated delivery, signing and device acceptance.
+See `docs/android-push.md` for the exact contract and native plugin caveats.
