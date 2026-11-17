@@ -58,7 +58,8 @@ function ProductCatalogContent() {
   const [newParent, setNewParent] = useState('');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState(initialId ? 'all' : 'approved');
-  const [inventoryFilter, setInventoryFilter] = useState('all');
+  const [inventoryFilter, setInventoryFilter] = useState('product');
+  const initialShelf = useRef<string | null>(null);
   const [section, setSection] = useState(
     ['products', 'collection', 'company', 'sources'].includes(
       initialSection ?? ''
@@ -75,22 +76,34 @@ function ProductCatalogContent() {
   }, [initialSection]);
   const [importing, setImporting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const fetchItems = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const res = await fetch('/api/ai/products', { signal });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setItems(data.items ?? []);
-      setError('');
-    } catch (err) {
-      if (!signal?.aborted)
-        setError(
-          err instanceof Error ? err.message : 'Failed to load catalog.'
-        );
-    } finally {
-      if (!signal?.aborted) setLoading(false);
-    }
-  }, []);
+  const fetchItems = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const res = await fetch('/api/ai/products', { signal });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setItems(data.items ?? []);
+        if (initialId && initialShelf.current !== initialId) {
+          const target = (data.items ?? []).find(
+            (p: Product) => p.id === initialId
+          );
+          if (target) {
+            setInventoryFilter(target.inventory_type ?? 'product');
+            initialShelf.current = initialId;
+          }
+        }
+        setError('');
+      } catch (err) {
+        if (!signal?.aborted)
+          setError(
+            err instanceof Error ? err.message : 'Failed to load catalog.'
+          );
+      } finally {
+        if (!signal?.aborted) setLoading(false);
+      }
+    },
+    [initialId]
+  );
   useEffect(() => {
     if (!accountId) return;
     const controller = new AbortController();
@@ -142,9 +155,11 @@ function ProductCatalogContent() {
   const documented = new Set(
     approvedCatalogRows(items, { includeInternal: true }).map((p) => p.id)
   );
+  const shelfItems = items.filter(
+    (p) => (p.inventory_type ?? 'product') === inventoryFilter
+  );
   const matches = (p: Product) =>
-    (inventoryFilter === 'all' ||
-      (p.inventory_type ?? 'product') === inventoryFilter) &&
+    (p.inventory_type ?? 'product') === inventoryFilter &&
     `${p.name} ${p.sku ?? ''} ${p.aliases?.join(' ')} ${p.description}`
       .toLocaleLowerCase()
       .includes(search.toLocaleLowerCase()) &&
@@ -300,20 +315,22 @@ function ProductCatalogContent() {
       )}
       {section === 'products' && (
         <label className="flex flex-wrap items-center gap-2 text-sm">
-          {l('Inventory category', 'تصنيف المخزون')}
+          {l('Inventory shelf', 'قسم المخزون')}
           <select
+            id="inventory-shelf"
+            aria-label={l('Inventory shelf', 'قسم المخزون')}
             className="bg-background rounded-md border p-2"
             value={inventoryFilter}
             onChange={(e) => {
               setInventoryFilter(e.target.value);
-              if (e.target.value !== 'all') setFilter('all');
+              setSelection(null);
+              setDeleteTarget(null);
             }}
           >
             {[
-              ['all', 'All inventory', 'كل الأصناف'],
               ['product', 'Finished products', 'منتجات نهائية'],
-              ['component', 'Internal components', 'مكونات داخلية'],
-              ['equipment', 'Equipment', 'معدات'],
+              ['component', 'Workshop parts', 'قطع الورشة'],
+              ['equipment', 'Add-ons', 'إضافات'],
               ['service', 'Services', 'خدمات'],
             ].map(([v, en, ar]) => (
               <option key={v} value={v}>
@@ -328,13 +345,13 @@ function ProductCatalogContent() {
           <div className="text-muted-foreground flex flex-wrap gap-x-7 gap-y-2 text-xs">
             <span>
               <strong className="text-foreground me-1 font-medium tabular-nums">
-                {items.length}
+                {shelfItems.length}
               </strong>
               {l('entries', 'إدخال')}
             </span>
             <span>
               <strong className="text-foreground me-1 font-medium tabular-nums">
-                {documented.size}
+                {shelfItems.filter((p) => documented.has(p.id)).length}
               </strong>
               {l('documented records', 'سجل موثق')}
             </span>
@@ -521,7 +538,9 @@ function ProductCatalogContent() {
                           : l('Product editor', 'محرر المنتج')}
                       </p>
                       <h3 dir="auto" className="text-lg font-semibold">
-                        {(ar && selected?.name_ar ? selected.name_ar : selected?.name) ?? l('New entry', 'إدخال جديد')}
+                        {(ar && selected?.name_ar
+                          ? selected.name_ar
+                          : selected?.name) ?? l('New entry', 'إدخال جديد')}
                       </h3>
                     </div>
                     {selected && canEdit && (

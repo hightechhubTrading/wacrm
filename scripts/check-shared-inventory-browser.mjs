@@ -111,7 +111,22 @@ try {
           const req = route.request(),
             url = new URL(req.url());
           let body = {};
-          if (url.pathname === '/api/ai/products') body = { items: [product] };
+          if (url.pathname === '/api/ai/products')
+            body = {
+              items: [
+                product,
+                ...['equipment', 'service', 'component'].map(
+                  (inventory_type) => ({
+                    ...product,
+                    id: inventory_type,
+                    name: 'Fixture ' + inventory_type,
+                    name_ar: 'Fixture ' + inventory_type,
+                    inventory_type,
+                    customer_visible: false,
+                  })
+                ),
+              ],
+            };
           else if (
             url.pathname === `/api/ai/products/${id}` &&
             req.method() === 'PATCH'
@@ -173,6 +188,40 @@ try {
           });
         });
         await page.goto(`${origin}?locale=${locale}&product=${id}`);
+        await page.locator('#product-name').waitFor();
+        const shelf = page.getByLabel(
+          locale === 'ar' ? 'قسم المخزون' : 'Inventory shelf',
+          { exact: true }
+        );
+        await shelf.waitFor();
+        assert.deepEqual(
+          await shelf
+            .locator('option')
+            .evaluateAll((options) => options.map((o) => o.value)),
+          ['product', 'component', 'equipment', 'service']
+        );
+        const list = page.getByLabel(
+          locale === 'ar' ? 'قائمة المنتجات' : 'Product list',
+          { exact: true }
+        );
+        for (const type of ['equipment', 'service', 'component', 'product']) {
+          await shelf.selectOption(type);
+          const expected =
+            type === 'product'
+              ? locale === 'ar'
+                ? 'شتر تجريبي'
+                : 'Fixture shutter'
+              : 'Fixture ' + type;
+          await list
+            .getByRole('button', { name: new RegExp(expected) })
+            .waitFor();
+          assert.equal(await list.getByRole('button').count(), 1);
+        }
+        await list
+          .getByRole('button', {
+            name: locale === 'ar' ? /شتر تجريبي/ : /Fixture shutter/,
+          })
+          .click();
         await page.locator('#product-name').waitFor();
         assert.equal(
           await page.locator('#inventory-sku').inputValue(),
