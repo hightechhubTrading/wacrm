@@ -20,10 +20,14 @@ export interface SendRecovery {
 }
 
 /** HTTP failure is not proof that Meta rejected a message. Ask the ledger. */
-async function reconcileSendRequest(operationId: string): Promise<SendOutcome> {
+async function reconcileSendRequest(
+  operationId: string,
+  transport: typeof fetch,
+  endpoint: string
+): Promise<SendOutcome> {
   try {
-    const response = await fetch(
-      `/api/whatsapp/send?operation_id=${encodeURIComponent(operationId)}`,
+    const response = await transport(
+      `${endpoint}?operation_id=${encodeURIComponent(operationId)}`,
       {
         cache: 'no-store',
         signal: AbortSignal.timeout(15000),
@@ -48,10 +52,12 @@ async function reconcileSendRequest(operationId: string): Promise<SendOutcome> {
 
 async function sendTrackedMessageRequest(
   body: Record<string, unknown>,
-  operationId: string
+  operationId: string,
+  transport: typeof fetch,
+  endpoint: string
 ): Promise<SendOutcome> {
   try {
-    const response = await fetch('/api/whatsapp/send', {
+    const response = await transport(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...body, operation_id: operationId }),
@@ -79,21 +85,32 @@ async function sendTrackedMessageRequest(
   } catch {
     /* Network loss may occur after provider acceptance. */
   }
-  return reconcileSend(operationId);
+  return reconcileSend(operationId, transport, endpoint);
 }
 
-export async function reconcileSend(operationId: string): Promise<SendOutcome> {
+export async function reconcileSend(
+  operationId: string,
+  transport: typeof fetch = fetch,
+  endpoint = '/api/whatsapp/send'
+): Promise<SendOutcome> {
   const started = performance.now();
-  const result = await reconcileSendRequest(operationId);
+  const result = await reconcileSendRequest(operationId, transport, endpoint);
   recordReliability(`reconcile.${result.state}`, performance.now() - started);
   return result;
 }
 export async function sendTrackedMessage(
   body: Record<string, unknown>,
-  operationId: string
+  operationId: string,
+  transport: typeof fetch = fetch,
+  endpoint = '/api/whatsapp/send'
 ): Promise<SendOutcome> {
   const started = performance.now();
-  const result = await sendTrackedMessageRequest(body, operationId);
+  const result = await sendTrackedMessageRequest(
+    body,
+    operationId,
+    transport,
+    endpoint
+  );
   recordReliability(`send.${result.state}`, performance.now() - started);
   return result;
 }

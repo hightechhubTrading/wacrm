@@ -1,8 +1,8 @@
 # Capacitor mobile execution plan
 
-15 November 2026 · Proposed implementation; no mobile app or deployment is implied.
+15 November 2026 · Execution plan; current delivery evidence is recorded below and in the linked inventory.
 
-Phase 1 started 16 November 2026. See [feasibility inventory and verification](capacitor-phase-1.md). Local inventory and 59 focused regression tests are complete; isolated staging, native tooling and physical-device proof remain pending. Pilot device: iPhone 13; Android emulator first, physical Android validation before rollout.
+Phase 1 started 16 November 2026. As of 17 November, the packaged Android emulator app supports authenticated chat/media, tracked replies/voice recording, private contact photos, Today/follow-ups and quotation PDF viewing/sharing with confirmed dispatch. Mobile source and repeatable build checks are versioned. See [feasibility inventory and verification](capacitor-phase-1.md) and [remaining work](mobile-remaining-work.md) for deployed revisions and the limits of each check. Push/Firebase, signed distribution, full role/session acceptance, real internal-recipient delivery and physical Android proof remain open. The user has an iPhone 13 and explicitly deferred iPhone work until Android is finished; no Firebase, Apple Developer or Google Play accounts exist yet.
 
 ## Outcome and architecture
 

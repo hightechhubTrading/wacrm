@@ -1,14 +1,21 @@
 import { defineConfig, loadEnv } from 'vite';
 
 export default defineConfig(({ mode }) => {
-  const env = { ...loadEnv(mode, import.meta.dirname, 'VITE_'), ...process.env };
+  const env = {
+    ...loadEnv(mode, import.meta.dirname, 'VITE_'),
+    ...process.env,
+  };
   const origin = (key) => {
     const url = new URL(env[key]);
     if (
       url.protocol !== 'https:' ||
-      url.username || url.password || url.search || url.hash ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
       url.pathname !== '/'
-    ) throw new Error(`${key} must be an HTTPS origin`);
+    )
+      throw new Error(`${key} must be an HTTPS origin`);
     return url.origin;
   };
   const supabase = origin('VITE_SUPABASE_URL');
@@ -26,9 +33,11 @@ export default defineConfig(({ mode }) => {
     "form-action 'none'",
   ].join('; ');
   return {
-    plugins: [{
-      name: 'mobile-content-security-policy',
-      transformIndexHtml: (html) => html.replace('__MOBILE_CSP__', policy),
-    }],
+    plugins: [
+      {
+        name: 'mobile-content-security-policy',
+        transformIndexHtml: (html) => html.replace('__MOBILE_CSP__', policy),
+      },
+    ],
   };
 });
