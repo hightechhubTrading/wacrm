@@ -16,6 +16,16 @@ jobs:
   check:
     name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: synthetic-ci-only
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     # Dummy env vars so `next build` doesn't fail when it reads the
     # public Supabase config at build time. These never leave CI and
     # never hit a real service — they just satisfy the `!` non-null
@@ -54,6 +64,11 @@ jobs:
 
       - name: Deployment database preflight tests
         run: node --test deploy/check-database.test.mjs
+
+      - name: Mobile push SQL isolation and concurrency
+        env:
+          MOBILE_SQL_CONTAINER: ${{ job.services.postgres.id }}
+        run: node scripts/check-mobile-push-database.mjs
 
       - name: Build
         run: npm run build

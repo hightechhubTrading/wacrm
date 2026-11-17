@@ -520,6 +520,43 @@ async function checkPerformanceDatabase({ url, headers, fetchImpl }) {
         `Database preflight failed for ${name}. Apply migration ${migration} and refresh the schema cache before deploying this revision.`
       );
   }
+  for (const table of [
+    'mobile_push_devices',
+    'mobile_push_preferences',
+    'mobile_push_jobs',
+  ]) {
+    const endpoint = new URL(`/rest/v1/${table}`, url);
+    endpoint.searchParams.set(
+      'select',
+      table === 'mobile_push_devices'
+        ? 'id,session_id,token_hash,token_ciphertext,token_version,registered_at,project_id,environment'
+        : table === 'mobile_push_preferences'
+          ? 'user_id,account_id,enabled,quiet_start,quiet_end,timezone'
+          : 'id,device_id,state,lease_token,expires_at'
+    );
+    endpoint.searchParams.set('limit', '0');
+    const probe = await fetchImpl(endpoint, {
+      headers,
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!probe.ok)
+      throw new Error(
+        'Database preflight failed for mobile push. Apply migration 100 before deploying this revision.'
+      );
+  }
+  const pushReady = await fetchImpl(
+    new URL('/rest/v1/rpc/mobile_push_ready', url),
+    {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: '{}',
+      signal: AbortSignal.timeout(15000),
+    }
+  );
+  if (!pushReady.ok || (await pushReady.json().catch(() => false)) !== true)
+    throw new Error(
+      'Database preflight failed for mobile push signatures/grants/triggers. Apply migration 100 before deploying this revision.'
+    );
 }
 
 if (

@@ -6,6 +6,7 @@ const options = {
   serviceRoleKey: 'dummy-server-key',
 };
 const emptyPerformanceResponse = (pathname) => {
+  if (pathname.endsWith('/mobile_push_ready')) return true;
   if (pathname.endsWith('/quotation_document_details_valid')) return true;
   if (pathname.endsWith('/claim_ai_review_receipt')) return false;
   if (pathname.endsWith('/quotation_images_ready')) return true;
@@ -32,6 +33,37 @@ const emptyPerformanceResponse = (pathname) => {
     return { items: [], total: 0 };
   return [];
 };
+for (const endpoint of [
+  'mobile_push_devices',
+  'mobile_push_preferences',
+  'mobile_push_jobs',
+  'rpc/mobile_push_ready',
+]) {
+  test(`blocks migration 100 rollout when ${endpoint} is missing or denied`, async () => {
+    await assert.rejects(
+      checkDeploymentDatabase({
+        ...options,
+        fetchImpl: async (url) =>
+          new URL(url).pathname.endsWith('/' + endpoint)
+            ? Response.json({ code: '42501' }, { status: 403 })
+            : validFetch(url),
+      }),
+      /migration 100/
+    );
+  });
+}
+test('blocks push rollout if the grants/trigger sentinel is false', async () => {
+  await assert.rejects(
+    checkDeploymentDatabase({
+      ...options,
+      fetchImpl: async (url) =>
+        new URL(url).pathname.endsWith('/mobile_push_ready')
+          ? Response.json(false)
+          : validFetch(url),
+    }),
+    /migration 100/
+  );
+});
 test('accepts the required columns and denied identity-free conversion probe', async () => {
   const requests = [];
   await checkDeploymentDatabase({
@@ -41,7 +73,7 @@ test('accepts the required columns and denied identity-free conversion probe', a
       return validFetch(url);
     },
   });
-  assert.equal(requests.length, 42);
+  assert.equal(requests.length, 46);
   for (const r of requests.slice(0, 8))
     assert.equal(r.url.searchParams.get('limit'), '0');
   assert.equal(JSON.parse(requests[8].init.body).p_conversation_id, null);
