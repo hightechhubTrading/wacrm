@@ -1,6 +1,6 @@
 # HTH product map
 
-Version 3, updated 17 November 2026. This version is built the way a doors, shutters and gates business organises its range, and is not derived from the company archive. The archive was used only to check that nothing the company sells is missing. Prices are left out on purpose: sales set them on each quotation. The initial inventory migration was applied on 17 November 2026; application work and verification continue in [the execution record](product-map-execution.md).
+Version 3, updated 18 November 2026. This version is built the way a doors, shutters and gates business organises its range, and is not derived from the company archive. The archive was used only to check that nothing the company sells is missing. Prices are left out on purpose: sales set them on each quotation. Inventory cleanup and application rollout were completed on 18 November 2026. Verification and the remaining company decisions are recorded in [the execution record](product-map-execution.md).
 
 ## 1. How the range is organised
 
