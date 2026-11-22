@@ -22,7 +22,7 @@ export const routeMessageScopes = {
     'SalesAssistance',
     'Workspace',
   ],
-  notifications: ['Workspace'],
+  notifications: ['Workspace', 'NotificationCenter'],
   pipelines: [
     'CustomFieldGroups',
     'Jobs',
@@ -39,6 +39,7 @@ export function sharedMessages(
   messages: AbstractIntlMessages
 ): AbstractIntlMessages {
   return {
+    NotificationCenter: messages.NotificationCenter,
     Recovery: messages.Recovery,
     PasswordRecovery: messages.PasswordRecovery,
     LoginPage: messages.LoginPage,

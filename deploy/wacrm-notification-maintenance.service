@@ -1,0 +1,9 @@
+[Unit]
+Description=Database-only WACRM notification drain fallback
+After=docker.service
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '/usr/bin/docker exec -i wacrm node --input-type=module < /docker/wacrm/notification-maintenance.mjs'
+TimeoutStartSec=25
+StandardOutput=journal
+StandardError=journal

@@ -1,0 +1,9 @@
+[Unit]
+Description=Read-only WACRM notification infrastructure health check
+After=docker.service
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '/usr/bin/docker exec -i wacrm node --input-type=module < /docker/wacrm/notification-watchdog.mjs'
+TimeoutStartSec=30
+StandardOutput=journal
+StandardError=journal

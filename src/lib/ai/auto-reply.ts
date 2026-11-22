@@ -293,6 +293,7 @@ async function performHandoff(args: {
   // client it can't say the assignment came from the AI or why).
   // Best-effort; a notification failure must not undo the handoff
   // above, which has already happened.
+  if (handoffError) return;
   try {
     await notifyAiHandoff(db, {
       accountId,
@@ -1064,11 +1065,13 @@ export async function dispatchInboundToAiReply(
         kind: 'handoff',
         ownerId: conv.assigned_agent_id ?? config.handoffAgentId,
       });
+      replyMeta.reviewRequired = true;
       await event(
         'failed',
         verified.routingDecision?.reason ?? 'reply_needs_review'
       );
       await notifyReplyReview(db, {
+        sourceMessageId: triggerMessageId,
         accountId,
         conversationId,
         contactId,
@@ -1154,6 +1157,7 @@ export async function dispatchInboundToAiReply(
       });
       await event('failed', reason);
       await notifyReplyReview(db, {
+        sourceMessageId: triggerMessageId,
         accountId,
         conversationId,
         contactId,
@@ -1283,11 +1287,13 @@ export async function dispatchInboundToAiReply(
             ownerId: conv.assigned_agent_id ?? config.handoffAgentId,
           });
           await notifyReplyReview(db, {
+            sourceMessageId: triggerMessageId,
             accountId,
             conversationId,
             contactId,
             ownerId: conv.assigned_agent_id ?? config.handoffAgentId,
             kind: 'media',
+            sourceKey: `media:${accountId}:${conversationId}:${triggerMessageId}:${fileId}`,
             reason:
               outcome === 'uncertain'
                 ? 'media_delivery_uncertain'
@@ -1374,6 +1380,7 @@ export async function dispatchInboundToAiReply(
     );
     if (config?.behaviorV2Enabled || receiptAllowed)
       await notifyReplyReview(db, {
+        sourceMessageId: triggerMessageId,
         accountId,
         conversationId,
         contactId,

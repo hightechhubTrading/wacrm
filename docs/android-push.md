@@ -1,6 +1,6 @@
 # Android push delivery
 
-Implementation in progress; Firebase credentials and real delivery are not configured.
+Implementation in progress. Firebase files are configured locally as of 22 November 2026; production setup and real delivery remain unverified.
 Android first. iPhone remains explicitly deferred.
 
 ## Server implementation — 17 November 2026
@@ -139,3 +139,28 @@ On this Mac, temporary checks use `/Volumes/AndroidAVD/mobile-push-work` because
 the internal disk is nearly full. It contains sanitized logs and the published
 plugin package for inspection, with no remaining SSH private key. Put subsequent
 temporary build/browser work on this M2-backed volume.
+
+
+## Firebase configuration — 22 November 2026
+
+The supplied Firebase Android configuration and service-account JSON were validated
+locally: both belong to `hightech-f2eb7`, and the Android client matches
+`com.hightechhub.crm.demo`. The server credential contains a valid RSA private
+key. This validates the files, not IAM permissions or actual FCM delivery.
+
+- Android configuration is installed at `mobile/android/app/google-services.json`
+  (Git-ignored).
+- The server credential is stored outside the repository under the user's
+  `.config/wacrm/firebase/` directory, with directory mode 0700 and file mode 0600.
+- Git-ignored `.env.local` points to that file and selects project
+  `hightech-f2eb7`, app `com.hightechhub.crm.demo`, environment `development`.
+- Production configuration, migration application and deployment were not changed.
+  The local credential path is not a VPS/container credential mount.
+- No provider calls or push sends were made. API enablement and account permissions
+  still need server-side verification before a pilot.
+
+At the user's request, defer Android builds, emulator installation, SDK downloads,
+and Android/device tests until storage is available. The SDK already retained on
+the Mac must be preserved. No Android tooling was installed or launched for this
+configuration step. Resume native integration and device acceptance later; local
+Firebase configuration alone does not complete the notification rollout.

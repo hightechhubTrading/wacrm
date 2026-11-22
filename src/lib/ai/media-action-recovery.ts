@@ -9,7 +9,7 @@ export async function recoverStaleMediaActions(
   const { data: rows, error } = await db
     .from('ai_media_actions')
     .select(
-      'id,account_id,conversation_id,trigger_message_id,status,updated_at'
+      'id,account_id,conversation_id,trigger_message_id,file_id,status,updated_at'
     )
     .in('status', ['pending', 'sending'])
     .lte('updated_at', new Date(now.getTime() - 10 * 60000).toISOString())
@@ -49,6 +49,7 @@ export async function recoverStaleMediaActions(
       ownerId: conv.assigned_agent_id,
     });
     await notifyReplyReview(db, {
+      sourceKey: `media:${row.account_id}:${row.conversation_id}:${row.trigger_message_id}:${row.file_id}`,
       accountId: row.account_id,
       conversationId: row.conversation_id,
       contactId: conv.contact_id,

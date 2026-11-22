@@ -11,6 +11,8 @@ export async function notifyReplyReview(
     ownerId: string | null;
     reason: string;
     kind?: 'reply' | 'media';
+    sourceMessageId?: string;
+    sourceKey?: string;
   }
 ) {
   try {
@@ -23,10 +25,18 @@ export async function notifyReplyReview(
     const { error } = await db.from('notifications').insert(
       recipients.map((userId) => ({
         account_id: args.accountId,
+        source_key:
+          args.sourceKey ??
+          (args.sourceMessageId
+            ? `review:${args.sourceMessageId}:${args.kind === 'media' ? 'media_review_required' : 'reply_review_required'}:${args.reason}`
+            : undefined),
         user_id: userId,
         conversation_id: args.conversationId,
         contact_id: args.contactId,
-        type: 'ai_handoff',
+        type:
+          args.kind === 'media'
+            ? 'media_review_required'
+            : 'reply_review_required',
         title:
           args.kind === 'media'
             ? 'Requested attachment needs review'

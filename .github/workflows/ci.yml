@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, feat/ctwa-conversions]
+    branches: [main, feat/ctwa-conversions, feat/notification-release]
 
 # Cancel older CI runs for the same branch when a new commit arrives —
 # saves minutes when someone pushes a stack of fixes to one PR.
@@ -69,6 +69,11 @@ jobs:
         env:
           MOBILE_SQL_CONTAINER: ${{ job.services.postgres.id }}
         run: node scripts/check-mobile-push-database.mjs
+
+      - name: Notification migrations and multi-connection delivery
+        env:
+          NOTIFICATION_SQL_CONTAINER: ${{ job.services.postgres.id }}
+        run: node scripts/test-notification-delivery.mjs
 
       - name: Build
         run: npm run build

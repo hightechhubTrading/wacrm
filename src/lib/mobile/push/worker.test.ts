@@ -18,6 +18,7 @@ const prepared = () => ({
   account_id: 'account-a',
   conversation_id: 'conversation-a',
   attempts: 1,
+  valid_until: '2026-11-17T12:00:00Z',
 });
 const rpc = vi.fn(),
   send = vi.fn();
@@ -63,6 +64,8 @@ it('claims the configured project/app/environment and reauthorizes before decryp
   ]);
   expect(send).toHaveBeenCalledWith(token, {
     id: 'job-a',
+    bindingId: 'device-a',
+    validUntil: '2026-11-17T12:00:00Z',
     accountId: 'account-a',
     conversationId: 'conversation-a',
   });

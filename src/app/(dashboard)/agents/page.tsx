@@ -27,7 +27,13 @@ export default function AgentsPage() {
       try {
         const res = await fetch('/api/ai/config');
         const data = await res.json().catch(() => ({}));
-        if (!cancelled) setTab(data?.configured ? 'playground' : 'setup');
+        if (!cancelled)
+          setTab(
+            new URLSearchParams(window.location.search).get('tab') ===
+              'setup' || !data?.configured
+              ? 'setup'
+              : 'playground'
+          );
       } catch {
         if (!cancelled) setTab('setup');
       } finally {

@@ -141,7 +141,7 @@ DO $$ DECLARE minute_now integer; d mobile_push_devices; j mobile_push_jobs; pre
 END $$;
 
 UPDATE mobile_push_jobs SET state='pending',available_at=now(),lease_token=NULL,lease_until=NULL,attempts=0;
-DO $$ DECLARE d mobile_push_devices; j mobile_push_jobs; old_hash text; BEGIN
+DO $$ DECLARE d mobile_push_devices; j mobile_push_jobs; old_hash text; heartbeat timestamptz; BEGIN
   PERFORM * FROM claim_mobile_push_jobs('test-project','development','com.hightechhub.crm.demo',20);
   SELECT * INTO d FROM mobile_push_devices WHERE user_id='00000000-0000-0000-0000-000000000011';
   SELECT * INTO j FROM mobile_push_jobs WHERE device_id=d.id;
@@ -154,6 +154,19 @@ DO $$ DECLARE d mobile_push_devices; j mobile_push_jobs; old_hash text; BEGIN
     d.project_id,d.app_id,d.environment,1),'stale registration cannot roll back a rotated token');
   PERFORM test_assert(finish_mobile_push_job(j.id,j.lease_token,'invalid_token',30,old_hash),'invalid old token recorded');
   PERFORM test_assert((SELECT enabled FROM mobile_push_devices WHERE id=d.id),'old failure cannot disable rotated token');
+  UPDATE mobile_push_devices SET rotation_hash=repeat('f',64) WHERE id=d.id;
+  SELECT last_seen_at INTO heartbeat FROM mobile_push_devices WHERE id=d.id;
+  PERFORM test_assert(NOT rotate_mobile_push_device(d.id,d.secret_hash,repeat('c',64),'native-ciphertext',3,d.project_id,d.app_id,d.environment),'revocation capability cannot rotate tokens');
+  PERFORM test_assert(rotate_mobile_push_device(d.id,repeat('f',64),repeat('c',64),'native-ciphertext',3,d.project_id,d.app_id,d.environment),'separate native capability rotates an existing binding');
+  PERFORM test_assert((SELECT last_seen_at=heartbeat FROM mobile_push_devices WHERE id=d.id),'background rotation cannot extend foreground heartbeat');
+  PERFORM test_assert(NOT rotate_mobile_push_device(d.id,repeat('f',64),repeat('b',64),'stale',2,d.project_id,d.app_id,d.environment),'background rotation is monotonic');
+  PERFORM test_assert(NOT rotate_mobile_push_device(d.id,repeat('f',64),repeat('c',64),'fake',3,'other-project',d.app_id,d.environment),'rotation cannot transfer project');
+  UPDATE auth.sessions SET not_after=now()-interval '1 second' WHERE id=d.session_id;
+  PERFORM test_assert(NOT rotate_mobile_push_device(d.id,repeat('f',64),repeat('d',64),'fake',4,d.project_id,d.app_id,d.environment),'rotation cannot revive an expired session');
+  UPDATE auth.sessions SET not_after=NULL WHERE id=d.session_id;
+  UPDATE profiles SET account_role='viewer' WHERE user_id=d.user_id;
+  PERFORM test_assert(NOT rotate_mobile_push_device(d.id,repeat('f',64),repeat('d',64),'fake',4,d.project_id,d.app_id,d.environment),'rotation rechecks current role');
+  UPDATE profiles SET account_role='agent' WHERE user_id=d.user_id;
   PERFORM revoke_mobile_push_device(d.id,repeat('0',64));
   PERFORM test_assert(EXISTS(SELECT 1 FROM mobile_push_devices WHERE id=d.id),'wrong revocation secret harmless');
   PERFORM revoke_mobile_push_device(d.id,d.secret_hash);
@@ -168,5 +181,5 @@ SELECT test_assert((SELECT count(*)=0 FROM mobile_push_devices),'session removal
 SELECT test_assert((SELECT count(*)=0 FROM mobile_push_jobs),'session removal cascades queued jobs');
 SELECT test_assert(NOT has_table_privilege('authenticated','mobile_push_devices','SELECT'),'tokens have no client table grant');
 SELECT test_assert(NOT has_function_privilege('anon','revoke_mobile_push_device(uuid,text)','EXECUTE'),'no direct anonymous RPC capability');
-SELECT test_assert(NOT has_function_privilege('authenticated','register_mobile_push_device(uuid,uuid,uuid,uuid,text,text,text,text,text,text,integer)','EXECUTE'),'no direct client registration RPC');
+SELECT test_assert(NOT has_function_privilege('authenticated','register_mobile_push_device(uuid,uuid,uuid,uuid,text,text,text,text,text,text,integer,text)','EXECUTE'),'no direct client registration RPC');
 SELECT 'PASS isolated mobile push SQL: scopes, roles/session, durable source dedup, leases, assignment recheck, quiet hours/preferences, rotation-safe invalidation, revoke and grants.';

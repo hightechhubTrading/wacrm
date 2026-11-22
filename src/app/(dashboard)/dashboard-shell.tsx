@@ -16,6 +16,7 @@ import { LocaleSync } from '@/components/locale-sync';
 import { CallingProvider } from '@/components/calling/calling-provider';
 import { useTranslations } from 'next-intl';
 import { MobileNavigation } from '@/components/layout/mobile-navigation';
+import { NotificationForeground } from '@/components/notifications/foreground';
 import { useKeyboardViewport } from '@/hooks/use-keyboard-viewport';
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
@@ -70,6 +71,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       {/* Reports this tab's online/away presence once we know a user is
           signed in. Headless — renders nothing. */}
       <PresenceHeartbeat />
+      <NotificationForeground />
       {/* Pulls the saved accent/mode off the profile row on sign-in and
           back-fills it from this device when unset. Headless. */}
       <ThemeSync />

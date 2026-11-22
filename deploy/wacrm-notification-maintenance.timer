@@ -1,0 +1,9 @@
+[Unit]
+Description=Drain durable WACRM notifications every fifteen seconds
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=15s
+AccuracySec=1s
+Unit=wacrm-notification-maintenance.service
+[Install]
+WantedBy=timers.target

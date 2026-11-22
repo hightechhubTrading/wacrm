@@ -3,6 +3,8 @@ import { pushCredentials, type PushConfig } from './config';
 
 export interface PushMessage {
   id: string;
+  bindingId: string;
+  validUntil: string;
   accountId: string;
   conversationId: string | null;
 }
@@ -57,7 +59,10 @@ export function fcmTransport(
   }
   return async (token: string, job: PushMessage): Promise<FcmResult> => {
     try {
+      if(!Number.isFinite(Date.parse(job.validUntil))||Date.parse(job.validUntil)<=Date.now())return {outcome:'rejected'};
       const access = await (bearer ??= authorize());
+      const ttl=Math.min(600,Math.floor((Date.parse(job.validUntil)-Date.now())/1000));
+      if(ttl<=0)return {outcome:'rejected'};
       const response = await transport(
         `https://fcm.googleapis.com/v1/projects/${config.projectId}/messages:send`,
         {
@@ -72,25 +77,21 @@ export function fcmTransport(
           body: JSON.stringify({
             message: {
               token,
-              notification: {
-                title: 'HTH CRM',
-                body: 'You have a new CRM update.',
-              },
               data: {
+                kind: 'crm_update',
                 eventId: job.id,
+                bindingId: job.bindingId,
+                validUntil: String(Date.parse(job.validUntil)),
                 accountId: job.accountId,
                 conversationId: job.conversationId ?? '',
               },
               android: {
                 restricted_package_name: config.appId,
                 priority: 'HIGH',
-                ttl: '600s',
-                collapse_key: 'crm-updates',
-                notification: {
-                  channel_id: 'crm_updates',
-                  tag: `crm-${job.accountId}-${job.conversationId ?? job.id}`,
-                  visibility: 'PRIVATE',
-                },
+                ttl: `${ttl}s`,
+                // Independent conversation updates must survive offline queuing.
+                // Native conversation tags still replace visible cards.
+
               },
             },
           }),

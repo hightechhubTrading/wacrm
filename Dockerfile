@@ -37,6 +37,7 @@ ARG SOURCE_COMMIT=unknown
 LABEL org.opencontainers.image.revision=$SOURCE_COMMIT
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/deploy/check-database.mjs ./deploy/check-database.mjs
+COPY --from=builder /app/deploy/notification-watchdog.mjs ./deploy/notification-watchdog.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 USER nextjs
 EXPOSE 3000

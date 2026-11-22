@@ -15,6 +15,8 @@ const credentials = {
 };
 const job = {
   id: 'event-a',
+  bindingId: 'device-a',
+  validUntil: new Date(Date.now() + 600000).toISOString(),
   accountId: 'account-a',
   conversationId: 'conversation-a',
 };
@@ -60,22 +62,21 @@ it('uses a signed scoped assertion and shares OAuth for concurrent sends; payloa
     );
     expect(init.headers.Authorization).toBe('Bearer synthetic-access');
     const message = JSON.parse(init.body).message;
-    expect(message.notification).toEqual({
-      title: 'HTH CRM',
-      body: 'You have a new CRM update.',
-    });
+    expect(message.notification).toBeUndefined();
+    expect(message.android.collapse_key).toBeUndefined();
     expect(message.data).toEqual({
+      kind: 'crm_update',
       eventId: 'event-a',
+      bindingId: 'device-a',
+      validUntil: String(Date.parse(job.validUntil)),
       accountId: 'account-a',
       conversationId: 'conversation-a',
     });
     expect(message.android).toMatchObject({
       restricted_package_name: config.appId,
-      notification: {
-        tag: 'crm-account-a-conversation-a',
-        visibility: 'PRIVATE',
-      },
+      priority: 'HIGH',
     });
+    expect(message.android.notification).toBeUndefined();
     expect(init.redirect).toBe('error');
     return Response.json({ name: 'projects/test-project/messages/synthetic' });
   });

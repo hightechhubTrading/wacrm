@@ -15,7 +15,7 @@ export async function remindDueFollowups(
   if (error || !due) return 0;
   let sent = 0;
   for (const task of due) {
-    const retryAt = new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+    const retryAt = new Date(now.getTime() + 60 * 1000).toISOString();
     const { data: claim, error: claimError } = await db
       .from('ai_followups')
       .update({ next_reminder_at: retryAt })
@@ -72,7 +72,8 @@ export async function remindDueFollowups(
         user_id: userId,
         conversation_id: task.conversation_id,
         contact_id: conv.contact_id,
-        type: 'ai_handoff',
+        type: 'followup_due',
+        followup_id: task.id,
         title: 'Customer follow-up needs attention',
         body: `Pending ${task.kind.replaceAll('_', ' ')}. Open the conversation to acknowledge, complete or defer the task.`,
       }))

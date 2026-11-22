@@ -66,3 +66,6 @@ supabase/.temp/
 
 # Python importer test caches
 __pycache__/
+
+# macOS resource-fork sidecars may contain copies of ignored provider files.
+._*

@@ -10,6 +10,7 @@ CREATE TABLE public.mobile_push_devices (
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   session_id uuid NOT NULL REFERENCES auth.sessions(id) ON DELETE CASCADE,
   secret_hash text NOT NULL CHECK (secret_hash ~ '^[a-f0-9]{64}$'),
+  rotation_hash text NOT NULL CHECK (rotation_hash ~ '^[a-f0-9]{64}$'),
   token_hash text NOT NULL CHECK (token_hash ~ '^[a-f0-9]{64}$'),
   token_ciphertext text NOT NULL,
   token_version integer NOT NULL DEFAULT 1 CHECK (token_version>0),
@@ -59,7 +60,8 @@ GRANT ALL ON public.mobile_push_devices,public.mobile_push_preferences,public.mo
 
 CREATE FUNCTION public.register_mobile_push_device(
   p_id uuid,p_account uuid,p_user uuid,p_session uuid,p_secret_hash text,
-  p_token_hash text,p_ciphertext text,p_project text,p_app text,p_environment text,p_version integer DEFAULT 1
+  p_token_hash text,p_ciphertext text,p_project text,p_app text,p_environment text,p_version integer DEFAULT 1,
+  p_rotation_hash text DEFAULT repeat('0',64)
 ) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 BEGIN
   IF NOT EXISTS(SELECT 1 FROM profiles WHERE user_id=p_user AND account_id=p_account
@@ -72,7 +74,7 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtextextended(p_user::text,0));
   IF EXISTS(SELECT 1 FROM mobile_push_devices WHERE id=p_id AND
     (user_id<>p_user OR account_id<>p_account OR session_id<>p_session OR secret_hash<>p_secret_hash
-      OR project_id<>p_project OR app_id<>p_app OR environment<>p_environment))
+      OR project_id<>p_project OR app_id<>p_app OR environment<>p_environment OR rotation_hash<>p_rotation_hash))
     THEN RETURN false; END IF;
   IF EXISTS(SELECT 1 FROM mobile_push_devices WHERE id=p_id AND
     (token_version>p_version OR (token_version=p_version AND token_hash<>p_token_hash)
@@ -81,10 +83,34 @@ BEGIN
     (SELECT count(*) FROM mobile_push_devices WHERE user_id=p_user AND enabled
       AND last_seen_at>now()-interval '30 days')>=5 THEN RETURN false; END IF;
   INSERT INTO mobile_push_devices(id,account_id,user_id,session_id,secret_hash,token_hash,
-    token_ciphertext,project_id,app_id,environment,token_version)
-    VALUES(p_id,p_account,p_user,p_session,p_secret_hash,p_token_hash,p_ciphertext,p_project,p_app,p_environment,p_version)
+    token_ciphertext,project_id,app_id,environment,token_version,rotation_hash)
+    VALUES(p_id,p_account,p_user,p_session,p_secret_hash,p_token_hash,p_ciphertext,p_project,p_app,p_environment,p_version,p_rotation_hash)
     ON CONFLICT(id) DO UPDATE SET token_hash=EXCLUDED.token_hash,token_ciphertext=EXCLUDED.token_ciphertext,
       token_version=EXCLUDED.token_version,enabled=true,last_seen_at=now();
+  RETURN true;
+EXCEPTION WHEN unique_violation THEN RETURN false;
+END $$;
+
+-- A separate device credential can only rotate an existing binding. It cannot
+-- change identity/project, extend last_seen_at or grant conversation access.
+CREATE FUNCTION public.rotate_mobile_push_device(p_id uuid,p_rotation_hash text,p_token_hash text,p_ciphertext text,
+  p_version integer,p_project text,p_app text,p_environment text)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE d mobile_push_devices;
+BEGIN
+  SELECT * INTO d FROM mobile_push_devices WHERE id=p_id AND rotation_hash=p_rotation_hash;
+  IF NOT FOUND THEN RETURN false; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended(d.user_id::text,0));
+  SELECT * INTO d FROM mobile_push_devices WHERE id=p_id AND rotation_hash=p_rotation_hash FOR UPDATE;
+  IF NOT FOUND OR d.project_id<>p_project OR d.app_id<>p_app OR d.environment<>p_environment
+    OR d.last_seen_at<=now()-interval '30 days' OR d.token_version>p_version
+    OR (d.token_version=p_version AND d.token_hash<>p_token_hash)
+    OR (NOT d.enabled AND d.token_hash=p_token_hash)
+    OR NOT EXISTS(SELECT 1 FROM profiles WHERE user_id=d.user_id AND account_id=d.account_id AND account_role IN ('owner','admin','agent'))
+    OR NOT EXISTS(SELECT 1 FROM auth.sessions s JOIN auth.users u ON u.id=s.user_id WHERE s.id=d.session_id AND s.user_id=d.user_id
+      AND (s.not_after IS NULL OR s.not_after>now()) AND (u.banned_until IS NULL OR u.banned_until<=now()) AND u.deleted_at IS NULL)
+    THEN RETURN false; END IF;
+  UPDATE mobile_push_devices SET token_hash=p_token_hash,token_ciphertext=p_ciphertext,token_version=p_version,enabled=true WHERE id=d.id;
   RETURN true;
 EXCEPTION WHEN unique_violation THEN RETURN false;
 END $$;
@@ -194,10 +220,10 @@ END $$;
 -- Re-evaluate immediately before transport. A queue snapshot grants no access.
 CREATE FUNCTION public.prepare_mobile_push_job(p_id uuid,p_lease uuid)
 RETURNS TABLE(job_id uuid,device_id uuid,token_ciphertext text,token_hash text,
-  account_id uuid,conversation_id uuid,attempts integer)
+  account_id uuid,conversation_id uuid,attempts integer,valid_until timestamptz)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE j mobile_push_jobs; d mobile_push_devices; p profiles; pref mobile_push_preferences;
-  local_now timestamp; minute_now integer; end_day date;
+  local_now timestamp; minute_now integer; end_day date; deadline timestamptz; quiet_boundary timestamptz;
 BEGIN
   SELECT * INTO j FROM mobile_push_jobs WHERE id=p_id AND state='leased' AND lease_token=p_lease
     AND lease_until>now() AND expires_at>now() FOR UPDATE;
@@ -206,7 +232,7 @@ BEGIN
   SELECT pr.* INTO p FROM profiles pr WHERE pr.user_id=d.user_id AND pr.account_id=j.account_id;
   SELECT pr.* INTO pref FROM mobile_push_preferences pr WHERE pr.user_id=d.user_id AND pr.account_id=j.account_id;
   IF d.id IS NULL OR NOT d.enabled OR d.account_id<>j.account_id OR d.last_seen_at<=now()-interval '30 days'
-    OR p.user_id IS NULL OR p.account_role NOT IN ('owner','admin','agent')
+    OR p.user_id IS NULL OR p.account_role IS NULL OR p.account_role NOT IN ('owner','admin','agent')
     OR NOT EXISTS(SELECT 1 FROM auth.sessions s JOIN auth.users u ON u.id=s.user_id
       WHERE s.id=d.session_id AND s.user_id=d.user_id AND (s.not_after IS NULL OR s.not_after>now())
         AND (u.banned_until IS NULL OR u.banned_until<=now()) AND u.deleted_at IS NULL)
@@ -232,7 +258,19 @@ BEGIN
       RETURN;
     END IF;
   END IF;
-  RETURN QUERY SELECT j.id,d.id,d.token_ciphertext,d.token_hash,j.account_id,j.conversation_id,j.attempts;
+  deadline:=least(j.expires_at,now()+interval '10 minutes');
+  IF pref.quiet_start IS NOT NULL AND pref.quiet_start<>pref.quiet_end THEN
+    -- Check actual future UTC minute boundaries, including DST gaps/folds,
+    -- rather than keeping a stale copy of account preferences on the device.
+    SELECT min(boundary) INTO quiet_boundary FROM (
+      SELECT boundary,extract(hour FROM boundary AT TIME ZONE pref.timezone)::integer*60+
+        extract(minute FROM boundary AT TIME ZONE pref.timezone)::integer AS minute
+      FROM generate_series(date_trunc('minute',now())+interval '1 minute',now()+interval '10 minutes',interval '1 minute') boundary
+    ) future WHERE (pref.quiet_start<pref.quiet_end AND minute>=pref.quiet_start AND minute<pref.quiet_end)
+      OR (pref.quiet_start>pref.quiet_end AND (minute>=pref.quiet_start OR minute<pref.quiet_end));
+    IF quiet_boundary IS NOT NULL THEN deadline:=least(deadline,quiet_boundary); END IF;
+  END IF;
+  RETURN QUERY SELECT j.id,d.id,d.token_ciphertext,d.token_hash,j.account_id,j.conversation_id,j.attempts,deadline;
 END $$;
 
 CREATE FUNCTION public.finish_mobile_push_job(p_id uuid,p_lease uuid,p_outcome text,p_retry_seconds integer DEFAULT 30,
@@ -253,11 +291,13 @@ BEGIN
   RETURN true;
 END $$;
 
-REVOKE ALL ON FUNCTION public.register_mobile_push_device(uuid,uuid,uuid,uuid,text,text,text,text,text,text,integer),
+REVOKE ALL ON FUNCTION public.register_mobile_push_device(uuid,uuid,uuid,uuid,text,text,text,text,text,text,integer,text),
+  public.rotate_mobile_push_device(uuid,text,text,text,integer,text,text,text),
   public.revoke_mobile_push_device(uuid,text),public.set_mobile_push_preferences(uuid,uuid,boolean,integer,integer,text),
   public.enqueue_mobile_push(),public.claim_mobile_push_jobs(text,text,text,integer),
   public.prepare_mobile_push_job(uuid,uuid),public.finish_mobile_push_job(uuid,uuid,text,integer,text) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.register_mobile_push_device(uuid,uuid,uuid,uuid,text,text,text,text,text,text,integer),
+GRANT EXECUTE ON FUNCTION public.register_mobile_push_device(uuid,uuid,uuid,uuid,text,text,text,text,text,text,integer,text),
+  public.rotate_mobile_push_device(uuid,text,text,text,integer,text,text,text),
   public.revoke_mobile_push_device(uuid,text),public.set_mobile_push_preferences(uuid,uuid,boolean,integer,integer,text),
   public.claim_mobile_push_jobs(text,text,text,integer),public.prepare_mobile_push_job(uuid,uuid),
   public.finish_mobile_push_job(uuid,uuid,text,integer,text) TO service_role;
@@ -276,7 +316,8 @@ LANGUAGE sql STABLE SET search_path=public AS $$
     AND has_function_privilege('service_role',to_regprocedure(signature),'EXECUTE')
     AND NOT has_function_privilege('authenticated',to_regprocedure(signature),'EXECUTE')
     AND NOT has_function_privilege('anon',to_regprocedure(signature),'EXECUTE')) FROM (VALUES
-      ('register_mobile_push_device(uuid,uuid,uuid,uuid,text,text,text,text,text,text,integer)'),
+      ('register_mobile_push_device(uuid,uuid,uuid,uuid,text,text,text,text,text,text,integer,text)'),
+      ('rotate_mobile_push_device(uuid,text,text,text,integer,text,text,text)'),
       ('revoke_mobile_push_device(uuid,text)'),
       ('set_mobile_push_preferences(uuid,uuid,boolean,integer,integer,text)'),
       ('claim_mobile_push_jobs(text,text,text,integer)'),

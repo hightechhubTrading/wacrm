@@ -1,3 +1,4 @@
+import { drainNotificationEvents } from '@/lib/notifications/delivery';
 import { supabaseAdmin } from './admin-client';
 import { remindDueFollowups } from './followup-reminders';
 import { recoverStaleMediaActions } from './media-action-recovery';
@@ -17,6 +18,7 @@ export function startAiWorkPoller(intervalMs = 60000) {
       const db = supabaseAdmin();
       await remindDueFollowups(db);
       await recoverStaleMediaActions(db);
+      await drainNotificationEvents(db);
     } catch {
       console.warn('[ai work] maintenance unavailable');
     } finally {

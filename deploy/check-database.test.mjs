@@ -7,6 +7,9 @@ const options = {
 };
 const emptyPerformanceResponse = (pathname) => {
   if (pathname.endsWith('/mobile_push_ready')) return true;
+  if (pathname.endsWith('/notification_center_ready')) return true;
+  if (pathname.endsWith('/notification_delivery_ready')) return true;
+  if (pathname.endsWith('/notification_operations_ready')) return true;
   if (pathname.endsWith('/quotation_document_details_valid')) return true;
   if (pathname.endsWith('/claim_ai_review_receipt')) return false;
   if (pathname.endsWith('/quotation_images_ready')) return true;
@@ -73,7 +76,7 @@ test('accepts the required columns and denied identity-free conversion probe', a
       return validFetch(url);
     },
   });
-  assert.equal(requests.length, 46);
+  assert.equal(requests.length, 49);
   for (const r of requests.slice(0, 8))
     assert.equal(r.url.searchParams.get('limit'), '0');
   assert.equal(JSON.parse(requests[8].init.body).p_conversation_id, null);
@@ -447,3 +450,48 @@ for (const path of [
     );
   });
 }
+
+for (const response of [
+  () => Response.json(false),
+  () => Response.json({}, { status: 404 }),
+  () => new Response('invalid'),
+]) {
+  test('blocks rollout when notification migration is missing or invalid', async () => {
+    await assert.rejects(
+      checkDeploymentDatabase({
+        ...options,
+        fetchImpl: async (url) =>
+          new URL(url).pathname.endsWith('/notification_center_ready')
+            ? response()
+            : validFetch(url),
+      }),
+      /migration 101/
+    );
+  });
+}
+
+test('blocks rollout without durable delivery migration', async () => {
+  await assert.rejects(
+    checkDeploymentDatabase({
+      ...options,
+      fetchImpl: async (url) =>
+        new URL(url).pathname.endsWith('/notification_delivery_ready')
+          ? Response.json(false)
+          : validFetch(url),
+    }),
+    /migration 102/
+  );
+});
+
+test('blocks rollout without notification operations', async () => {
+  await assert.rejects(
+    checkDeploymentDatabase({
+      ...options,
+      fetchImpl: async (url) =>
+        new URL(url).pathname.endsWith('/notification_operations_ready')
+          ? Response.json(false)
+          : validFetch(url),
+    }),
+    /migration 104/
+  );
+});

@@ -16,6 +16,7 @@ interface Prepared {
   account_id: string;
   conversation_id: string | null;
   attempts: number;
+  valid_until: string;
 }
 export async function drainMobilePush(
   db: SupabaseClient,
@@ -69,6 +70,8 @@ export async function drainMobilePush(
           try {
             const delivered = await send(token, {
               id: job.job_id,
+              bindingId: job.device_id,
+              validUntil: job.valid_until,
               accountId: job.account_id,
               conversationId: job.conversation_id,
             });

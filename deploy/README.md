@@ -231,3 +231,33 @@ server-written asset registry, exact ownership/metadata checks and safe abandone
 upload cleanup. Startup preflight checks the registry, image-aware quotation
 validation and private-storage/permission readiness. Existing quotations need no
 backfill. Behavior and validation: [quotation-reference-image.md](../docs/quotation-reference-image.md).
+
+## Notification release — 22 November 2026
+
+Migrations 100/101/102/104/105 must precede this application revision. The release
+preflight checks their read-only readiness sentinels. Do not replay 103 or use a
+broad numeric migration push against the linked timestamp history.
+
+`NOTIFICATION_WORK_POLL_ENABLED=true` opts the production Node runtime into a
+15-second bounded notification worker. Builds and candidates keep it disabled;
+`update.sh` explicitly disables it in the candidate container. The server-owned
+Compose override sets runtime opt-in without adding credentials to source.
+
+For rolling-update continuity, install the notification maintenance/watchdog
+scripts under `/docker/wacrm/` and their `.service`/`.timer` files under
+`/etc/systemd/system/`. The maintenance timer runs database-only fanout through
+the running container's existing server credentials, without provider/customer
+sends. The watchdog probes the database independently of the notification UI and
+reports failure through systemd/journal. Verify these timers with `systemctl` and
+verify `notification_worker_status()` after promotion. External alert recipients
+need their own separately configured infrastructure channel.
+
+The updater can read its deployment branch from a server-owned `.release-branch`
+file. `WACRM_BRANCH` overrides that pin; without either, the prior
+`feat/ctwa-conversions` default remains. The notification release is pinned to
+`feat/notification-release` so unfinished Android work is not included.
+
+Firebase server credentials remain local development configuration; do not mount
+or enable production Android sending until native integration/device acceptance
+is resumed. Runtime push configuration can remain disabled while the CRM center,
+foreground alerts, reminders, escalation and monitoring operate normally.

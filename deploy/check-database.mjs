@@ -529,7 +529,7 @@ async function checkPerformanceDatabase({ url, headers, fetchImpl }) {
     endpoint.searchParams.set(
       'select',
       table === 'mobile_push_devices'
-        ? 'id,session_id,token_hash,token_ciphertext,token_version,registered_at,project_id,environment'
+        ? 'id,session_id,token_hash,rotation_hash,token_ciphertext,token_version,registered_at,project_id,environment'
         : table === 'mobile_push_preferences'
           ? 'user_id,account_id,enabled,quiet_start,quiet_end,timezone'
           : 'id,device_id,state,lease_token,expires_at'
@@ -556,6 +556,54 @@ async function checkPerformanceDatabase({ url, headers, fetchImpl }) {
   if (!pushReady.ok || (await pushReady.json().catch(() => false)) !== true)
     throw new Error(
       'Database preflight failed for mobile push signatures/grants/triggers. Apply migration 100 before deploying this revision.'
+    );
+  const notificationsReady = await fetchImpl(
+    new URL('/rest/v1/rpc/notification_center_ready', url),
+    {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: '{}',
+      signal: AbortSignal.timeout(15000),
+    }
+  );
+  if (
+    !notificationsReady.ok ||
+    (await notificationsReady.json().catch(() => false)) !== true
+  )
+    throw new Error(
+      'Database preflight failed for notifications. Apply migration 101 before deploying this revision.'
+    );
+  const deliveryReady = await fetchImpl(
+    new URL('/rest/v1/rpc/notification_delivery_ready', url),
+    {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: '{}',
+      signal: AbortSignal.timeout(15000),
+    }
+  );
+  if (
+    !deliveryReady.ok ||
+    (await deliveryReady.json().catch(() => false)) !== true
+  )
+    throw new Error(
+      'Database preflight failed for durable notifications. Apply migration 102 before deploying this revision.'
+    );
+  const operationsReady = await fetchImpl(
+    new URL('/rest/v1/rpc/notification_operations_ready', url),
+    {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: '{}',
+      signal: AbortSignal.timeout(15000),
+    }
+  );
+  if (
+    !operationsReady.ok ||
+    (await operationsReady.json().catch(() => false)) !== true
+  )
+    throw new Error(
+      'Database preflight failed for notification operations. Apply migration 104 and locking migration 105 before deploying this revision.'
     );
 }
 

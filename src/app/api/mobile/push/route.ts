@@ -118,32 +118,86 @@ export async function POST(request: Request) {
     body.action === 'revoke'
       ? ['action', 'id', 'secret']
       : body.action === 'register'
-        ? ['action', 'id', 'secret', 'token', 'version', 'appId', 'projectId']
-        : body.action === 'preferences'
-          ? ['action', 'enabled', 'quietStart', 'quietEnd', 'timezone']
-          : [];
+        ? [
+            'action',
+            'id',
+            'secret',
+            'rotationHash',
+            'token',
+            'version',
+            'appId',
+            'projectId',
+          ]
+        : body.action === 'rotate'
+          ? [
+              'action',
+              'id',
+              'rotationSecret',
+              'token',
+              'version',
+              'appId',
+              'projectId',
+            ]
+          : body.action === 'preferences'
+            ? ['action', 'enabled', 'quietStart', 'quietEnd', 'timezone']
+            : [];
   if (!allowed.length || Object.keys(body).some((k) => !allowed.includes(k)))
     return fail(400, 'Invalid notification request');
   if (
-    body.action !== 'preferences' &&
+    ['register', 'revoke'].includes(String(body.action)) &&
     (!isOperationId(body.id) ||
       typeof body.secret !== 'string' ||
       !/^[A-Za-z0-9_-]{43}$/.test(body.secret))
   )
     return fail(400, 'Invalid device binding');
+  if (
+    body.action === 'rotate' &&
+    (!isOperationId(body.id) ||
+      typeof body.rotationSecret !== 'string' ||
+      !/^[A-Za-z0-9_-]{43}$/.test(body.rotationSecret))
+  )
+    return fail(400, 'Invalid device binding');
   try {
     // A device-specific revocation capability still works after JWT/session expiry.
     // It cannot read settings, change ownership or register a new token.
-    if (body.action === 'revoke') {
+    if (body.action === 'revoke' || body.action === 'rotate') {
       if (
-        !checkRateLimit('push-revoke:global', { limit: 300, windowMs: 60000 })
+        !checkRateLimit('push-cap:global', { limit: 300, windowMs: 60000 })
           .success ||
-        !checkRateLimit(`push-revoke:${body.id}`, {
+        !checkRateLimit(`push-cap:${body.id}`, {
           limit: 30,
           windowMs: 60000,
         }).success
       )
         return fail(429, 'Try again shortly');
+      if (body.action === 'rotate') {
+        const config = await activePushConfig();
+        if (!config)
+          return fail(503, 'Android notifications are not configured yet');
+        if (
+          body.appId !== config.appId ||
+          body.projectId !== config.projectId ||
+          typeof body.token !== 'string' ||
+          !/^[A-Za-z0-9_:\-]{20,4096}$/.test(body.token) ||
+          !Number.isSafeInteger(body.version) ||
+          Number(body.version) < 1 ||
+          Number(body.version) > 2147483647
+        )
+          return fail(400, 'Invalid device rotation');
+        const rotated = await supabaseAdmin().rpc('rotate_mobile_push_device', {
+          p_id: body.id,
+          p_rotation_hash: hash(body.rotationSecret as string),
+          p_token_hash: hash(body.token),
+          p_ciphertext: encrypt(body.token),
+          p_version: body.version,
+          p_project: config.projectId,
+          p_app: config.appId,
+          p_environment: config.environment,
+        });
+        if (rotated.error || rotated.data !== true)
+          return fail(409, 'Device binding unavailable');
+        return response(request, 200, { rotated: true });
+      }
       const revoked = await supabaseAdmin().rpc('revoke_mobile_push_device', {
         p_id: body.id,
         p_secret_hash: hash(body.secret as string),
@@ -197,6 +251,8 @@ export async function POST(request: Request) {
       body.appId !== config.appId ||
       body.projectId !== config.projectId ||
       typeof body.token !== 'string' ||
+      typeof body.rotationHash !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(body.rotationHash) ||
       !Number.isSafeInteger(body.version) ||
       Number(body.version) < 1 ||
       Number(body.version) > 2147483647 ||
@@ -228,6 +284,7 @@ export async function POST(request: Request) {
         p_app: config.appId,
         p_environment: config.environment,
         p_version: body.version,
+        p_rotation_hash: body.rotationHash,
       }
     );
     if (registered.error || registered.data !== true)

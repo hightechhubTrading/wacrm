@@ -35,6 +35,7 @@ const registration = () => ({
   secret,
   token,
   version: 1,
+  rotationHash: 'b'.repeat(64),
   appId: config.appId,
   projectId: config.projectId,
 });
@@ -116,6 +117,7 @@ it('encrypts device tokens, hashes revocation secrets and derives session/owners
     p_session: session,
     p_environment: 'development',
     p_version: 1,
+    p_rotation_hash: 'b'.repeat(64),
   });
   expect(args.p_secret_hash).toBe(
     createHash('sha256').update(secret).digest('hex')
@@ -182,6 +184,34 @@ it('allows a device capability to revoke after auth expiry without exposing exis
       p_secret_hash: createHash('sha256').update(secret).digest('hex'),
     },
   ]);
+});
+it('uses a separate rotation capability without trusting user/session fields or extending identity', async () => {
+  h.account.mockRejectedValue(
+    new Error('rotation must not need a refreshed user JWT')
+  );
+  const rotation = {
+    action: 'rotate',
+    id,
+    rotationSecret: 'c'.repeat(43),
+    token,
+    version: 2,
+    appId: config.appId,
+    projectId: config.projectId,
+  };
+  expect((await POST(req(rotation, { Authorization: '' }))).status).toBe(200);
+  expect(h.account).not.toHaveBeenCalled();
+  expect(h.rpc.mock.calls[0][0]).toBe('rotate_mobile_push_device');
+  expect(h.rpc.mock.calls[0][1]).toMatchObject({
+    p_id: id,
+    p_version: 2,
+    p_rotation_hash: createHash('sha256').update('c'.repeat(43)).digest('hex'),
+  });
+  expect(h.rpc.mock.calls[0][1]).not.toHaveProperty('p_user');
+  expect((await POST(req({ ...rotation, accountId: 'other' }))).status).toBe(
+    400
+  );
+  h.rpc.mockResolvedValue({ data: false });
+  expect((await POST(req(rotation))).status).toBe(409);
 });
 it('validates timezone, minute ranges and both quiet-hour endpoints', async () => {
   const body = {

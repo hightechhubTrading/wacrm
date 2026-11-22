@@ -1,3 +1,4 @@
+import { drainNotificationEvents } from '@/lib/notifications/delivery';
 import { recoverStaleMediaActions } from '@/lib/ai/media-action-recovery';
 import { drainMobilePush } from '@/lib/mobile/push/worker';
 import { remindDueFollowups } from '@/lib/ai/followup-reminders';
@@ -36,8 +37,13 @@ export async function GET(request: Request) {
   const admin = supabaseAdmin();
   const followupsReminded = await remindDueFollowups(admin);
   const attachmentsReviewed = await recoverStaleMediaActions(admin);
+  await drainNotificationEvents(admin).catch(() =>
+    console.warn('[notifications] delivery unavailable')
+  );
   // Disabled configuration is a no-op; push failure must not block existing work.
-  const mobilePush = await drainMobilePush(admin).catch(() => ({ failed: true }));
+  const mobilePush = await drainMobilePush(admin).catch(() => ({
+    failed: true,
+  }));
   const { data: due, error } = await admin
     .from('automation_pending_executions')
     .select('*')

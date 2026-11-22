@@ -1,0 +1,8 @@
+[Unit]
+Description=Check WACRM notification health independently every two minutes
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+Unit=wacrm-notification-watchdog.service
+[Install]
+WantedBy=timers.target

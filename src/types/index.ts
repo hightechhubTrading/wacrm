@@ -299,9 +299,29 @@ export interface Conversation {
 // ============================================================
 
 export type NotificationType =
-  'conversation_assigned' | 'ai_key_invalid' | 'urgent_lead' | 'ai_handoff';
+  | 'conversation_assigned'
+  | 'ai_key_invalid'
+  | 'urgent_lead'
+  | 'ai_handoff'
+  | 'followup_due'
+  | 'reply_review_required'
+  | 'media_review_required'
+  | 'quotation_followup_due'
+  | 'appointment_due'
+  | 'appointment_changed'
+  | 'escalation';
 
 export interface Notification {
+  target_kind?: string;
+  target_id?: string;
+  source_reference?: string;
+  copy_key?: string;
+  category?: string;
+  priority?: 'normal' | 'high';
+  acknowledged_at?: string;
+  resolved_at?: string;
+  event_id?: string;
+  followup_id?: string;
   id: string;
   account_id: string;
   /** Recipient — the agent this notification is for. */
