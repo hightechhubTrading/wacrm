@@ -343,3 +343,17 @@ untouched. A final live check reconfirmed source `63cff26`, required server
 configuration, an enabled notification worker, successful watchdog status and
 protected notification APIs. Rollout documentation is pushed separately from the
 unchanged deployed application source.
+
+### Notification-page repair — 22 November 2026
+
+A live, synthetic-auth browser reproduction found that the sidebar and notification
+page mounted `useUnreadNotifications` with an identical Supabase Realtime topic.
+The singleton client returned its already-subscribed channel to the second hook,
+whose `.on()` call threw and activated the route recovery screen. Database reads
+and public HTTP health checks therefore passed while the authenticated page failed.
+
+Each hook effect now owns a unique channel topic, including effect restarts, and
+removes that channel on disposal. A full-page browser regression test mounts
+multiple count readers with channel reuse semantics, real translation providers
+and both EN/AR locales. It reproduced the old crash and passes with the fix.
+The previously used component-only fixture did not cover this shell/page interaction.

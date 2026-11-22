@@ -26,7 +26,9 @@ export function useUnreadNotifications(): number {
     );
     sync.refresh();
     const channel = db
-      .channel(`notification-count:${scope}`)
+      // Supabase reuses channels by topic. Each mounted badge/page reader
+      // needs its own lifecycle, including Strict Mode effect restarts.
+      .channel(`notification-count:${scope}:${crypto.randomUUID()}`)
       .on(
         'postgres_changes',
         {
