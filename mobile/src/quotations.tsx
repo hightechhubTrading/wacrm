@@ -144,7 +144,11 @@ export function QuotationsView({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={
-            field === 'reference' ? 'Find by reference' : 'Find by client name'
+            field === 'phone'
+              ? 'Find by phone number'
+              : field === 'reference'
+                ? 'Find by reference'
+                : 'Find by client name'
           }
           dir="auto"
         />
@@ -153,6 +157,7 @@ export function QuotationsView({
           value={field}
           onChange={(e) => setField(e.target.value)}
         >
+          <option value="phone">Phone number</option>
           <option value="client_name">Client</option>
           <option value="reference">Reference</option>
         </select>
@@ -178,6 +183,7 @@ export function QuotationsView({
               <strong>
                 {q.reference} · Rev {q.revision}
               </strong>
+              {q.clientPhone && <bdi dir="ltr">{q.clientPhone}</bdi>}
               <span dir="auto">{q.clientName || 'Client not added'}</span>
               <small>
                 {q.status.charAt(0).toUpperCase() + q.status.slice(1)} ·{' '}

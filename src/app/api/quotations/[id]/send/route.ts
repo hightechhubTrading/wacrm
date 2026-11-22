@@ -10,6 +10,8 @@
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { resolveConversationByPhone } from '@/lib/whatsapp/resolve-conversation';
+import { readQuotationConversation } from '@/lib/quotations/conversation';
+import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -69,12 +71,25 @@ export async function POST(request: Request, { params }: Params) {
       document = data;
     }
 
-    const conversation = await resolveConversationByPhone(
-      ctx.supabase,
-      quotation.account_id,
-      quotation.client_phone,
-      quotation.client_name
-    );
+    const linked = quotation.conversation_id
+      ? await readQuotationConversation(
+          ctx.supabase,
+          ctx.accountId,
+          quotation.conversation_id
+        )
+      : null;
+    const phone = normalizePhone(quotation.client_phone);
+    const conversationId =
+      linked && phone && normalizePhone(linked.phone) === phone
+        ? linked.id
+        : (
+            await resolveConversationByPhone(
+              ctx.supabase,
+              quotation.account_id,
+              quotation.client_phone,
+              quotation.client_name
+            )
+          ).conversationId;
 
     const { data: pdfUrlData } = ctx.supabase.storage
       .from('quotation-pdfs')
@@ -88,8 +103,8 @@ export async function POST(request: Request, { params }: Params) {
     const pdfUrl = `${pdfUrlData.publicUrl}?v=${Date.now()}`;
 
     return NextResponse.json({
-      conversationId: conversation.conversationId,
-      inboxUrl: `/inbox?c=${conversation.conversationId}`,
+      conversationId,
+      inboxUrl: `/inbox?c=${conversationId}`,
       pdfUrl,
       documentId: document?.id,
       filename: `${quotation.reference}-rev-${quotation.revision}.pdf`,

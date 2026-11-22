@@ -30,7 +30,7 @@ import {
 // No accountId prop -- the API route derives it from the caller's own
 // session (requireRole), same reasoning as the rest of this feature
 // (see the auth comments on src/app/api/quotations/route.ts).
-export function QuotationList() {
+export function QuotationList({ conversationId }: { conversationId?: string }) {
   const t = useTranslations('Workspace');
   const { profileLoading } = useAuth();
   const canAccess = useCan('send-messages');
@@ -76,6 +76,7 @@ export function QuotationList() {
       search: querySearch,
     });
     if (status) params.set('status', status);
+    if (conversationId) params.set('conversationId', conversationId);
     fetch(`/api/quotations?${params}`, { signal: controller.signal })
       .then(async (res) => {
         if (!res.ok) throw new Error('load');
@@ -93,7 +94,15 @@ export function QuotationList() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [status, revision, page, querySearch, profileLoading, canAccess]);
+  }, [
+    status,
+    revision,
+    page,
+    querySearch,
+    profileLoading,
+    canAccess,
+    conversationId,
+  ]);
 
   useEffect(() => {
     if (profileLoading || !canAccess) return;
@@ -138,6 +147,7 @@ export function QuotationList() {
               ? product.productCode
               : productCode,
           currency: 'QAR',
+          ...(conversationId ? { conversationId } : {}),
           ...(selection ? { catalogueSelection: selection } : {}),
         }),
       });
@@ -174,6 +184,19 @@ export function QuotationList() {
 
   return (
     <div className="crm-quotation-list space-y-4">
+      {conversationId && (
+        <div className="flex flex-wrap gap-3 text-sm">
+          <Link
+            className="text-primary hover:underline"
+            href={`/inbox?c=${conversationId}`}
+          >
+            {t('quotationBackToChat')}
+          </Link>
+          <Link className="text-primary hover:underline" href="/quotations">
+            {t('quotationShowAll')}
+          </Link>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <Select
           value={productCode}
@@ -317,10 +340,17 @@ export function QuotationList() {
                     </Link>
                   </td>
                   <td className="py-2 pe-4">
-                    {q.clientCompany ?? q.clientName ?? '—'}
-                    <small className="text-muted-foreground block">
-                      {q.projectName}
-                    </small>
+                    {q.clientPhone && (
+                      <bdi className="block font-medium" dir="ltr">
+                        {q.clientPhone}
+                      </bdi>
+                    )}
+                    <span>{q.clientCompany ?? q.clientName ?? '—'}</span>
+                    {q.projectName && (
+                      <small className="text-muted-foreground block">
+                        {q.projectName}
+                      </small>
+                    )}
                   </td>
                   <td className="py-2 pe-4">
                     <span

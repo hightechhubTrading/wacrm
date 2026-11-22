@@ -1,6 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-const h = vi.hoisted(() => ({ requireRole: vi.fn(), catalogue: vi.fn() }));
+const h = vi.hoisted(() => ({
+  requireRole: vi.fn(),
+  catalogue: vi.fn(),
+  conversation: vi.fn(),
+}));
+vi.mock('@/lib/quotations/conversation', () => ({
+  readQuotationConversation: h.conversation,
+}));
 vi.mock('@/lib/quotations/catalogue-server', () => ({
   loadQuotationCatalogue: h.catalogue,
 }));
@@ -62,6 +69,7 @@ function makeListSupabase(result: {
     order: ReturnType<typeof vi.fn>;
     range: ReturnType<typeof vi.fn>;
     or: ReturnType<typeof vi.fn>;
+    not: ReturnType<typeof vi.fn>;
     then: (
       resolve: (v: unknown) => unknown,
       reject?: (e: unknown) => unknown
@@ -71,6 +79,7 @@ function makeListSupabase(result: {
     order: vi.fn(() => builder),
     range: vi.fn(() => builder),
     or: vi.fn(() => builder),
+    not: vi.fn(() => builder),
     then: (resolve, reject) => Promise.resolve(result).then(resolve, reject),
   };
   const select = vi.fn(() => builder);
@@ -108,6 +117,49 @@ beforeEach(() => {
 });
 
 describe('POST /api/quotations', () => {
+  it('uses account-scoped chat identity to create a linked quotation', async () => {
+    const { createQuotation } = await import('@/lib/quotations/crud');
+    const id = '11111111-1111-4111-8111-111111111111';
+    h.conversation.mockResolvedValueOnce({
+      id,
+      contactId: 'contact-1',
+      phone: '+974 5555 1234',
+      name: 'WhatsApp user',
+    });
+    const req = new Request('http://test/api/quotations', {
+      method: 'POST',
+      body: JSON.stringify({
+        productCode: 'PIV',
+        currency: 'QAR',
+        conversationId: id,
+      }),
+    });
+    expect((await POST(req)).status).toBe(201);
+    expect(h.conversation).toHaveBeenCalledWith(expect.anything(), 'acc-1', id);
+    expect(createQuotation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationId: id,
+        contactId: 'contact-1',
+        clientPhone: '+974 5555 1234',
+      })
+    );
+  });
+
+  it('rejects inaccessible chat context before creating a quotation', async () => {
+    const { createQuotation } = await import('@/lib/quotations/crud');
+    h.conversation.mockResolvedValueOnce(null);
+    const req = new Request('http://test/api/quotations', {
+      method: 'POST',
+      body: JSON.stringify({
+        productCode: 'PIV',
+        currency: 'QAR',
+        conversationId: '11111111-1111-4111-8111-111111111111',
+      }),
+    });
+    expect((await POST(req)).status).toBe(404);
+    expect(createQuotation).not.toHaveBeenCalled();
+  });
+
   it("creates a quotation using the caller's own account, ignoring any accountId in the body", async () => {
     const { createQuotation } = await import('@/lib/quotations/crud');
     const req = new Request('http://test/api/quotations', {
@@ -262,6 +314,40 @@ describe('GET /api/quotations', () => {
         .join(',')
     );
     expect(builder.order).toHaveBeenCalledWith('id', { ascending: false });
+  });
+
+  it('finds quotations created from, sent in, or matching an accessible chat', async () => {
+    const id = '11111111-1111-4111-8111-111111111111';
+    h.conversation.mockResolvedValueOnce({ id, phone: '+974 5555 1234' });
+    const { from, builder } = makeListSupabase({ data: [], error: null });
+    h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase: { from } });
+    const res = await GET(
+      new Request(`http://test/api/quotations?conversationId=${id}`)
+    );
+    expect(res.status).toBe(200);
+    expect(builder.eq).toHaveBeenCalledWith(
+      'sent_documents.conversation_id',
+      id
+    );
+    expect(builder.not).toHaveBeenCalledWith(
+      'sent_documents.sent_at',
+      'is',
+      null
+    );
+    expect(builder.or).toHaveBeenCalledWith(
+      `conversation_id.eq.${id},sent_documents.not.is.null,client_phone_normalized.eq.97455551234`
+    );
+  });
+
+  it('finds a phone number regardless of the saved number’s formatting', async () => {
+    const { from, builder } = makeListSupabase({ data: [], error: null });
+    h.requireRole.mockResolvedValue({ accountId: 'acc-1', supabase: { from } });
+    const params = new URLSearchParams({ search: '+974 (5555) 1234' });
+    const res = await GET(new Request(`http://test/api/quotations?${params}`));
+    expect(res.status).toBe(200);
+    expect(builder.or).toHaveBeenCalledWith(
+      expect.stringContaining('client_phone_normalized.ilike.%97455551234%')
+    );
   });
 
   it.each([

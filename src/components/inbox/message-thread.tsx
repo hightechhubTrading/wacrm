@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useInboxLayout } from '@/hooks/use-inbox-layout';
 import type { ConversationWorkStatus } from '@/lib/inbox/work-status';
 import { ConversationStatusMenu } from './conversation-status-menu';
@@ -40,6 +41,7 @@ import {
   Sparkles,
   CalendarClock,
   BriefcaseBusiness,
+  FileText,
 } from 'lucide-react';
 import { differenceInHours } from 'date-fns';
 import {
@@ -292,7 +294,7 @@ export function MessageThread({
   const tTimer = useTranslations('Inbox.sessionTimer');
   const tQuote = useTranslations('Inbox.replyQuote');
 
-  const { user } = useAuth();
+  const { user, canSendMessages } = useAuth();
   const { getPresence, getRow, now } = usePresence(!!conversation);
   const [loading, setLoading] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
@@ -1248,6 +1250,16 @@ export function MessageThread({
         </div>
 
         <div className="flex items-center gap-2">
+          {canSendMessages && (
+            <Link
+              href={`/quotations?conversation=${conversation.id}`}
+              aria-label={t('customerQuotations')}
+              title={t('customerQuotations')}
+              className="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring inline-flex size-7 shrink-0 items-center justify-center rounded-md focus-visible:ring-2"
+            >
+              <FileText size={16} aria-hidden />
+            </Link>
+          )}
           <ConversationCalling
             key={conversation.id}
             conversationId={conversation.id}

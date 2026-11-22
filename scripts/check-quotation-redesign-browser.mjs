@@ -59,7 +59,12 @@ try {
     path.join(root, 'main.tsx'),
     `import React from 'react';import {createRoot} from 'react-dom/client';import {NextIntlClientProvider} from 'next-intl';import {QuotationWorkspace} from ${JSON.stringify(path.join(project, 'src/components/quotations/quotation-workspace.tsx'))};import en from ${JSON.stringify(path.join(project, 'messages/en.json'))};import ar from ${JSON.stringify(path.join(project, 'messages/ar.json'))};import ${JSON.stringify(path.join(project, 'src/app/globals.css'))};const locale=localStorage.getItem('fixtureLocale')||'en';document.documentElement.lang=locale;document.documentElement.dir=locale==='ar'?'rtl':'ltr';document.documentElement.dataset.mode=localStorage.getItem('fixtureMode')||'light';document.documentElement.dataset.theme='navy-gold';document.documentElement.classList.toggle('dark',localStorage.getItem('fixtureMode')==='dark');fetch('/api/fixture').then(r=>r.json()).then(initial=>createRoot(document.getElementById('root')).render(<NextIntlClientProvider locale={locale} messages={locale==='ar'?ar:en} timeZone="Asia/Qatar"><main style={{padding:16}}><QuotationWorkspace initial={initial}/></main></NextIntlClientProvider>));`
   );
+  await fs.writeFile(
+    path.join(root, 'auth.ts'),
+    `export function useAuth() { return { accountRole: ${JSON.stringify(process.env.QUOTATION_ADMIN ? 'admin' : 'agent')}, profileLoading: false }; }`
+  );
   const alias = [
+    { find: '@/hooks/use-auth', replacement: path.join(root, 'auth.ts') },
     { find: 'next/link', replacement: path.join(root, 'link.tsx') },
     {
       find: '@/lib/supabase/client',
@@ -169,6 +174,7 @@ try {
           let saved = null;
           let previewRequests = 0;
           let current = initial;
+          let removals = 0;
           const page = await browser.newPage({
             viewport: { width, height: 1000 },
           });
@@ -193,9 +199,24 @@ try {
             let result = {},
               status = 200;
             if (pathname === '/api/fixture') result = initial;
-            else if (pathname === '/api/quotations/catalogue')
+            else if (
+              req.method() === 'DELETE' &&
+              pathname === `/api/quotations/${ids.quote}`
+            ) {
+              removals++;
+              return route.fulfill({ status: 204 });
+            } else if (pathname === '/api/quotations/catalogue')
               result = { items: catalogue };
-            else if (pathname.endsWith('/preview')) {
+            else if (pathname.endsWith('/conversations')) {
+              result = [
+                {
+                  id: '10000000-0000-4000-8000-000000000003',
+                  phone: initial.clientPhone,
+                  activityAt: null,
+                  kind: 'origin',
+                },
+              ];
+            } else if (pathname.endsWith('/preview')) {
               previewRequests++;
               const d = body.draft;
               result = {
@@ -242,6 +263,12 @@ try {
             t = messages.QuotationWorkspace,
             l = (en, a) => (locale === 'ar' ? a : en);
           await page.goto(server.resolvedUrls.local[0]);
+          assert.equal(
+            await page
+              .getByRole('link', { name: new RegExp(t.chatOrigin) })
+              .getAttribute('href'),
+            '/inbox?c=10000000-0000-4000-8000-000000000003'
+          );
           if (process.env.QUOTATION_OVERALLOCATION) {
             await page
               .getByRole('button', { name: new RegExp(t.commercialTerms) })
@@ -678,6 +705,31 @@ try {
               ).DOCUMENT_PDF_OPTIONS,
             });
             await doc.close();
+          }
+          const remove = page.getByRole('button', {
+            name: t.removeQuotation,
+            exact: true,
+          });
+          if (process.env.QUOTATION_ADMIN) {
+            await remove.click();
+            const dialog = page.getByRole('dialog', {
+              name: t.removeQuotation,
+            });
+            await dialog
+              .getByRole('button', { name: t.cancel, exact: true })
+              .click();
+            await dialog.waitFor({ state: 'hidden' });
+            assert.equal(removals, 0);
+            await remove.click();
+            await Promise.all([
+              page.waitForURL('**/quotations'),
+              dialog
+                .getByRole('button', { name: t.removeQuotation, exact: true })
+                .click(),
+            ]);
+            assert.equal(removals, 1);
+          } else {
+            assert.equal(await remove.count(), 0);
           }
           await page.close();
           cases++;

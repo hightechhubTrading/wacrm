@@ -407,6 +407,7 @@
       }
     },
     "messageThread": {
+      "customerQuotations": "عروض أسعار العميل",
       "openAssistantNote": "عرض ملخص المحادثة وإرشادات الرد",
       "dateUnknown": "التاريخ غير متاح",
       "assignmentFailed": "تغيّر الإسناد أو تعذّر حفظه. حدّث المحادثة وحاول مرة أخرى.",
@@ -2816,7 +2817,9 @@
     "notConfigured": "أكمل الإعداد قبل اختبار مساعدك.",
     "replyError": "تعذر الحصول على رد.",
     "networkError": "تعذر الوصول إلى المساعد.",
-    "searchQuotations": "ابحث بالمرجع أو العميل أو المشروع…",
+    "searchQuotations": "ابحث برقم الهاتف أو المرجع أو العميل أو المشروع…",
+    "quotationBackToChat": "العودة إلى محادثة واتساب",
+    "quotationShowAll": "عرض كل عروض الأسعار",
     "validUntil": "صالح حتى",
     "agentGuide": {
       "title": "اختبر قبل التشغيل",
@@ -2868,6 +2871,18 @@
     "previewBrief": "الخطوة التالية المقترحة"
   },
   "QuotationWorkspace": {
+    "customerConversations": "محادثات واتساب",
+    "chatLinksAfterSave": "احفظ عرض السعر للبحث عن الرقم المعدّل.",
+    "chatLookupError": "تعذّر تحميل محادثات واتساب.",
+    "chatSent": "أُرسل العرض في هذه المحادثة",
+    "chatOrigin": "أُنشئ العرض من هذه المحادثة",
+    "chatMatch": "فتح المحادثة المطابقة لهذا الرقم",
+    "noCustomerConversation": "لا توجد محادثة واتساب مرتبطة. يمكنك إبقاء العرض مستقلاً.",
+    "removeQuotation": "إزالة عرض السعر",
+    "removeQuotationHint": "هل تريد إزالة {reference} من عروض الأسعار النشطة؟ سيُحتفظ بالسجلات وملفات PDF.",
+    "removeError": "تعذّرت إزالة عرض السعر. حاول مرة أخرى.",
+    "removeSending": "جارٍ الإرسال عبر واتساب. تحقق من المحادثة وحاول لاحقاً.",
+    "cancel": "إلغاء",
     "quotation": "عرض سعر",
     "back": "العودة إلى عروض الأسعار",
     "revision": "المراجعة",

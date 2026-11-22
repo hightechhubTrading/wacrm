@@ -4,8 +4,15 @@ import { QuotationList } from '@/components/quotations/quotation-list';
 import { PageIdentity } from '@/components/workspace/page-identity';
 import { FileText } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
+import { isOperationId } from '@/lib/whatsapp/send-operations';
 
-export default async function QuotationsPage() {
+export default async function QuotationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ conversation?: string | string[] }>;
+}) {
+  const { conversation } = await searchParams;
+  const conversationId = isOperationId(conversation) ? conversation : undefined;
   const ar = (await getLocale()) === 'ar';
   const t = await getTranslations('Workspace');
   return (
@@ -24,7 +31,7 @@ export default async function QuotationsPage() {
           ? 'مصادر الأسعار وسجل العملاء'
           : 'Price sources and customer history'}
       </Link>
-      <QuotationList />
+      <QuotationList key={conversationId} conversationId={conversationId} />
     </div>
   );
 }

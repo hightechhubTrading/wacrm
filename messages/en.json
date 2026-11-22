@@ -407,6 +407,7 @@
       }
     },
     "messageThread": {
+      "customerQuotations": "Customer quotations",
       "openAssistantNote": "Open the conversation note and reply guidance",
       "dateUnknown": "Date unavailable",
       "assignmentFailed": "Assignment changed or could not be saved. Refresh the conversation and try again.",
@@ -2816,7 +2817,9 @@
     "notConfigured": "Finish Setup before testing your assistant.",
     "replyError": "Couldn’t get a reply.",
     "networkError": "Couldn’t reach the assistant.",
-    "searchQuotations": "Search reference, customer or project…",
+    "searchQuotations": "Search phone, reference, customer or project…",
+    "quotationBackToChat": "Back to WhatsApp chat",
+    "quotationShowAll": "Show all quotations",
     "validUntil": "Valid until",
     "agentGuide": {
       "title": "Test before going live",
@@ -2868,6 +2871,18 @@
     "previewBrief": "Suggested next step"
   },
   "QuotationWorkspace": {
+    "customerConversations": "WhatsApp conversations",
+    "chatLinksAfterSave": "Save the quotation to look up the edited number.",
+    "chatLookupError": "WhatsApp conversations could not be loaded.",
+    "chatSent": "Quotation sent in this chat",
+    "chatOrigin": "Created from this chat",
+    "chatMatch": "Open chat matching this number",
+    "noCustomerConversation": "No WhatsApp conversation is linked. You can keep this quotation standalone.",
+    "removeQuotation": "Remove quotation",
+    "removeQuotationHint": "Remove {reference} from active quotations? Its records and PDFs will be kept.",
+    "removeError": "The quotation could not be removed. Try again.",
+    "removeSending": "A WhatsApp send is in progress. Check the chat and try again later.",
+    "cancel": "Cancel",
     "quotation": "Quotation",
     "back": "Back to quotations",
     "revision": "Revision",

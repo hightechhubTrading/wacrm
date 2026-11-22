@@ -16,6 +16,9 @@ import {
   sellableCatalogue,
 } from '@/lib/quotations/product-profile';
 import { mapQuotationRow } from '@/lib/quotations/types';
+import { readQuotationConversation } from '@/lib/quotations/conversation';
+import { normalizePhone } from '@/lib/whatsapp/phone-utils';
+import { isOperationId } from '@/lib/whatsapp/send-operations';
 
 // Explicit allow-list of what a caller may set on create. Everything
 // else in the body is ignored -- in particular, there is no legitimate
@@ -76,6 +79,28 @@ export async function POST(request: Request) {
     }
 
     const fields = pickCreateFields(body);
+    if (body.conversationId !== undefined) {
+      if (!isOperationId(body.conversationId) || body.dealId || body.contactId)
+        return NextResponse.json(
+          { error: 'Invalid conversation context' },
+          { status: 400 }
+        );
+      const conversation = await readQuotationConversation(
+        ctx.supabase,
+        ctx.accountId,
+        body.conversationId
+      );
+      if (!conversation)
+        return NextResponse.json(
+          { error: 'Conversation not found' },
+          { status: 404 }
+        );
+      fields.conversationId = conversation.id;
+      fields.contactId = conversation.contactId;
+      fields.clientPhone = conversation.phone;
+      fields.clientName = conversation.name;
+      fields.clientCompany = conversation.company;
+    }
 
     {
       const { data: profile, error: profileErr } = await ctx.supabase
@@ -205,15 +230,45 @@ export async function GET(request: Request) {
     }
     const search = (url.searchParams.get('search') ?? '').trim().slice(0, 200);
 
+    const conversationId = url.searchParams.get('conversationId');
     let query = ctx.supabase
       .from('quotations')
-      .select('*', { count: 'exact' })
+      .select(conversationId ? '*,sent_documents:quotation_documents()' : '*', {
+        count: 'exact',
+      })
       .eq('account_id', ctx.accountId)
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
       .range((page - 1) * pageSize, page * pageSize - 1);
     if (status) query = query.eq('status', status);
     if (dealId) query = query.eq('deal_id', dealId);
+    if (conversationId !== null) {
+      if (!isOperationId(conversationId))
+        return NextResponse.json(
+          { error: 'Invalid conversation' },
+          { status: 400 }
+        );
+      const conversation = await readQuotationConversation(
+        ctx.supabase,
+        ctx.accountId,
+        conversationId
+      );
+      if (!conversation)
+        return NextResponse.json(
+          { error: 'Conversation not found' },
+          { status: 404 }
+        );
+      const phone = normalizePhone(conversation.phone);
+      const matches = [
+        `conversation_id.eq.${conversation.id}`,
+        'sent_documents.not.is.null',
+      ];
+      if (phone) matches.push(`client_phone_normalized.eq.${phone}`);
+      query = query
+        .eq('sent_documents.conversation_id', conversation.id)
+        .not('sent_documents.sent_at', 'is', null)
+        .or(matches.join(','));
+    }
 
     if (search) {
       // Quote PostgREST filter values and escape LIKE wildcards: user text
@@ -221,11 +276,16 @@ export async function GET(request: Request) {
       const pattern = JSON.stringify(
         '%' + search.replace(/[\\%_]/g, '\\$&') + '%'
       );
-      query = query.or(
-        ['reference', 'client_name', 'client_company', 'project_name']
-          .map((field) => `${field}.ilike.${pattern}`)
-          .join(',')
-      );
+      const filters = [
+        'reference',
+        'client_name',
+        'client_company',
+        'project_name',
+      ].map((field) => `${field}.ilike.${pattern}`);
+      const digits = normalizePhone(search);
+      if (digits && /^[0-9+().\s-]+$/.test(search))
+        filters.push(`client_phone_normalized.ilike.%${digits}%`);
+      query = query.or(filters.join(','));
     }
     const { data, error, count } = await query;
     if (error)

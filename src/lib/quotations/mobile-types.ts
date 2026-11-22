@@ -5,6 +5,7 @@ export interface MobileQuotationSummary {
   revision: number;
   status: string;
   clientName: string | null;
+  clientPhone?: string | null;
   projectName: string | null;
   currency: string | null;
   total: number;

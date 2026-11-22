@@ -1,6 +1,10 @@
 'use client';
 import { recordReliability } from '@/lib/inbox/reliability';
 
+import Link from 'next/link';
+import { useAuth } from '@/hooks/use-auth';
+import { hasMinRole } from '@/lib/auth/roles';
+import { BUSINESS_TIME_ZONE } from '@/lib/business-time';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { quotationDelivery } from '@/lib/quotations/product-profile';
 import { catalogueTerms } from '@/lib/quotations/catalogue';
@@ -24,6 +28,7 @@ import {
   DialogContent,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { WorkspaceSelect } from './workspace-select';
 
@@ -40,6 +45,7 @@ import {
   Loader2,
   Save,
   Send,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -80,13 +86,28 @@ export function QuotationWorkspace({
 }) {
   const t = useTranslations('QuotationWorkspace');
   const locale = useLocale();
+  const { accountRole, profileLoading } = useAuth();
+  const canRemove =
+    !profileLoading && !!accountRole && hasMinRole(accountRole, 'admin');
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removeError, setRemoveError] = useState('');
+  const [chats, setChats] = useState<
+    | {
+        id: string;
+        phone: string;
+        activityAt: string | null;
+        kind: 'sent' | 'origin' | 'match';
+      }[]
+    | null
+  >(null);
+  const [chatsFailed, setChatsFailed] = useState(false);
   const [quotation, setQuotation] = useState(initial);
   const [draft, setDraft] = useState(() => draftFromQuotation(initial));
   const [saved, setSaved] = useState(() =>
     JSON.stringify(draftFromQuotation(initial, false))
   );
   const [busy, setBusy] = useState<
-    'save' | 'pdf' | 'send' | 'revise' | 'status' | null
+    'save' | 'pdf' | 'send' | 'revise' | 'status' | 'remove' | null
   >(null);
   const [imageUploading, setImageUploading] = useState(false);
   const imageUploadingRef = useRef(false);
@@ -146,6 +167,25 @@ export function QuotationWorkspace({
     { id: string; title: string; contact_id: string | null }[]
   >([]);
   const [linkError, setLinkError] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    setChats(null);
+    setChatsFailed(false);
+    fetch(`/api/quotations/${quotation.id}/conversations`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Could not load conversations');
+        const rows = await res.json();
+        if (!Array.isArray(rows)) throw new Error('Invalid conversations');
+        if (!controller.signal.aborted) setChats(rows);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setChatsFailed(true);
+      });
+    return () => controller.abort();
+  }, [quotation.id, quotation.clientPhone, quotation.workspaceVersion]);
+  const removed = useRef(false);
   const errorRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const expandReviewRef = useRef<HTMLButtonElement>(null);
@@ -220,7 +260,7 @@ export function QuotationWorkspace({
   }, [initial.id]);
   useEffect(() => {
     const prevent = (event: BeforeUnloadEvent) => {
-      if (dirty || imageUploading) {
+      if (!removed.current && (dirty || imageUploading)) {
         event.preventDefault();
         event.returnValue = '';
       }
@@ -497,6 +537,25 @@ export function QuotationWorkspace({
       setBusy(null);
     }
   }
+  async function removeQuotation() {
+    setBusy('remove');
+    setRemoveError('');
+    try {
+      const res = await fetch(`/api/quotations/${quotation.id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        setRemoveError(t(res.status === 409 ? 'removeSending' : 'removeError'));
+        return;
+      }
+      removed.current = true;
+      window.location.assign('/quotations');
+    } catch {
+      setRemoveError(t('removeError'));
+    } finally {
+      setBusy(null);
+    }
+  }
   async function outcome(status: QuotationStatus) {
     setBusy('status');
     try {
@@ -745,8 +804,62 @@ export function QuotationWorkspace({
             <Send size={16} />
             {t('prepareWhatsApp')}
           </Button>
+          {canRemove && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-destructive"
+              size="sm"
+              aria-label={t('removeQuotation')}
+              title={t('removeQuotation')}
+              disabled={busy !== null || imageUploading}
+              onClick={() => {
+                setRemoveError('');
+                setRemoveOpen(true);
+              }}
+            >
+              <Trash2 size={16} aria-hidden />
+              {t('removeQuotation')}
+            </Button>
+          )}
         </div>
       </header>
+      {canRemove && (
+        <Dialog
+          open={removeOpen}
+          onOpenChange={(open) => {
+            if (busy !== 'remove') setRemoveOpen(open);
+          }}
+        >
+          <DialogContent>
+            <DialogTitle>{t('removeQuotation')}</DialogTitle>
+            <DialogDescription>
+              {t('removeQuotationHint', { reference: quotation.reference })}
+            </DialogDescription>
+            {removeError && (
+              <p role="alert" className="text-destructive">
+                {removeError}
+              </p>
+            )}
+            <DialogFooter>
+              <Button
+                variant="outline"
+                disabled={busy === 'remove'}
+                onClick={() => setRemoveOpen(false)}
+              >
+                {t('cancel')}
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={busy === 'remove'}
+                onClick={() => void removeQuotation()}
+              >
+                {t(busy === 'remove' ? 'working' : 'removeQuotation')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
       {error && (
         <div
           ref={errorRef}
@@ -888,9 +1001,57 @@ export function QuotationWorkspace({
                 )}
               </div>
             )}
+            <div className="mb-3 text-sm">
+              <p className="font-medium">{t('customerConversations')}</p>
+              {draft.clientPhone !== (quotation.clientPhone ?? '') && (
+                <p className="text-muted-foreground">
+                  {t('chatLinksAfterSave')}
+                </p>
+              )}
+              {chatsFailed ? (
+                <p className="text-muted-foreground">{t('chatLookupError')}</p>
+              ) : chats?.length ? (
+                <ul className="mt-1 space-y-1">
+                  {chats.map((chat) => (
+                    <li key={chat.id}>
+                      <Link
+                        href={`/inbox?c=${chat.id}`}
+                        className="text-primary hover:underline"
+                      >
+                        {t(
+                          chat.kind === 'sent'
+                            ? 'chatSent'
+                            : chat.kind === 'origin'
+                              ? 'chatOrigin'
+                              : 'chatMatch'
+                        )}
+                        {' · '}
+                        <bdi dir="ltr">{chat.phone}</bdi>
+                        {chat.activityAt && (
+                          <>
+                            {' '}
+                            ·{' '}
+                            {new Date(chat.activityAt).toLocaleDateString(
+                              locale,
+                              { timeZone: BUSINESS_TIME_ZONE }
+                            )}
+                          </>
+                        )}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                chats && (
+                  <p className="text-muted-foreground">
+                    {t('noCustomerConversation')}
+                  </p>
+                )
+              )}
+            </div>
             <div className="qw-form-grid">
-              {field('clientName', 'clientName')}
               {field('clientPhone', 'phone', 'tel')}
+              {field('clientName', 'clientName')}
               {field('clientCompany', 'company')}
               {field('projectName', 'project')}
               {field('location', 'location')}

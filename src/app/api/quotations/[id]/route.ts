@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isOperationId } from '@/lib/whatsapp/send-operations';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { saveQuotationItems } from '@/lib/quotations/crud';
 import { mapQuotationRow, mapQuotationItemRow } from '@/lib/quotations/types';
@@ -138,6 +139,38 @@ export async function PATCH(request: Request, { params }: Params) {
       .eq('id', id)
       .single();
     return NextResponse.json(mapQuotationWithItems(data));
+  } catch (err) {
+    return toErrorResponse(err);
+  }
+}
+
+export async function DELETE(_request: Request, { params }: Params) {
+  try {
+    const ctx = await requireRole('admin');
+    const { id } = await params;
+    if (!isOperationId(id))
+      return NextResponse.json({ error: 'Invalid quotation' }, { status: 400 });
+    const { error } = await ctx.supabase.rpc('archive_quotation', {
+      p_account_id: ctx.accountId,
+      p_id: id,
+    });
+    if (!error) return new NextResponse(null, { status: 204 });
+    if (error.code === 'P0002')
+      return NextResponse.json(
+        { error: 'Quotation not found' },
+        { status: 404 }
+      );
+    if (error.code === '42501')
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      );
+    if (error.code === '40001')
+      return NextResponse.json(
+        { error: 'A send is in progress' },
+        { status: 409 }
+      );
+    return toErrorResponse(error);
   } catch (err) {
     return toErrorResponse(err);
   }

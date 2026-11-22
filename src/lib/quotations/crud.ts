@@ -19,6 +19,7 @@ export interface CreateQuotationInput {
   preparedBy?: string;
   assignedTo?: string;
   contactId?: string;
+  conversationId?: string;
   dealId?: string;
   clientName?: string;
   clientPhone?: string;
@@ -57,6 +58,9 @@ export async function createQuotation(
       created_by: input.createdBy ?? null,
       assigned_to: input.assignedTo ?? null,
       contact_id: input.contactId ?? null,
+      ...(input.conversationId
+        ? { conversation_id: input.conversationId }
+        : {}),
       deal_id: input.dealId ?? null,
       client_name: input.clientName ?? null,
       client_phone: input.clientPhone ?? null,

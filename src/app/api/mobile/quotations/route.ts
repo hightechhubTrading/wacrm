@@ -1,4 +1,5 @@
 import type { MobileQuotationList } from '@/lib/quotations/mobile-types';
+import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import { mapQuotationRow } from '@/lib/quotations/types';
 import {
   mobileAccount,
@@ -18,20 +19,28 @@ export async function GET(request: Request) {
     const u = new URL(request.url);
     const search = u.searchParams.get('search') ?? '';
     const field = u.searchParams.get('field') ?? 'client_name';
-    if (search.length > 100 || !['client_name', 'reference'].includes(field))
+    if (
+      search.length > 100 ||
+      !['client_name', 'reference', 'phone'].includes(field)
+    )
       return fail(400, 'Invalid search');
     let query = access.db
       .from('quotations')
       .select(
-        'id,reference,revision,status,client_name,project_name,currency,total,updated_at',
+        'id,reference,revision,status,client_name,client_phone,project_name,currency,total,updated_at',
         { count: 'exact' }
       )
       .eq('account_id', access.profile.account_id)
       .order('updated_at', { ascending: false })
       .order('id')
       .range(offset, offset + 24);
-    if (search)
+    if (search && field === 'phone') {
+      const digits = normalizePhone(search);
+      if (!digits) return fail(400, 'Enter a phone number');
+      query = query.ilike('client_phone_normalized', `%${digits}%`);
+    } else if (search) {
       query = query.ilike(field, '%' + search.replace(/[\\%_]/g, '\\$&') + '%');
+    }
     const result = await query;
     if (result.error) return fail(503, 'Quotations could not be loaded');
     return mobileResponse(
@@ -45,6 +54,7 @@ export async function GET(request: Request) {
             revision: q.revision,
             status: q.status,
             clientName: q.clientName,
+            clientPhone: q.clientPhone,
             projectName: q.projectName,
             currency: q.currency,
             total: q.total,

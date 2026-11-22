@@ -15,7 +15,7 @@ vi.mock('@/lib/quotations/crud', () => ({
   saveQuotationItems: h.saveQuotationItems,
 }));
 
-import { GET, PATCH } from './route';
+import { DELETE, GET, PATCH } from './route';
 
 // Raw (snake_case) row shapes, as they'd come back from Supabase.
 const rawQuotationRow = {
@@ -269,4 +269,29 @@ describe('PATCH /api/quotations/[id]', () => {
     const body = await res.json();
     expect(body).toEqual({ error: 'Quotation not found' });
   });
+});
+
+describe('DELETE /api/quotations/[id]', () => {
+  const id = '11111111-1111-4111-8111-111111111111';
+  const request = new Request(`http://test/api/quotations/${id}`, { method: 'DELETE' });
+  const params = { params: Promise.resolve({ id }) };
+
+  it('requires admin access and passes only the session account to the archive RPC', async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: null });
+    h.requireRole.mockResolvedValueOnce({ accountId: 'acc-1', supabase: { rpc } });
+    expect((await DELETE(request, params)).status).toBe(204);
+    expect(h.requireRole).toHaveBeenCalledWith('admin');
+    expect(rpc).toHaveBeenCalledWith('archive_quotation', {
+      p_account_id: 'acc-1',
+      p_id: id,
+    });
+  });
+
+  it.each([['P0002', 404], ['42501', 403], ['40001', 409]])(
+    'maps archive error %s to %s', async (code, status) => {
+      const rpc = vi.fn().mockResolvedValue({ error: { code } });
+      h.requireRole.mockResolvedValueOnce({ accountId: 'acc-1', supabase: { rpc } });
+      expect((await DELETE(request, params)).status).toBe(status);
+    }
+  );
 });
