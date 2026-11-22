@@ -1,6 +1,6 @@
 # CRM notification improvement plan
 
-Date: 18 November 2026. Status: web/server implementation complete; production rollout in progress.
+Date: 18 November 2026. Status: web/server notification release deployed; Android acceptance deferred.
 
 Goal: staff can trust that important work reaches the right person, understand why it needs attention, and act without being overwhelmed by repeated alerts.
 
@@ -259,12 +259,13 @@ lists above; Android integration/build/device acceptance remains deferred.
 
 Live database migrations, through the linked timestamped process:
 
-| Source                        | Recorded version |
-| ----------------------------- | ---------------- |
-| 100 mobile push server schema | 20261122151450   |
-| 101 notification center       | 20261122151451   |
-| 102 durable delivery          | 20261122151452   |
-| 104 notification operations   | 20261122151453   |
+| Source                           | Recorded version |
+| -------------------------------- | ---------------- |
+| 100 mobile push server schema    | 20261122151450   |
+| 101 notification center          | 20261122151451   |
+| 102 durable delivery             | 20261122151452   |
+| 104 notification operations      | 20261122151453   |
+| 105 acknowledgment lock ordering | 20261122152221   |
 
 Migration 103 was already applied and was not replayed. The required private
 contact-photo bucket was already correctly configured. Source SQL was compared
@@ -300,3 +301,36 @@ lock. The real two-connection fixture verified an immediate retryable rejection
 while a drain owns that event and successful acknowledgment after release. This
 prevents the notice/event lock order from becoming a deadlock. Migration 105 is
 recorded as `20261122152221`, and live preflight requires its implementation.
+
+### Live application verification — 22 November 2026
+
+The web/server release is live at `https://wacrm.srv1795091.hstgr.cloud`.
+Deployed source is `63cff2603e93937d32291be51c67546f8ac87e34` on
+`feat/notification-release`. [GitHub CI](https://github.com/hightechhubTrading/wacrm/actions/runs/45038121427)
+passed for that exact source, including lint/typecheck, 1,915 backend tests,
+53 preflight tests, real PostgreSQL isolation/concurrency checks and production
+build. The server's resource-capped build and updater then passed candidate
+database/PDF/auth checks, active-call gating, public HTTPS and revision checks.
+The verified rollback image is retained as `wacrm:rollback`.
+
+Post-promotion checks:
+
+- Running `.next/REVISION` matches the deployed source; notification worker is
+  enabled. Firebase production sending remains unconfigured as intended.
+- All notification schema sentinels are ready; the database worker is healthy
+  with zero terminal failures.
+- Maintenance and watchdog timers are active; the watchdog completed with
+  `Result=success` and exit status 0.
+- Public `/login` and the client-auth-gated `/notifications` shell return 200.
+  Anonymous `/api/notifications/settings`, `/api/notifications/health` and
+  `/api/whatsapp/calls` return 401. The notification shell's 200 response is
+  expected; source records and actions remain protected by API/RLS authorization.
+- Disposable notification fixture databases and roles on the test host both
+  have count zero after cleanup.
+- The shared workspace now tracks the release branch; earlier unfinished native
+  changes were preserved and excluded from this commit. Pre-integration patches
+  and source files are retained under Git-ignored `.local/notification-release/`.
+
+Escalation remains an explicit per-account admin opt-in (15-minute default), and
+sound remains off by default. No Android build, emulator, physical-device test,
+production Firebase activation or external staff messaging was performed.

@@ -261,3 +261,10 @@ Firebase server credentials remain local development configuration; do not mount
 or enable production Android sending until native integration/device acceptance
 is resumed. Runtime push configuration can remain disabled while the CRM center,
 foreground alerts, reminders, escalation and monitoring operate normally.
+
+Live verification on 22 November 2026: source
+`63cff2603e93937d32291be51c67546f8ac87e34` is running, all five notification
+migrations are recorded, worker and fallback timers are healthy, and public auth
+checks passed. Migration 105 adds retryable NOWAIT acknowledgment locking.
+Database history versions and detailed evidence are recorded in
+[the notification execution plan](../docs/notification-improvement-plan-2026-11-18.md).
