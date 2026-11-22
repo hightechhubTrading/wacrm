@@ -334,3 +334,12 @@ Post-promotion checks:
 Escalation remains an explicit per-account admin opt-in (15-minute default), and
 sound remains off by default. No Android build, emulator, physical-device test,
 production Firebase activation or external staff messaging was performed.
+
+Final deployment cleanup: the temporary notification-release SSH key was removed
+from the VPS; a fresh connection with that key was verified denied. Its local
+private/public files and temporary UI-test dependencies were removed. Existing
+unrelated deployment keys and the deferred native working-tree changes were left
+untouched. A final live check reconfirmed source `63cff26`, required server
+configuration, an enabled notification worker, successful watchdog status and
+protected notification APIs. Rollout documentation is pushed separately from the
+unchanged deployed application source.
