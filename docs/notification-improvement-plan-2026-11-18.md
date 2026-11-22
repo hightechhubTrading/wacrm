@@ -357,3 +357,12 @@ removes that channel on disposal. A full-page browser regression test mounts
 multiple count readers with channel reuse semantics, real translation providers
 and both EN/AR locales. It reproduced the old crash and passes with the fix.
 The previously used component-only fixture did not cover this shell/page interaction.
+
+Repair source `7c3eb714e1ad81bf39ce935510389251bb5a280f` is deployed.
+[Repair CI](https://github.com/hightechhubTrading/wacrm/actions/runs/45073366727)
+passed, as did candidate/database/PDF/auth checks and the watchdog. A production
+browser check using synthetic auth/transport rendered the actual deployed shell,
+sidebar and notification rows in both Arabic and English, without the original
+Realtime callback error. No real-user session or customer records were modified.
+Existing tabs should perform a browser refresh to replace the old client bundle;
+resetting the route error boundary alone can retain the old hook code.
